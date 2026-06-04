@@ -61,7 +61,10 @@ def evaluate_responses(
             macro_f1=0.0,
             weighted_f1=0.0,
             per_class={label: {"precision": 0.0, "recall": 0.0, "f1": 0.0, "support": 0.0} for label in ALLOWED_LABELS},
-            confusion_matrix={label: {prediction: 0 for prediction in (*ALLOWED_LABELS, "__invalid__", "__error__")} for label in ALLOWED_LABELS},
+            confusion_matrix={
+                label: {prediction: 0 for prediction in (*ALLOWED_LABELS, "__invalid__", "__error__")}
+                for label in ALLOWED_LABELS
+            },
             invalid_output_count=0,
             api_error_count=0,
             mean_latency_ms=None,
@@ -129,4 +132,3 @@ def evaluate_responses(
 
 def load_metric_json(value: str) -> dict[str, Any]:
     return json.loads(value)
-

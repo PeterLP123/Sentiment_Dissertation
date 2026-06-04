@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 from .models import DatasetRow, EvaluationResult, LLMResponseRecord, PromptConfig, RunConfig
 
@@ -212,6 +213,8 @@ class BenchmarkStore:
                     "running",
                 ),
             )
+            if cursor.lastrowid is None:
+                raise RuntimeError("Could not create benchmark run")
             return int(cursor.lastrowid)
 
     def get_run_selected_rows(self, run_id: int) -> list[int]:
@@ -239,7 +242,13 @@ class BenchmarkStore:
                     status=excluded.status,
                     completed_at=excluded.completed_at
                 """,
-                (run_id, model_id, status, now if status == "running" else None, now if status == "completed" else None),
+                (
+                    run_id,
+                    model_id,
+                    status,
+                    now if status == "running" else None,
+                    now if status in {"completed", "cancelled"} else None,
+                ),
             )
 
     def response_exists(self, run_id: int, model_id: str, row_number: int, prompt_hash: str) -> bool:

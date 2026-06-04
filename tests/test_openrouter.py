@@ -37,7 +37,7 @@ def test_openrouter_success_and_generation_metadata() -> None:
         prompt = make_prompt("test", "Return a label.", "Sentence:\n{sentence}\n\nSentiment label:", "label_only")
         record = await client.classify("test/model", prompt, BlindExample(2, "sentence"))
         metadata = await client.get_generation_metadata("gen-1")
-        await client._client.aclose()  # type: ignore[union-attr]
+        await client.close()
         assert record.status == "success"
         assert record.normalized_label == "positive"
         assert record.total_tokens == 11
@@ -59,7 +59,7 @@ def test_openrouter_retries_429_then_success() -> None:
         client = make_client(handler)
         prompt = make_prompt("test", "Return a label.", "Sentence:\n{sentence}\n\nSentiment label:", "label_only")
         record = await client.classify("test/model", prompt, BlindExample(2, "sentence"), retries=1)
-        await client._client.aclose()  # type: ignore[union-attr]
+        await client.close()
         assert attempts["count"] == 2
         assert record.normalized_label == "neutral"
 
@@ -74,7 +74,7 @@ def test_openrouter_invalid_model_returns_api_error() -> None:
         client = make_client(handler)
         prompt = make_prompt("test", "Return a label.", "Sentence:\n{sentence}\n\nSentiment label:", "label_only")
         record = await client.classify("bad/model", prompt, BlindExample(2, "sentence"), retries=1)
-        await client._client.aclose()  # type: ignore[union-attr]
+        await client.close()
         assert record.status == "api_error"
         assert "HTTP 400" in (record.error or "")
 
@@ -105,9 +105,37 @@ def test_openrouter_malformed_length_response_mentions_token_limit() -> None:
         client = make_client(handler)
         prompt = make_prompt("test", "Return a label.", "Sentence:\n{sentence}\n\nSentiment label:", "label_only")
         record = await client.classify("test/model", prompt, BlindExample(2, "sentence"), retries=1)
-        await client._client.aclose()  # type: ignore[union-attr]
+        await client.close()
         assert record.status == "malformed_response"
         assert "MAX_TOKENS" in (record.error or "")
         assert "increase max_completion_tokens" in (record.error or "")
+
+    run(scenario())
+
+
+def test_openrouter_close_does_not_close_injected_client() -> None:
+    async def scenario():
+        async_client = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(200, json={"data": []})))
+        client = OpenRouterClient(api_key="test-key", base_url="https://openrouter.test/api/v1", client=async_client)
+
+        await client.list_models()
+        await client.close()
+
+        assert async_client.is_closed is False
+        await async_client.aclose()
+
+    run(scenario())
+
+
+def test_openrouter_close_closes_owned_client() -> None:
+    async def scenario():
+        client = OpenRouterClient(api_key="test-key", base_url="https://openrouter.test/api/v1")
+        owned_client = client._get_client()
+
+        assert owned_client.is_closed is False
+        await client.close()
+
+        assert owned_client.is_closed is True
+        assert client._client is None
 
     run(scenario())

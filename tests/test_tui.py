@@ -329,14 +329,28 @@ def test_tui_confirm_threshold(tmp_path: Path) -> None:
         app = _make_app(tmp_path)
         async with app.run_test() as pilot:
             await pilot.pause(0.1)
-            assert app._confirm_message("pilot", 90, 1) is None
-            assert app._confirm_message("full", 5842, 1) is not None
-            assert app._confirm_message("pilot", 501, 3) is not None
-            message = app._confirm_message("full", 5842, 2)
+            assert app._confirm_message("pilot", 90, ["m1"]) is None
+            assert app._confirm_message("full", 5842, ["m1"]) is not None
+            assert app._confirm_message("pilot", 501, ["m1", "m2", "m3"]) is not None
+            message = app._confirm_message("full", 5842, ["m1", "m2"])
             assert message is not None
             assert "11684" in message
 
     asyncio.run(scenario())
+
+
+def test_tui_confirm_message_includes_known_completion_cost(tmp_path: Path) -> None:
+    app = _make_app(tmp_path)
+    app._all_models = [
+        ModelConfig(model_id="priced/model", pricing={"completion": "0.000001"}),
+        ModelConfig(model_id="missing/model", pricing={}),
+    ]
+
+    message = app._confirm_message("full", 10, ["priced/model", "missing/model"], max_completion_tokens=100)
+
+    assert message is not None
+    assert "Estimated completion-token cost ceiling: $0.0010" in message
+    assert "Pricing unavailable for 1 model(s)" in message
 
 
 def test_tui_full_run_confirmation_uses_callback(tmp_path: Path) -> None:
@@ -356,10 +370,69 @@ def test_tui_full_run_confirmation_uses_callback(tmp_path: Path) -> None:
             await pilot.pause(0.05)
 
             assert isinstance(app.screen, ConfirmScreen)
+            assert app._confirmation_pending is True
             app.screen.dismiss(True)
             await pilot.pause(0.05)
 
             assert started_modes == ["full"]
+            assert app._confirmation_pending is False
+
+    asyncio.run(scenario())
+
+
+def test_tui_blocks_duplicate_start_while_confirmation_pending(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        app.selected_models = ["openai/gpt-4o-mini"]
+        app.run_mode = "full"
+        started_modes: list[str] = []
+
+        def fake_begin_run(config) -> None:
+            started_modes.append(config.mode)
+
+        app._begin_run = fake_begin_run  # type: ignore[method-assign]
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            await app._start_run()
+            await pilot.pause(0.05)
+            first_screen = app.screen
+
+            await app._start_run()
+            await pilot.pause(0.05)
+
+            assert app.screen is first_screen
+            assert app._confirmation_pending is True
+            assert app.query_one("#start-run", Button).disabled is True
+            assert started_modes == []
+            assert any("confirmation is already open" in message for _, message in app.notifications)
+
+    asyncio.run(scenario())
+
+
+def test_tui_cancel_confirmation_clears_pending_state(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        app.selected_models = ["openai/gpt-4o-mini"]
+        app.run_mode = "full"
+        started_modes: list[str] = []
+
+        def fake_begin_run(config) -> None:
+            started_modes.append(config.mode)
+
+        app._begin_run = fake_begin_run  # type: ignore[method-assign]
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            await app._start_run()
+            await pilot.pause(0.05)
+
+            assert isinstance(app.screen, ConfirmScreen)
+            app.screen.dismiss(False)
+            await pilot.pause(0.05)
+
+            assert app._confirmation_pending is False
+            assert app.query_one("#start-run", Button).disabled is False
+            assert started_modes == []
+            assert app.monitor_lines[-1] == "Run cancelled before it started."
 
     asyncio.run(scenario())
 

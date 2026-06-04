@@ -45,7 +45,10 @@ def _resolve_prompt(prompt_id: str, prompts_path: Path):
 
 @app.command("validate-data")
 def validate_data(
-    dataset_path: Annotated[Path, typer.Option("--dataset-path", help="CSV containing Sentence and Sentiment columns.")] = DEFAULT_DATASET_PATH,
+    dataset_path: Annotated[
+        Path,
+        typer.Option("--dataset-path", help="CSV containing Sentence and Sentiment columns."),
+    ] = DEFAULT_DATASET_PATH,
 ) -> None:
     rows = load_dataset(dataset_path)
     stats = compute_stats(rows)
@@ -65,12 +68,15 @@ def validate_data(
 
 @app.command("list-models")
 def list_models(
-    base_url: Annotated[str, typer.Option("--base-url", help="OpenRouter-compatible base URL.")] = os.getenv("OPENROUTER_BASE_URL", DEFAULT_BASE_URL),
+    base_url: Annotated[
+        str,
+        typer.Option("--base-url", help="OpenRouter-compatible base URL."),
+    ] = os.getenv("OPENROUTER_BASE_URL", DEFAULT_BASE_URL),
     limit: Annotated[int, typer.Option("--limit", help="Maximum rows to show.")] = 50,
 ) -> None:
     async def main() -> None:
-        client = OpenRouterClient(base_url=base_url)
-        models = await client.list_models()
+        async with OpenRouterClient(base_url=base_url) as client:
+            models = await client.list_models()
         table = Table(title="OpenRouter Models")
         table.add_column("Model ID")
         table.add_column("Name")
@@ -98,7 +104,10 @@ def run_benchmark(
     max_completion_tokens: Annotated[int, typer.Option("--max-completion-tokens")] = DEFAULT_MAX_COMPLETION_TOKENS,
     concurrency: Annotated[int, typer.Option("--concurrency")] = DEFAULT_CONCURRENCY,
     retries: Annotated[int, typer.Option("--retries")] = DEFAULT_RETRIES,
-    resume_run_id: Annotated[int | None, typer.Option("--resume-run-id", help="Resume an existing run without duplicating completed responses.")] = None,
+    resume_run_id: Annotated[
+        int | None,
+        typer.Option("--resume-run-id", help="Resume an existing run without duplicating completed responses."),
+    ] = None,
 ) -> None:
     if mode not in {"pilot", "full"}:
         raise typer.BadParameter("mode must be pilot or full")
@@ -122,9 +131,9 @@ def run_benchmark(
 
     async def main() -> None:
         store = BenchmarkStore(db_path)
-        client = OpenRouterClient(base_url=base_url)
-        runner = BenchmarkRunner(client=client, store=store)
-        summary = await runner.run(config, resume_run_id=resume_run_id, callback=lambda message: console.print(message))
+        async with OpenRouterClient(base_url=base_url) as client:
+            runner = BenchmarkRunner(client=client, store=store)
+            summary = await runner.run(config, resume_run_id=resume_run_id, callback=lambda message: console.print(message))
         console.print(f"Run {summary.run_id} complete: {summary.model_count} model(s), {summary.selected_row_count} row(s)")
 
     asyncio.run(main())

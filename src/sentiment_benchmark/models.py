@@ -18,7 +18,7 @@ class DatasetRow:
     has_conflicting_duplicate: bool
     duplicate_group_size: int
 
-    def blind(self) -> "BlindExample":
+    def blind(self) -> BlindExample:
         return BlindExample(row_number=self.row_number, sentence=self.sentence)
 
 

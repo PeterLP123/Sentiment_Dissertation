@@ -1,12 +1,26 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
 
+from . import __version__
 from .metrics import load_metric_json
+
+
+def dataset_sha256(path: str | Path) -> str | None:
+    dataset_path = Path(path)
+    if not dataset_path.exists():
+        return None
+    digest = hashlib.sha256()
+    with dataset_path.open("rb") as file:
+        for chunk in iter(lambda: file.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def export_run(db_path: str | Path, run_id: int, output_dir: str | Path | None = None) -> list[Path]:
@@ -89,9 +103,27 @@ def export_run(db_path: str | Path, run_id: int, output_dir: str | Path | None =
     paths.append(metrics_json_path)
 
     run_json_path = destination / "run.json"
+    run_records = runs.to_dict(orient="records")
+    prompt_records = prompts.to_dict(orient="records")
+    run_record = run_records[0] if run_records else {}
+    request_settings = json.loads(run_record.get("request_json") or "{}") if run_record else {}
+    models = json.loads(run_record.get("models_json") or "[]") if run_record else []
+    dataset_path = str(run_record.get("dataset_path") or "")
     run_payload = {
-        "run": runs.to_dict(orient="records"),
-        "prompt": prompts.to_dict(orient="records"),
+        "run": run_records,
+        "prompt": prompt_records,
+        "metadata": {
+            "package_version": __version__,
+            "exported_at": datetime.now(UTC).isoformat(),
+            "dataset_path": dataset_path,
+            "dataset_sha256": dataset_sha256(dataset_path) if dataset_path else None,
+            "prompt_hash": run_record.get("prompt_hash"),
+            "seed": request_settings.get("seed"),
+            "mode": run_record.get("mode"),
+            "models": models,
+            "base_url": run_record.get("base_url"),
+            "request_settings": request_settings,
+        },
     }
     run_json_path.write_text(json.dumps(run_payload, indent=2), encoding="utf-8")
     paths.append(run_json_path)
@@ -128,4 +160,3 @@ def export_run(db_path: str | Path, run_id: int, output_dir: str | Path | None =
     summary_path.write_text("\n".join(lines), encoding="utf-8")
     paths.append(summary_path)
     return paths
-

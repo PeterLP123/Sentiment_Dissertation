@@ -7,10 +7,10 @@ from pathlib import Path
 
 from rich.markup import escape
 from textual.app import App, ComposeResult
-from textual.validation import Integer, Number, ValidationResult
 from textual.containers import Container, Horizontal
 from textual.coordinate import Coordinate
 from textual.screen import ModalScreen
+from textual.validation import Integer, Number, ValidationResult
 from textual.widgets import (
     Button,
     DataTable,
@@ -23,8 +23,8 @@ from textual.widgets import (
     RichLog,
     Select,
     Static,
-    TabPane,
     TabbedContent,
+    TabPane,
     TextArea,
 )
 
@@ -43,7 +43,6 @@ from .openrouter import OpenRouterClient
 from .prompts import load_prompts, make_prompt
 from .runner import BenchmarkRunner
 from .storage import BenchmarkStore
-
 
 _VALIDATED_INPUTS = ("sample-per-class", "seed", "concurrency", "temperature", "max-tokens")
 _SESSION_PATH = Path("results/tui_session.json")
@@ -277,6 +276,7 @@ class SentimentBenchmarkApp(App):
         self._cancel_event: asyncio.Event | None = None
         self._run_task: asyncio.Task | None = None
         self._run_in_progress: bool = False
+        self._confirmation_pending: bool = False
         self._progress: dict[str, dict] = {}
         self._rows_per_model: int = 0
         self._active_metric_model: str | None = None
@@ -790,15 +790,55 @@ class SentimentBenchmarkApp(App):
             )
         self.query_one("#results-help", Static).update(text)
 
-    def _confirm_message(self, mode: str, rows_per_model: int, model_count: int) -> str | None:
+    def _confirm_message(
+        self,
+        mode: str,
+        rows_per_model: int,
+        models: list[str],
+        max_completion_tokens: int | None = None,
+    ) -> str | None:
+        model_count = len(models)
         total_calls = rows_per_model * model_count
         if mode != "full" and total_calls <= _CONFIRM_THRESHOLD:
             return None
+        cost_text = self._cost_estimate_text(rows_per_model, models, max_completion_tokens)
+        cost_line = f"\n\n{cost_text}" if cost_text else ""
         return (
             f"You are about to send {total_calls} request(s) to OpenRouter "
-            f"({rows_per_model} per model x {model_count} models, mode={mode}).\n\n"
+            f"({rows_per_model} per model x {model_count} models, mode={mode})."
+            f"{cost_line}\n\n"
             "This may take time and incur cost. Continue?"
         )
+
+    def _cost_estimate_text(
+        self,
+        rows_per_model: int,
+        models: list[str],
+        max_completion_tokens: int | None,
+    ) -> str | None:
+        if max_completion_tokens is None:
+            return None
+        pricing_by_model = {model.model_id: model.pricing for model in self._all_models}
+        total_completion_cost = 0.0
+        priced_models = 0
+        for model_id in models:
+            raw_price = pricing_by_model.get(model_id, {}).get("completion")
+            if not isinstance(raw_price, (int, float, str)):
+                continue
+            try:
+                completion_price = float(raw_price)
+            except (TypeError, ValueError):
+                continue
+            total_completion_cost += rows_per_model * max_completion_tokens * completion_price
+            priced_models += 1
+        if priced_models == 0:
+            return None
+        suffix = (
+            ""
+            if priced_models == len(models)
+            else f" Pricing unavailable for {len(models) - priced_models} model(s)."
+        )
+        return f"Estimated completion-token cost ceiling: ${total_completion_cost:.4f}.{suffix}"
 
     def _settings_valid(self) -> bool:
         try:
@@ -830,7 +870,7 @@ class SentimentBenchmarkApp(App):
         ]
         stepper.update("  ".join(parts))
         try:
-            self.query_one("#start-run", Button).disabled = self._run_in_progress or not ready
+            self.query_one("#start-run", Button).disabled = self._run_in_progress or self._confirmation_pending or not ready
         except Exception:
             pass
 
@@ -1007,20 +1047,20 @@ class SentimentBenchmarkApp(App):
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         table_id = event.data_table.id
         if table_id == "model-table":
-            row = event.data_table.get_row(event.row_key)
-            if not row:
+            selected_row = event.data_table.get_row(event.row_key)
+            if not selected_row:
                 return
-            model_id = str(row[1]) if len(row) >= 2 else ""
-            name = str(row[2]) if len(row) >= 3 else ""
+            model_id = str(selected_row[1]) if len(selected_row) >= 2 else ""
+            name = str(selected_row[2]) if len(selected_row) >= 3 else ""
             was_selected = model_id in self.selected_models
             self._toggle_model(model_id, name or None)
             action = "Removed" if was_selected else "Added"
             self._set_monitor(f"{action} model: {model_id}")
         elif table_id == "selected-table":
-            row = event.data_table.get_row(event.row_key)
-            if not row:
+            selected_row = event.data_table.get_row(event.row_key)
+            if not selected_row:
                 return
-            model_id = str(row[0])
+            model_id = str(selected_row[0])
             self._deselect_model(model_id)
             self._set_monitor(f"Removed model: {model_id}")
         elif table_id == "runs-table":
@@ -1051,8 +1091,8 @@ class SentimentBenchmarkApp(App):
 
     async def _fetch_models(self) -> None:
         try:
-            client = OpenRouterClient(base_url=self.base_url)
-            models = await client.list_models()
+            async with OpenRouterClient(base_url=self.base_url) as client:
+                models = await client.list_models()
         except Exception as exc:
             self._notify_error(f"Could not fetch models: {exc}", title="Fetch failed")
             return
@@ -1088,6 +1128,9 @@ class SentimentBenchmarkApp(App):
         if self._run_in_progress:
             self._notify_error("A run is already in progress.", title="Cannot start")
             return
+        if self._confirmation_pending:
+            self._notify_error("A run confirmation is already open.", title="Cannot start")
+            return
         if not self.selected_models:
             self._notify_error("Add at least one model before starting a run.", title="Cannot start")
             return
@@ -1119,8 +1162,10 @@ class SentimentBenchmarkApp(App):
             if config.mode == "pilot"
             else compute_stats(load_dataset(config.dataset_path)).row_count
         )
-        confirm = self._confirm_message(config.mode, rows_per_model, len(config.models))
+        confirm = self._confirm_message(config.mode, rows_per_model, config.models, config.max_completion_tokens)
         if confirm is not None:
+            self._confirmation_pending = True
+            self._refresh_stepper()
             self.push_screen(
                 ConfirmScreen(confirm),
                 callback=lambda proceed: self._handle_run_confirmation(proceed, config),
@@ -1130,6 +1175,8 @@ class SentimentBenchmarkApp(App):
         self._begin_run(config)
 
     def _handle_run_confirmation(self, proceed: bool, config: RunConfig) -> None:
+        self._confirmation_pending = False
+        self._refresh_stepper()
         if not proceed:
             self._set_monitor("Run cancelled before it started.")
             return
@@ -1148,15 +1195,15 @@ class SentimentBenchmarkApp(App):
 
     async def _run_benchmark(self, config: RunConfig) -> None:
         store = BenchmarkStore(self.db_path)
-        client = OpenRouterClient(base_url=self.base_url)
-        runner = BenchmarkRunner(client=client, store=store)
         try:
-            summary = await runner.run(
-                config,
-                callback=lambda message: self._set_monitor(message),
-                event_callback=self._handle_run_event,
-                cancel_event=self._cancel_event,
-            )
+            async with OpenRouterClient(base_url=self.base_url) as client:
+                runner = BenchmarkRunner(client=client, store=store)
+                summary = await runner.run(
+                    config,
+                    callback=lambda message: self._set_monitor(message),
+                    event_callback=self._handle_run_event,
+                    cancel_event=self._cancel_event,
+                )
             self._set_monitor(
                 f"Run {summary.run_id} {summary.status} ({summary.selected_row_count} rows x {summary.model_count} models)."
             )
@@ -1180,7 +1227,7 @@ class SentimentBenchmarkApp(App):
             return
         self._cancel_event.set()
         self._notify_info(
-            "Cancel requested. The run will stop after the current model finishes.",
+            "Cancel requested. The run will stop after in-flight requests finish.",
             title="Cancelling",
         )
 
@@ -1317,7 +1364,9 @@ class SentimentBenchmarkApp(App):
             f"Row: {row.get('row_number')} | Model: {row.get('model_id')}",
             f"Actual: {row.get('hidden_label')} | Predicted: {row.get('normalized_label') or '__invalid__'}",
             f"Status: {row.get('status')} | Parse: {row.get('parse_status')} | Latency: {row.get('latency_ms') or '-'} ms",
-            f"Conflicting duplicate: {'yes' if row.get('has_conflicting_duplicate') else 'no'} | Duplicate group: {row.get('duplicate_group_size')}",
+            "Conflicting duplicate: "
+            f"{'yes' if row.get('has_conflicting_duplicate') else 'no'} | "
+            f"Duplicate group: {row.get('duplicate_group_size')}",
             "",
             "Sentence:",
             str(row.get("sentence") or ""),

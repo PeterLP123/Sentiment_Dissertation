@@ -102,7 +102,16 @@ class BenchmarkRunner:
                 )
                 self.store.save_response(run_id, record)
                 if record.status == "success" and record.generation_id:
-                    metadata = await self.client.get_generation_metadata(record.generation_id, retries=config.retries)
+                    try:
+                        metadata = await self.client.get_generation_metadata(record.generation_id, retries=config.retries)
+                    except Exception as exc:
+                        metadata = None
+                        await self._notify(
+                            callback,
+                            "Metadata lookup failed: "
+                            f"run={run_id} model={model_id} row={example.row_number} "
+                            f"generation={record.generation_id} error={exc}",
+                        )
                     if metadata:
                         self.store.save_generation_metadata(
                             run_id=run_id,
@@ -113,7 +122,8 @@ class BenchmarkRunner:
                         )
                 await self._notify(
                     callback,
-                    f"Saved response: run={run_id} model={model_id} row={example.row_number} status={record.status} label={record.normalized_label or '-'}",
+                    f"Saved response: run={run_id} model={model_id} row={example.row_number} "
+                    f"status={record.status} label={record.normalized_label or '-'}",
                 )
                 await self._emit(
                     event_callback,
@@ -137,19 +147,39 @@ class BenchmarkRunner:
                 event_callback,
                 {"type": "model_started", "model_id": model_id, "total_rows": len(selected_rows)},
             )
-            await asyncio.gather(*(classify_one(model_id, row.blind()) for row in selected_rows))
+            model_cancelled = False
+            concurrency = max(1, config.concurrency)
+            for start in range(0, len(selected_rows), concurrency):
+                if cancel_event is not None and cancel_event.is_set():
+                    model_cancelled = True
+                    final_status = "cancelled"
+                    break
+                batch = selected_rows[start : start + concurrency]
+                await asyncio.gather(*(classify_one(model_id, row.blind()) for row in batch))
+                if cancel_event is not None and cancel_event.is_set():
+                    model_cancelled = True
+                    final_status = "cancelled"
+                    break
             responses = self.store.fetch_responses(run_id, model_id)
             all_rows_for_metrics = [row for row in rows if row.row_number in selected_by_number]
             primary = evaluate_responses(all_rows_for_metrics, responses, model_id=model_id, scope="primary")
             audit = evaluate_responses(all_rows_for_metrics, responses, model_id=model_id, scope="all")
             self.store.save_metrics(run_id, primary)
             self.store.save_metrics(run_id, audit)
-            self.store.upsert_run_model(run_id, model_id, "completed")
-            await self._notify(callback, f"Completed model {model_id}: primary accuracy={primary.accuracy:.4f}")
+            model_status = "cancelled" if model_cancelled else "completed"
+            self.store.upsert_run_model(run_id, model_id, model_status)
+            await self._notify(callback, f"{model_status.title()} model {model_id}: primary accuracy={primary.accuracy:.4f}")
             await self._emit(
                 event_callback,
-                {"type": "model_completed", "model_id": model_id, "accuracy": primary.accuracy},
+                {
+                    "type": "model_completed",
+                    "model_id": model_id,
+                    "accuracy": primary.accuracy,
+                    "status": model_status,
+                },
             )
+            if model_cancelled:
+                break
 
         self.store.mark_run_complete(run_id, status=final_status)
         await self._emit(
@@ -162,4 +192,3 @@ class BenchmarkRunner:
             model_count=len(config.models),
             status=final_status,
         )
-

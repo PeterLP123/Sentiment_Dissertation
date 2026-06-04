@@ -31,6 +31,23 @@ class OpenRouterClient:
         self.app_title = app_title
         self.timeout = timeout
         self._client = client
+        self._owns_client = client is None
+
+    async def __aenter__(self) -> OpenRouterClient:
+        return self
+
+    async def __aexit__(self, exc_type: object, exc: object, traceback: object) -> None:
+        await self.close()
+
+    async def close(self) -> None:
+        if self._owns_client and self._client is not None:
+            await self._client.aclose()
+            self._client = None
+
+    def _get_client(self) -> httpx.AsyncClient:
+        if self._client is None:
+            self._client = httpx.AsyncClient(timeout=self.timeout)
+        return self._client
 
     def _headers(self) -> dict[str, str]:
         if not self.api_key:
@@ -57,13 +74,7 @@ class OpenRouterClient:
         last_error: Exception | None = None
         for attempt in range(retries + 1):
             try:
-                client = self._client or httpx.AsyncClient(timeout=self.timeout)
-                close_client = self._client is None
-                try:
-                    response = await client.request(method, self._url(path), headers=self._headers(), **kwargs)
-                finally:
-                    if close_client:
-                        await client.aclose()
+                response = await self._get_client().request(method, self._url(path), headers=self._headers(), **kwargs)
                 if response.status_code in {429, 500, 502, 503, 504} and attempt < retries:
                     await asyncio.sleep(min(2**attempt, 8))
                     continue
