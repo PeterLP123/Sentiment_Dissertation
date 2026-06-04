@@ -1,6 +1,13 @@
 from pathlib import Path
 
 ALLOWED_LABELS = ("positive", "negative", "neutral")
+VALID_LABELS = frozenset(ALLOWED_LABELS)
+PREDICTION_SENTINELS = ("__invalid__", "__error__")
+CONFUSION_PREDICTION_LABELS = (*ALLOWED_LABELS, *PREDICTION_SENTINELS)
+
+
+def is_valid_label(label: str) -> bool:
+    return label in VALID_LABELS
 DEFAULT_DATASET_PATH = Path("Data/data.csv")
 DEFAULT_DB_PATH = Path("results/sentiment_benchmark.sqlite")
 DEFAULT_PROMPTS_PATH = Path("configs/default_prompts.toml")

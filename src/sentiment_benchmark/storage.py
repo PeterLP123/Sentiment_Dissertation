@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from .models import DatasetRow, EvaluationResult, LLMResponseRecord, PromptConfig, RunConfig
+from .models import DatasetRow, EvaluationResult, LLMResponseRecord, PromptConfig, RunConfig, RunResumeSettings
 
 
 def utc_now() -> str:
@@ -193,6 +193,8 @@ class BenchmarkStore:
             "retries": config.retries,
             "sample_per_class": config.sample_per_class,
             "seed": config.seed,
+            "few_shot_k": config.few_shot_k,
+            "few_shot_seed": config.few_shot_seed,
         }
         with self.connect() as connection:
             cursor = connection.execute(
@@ -225,6 +227,37 @@ class BenchmarkStore:
         if row is None:
             raise ValueError(f"Run {run_id} does not exist")
         return [int(value) for value in json.loads(row["selected_rows_json"])]
+
+    def get_run_resume_settings(self, run_id: int) -> RunResumeSettings:
+        """Stored prompt hash and few-shot settings required to resume a run safely."""
+        with self.connect() as connection:
+            row = connection.execute(
+                "SELECT prompt_hash, request_json FROM runs WHERE id = ?",
+                (run_id,),
+            ).fetchone()
+        if row is None:
+            raise ValueError(f"Run {run_id} does not exist")
+        request = json.loads(row["request_json"])
+        few_shot_seed = request.get("few_shot_seed")
+        return RunResumeSettings(
+            prompt_hash=str(row["prompt_hash"]),
+            few_shot_k=int(request.get("few_shot_k", 0)),
+            few_shot_seed=int(few_shot_seed) if few_shot_seed is not None else None,
+        )
+
+    def run_prompt_id(self, run_id: int) -> str | None:
+        """The human-readable prompt id used by a run (joined via prompt_hash)."""
+        with self.connect() as connection:
+            row = connection.execute(
+                """
+                SELECT p.prompt_id
+                FROM runs r
+                JOIN prompts p ON p.prompt_hash = r.prompt_hash
+                WHERE r.id = ?
+                """,
+                (run_id,),
+            ).fetchone()
+        return row["prompt_id"] if row is not None else None
 
     def mark_run_complete(self, run_id: int, status: str = "completed") -> None:
         with self.connect() as connection:
@@ -452,6 +485,15 @@ class BenchmarkStore:
                 params,
             ).fetchall()
         return list(rows)
+
+    def run_model_ids(self, run_id: int) -> list[str]:
+        """Distinct model ids that produced responses for a run, in stable order."""
+        with self.connect() as connection:
+            rows = connection.execute(
+                "SELECT DISTINCT model_id FROM responses WHERE run_id = ? ORDER BY model_id",
+                (run_id,),
+            ).fetchall()
+        return [row["model_id"] for row in rows]
 
     def fetch_metrics(self, run_id: int) -> list[sqlite3.Row]:
         with self.connect() as connection:

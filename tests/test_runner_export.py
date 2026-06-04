@@ -186,6 +186,18 @@ def _write_dataset(tmp_path: Path) -> Path:
     return dataset
 
 
+def _write_balanced_dataset(tmp_path: Path, per_class: int = 4) -> Path:
+    lines = ["Sentence,Sentiment"]
+    row_number = 1
+    for label in ("positive", "negative", "neutral"):
+        for _ in range(per_class):
+            lines.append(f"{label} sentence {row_number},{label}")
+            row_number += 1
+    dataset = tmp_path / "data.csv"
+    dataset.write_text("\n".join(lines), encoding="utf-8")
+    return dataset
+
+
 def test_runner_emits_structured_events(tmp_path: Path) -> None:
     dataset = _write_dataset(tmp_path)
     prompt = make_prompt("test", "Return a label.", "Sentence:\n{sentence}\n\nSentiment label:", "label_only")
@@ -321,6 +333,45 @@ def test_resume_skips_already_successful_rows(tmp_path: Path) -> None:
 
     # Nothing re-attempted because every row already succeeded.
     assert counting.calls == []
+
+
+def test_resume_uses_stored_few_shot_settings(tmp_path: Path) -> None:
+    dataset = _write_balanced_dataset(tmp_path)
+    prompt = make_prompt("test", "Return a label.", "Sentence:\n{sentence}\n\nSentiment label:", "label_only")
+    db_path = tmp_path / "resume-few-shot.sqlite"
+    config = RunConfig(
+        models=["fake/model"],
+        prompt=prompt,
+        mode="pilot",
+        dataset_path=str(dataset),
+        db_path=str(db_path),
+        base_url="https://openrouter.test/api/v1",
+        sample_per_class=1,
+        few_shot_k=1,
+        few_shot_seed=99,
+    )
+    store = BenchmarkStore(db_path)
+
+    first = asyncio.run(BenchmarkRunner(client=FakeClient(), store=store).run(config))  # type: ignore[arg-type]
+    stored_hash = store.get_run_resume_settings(first.run_id).prompt_hash
+
+    # Simulate CLI defaults (few_shot_k=0) on resume; runner must restore stored settings.
+    resume_config = RunConfig(
+        models=["fake/model"],
+        prompt=prompt,
+        mode="pilot",
+        dataset_path=str(dataset),
+        db_path=str(db_path),
+        base_url="https://openrouter.test/api/v1",
+        sample_per_class=1,
+        few_shot_k=0,
+        few_shot_seed=None,
+    )
+    counting = CountingClient()
+    asyncio.run(BenchmarkRunner(client=counting, store=store).run(resume_config, resume_run_id=first.run_id))  # type: ignore[arg-type]
+
+    assert counting.calls == []
+    assert store.get_run_resume_settings(first.run_id).prompt_hash == stored_hash
 
 
 def test_reasoning_models_receive_larger_token_budget(tmp_path: Path) -> None:

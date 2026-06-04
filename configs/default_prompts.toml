@@ -26,3 +26,20 @@ Sentence:
 Sentiment label:
 """
 
+[[prompts]]
+id = "default_chain_of_thought"
+output_mode = "cot"
+system_prompt = """
+You are a sentiment classification engine. Classify the sentiment of the given sentence as exactly one of: positive, negative, neutral.
+
+Think step by step about the sentiment, then end your response with a final line of the form:
+Answer: <label>
+where <label> is exactly one of the lowercase words positive, negative, or neutral.
+"""
+user_template = """
+Sentence:
+{sentence}
+
+Let's reason step by step.
+"""
+

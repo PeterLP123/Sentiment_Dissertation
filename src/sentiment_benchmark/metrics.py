@@ -3,10 +3,18 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from sklearn.metrics import accuracy_score, confusion_matrix, precision_recall_fscore_support
+from sklearn.metrics import (
+    accuracy_score,
+    balanced_accuracy_score,
+    confusion_matrix,
+    matthews_corrcoef,
+    precision_recall_fscore_support,
+)
 
-from .constants import ALLOWED_LABELS
+from .constants import ALLOWED_LABELS, CONFUSION_PREDICTION_LABELS, is_valid_label
 from .models import DatasetRow, EvaluationResult
+
+_LABELS = list(ALLOWED_LABELS)
 
 
 def _response_prediction(response: dict[str, Any]) -> str:
@@ -15,6 +23,49 @@ def _response_prediction(response: dict[str, Any]) -> str:
     if response["parse_status"] != "valid" or not response["normalized_label"]:
         return "__invalid__"
     return str(response["normalized_label"])
+
+
+def _prediction_for_multiclass_metrics(true_label: str, prediction: str) -> str:
+    """Map invalid/error predictions to a wrong allowed label for MCC and balanced accuracy."""
+    if is_valid_label(prediction):
+        return prediction
+    for label in ALLOWED_LABELS:
+        if label != true_label:
+            return label
+    return ALLOWED_LABELS[0]
+
+
+def _empty_per_class() -> dict[str, dict[str, float]]:
+    zero = {"precision": 0.0, "recall": 0.0, "f1": 0.0, "support": 0.0}
+    return {label: dict(zero) for label in ALLOWED_LABELS}
+
+
+def _empty_confusion_matrix() -> dict[str, dict[str, int]]:
+    return {
+        label: {prediction: 0 for prediction in CONFUSION_PREDICTION_LABELS}
+        for label in ALLOWED_LABELS
+    }
+
+
+def _empty_evaluation_result(model_id: str, scope: str) -> EvaluationResult:
+    return EvaluationResult(
+        model_id=model_id,
+        scope=scope,
+        row_count=0,
+        accuracy=0.0,
+        balanced_accuracy=0.0,
+        mcc=0.0,
+        macro_f1=0.0,
+        weighted_f1=0.0,
+        per_class=_empty_per_class(),
+        confusion_matrix=_empty_confusion_matrix(),
+        invalid_output_count=0,
+        api_error_count=0,
+        mean_latency_ms=None,
+        total_prompt_tokens=0,
+        total_completion_tokens=0,
+        total_tokens=0,
+    )
 
 
 def evaluate_responses(
@@ -53,51 +104,21 @@ def evaluate_responses(
         total_tokens += int(response["total_tokens"] or 0)
 
     if not y_true:
-        return EvaluationResult(
-            model_id=model_id,
-            scope=scope,
-            row_count=0,
-            accuracy=0.0,
-            macro_f1=0.0,
-            weighted_f1=0.0,
-            per_class={label: {"precision": 0.0, "recall": 0.0, "f1": 0.0, "support": 0.0} for label in ALLOWED_LABELS},
-            confusion_matrix={
-                label: {prediction: 0 for prediction in (*ALLOWED_LABELS, "__invalid__", "__error__")}
-                for label in ALLOWED_LABELS
-            },
-            invalid_output_count=0,
-            api_error_count=0,
-            mean_latency_ms=None,
-            total_prompt_tokens=0,
-            total_completion_tokens=0,
-            total_tokens=0,
-        )
+        return _empty_evaluation_result(model_id, scope)
 
     precision, recall, f1, support = precision_recall_fscore_support(
-        y_true,
-        y_pred,
-        labels=list(ALLOWED_LABELS),
-        zero_division=0,
+        y_true, y_pred, labels=_LABELS, zero_division=0
     )
     _, _, macro_f1_values, _ = precision_recall_fscore_support(
-        y_true,
-        y_pred,
-        labels=list(ALLOWED_LABELS),
-        average="macro",
-        zero_division=0,
+        y_true, y_pred, labels=_LABELS, average="macro", zero_division=0
     )
     _, _, weighted_f1_values, _ = precision_recall_fscore_support(
-        y_true,
-        y_pred,
-        labels=list(ALLOWED_LABELS),
-        average="weighted",
-        zero_division=0,
+        y_true, y_pred, labels=_LABELS, average="weighted", zero_division=0
     )
-    prediction_labels = [*ALLOWED_LABELS, "__invalid__", "__error__"]
-    matrix = confusion_matrix(y_true, y_pred, labels=prediction_labels)
+    matrix = confusion_matrix(y_true, y_pred, labels=CONFUSION_PREDICTION_LABELS)
     confusion = {
-        actual: {predicted: int(matrix[i][j]) for j, predicted in enumerate(prediction_labels)}
-        for i, actual in enumerate(prediction_labels)
+        actual: {predicted: int(matrix[i][j]) for j, predicted in enumerate(CONFUSION_PREDICTION_LABELS)}
+        for i, actual in enumerate(CONFUSION_PREDICTION_LABELS)
         if actual in ALLOWED_LABELS
     }
     per_class = {
@@ -112,11 +133,14 @@ def evaluate_responses(
     invalid_output_count = sum(1 for response in response_dicts if response["parse_status"] == "invalid")
     api_error_count = sum(1 for response in response_dicts if response["status"] != "success")
     mean_latency_ms = sum(latencies) / len(latencies) if latencies else None
+    y_pred_scored = [_prediction_for_multiclass_metrics(true, pred) for true, pred in zip(y_true, y_pred, strict=True)]
     return EvaluationResult(
         model_id=model_id,
         scope=scope,
         row_count=len(y_true),
         accuracy=float(accuracy_score(y_true, y_pred)),
+        balanced_accuracy=float(balanced_accuracy_score(y_true, y_pred_scored)),
+        mcc=float(matthews_corrcoef(y_true, y_pred_scored)),
         macro_f1=float(macro_f1_values),
         weighted_f1=float(weighted_f1_values),
         per_class=per_class,
@@ -138,7 +162,7 @@ def _metric_value(y_true: list[str], y_pred: list[str], metric: str) -> float:
     from sklearn.metrics import f1_score
 
     if metric == "macro_f1":
-        return float(f1_score(y_true, y_pred, labels=list(ALLOWED_LABELS), average="macro", zero_division=0))
+        return float(f1_score(y_true, y_pred, labels=_LABELS, average="macro", zero_division=0))
     return float(accuracy_score(y_true, y_pred))
 
 

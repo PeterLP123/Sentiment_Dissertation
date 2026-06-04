@@ -15,6 +15,7 @@ from .baselines import BASELINE_SPECS
 from .comparison import ModelTarget, compare_models
 from .constants import (
     ALLOWED_LABELS,
+    CONFUSION_PREDICTION_LABELS,
     DEFAULT_BASE_URL,
     DEFAULT_CONCURRENCY,
     DEFAULT_DATASET_PATH,
@@ -30,13 +31,14 @@ from .constants import (
 from .dataset import compute_stats, load_dataset
 from .env import load_env_file
 from .exporter import export_run
-from .models import RunConfig
+from .models import PromptConfig, RunConfig
 from .openrouter import OpenRouterClient
+from .perturbations import generate_prompt_suite
+from .prompt_sensitivity import SENSITIVITY_METRICS, prompt_sensitivity
 from .prompts import load_prompts
+from .reliability import run_agreement
 from .runner import BenchmarkRunner
 from .storage import BenchmarkStore
-
-_CONFUSION_PRED_LABELS = (*ALLOWED_LABELS, "__invalid__", "__error__")
 
 console = Console()
 app = typer.Typer(help="Benchmark OpenRouter LLMs on dissertation sentiment data.")
@@ -49,6 +51,45 @@ def _resolve_prompt(prompt_id: str, prompts_path: Path):
         available = ", ".join(sorted(prompts))
         raise typer.BadParameter(f"Unknown prompt id {prompt_id!r}. Available: {available}")
     return prompts[prompt_id]
+
+
+def _make_run_config(
+    *,
+    models: list[str],
+    prompt: PromptConfig,
+    mode: str,
+    dataset_path: Path,
+    db_path: Path,
+    base_url: str,
+    sample_per_class: int,
+    seed: int,
+    temperature: float,
+    max_completion_tokens: int,
+    reasoning_max_tokens: int,
+    concurrency: int,
+    retries: int,
+    model_max_completion_tokens: dict[str, int] | None = None,
+    few_shot_k: int = 0,
+    few_shot_seed: int | None = None,
+) -> RunConfig:
+    return RunConfig(
+        models=models,
+        prompt=prompt,
+        mode=mode,  # type: ignore[arg-type]
+        dataset_path=str(dataset_path),
+        db_path=str(db_path),
+        base_url=base_url,
+        sample_per_class=sample_per_class,
+        seed=seed,
+        temperature=temperature,
+        max_completion_tokens=max_completion_tokens,
+        reasoning_max_completion_tokens=reasoning_max_tokens,
+        model_max_completion_tokens=model_max_completion_tokens or {},
+        concurrency=concurrency,
+        retries=retries,
+        few_shot_k=few_shot_k,
+        few_shot_seed=few_shot_seed,
+    )
 
 
 def _parse_model_max_tokens(values: list[str] | None) -> dict[str, int]:
@@ -143,32 +184,47 @@ def run_benchmark(
     ] = None,
     concurrency: Annotated[int, typer.Option("--concurrency")] = DEFAULT_CONCURRENCY,
     retries: Annotated[int, typer.Option("--retries")] = DEFAULT_RETRIES,
+    few_shot_k: Annotated[
+        int,
+        typer.Option("--few-shot-k", help="In-context demonstrations per class (0 = zero-shot). Demos are drawn from non-evaluation rows."),
+    ] = 0,
+    few_shot_seed: Annotated[
+        int | None,
+        typer.Option("--few-shot-seed", help="Seed for demonstration sampling (defaults to --seed)."),
+    ] = None,
     resume_run_id: Annotated[
         int | None,
-        typer.Option("--resume-run-id", help="Resume an existing run without duplicating completed responses."),
+        typer.Option(
+            "--resume-run-id",
+            help="Resume an existing run without duplicating completed responses. Few-shot settings are loaded from the stored run (CLI few-shot flags are ignored).",
+        ),
     ] = None,
 ) -> None:
     if mode not in {"pilot", "full"}:
         raise typer.BadParameter("mode must be pilot or full")
     if not models:
         raise typer.BadParameter("At least one --models value is required")
+    if few_shot_k < 0:
+        raise typer.BadParameter("--few-shot-k must be >= 0")
     model_token_overrides = _parse_model_max_tokens(model_max_tokens)
     prompt = _resolve_prompt(prompt_id, prompts_path)
-    config = RunConfig(
+    config = _make_run_config(
         models=models,
         prompt=prompt,
-        mode=mode,  # type: ignore[arg-type]
-        dataset_path=str(dataset_path),
-        db_path=str(db_path),
+        mode=mode,
+        dataset_path=dataset_path,
+        db_path=db_path,
         base_url=base_url,
         sample_per_class=sample_per_class,
         seed=seed,
         temperature=temperature,
         max_completion_tokens=max_completion_tokens,
-        reasoning_max_completion_tokens=reasoning_max_tokens,
+        reasoning_max_tokens=reasoning_max_tokens,
         model_max_completion_tokens=model_token_overrides,
         concurrency=concurrency,
         retries=retries,
+        few_shot_k=few_shot_k,
+        few_shot_seed=few_shot_seed,
     )
 
     async def main() -> None:
@@ -256,11 +312,11 @@ def list_runs_command(
 def _confusion_table(model_id: str, scope: str, matrix: dict[str, dict[str, int]]) -> Table:
     table = Table(title=f"Confusion matrix — {model_id} ({scope})")
     table.add_column("actual \\ pred")
-    for predicted in _CONFUSION_PRED_LABELS:
+    for predicted in CONFUSION_PREDICTION_LABELS:
         table.add_column(predicted.strip("_"), justify="right")
     for actual in ALLOWED_LABELS:
         counts = matrix.get(actual, {})
-        table.add_row(actual, *[str(int(counts.get(predicted, 0) or 0)) for predicted in _CONFUSION_PRED_LABELS])
+        table.add_row(actual, *[str(int(counts.get(predicted, 0) or 0)) for predicted in CONFUSION_PREDICTION_LABELS])
     return table
 
 
@@ -279,7 +335,7 @@ def results_command(
     cost_by_model = store.run_cost_by_model(run_id)
 
     table = Table(title=f"Run {run_id} Metrics")
-    for column in ("Model", "Scope", "Rows", "Accuracy", "Macro F1", "Latency", "Tokens", "Cost", "Invalid", "Errors"):
+    for column in ("Model", "Scope", "Rows", "Accuracy", "Bal Acc", "MCC", "Macro F1", "Latency", "Tokens", "Cost", "Invalid", "Errors"):
         table.add_column(column, justify="right" if column not in {"Model", "Scope"} else "left")
     parsed = [(row["model_id"], row["scope"], json.loads(row["metrics_json"])) for row in metric_rows]
     scope_order = {"primary": 0, "all": 1}
@@ -293,6 +349,8 @@ def results_command(
             scope,
             str(metric["row_count"]),
             f"{metric['accuracy']:.4f}",
+            f"{metric.get('balanced_accuracy', 0.0):.4f}",
+            f"{metric.get('mcc', 0.0):.4f}",
             f"{metric['macro_f1']:.4f}",
             f"{latency:.0f} ms" if isinstance(latency, (int, float)) else "-",
             f"{int(tokens):,}" if tokens else "-",
@@ -370,6 +428,159 @@ def compare_command(
         f"discordant b={mcnemar['b_a_correct_b_wrong']} / c={mcnemar['c_a_wrong_b_correct']}). "
         f"At α={alpha}, {verdict}."
     )
+
+
+@app.command("run-prompt-suite")
+def run_prompt_suite_command(
+    models: Annotated[list[str], typer.Option("--models", "-m", help="OpenRouter model id. Repeat for multiple models.")],
+    base_prompt_id: Annotated[
+        str,
+        typer.Option("--base-prompt-id", help="Prompt id to perturb into a variant family."),
+    ] = "default_label_only",
+    include: Annotated[
+        list[str] | None,
+        typer.Option("--include", help="Perturbation families: label_order and/or paraphrase. Repeat to combine."),
+    ] = None,
+    mode: Annotated[str, typer.Option("--mode", help="pilot or full.")] = "pilot",
+    dataset_path: Annotated[Path, typer.Option("--dataset-path")] = DEFAULT_DATASET_PATH,
+    db_path: Annotated[Path, typer.Option("--db-path")] = DEFAULT_DB_PATH,
+    prompts_path: Annotated[Path, typer.Option("--prompts-path")] = DEFAULT_PROMPTS_PATH,
+    base_url: Annotated[str, typer.Option("--base-url")] = os.getenv("OPENROUTER_BASE_URL", DEFAULT_BASE_URL),
+    sample_per_class: Annotated[int, typer.Option("--sample-per-class")] = DEFAULT_PILOT_PER_CLASS,
+    seed: Annotated[int, typer.Option("--seed")] = DEFAULT_SEED,
+    temperature: Annotated[float, typer.Option("--temperature")] = DEFAULT_TEMPERATURE,
+    max_completion_tokens: Annotated[int, typer.Option("--max-completion-tokens")] = DEFAULT_MAX_COMPLETION_TOKENS,
+    reasoning_max_tokens: Annotated[int, typer.Option("--reasoning-max-tokens")] = DEFAULT_REASONING_MAX_COMPLETION_TOKENS,
+    concurrency: Annotated[int, typer.Option("--concurrency")] = DEFAULT_CONCURRENCY,
+    retries: Annotated[int, typer.Option("--retries")] = DEFAULT_RETRIES,
+) -> None:
+    """Run a model across a family of prompt perturbations (one run per variant).
+
+    Every variant evaluates the same seeded row selection, so the resulting runs
+    can be fed straight into `prompt-sensitivity` to quantify prompt robustness.
+    """
+    if mode not in {"pilot", "full"}:
+        raise typer.BadParameter("mode must be pilot or full")
+    if not models:
+        raise typer.BadParameter("At least one --models value is required")
+    base_prompt = _resolve_prompt(base_prompt_id, prompts_path)
+    families = tuple(include) if include else ("label_order", "paraphrase")
+    try:
+        variants = generate_prompt_suite(base_prompt, include=families)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+    console.print(f"Generated {len(variants)} prompt variant(s) from {base_prompt_id!r}: {', '.join(families)}")
+
+    async def main() -> list[tuple[str, int]]:
+        produced: list[tuple[str, int]] = []
+        store = BenchmarkStore(db_path)
+        async with OpenRouterClient(base_url=base_url) as client:
+            runner = BenchmarkRunner(client=client, store=store)
+            for variant in variants:
+                config = _make_run_config(
+                    models=models,
+                    prompt=variant,
+                    mode=mode,
+                    dataset_path=dataset_path,
+                    db_path=db_path,
+                    base_url=base_url,
+                    sample_per_class=sample_per_class,
+                    seed=seed,
+                    temperature=temperature,
+                    max_completion_tokens=max_completion_tokens,
+                    reasoning_max_tokens=reasoning_max_tokens,
+                    concurrency=concurrency,
+                    retries=retries,
+                )
+                console.print(f"Running variant {variant.prompt_id!r}...")
+                summary = await runner.run(config, callback=lambda message: console.print(message))
+                produced.append((variant.prompt_id, summary.run_id))
+        return produced
+
+    produced = asyncio.run(main())
+    table = Table(title="Prompt suite runs")
+    table.add_column("Variant prompt id")
+    table.add_column("Run id", justify="right")
+    for prompt_id, run_id in produced:
+        table.add_row(prompt_id, str(run_id))
+    console.print(table)
+    run_id_list = " ".join(f"--run-id {run_id}" for _, run_id in produced)
+    console.print(f"Analyse with: sentiment-bench prompt-sensitivity {run_id_list} --model {models[0]}")
+
+
+@app.command("prompt-sensitivity")
+def prompt_sensitivity_command(
+    run_ids: Annotated[list[int], typer.Option("--run-id", help="Run id of a prompt variant. Repeat for each variant.")],
+    model: Annotated[str, typer.Option("--model", help="Model id to analyse across the runs.")],
+    scope: Annotated[str, typer.Option("--scope", help="primary or all.")] = "primary",
+    metric: Annotated[str, typer.Option("--metric", help=f"One of: {', '.join(SENSITIVITY_METRICS)}.")] = "accuracy",
+    db_path: Annotated[Path, typer.Option("--db-path")] = DEFAULT_DB_PATH,
+) -> None:
+    """Quantify how a model's metric varies across a family of prompt variants."""
+    if scope not in {"primary", "all"}:
+        raise typer.BadParameter("scope must be primary or all")
+    if metric not in SENSITIVITY_METRICS:
+        raise typer.BadParameter(f"metric must be one of {', '.join(SENSITIVITY_METRICS)}")
+    if len(run_ids) < 2:
+        raise typer.BadParameter("Provide at least two --run-id values to measure sensitivity")
+    try:
+        result = prompt_sensitivity(BenchmarkStore(db_path), run_ids, model, scope=scope, metric=metric)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+    table = Table(title=f"Prompt sensitivity — {model} ({metric}, {scope} scope, n={result.n})")
+    table.add_column("Variant prompt id")
+    table.add_column("Run", justify="right")
+    table.add_column(metric.replace("_", " ").title(), justify="right")
+    for variant in sorted(result.variants, key=lambda item: item.value, reverse=True):
+        table.add_row(variant.prompt_id, str(variant.run_id), f"{variant.value:.4f}")
+    console.print(table)
+    console.print(
+        f"mean={result.mean:.4f}  std={result.std:.4f}  min={result.minimum:.4f}  "
+        f"max={result.maximum:.4f}  spread={result.spread:.4f}  cv={result.cv:.4f}"
+    )
+
+
+@app.command("agreement")
+def agreement_command(
+    run_id: Annotated[int, typer.Option("--run-id", help="Run id to analyse.")],
+    scope: Annotated[str, typer.Option("--scope", help="primary or all.")] = "primary",
+    db_path: Annotated[Path, typer.Option("--db-path")] = DEFAULT_DB_PATH,
+) -> None:
+    """Inter-model agreement (Cohen's, Fleiss' kappa, Krippendorff's alpha) for a run."""
+    if scope not in {"primary", "all"}:
+        raise typer.BadParameter("scope must be primary or all")
+    result = run_agreement(BenchmarkStore(db_path), run_id, scope)
+    if result is None:
+        console.print(
+            f"Need at least two models with valid {scope}-scope predictions in run {run_id} to measure agreement."
+        )
+        raise typer.Exit(code=1)
+
+    def _fmt(value: float | None) -> str:
+        return f"{value:.4f}" if isinstance(value, (int, float)) else "-"
+
+    summary = Table(title=f"Inter-model agreement — run {run_id} ({scope} scope)")
+    summary.add_column("Statistic")
+    summary.add_column("Value", justify="right")
+    summary.add_row("Raters (models)", str(result.n_raters))
+    summary.add_row("Items rated by all", str(result.n_units_all_raters))
+    summary.add_row("Items rated by ≥2", str(result.n_units))
+    summary.add_row("Observed agreement", _fmt(result.observed_agreement))
+    summary.add_row("Fleiss' kappa", _fmt(result.fleiss_kappa))
+    summary.add_row("Krippendorff's alpha", _fmt(result.krippendorff_alpha))
+    console.print(summary)
+
+    if result.pairwise_cohen_kappa:
+        pairwise = Table(title="Pairwise Cohen's kappa")
+        pairwise.add_column("Model A")
+        pairwise.add_column("Model B")
+        pairwise.add_column("Kappa", justify="right")
+        pairwise.add_column("n", justify="right")
+        for pair in result.pairwise_cohen_kappa:
+            pairwise.add_row(pair["rater_a"], pair["rater_b"], f"{pair['kappa']:.4f}", str(pair["n"]))
+        console.print(pairwise)
 
 
 @app.command("tui")

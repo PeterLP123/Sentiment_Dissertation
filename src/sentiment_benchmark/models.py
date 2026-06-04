@@ -5,7 +5,7 @@ from typing import Any, Literal
 
 from .constants import DEFAULT_REASONING_MAX_COMPLETION_TOKENS
 
-OutputMode = Literal["label_only", "explanation"]
+OutputMode = Literal["label_only", "explanation", "cot"]
 RunMode = Literal["pilot", "full"]
 ParseStatus = Literal["valid", "invalid", "error"]
 ResponseStatus = Literal["success", "api_error", "transport_error", "malformed_response", "skipped"]
@@ -37,6 +37,11 @@ class PromptConfig:
     user_template: str
     output_mode: OutputMode
     prompt_hash: str
+    # Few-shot in-context demonstrations as (sentence, label) pairs prepended as
+    # prior user/assistant turns. Empty means zero-shot. Folded into prompt_hash
+    # so each demonstration set is a distinct, reproducible prompt.
+    demonstrations: tuple[tuple[str, str], ...] = ()
+    few_shot_seed: int | None = None
 
 
 @dataclass(frozen=True)
@@ -46,6 +51,13 @@ class ModelConfig:
     context_length: int | None = None
     pricing: dict[str, Any] = field(default_factory=dict)
     raw_metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class RunResumeSettings:
+    prompt_hash: str
+    few_shot_k: int
+    few_shot_seed: int | None
 
 
 @dataclass(frozen=True)
@@ -64,6 +76,8 @@ class RunConfig:
     retries: int = 3
     reasoning_max_completion_tokens: int = DEFAULT_REASONING_MAX_COMPLETION_TOKENS
     model_max_completion_tokens: dict[str, int] = field(default_factory=dict)
+    few_shot_k: int = 0
+    few_shot_seed: int | None = None
 
 
 @dataclass(frozen=True)
@@ -98,6 +112,8 @@ class EvaluationResult:
     scope: str
     row_count: int
     accuracy: float
+    balanced_accuracy: float
+    mcc: float
     macro_f1: float
     weighted_f1: float
     per_class: dict[str, dict[str, float]]
