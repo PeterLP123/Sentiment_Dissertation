@@ -187,6 +187,8 @@ class BenchmarkStore:
         request = {
             "temperature": config.temperature,
             "max_completion_tokens": config.max_completion_tokens,
+            "reasoning_max_completion_tokens": config.reasoning_max_completion_tokens,
+            "model_max_completion_tokens": config.model_max_completion_tokens,
             "concurrency": config.concurrency,
             "retries": config.retries,
             "sample_per_class": config.sample_per_class,
@@ -257,6 +259,24 @@ class BenchmarkStore:
                 """
                 SELECT 1 FROM responses
                 WHERE run_id = ? AND model_id = ? AND row_number = ? AND prompt_hash = ?
+                """,
+                (run_id, model_id, row_number, prompt_hash),
+            ).fetchone()
+        return row is not None
+
+    def successful_response_exists(self, run_id: int, model_id: str, row_number: int, prompt_hash: str) -> bool:
+        """True only if a *successful* response is already stored.
+
+        Resuming a run relies on this so that previously failed rows
+        (api_error/transport_error/malformed_response) are re-attempted instead
+        of being treated as permanently complete.
+        """
+        with self.connect() as connection:
+            row = connection.execute(
+                """
+                SELECT 1 FROM responses
+                WHERE run_id = ? AND model_id = ? AND row_number = ? AND prompt_hash = ?
+                  AND status = 'success'
                 """,
                 (run_id, model_id, row_number, prompt_hash),
             ).fetchone()

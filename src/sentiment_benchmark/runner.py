@@ -5,6 +5,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
+from .budgets import resolve_max_completion_tokens
 from .dataset import load_dataset, select_rows
 from .metrics import evaluate_responses
 from .models import BlindExample, RunConfig
@@ -78,7 +79,7 @@ class BenchmarkRunner:
         )
 
         async def classify_one(model_id: str, example: BlindExample) -> None:
-            if self.store.response_exists(run_id, model_id, example.row_number, config.prompt.prompt_hash):
+            if self.store.successful_response_exists(run_id, model_id, example.row_number, config.prompt.prompt_hash):
                 await self._notify(callback, f"Skipped existing response: run={run_id} model={model_id} row={example.row_number}")
                 await self._emit(
                     event_callback,
@@ -91,13 +92,19 @@ class BenchmarkRunner:
                     },
                 )
                 return
+            max_completion_tokens = resolve_max_completion_tokens(
+                model_id,
+                config.max_completion_tokens,
+                config.model_max_completion_tokens,
+                config.reasoning_max_completion_tokens,
+            )
             async with semaphore:
                 record = await self.client.classify(
                     model_id=model_id,
                     prompt=config.prompt,
                     example=example,
                     temperature=config.temperature,
-                    max_completion_tokens=config.max_completion_tokens,
+                    max_completion_tokens=max_completion_tokens,
                     retries=config.retries,
                 )
                 self.store.save_response(run_id, record)

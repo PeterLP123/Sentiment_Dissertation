@@ -2,14 +2,69 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
 from . import __version__
-from .metrics import load_metric_json
+from .metrics import _response_prediction, bootstrap_metric_ci, load_metric_json, mcnemar_test
+
+
+def _row_prediction(row: dict[str, Any]) -> str:
+    normalized = row.get("normalized_label")
+    if normalized is None or (isinstance(normalized, float) and math.isnan(normalized)):
+        normalized = None
+    return _response_prediction(
+        {
+            "status": row.get("status"),
+            "parse_status": row.get("parse_status"),
+            "normalized_label": normalized,
+        }
+    )
+
+
+def _compute_statistics(responses: pd.DataFrame, seed: int) -> dict[str, Any]:
+    payload: dict[str, Any] = {"scope": "primary", "seed": seed, "per_model": {}, "pairwise_mcnemar": []}
+    if responses.empty or "has_conflicting_duplicate" not in responses.columns:
+        return payload
+
+    primary = responses[responses["has_conflicting_duplicate"] == 0]
+    if primary.empty:
+        return payload
+
+    aligned: dict[str, dict[int, tuple[str, str]]] = {}
+    for model_id, group in primary.groupby("model_id"):
+        records = group.to_dict(orient="records")
+        y_true = [str(record["hidden_label"]) for record in records]
+        y_pred = [_row_prediction(record) for record in records]
+        payload["per_model"][str(model_id)] = {
+            "accuracy_ci": bootstrap_metric_ci(y_true, y_pred, "accuracy", seed=seed),
+            "macro_f1_ci": bootstrap_metric_ci(y_true, y_pred, "macro_f1", seed=seed),
+            "n": len(y_true),
+        }
+        aligned[str(model_id)] = {
+            int(record["row_number"]): (str(record["hidden_label"]), prediction)
+            for record, prediction in zip(records, y_pred, strict=True)
+        }
+
+    model_ids = sorted(aligned)
+    for first_index in range(len(model_ids)):
+        for second_index in range(first_index + 1, len(model_ids)):
+            model_a = model_ids[first_index]
+            model_b = model_ids[second_index]
+            common = sorted(set(aligned[model_a]) & set(aligned[model_b]))
+            if not common:
+                continue
+            y_true = [aligned[model_a][row_number][0] for row_number in common]
+            y_pred_a = [aligned[model_a][row_number][1] for row_number in common]
+            y_pred_b = [aligned[model_b][row_number][1] for row_number in common]
+            result = mcnemar_test(y_true, y_pred_a, y_pred_b)
+            payload["pairwise_mcnemar"].append({"model_a": model_a, "model_b": model_b, **result})
+    return payload
 
 
 def dataset_sha256(path: str | Path) -> str | None:
@@ -128,6 +183,13 @@ def export_run(db_path: str | Path, run_id: int, output_dir: str | Path | None =
     run_json_path.write_text(json.dumps(run_payload, indent=2), encoding="utf-8")
     paths.append(run_json_path)
 
+    seed_setting = request_settings.get("seed")
+    seed = seed_setting if isinstance(seed_setting, int) else 42
+    statistics = _compute_statistics(responses, seed)
+    statistics_path = destination / "statistics.json"
+    statistics_path.write_text(json.dumps(statistics, indent=2), encoding="utf-8")
+    paths.append(statistics_path)
+
     summary_path = destination / "summary.md"
     lines = [f"# Sentiment Benchmark Run {run_id}", ""]
     if not runs.empty:
@@ -157,6 +219,34 @@ def export_run(db_path: str | Path, run_id: int, output_dir: str | Path | None =
                     "",
                 ]
             )
+    per_model_statistics = statistics["per_model"]
+    if per_model_statistics:
+        lines.extend(["## Statistics (primary scope)", ""])
+        for model_id, model_statistics in per_model_statistics.items():
+            accuracy_ci = model_statistics["accuracy_ci"]
+            macro_f1_ci = model_statistics["macro_f1_ci"]
+            confidence_pct = f"{accuracy_ci['confidence'] * 100:.0f}"
+            accuracy_interval = f"[{accuracy_ci['lower']:.4f}, {accuracy_ci['upper']:.4f}]"
+            macro_f1_interval = f"[{macro_f1_ci['lower']:.4f}, {macro_f1_ci['upper']:.4f}]"
+            lines.extend(
+                [
+                    f"### {model_id}",
+                    "",
+                    f"- Rows: {model_statistics['n']}",
+                    f"- Accuracy: {accuracy_ci['point']:.4f} ({confidence_pct}% CI {accuracy_interval})",
+                    f"- Macro F1: {macro_f1_ci['point']:.4f} ({confidence_pct}% CI {macro_f1_interval})",
+                    "",
+                ]
+            )
+        pairwise = statistics["pairwise_mcnemar"]
+        if pairwise:
+            lines.extend(["### Pairwise McNemar", ""])
+            for pair in pairwise:
+                lines.append(
+                    f"- {pair['model_a']} vs {pair['model_b']}: p = {pair['p_value']:.4f} "
+                    f"(n_discordant = {pair['n_discordant']}, {pair['method']})"
+                )
+            lines.append("")
     summary_path.write_text("\n".join(lines), encoding="utf-8")
     paths.append(summary_path)
     return paths

@@ -46,6 +46,50 @@ class MetadataFailingClient(FakeClient):
         raise RuntimeError("metadata unavailable")
 
 
+class FailingClient(FakeClient):
+    """Returns an API error for every row (no successful responses)."""
+
+    async def classify(
+        self,
+        model_id: str,
+        prompt,
+        example: BlindExample,
+        temperature: float = 0.0,
+        max_completion_tokens: int = 8,
+        retries: int = 3,
+    ) -> LLMResponseRecord:
+        return LLMResponseRecord(
+            row_number=example.row_number,
+            model_id=model_id,
+            prompt_hash=prompt.prompt_hash,
+            raw_content=None,
+            normalized_label=None,
+            parse_status="error",
+            status="api_error",
+            error="HTTP 503",
+            latency_ms=5,
+        )
+
+
+class BudgetCapturingClient(FakeClient):
+    """Records the completion-token budget passed for each (model, row)."""
+
+    def __init__(self) -> None:
+        self.budgets: dict[str, int] = {}
+
+    async def classify(
+        self,
+        model_id: str,
+        prompt,
+        example: BlindExample,
+        temperature: float = 0.0,
+        max_completion_tokens: int = 8,
+        retries: int = 3,
+    ) -> LLMResponseRecord:
+        self.budgets[model_id] = max_completion_tokens
+        return await super().classify(model_id, prompt, example, temperature, max_completion_tokens, retries)
+
+
 class CountingClient(FakeClient):
     def __init__(self) -> None:
         self.calls: list[int] = []
@@ -99,7 +143,7 @@ def test_runner_creates_metrics_and_exports(tmp_path) -> None:
 
     paths = export_run(db_path, summary.run_id, output_dir=tmp_path / "exports")
     exported_names = {Path(path).name for path in paths}
-    assert {"responses.csv", "responses.json", "metrics.json", "run.json", "summary.md"} == exported_names
+    assert {"responses.csv", "responses.json", "metrics.json", "run.json", "summary.md", "statistics.json"} == exported_names
     run_payload = json.loads((tmp_path / "exports" / "run.json").read_text(encoding="utf-8"))
     metadata = run_payload["metadata"]
     assert metadata["package_version"] == "0.1.0"
@@ -221,6 +265,82 @@ def test_runner_continues_when_generation_metadata_fails(tmp_path: Path) -> None
     assert summary.status == "completed"
     assert len(BenchmarkStore(db_path).fetch_responses(summary.run_id, "fake/model")) == 3
     assert any("Metadata lookup failed" in message for message in messages)
+
+
+def test_resume_retries_failed_rows(tmp_path: Path) -> None:
+    dataset = _write_dataset(tmp_path)
+    prompt = make_prompt("test", "Return a label.", "Sentence:\n{sentence}\n\nSentiment label:", "label_only")
+    db_path = tmp_path / "resume.sqlite"
+    config = RunConfig(
+        models=["fake/model"],
+        prompt=prompt,
+        mode="pilot",
+        dataset_path=str(dataset),
+        db_path=str(db_path),
+        base_url="https://openrouter.test/api/v1",
+        sample_per_class=1,
+    )
+    store = BenchmarkStore(db_path)
+
+    first = asyncio.run(BenchmarkRunner(client=FailingClient(), store=store).run(config))  # type: ignore[arg-type]
+    failed = store.fetch_responses(first.run_id, "fake/model")
+    assert len(failed) == 3
+    assert all(dict(row)["status"] == "api_error" for row in failed)
+
+    counting = CountingClient()
+    asyncio.run(BenchmarkRunner(client=counting, store=store).run(config, resume_run_id=first.run_id))  # type: ignore[arg-type]
+
+    # All three previously failed rows were re-attempted on resume.
+    assert sorted(counting.calls) == [2, 3, 4]
+    recovered = store.fetch_responses(first.run_id, "fake/model")
+    assert all(dict(row)["status"] == "success" for row in recovered)
+
+
+def test_resume_skips_already_successful_rows(tmp_path: Path) -> None:
+    dataset = _write_dataset(tmp_path)
+    prompt = make_prompt("test", "Return a label.", "Sentence:\n{sentence}\n\nSentiment label:", "label_only")
+    db_path = tmp_path / "resume-skip.sqlite"
+    config = RunConfig(
+        models=["fake/model"],
+        prompt=prompt,
+        mode="pilot",
+        dataset_path=str(dataset),
+        db_path=str(db_path),
+        base_url="https://openrouter.test/api/v1",
+        sample_per_class=1,
+    )
+    store = BenchmarkStore(db_path)
+
+    first = asyncio.run(BenchmarkRunner(client=FakeClient(), store=store).run(config))  # type: ignore[arg-type]
+
+    counting = CountingClient()
+    asyncio.run(BenchmarkRunner(client=counting, store=store).run(config, resume_run_id=first.run_id))  # type: ignore[arg-type]
+
+    # Nothing re-attempted because every row already succeeded.
+    assert counting.calls == []
+
+
+def test_reasoning_models_receive_larger_token_budget(tmp_path: Path) -> None:
+    dataset = _write_dataset(tmp_path)
+    prompt = make_prompt("test", "Return a label.", "Sentence:\n{sentence}\n\nSentiment label:", "label_only")
+    db_path = tmp_path / "budgets.sqlite"
+    config = RunConfig(
+        models=["openai/gpt-5.5", "fake/model"],
+        prompt=prompt,
+        mode="pilot",
+        dataset_path=str(dataset),
+        db_path=str(db_path),
+        base_url="https://openrouter.test/api/v1",
+        sample_per_class=1,
+        max_completion_tokens=64,
+        reasoning_max_completion_tokens=2048,
+        model_max_completion_tokens={"fake/model": 128},
+    )
+    client = BudgetCapturingClient()
+    asyncio.run(BenchmarkRunner(client=client, store=BenchmarkStore(db_path)).run(config))  # type: ignore[arg-type]
+
+    assert client.budgets["openai/gpt-5.5"] == 2048  # reasoning bump
+    assert client.budgets["fake/model"] == 128  # explicit override beats the 64 default
 
 
 def test_runner_cancels_during_model_without_scheduling_remaining_rows(tmp_path: Path) -> None:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -13,6 +14,7 @@ from textual.screen import ModalScreen
 from textual.validation import Integer, Number, ValidationResult
 from textual.widgets import (
     Button,
+    Checkbox,
     DataTable,
     Footer,
     Header,
@@ -28,6 +30,8 @@ from textual.widgets import (
     TextArea,
 )
 
+from .baseline_runner import run_baselines
+from .baselines import BASELINE_SPECS, DEFAULT_BASELINES, BaselineSpec
 from .constants import (
     DEFAULT_BASE_URL,
     DEFAULT_DATASET_PATH,
@@ -43,6 +47,23 @@ from .openrouter import OpenRouterClient
 from .prompts import load_prompts, make_prompt
 from .runner import BenchmarkRunner
 from .storage import BenchmarkStore
+
+
+def _module_available(module: str) -> bool:
+    try:
+        return importlib.util.find_spec(module) is not None
+    except (ImportError, ValueError):  # pragma: no cover - defensive
+        return False
+
+
+def _baseline_available(spec: BaselineSpec) -> bool:
+    return all(_module_available(dependency) for dependency in spec.requires)
+
+
+def _baseline_install_hint(name: str) -> str:
+    extra = "finbert" if name == "finbert" else "baselines"
+    return f"pip install '.[{extra}]'"
+
 
 _VALIDATED_INPUTS = ("sample-per-class", "seed", "concurrency", "temperature", "max-tokens")
 _SESSION_PATH = Path("results/tui_session.json")
@@ -251,6 +272,7 @@ class SentimentBenchmarkApp(App):
         ("5", "show_tab('results-tab')", "Results"),
         ("r", "refresh", "Refresh"),
         ("s", "start_run", "Start"),
+        ("b", "run_baselines", "Baselines"),
         ("c", "cancel_run", "Cancel"),
     ]
 
@@ -276,6 +298,7 @@ class SentimentBenchmarkApp(App):
         self._cancel_event: asyncio.Event | None = None
         self._run_task: asyncio.Task | None = None
         self._run_in_progress: bool = False
+        self._baseline_in_progress: bool = False
         self._confirmation_pending: bool = False
         self._progress: dict[str, dict] = {}
         self._rows_per_model: int = 0
@@ -465,8 +488,26 @@ class SentimentBenchmarkApp(App):
                     id="hint-max-tokens",
                     classes="validation-hint",
                 )
+                yield Static("Baselines", classes="section-title")
+                yield Static(
+                    "Non-LLM comparators evaluated on the same rows (uses the run mode, seed, and sample-per-class above). "
+                    "Fitted baselines are scored out-of-fold; vader and finbert need optional dependencies.",
+                    classes="help",
+                )
+                for _name, _spec in BASELINE_SPECS.items():
+                    _available = _baseline_available(_spec)
+                    _label = f"{_name} \u2014 {_spec.description}"
+                    if not _available:
+                        _label += f"  ({_baseline_install_hint(_name)})"
+                    yield Checkbox(
+                        _label,
+                        value=_name in DEFAULT_BASELINES and _available,
+                        id=f"baseline-{_name}",
+                        disabled=not _available,
+                    )
                 with Horizontal(id="run-controls"):
                     yield Button("Start Run", id="start-run", variant="primary")
+                    yield Button("Run Baselines", id="run-baselines", variant="success")
                     yield Button("Cancel Run", id="cancel-run", disabled=True, variant="error")
                 yield Static("Progress", classes="section-title")
                 yield ProgressBar(id="run-progress-bar", total=100, show_percentage=True, show_eta=False)
@@ -869,8 +910,13 @@ class SentimentBenchmarkApp(App):
             f"{mark(ready)} 4 Start",
         ]
         stepper.update("  ".join(parts))
+        busy = self._run_in_progress or self._baseline_in_progress or self._confirmation_pending
         try:
-            self.query_one("#start-run", Button).disabled = self._run_in_progress or self._confirmation_pending or not ready
+            self.query_one("#start-run", Button).disabled = busy or not ready
+        except Exception:
+            pass
+        try:
+            self.query_one("#run-baselines", Button).disabled = busy
         except Exception:
             pass
 
@@ -987,6 +1033,8 @@ class SentimentBenchmarkApp(App):
             self._save_prompt_from_ui()
         elif button_id == "start-run":
             await self._start_run()
+        elif button_id == "run-baselines":
+            self._start_baselines()
         elif button_id == "cancel-run":
             self._cancel_run()
         elif button_id == "refresh-runs":
@@ -1230,6 +1278,71 @@ class SentimentBenchmarkApp(App):
             "Cancel requested. The run will stop after in-flight requests finish.",
             title="Cancelling",
         )
+
+    def _selected_baselines(self) -> list[str]:
+        names: list[str] = []
+        for name in BASELINE_SPECS:
+            try:
+                checkbox = self.query_one(f"#baseline-{name}", Checkbox)
+            except Exception:
+                continue
+            if checkbox.value and not checkbox.disabled:
+                names.append(name)
+        return names
+
+    async def action_run_baselines(self) -> None:
+        self._start_baselines()
+
+    def _start_baselines(self) -> None:
+        if self._run_in_progress or self._baseline_in_progress:
+            self._notify_error("A run is already in progress.", title="Busy")
+            return
+        names = self._selected_baselines()
+        if not names:
+            self._notify_error("Select at least one available baseline.", title="No baselines")
+            return
+        try:
+            mode = self.run_mode
+            seed = int(self.query_one("#seed", Input).value)
+            sample_per_class = int(self.query_one("#sample-per-class", Input).value)
+        except Exception as exc:
+            self._notify_error(f"Baseline setup error: {exc}", title="Cannot start")
+            return
+        if mode not in {"pilot", "full"}:
+            self._notify_error("Mode must be pilot or full", title="Cannot start")
+            return
+        self._baseline_in_progress = True
+        self._refresh_stepper()
+        self._set_monitor(f"Starting baselines: {', '.join(names)}")
+        self.run_worker(
+            lambda: self._run_baselines_blocking(names, mode, sample_per_class, seed),
+            thread=True,
+            group="baselines",
+            exclusive=False,
+        )
+
+    def _run_baselines_blocking(self, names: list[str], mode: str, sample_per_class: int, seed: int) -> None:
+        try:
+            summary = run_baselines(
+                names,
+                mode=mode,  # type: ignore[arg-type]
+                dataset_path=str(self.dataset_path),
+                db_path=str(self.db_path),
+                sample_per_class=sample_per_class,
+                seed=seed,
+                callback=lambda message: self.call_from_thread(self._set_monitor, message),
+            )
+            self.call_from_thread(
+                self._set_monitor,
+                f"Baseline run {summary.run_id} completed: {summary.baseline_count} baseline(s), {summary.selected_row_count} rows.",
+            )
+        except Exception as exc:
+            self.call_from_thread(self._notify_error, f"Baselines failed: {exc}")
+        finally:
+            self._baseline_in_progress = False
+            self.call_from_thread(self._refresh_stepper)
+            self.call_from_thread(self._refresh_runs_table)
+            self.call_from_thread(self._refresh_results_help)
 
     def _refresh_runs_table(self) -> None:
         try:

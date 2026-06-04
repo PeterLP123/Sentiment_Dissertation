@@ -9,6 +9,8 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from .baseline_runner import run_baselines
+from .baselines import BASELINE_SPECS
 from .constants import (
     DEFAULT_BASE_URL,
     DEFAULT_CONCURRENCY,
@@ -17,6 +19,7 @@ from .constants import (
     DEFAULT_MAX_COMPLETION_TOKENS,
     DEFAULT_PILOT_PER_CLASS,
     DEFAULT_PROMPTS_PATH,
+    DEFAULT_REASONING_MAX_COMPLETION_TOKENS,
     DEFAULT_RETRIES,
     DEFAULT_SEED,
     DEFAULT_TEMPERATURE,
@@ -41,6 +44,23 @@ def _resolve_prompt(prompt_id: str, prompts_path: Path):
         available = ", ".join(sorted(prompts))
         raise typer.BadParameter(f"Unknown prompt id {prompt_id!r}. Available: {available}")
     return prompts[prompt_id]
+
+
+def _parse_model_max_tokens(values: list[str] | None) -> dict[str, int]:
+    overrides: dict[str, int] = {}
+    for item in values or []:
+        if "=" not in item:
+            raise typer.BadParameter(f"--model-max-tokens must be 'model_id=N', got {item!r}")
+        model_id, _, raw = item.partition("=")
+        model_id = model_id.strip()
+        try:
+            tokens = int(raw.strip())
+        except ValueError as exc:
+            raise typer.BadParameter(f"--model-max-tokens value must be an integer, got {raw!r}") from exc
+        if not model_id or tokens <= 0:
+            raise typer.BadParameter(f"--model-max-tokens needs a model id and positive integer, got {item!r}")
+        overrides[model_id] = tokens
+    return overrides
 
 
 @app.command("validate-data")
@@ -102,6 +122,20 @@ def run_benchmark(
     seed: Annotated[int, typer.Option("--seed")] = DEFAULT_SEED,
     temperature: Annotated[float, typer.Option("--temperature")] = DEFAULT_TEMPERATURE,
     max_completion_tokens: Annotated[int, typer.Option("--max-completion-tokens")] = DEFAULT_MAX_COMPLETION_TOKENS,
+    reasoning_max_tokens: Annotated[
+        int,
+        typer.Option(
+            "--reasoning-max-tokens",
+            help="Completion-token budget applied to reasoning models when larger than --max-completion-tokens.",
+        ),
+    ] = DEFAULT_REASONING_MAX_COMPLETION_TOKENS,
+    model_max_tokens: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--model-max-tokens",
+            help="Per-model completion-token override as 'model_id=N'. Repeat for multiple models.",
+        ),
+    ] = None,
     concurrency: Annotated[int, typer.Option("--concurrency")] = DEFAULT_CONCURRENCY,
     retries: Annotated[int, typer.Option("--retries")] = DEFAULT_RETRIES,
     resume_run_id: Annotated[
@@ -113,6 +147,7 @@ def run_benchmark(
         raise typer.BadParameter("mode must be pilot or full")
     if not models:
         raise typer.BadParameter("At least one --models value is required")
+    model_token_overrides = _parse_model_max_tokens(model_max_tokens)
     prompt = _resolve_prompt(prompt_id, prompts_path)
     config = RunConfig(
         models=models,
@@ -125,6 +160,8 @@ def run_benchmark(
         seed=seed,
         temperature=temperature,
         max_completion_tokens=max_completion_tokens,
+        reasoning_max_completion_tokens=reasoning_max_tokens,
+        model_max_completion_tokens=model_token_overrides,
         concurrency=concurrency,
         retries=retries,
     )
@@ -137,6 +174,45 @@ def run_benchmark(
         console.print(f"Run {summary.run_id} complete: {summary.model_count} model(s), {summary.selected_row_count} row(s)")
 
     asyncio.run(main())
+
+
+@app.command("run-baselines")
+def run_baselines_command(
+    baselines: Annotated[
+        list[str] | None,
+        typer.Option("--baselines", "-b", help="Baseline name. Repeat for multiple. Default: majority, tfidf_logreg."),
+    ] = None,
+    mode: Annotated[str, typer.Option("--mode", help="pilot or full.")] = "pilot",
+    dataset_path: Annotated[Path, typer.Option("--dataset-path")] = DEFAULT_DATASET_PATH,
+    db_path: Annotated[Path, typer.Option("--db-path")] = DEFAULT_DB_PATH,
+    sample_per_class: Annotated[int, typer.Option("--sample-per-class")] = DEFAULT_PILOT_PER_CLASS,
+    seed: Annotated[int, typer.Option("--seed")] = DEFAULT_SEED,
+    folds: Annotated[int, typer.Option("--folds", help="Stratified CV folds for fitted baselines.")] = 5,
+    match_run_id: Annotated[
+        int | None,
+        typer.Option("--match-run-id", help="Evaluate on the exact rows selected by an existing run (for fair comparison)."),
+    ] = None,
+) -> None:
+    if mode not in {"pilot", "full"}:
+        raise typer.BadParameter("mode must be pilot or full")
+    unknown = [name for name in (baselines or []) if name not in BASELINE_SPECS]
+    if unknown:
+        available = ", ".join(sorted(BASELINE_SPECS))
+        raise typer.BadParameter(f"Unknown baseline(s): {', '.join(unknown)}. Available: {available}")
+    summary = run_baselines(
+        baselines,
+        mode=mode,  # type: ignore[arg-type]
+        dataset_path=str(dataset_path),
+        db_path=str(db_path),
+        sample_per_class=sample_per_class,
+        seed=seed,
+        folds=folds,
+        match_run_id=match_run_id,
+        callback=lambda message: console.print(message),
+    )
+    console.print(
+        f"Baseline run {summary.run_id} complete: {summary.baseline_count} baseline(s), {summary.selected_row_count} row(s)"
+    )
 
 
 @app.command("export")

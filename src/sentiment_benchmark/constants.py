@@ -12,3 +12,19 @@ DEFAULT_TEMPERATURE = 0.0
 DEFAULT_MAX_COMPLETION_TOKENS = 64
 DEFAULT_CONCURRENCY = 1
 DEFAULT_RETRIES = 3
+# Reasoning-capable models spend completion tokens on hidden reasoning before
+# emitting the label, so a small budget leaves no room for the answer. This
+# larger budget is applied automatically to models matching REASONING_MODEL_MARKERS.
+DEFAULT_REASONING_MAX_COMPLETION_TOKENS = 2048
+REASONING_MODEL_MARKERS = (
+    "gpt-5",
+    "o1",
+    "o3",
+    "o4-mini",
+    "reasoning",
+    "thinking",
+    "deepseek-r",
+    "qwq",
+    "gemini-2.5",
+    "gemini-3",
+)

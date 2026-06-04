@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+from .constants import DEFAULT_REASONING_MAX_COMPLETION_TOKENS
+
 OutputMode = Literal["label_only", "explanation"]
 RunMode = Literal["pilot", "full"]
 ParseStatus = Literal["valid", "invalid", "error"]
@@ -60,6 +62,8 @@ class RunConfig:
     max_completion_tokens: int = 64
     concurrency: int = 1
     retries: int = 3
+    reasoning_max_completion_tokens: int = DEFAULT_REASONING_MAX_COMPLETION_TOKENS
+    model_max_completion_tokens: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

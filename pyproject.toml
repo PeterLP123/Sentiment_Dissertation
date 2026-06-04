@@ -24,6 +24,15 @@ dev = [
     "pytest>=8.0",
     "ruff>=0.5",
 ]
+# VADER lexicon baseline (downloads the lexicon on first use).
+baselines = [
+    "nltk>=3.8",
+]
+# FinBERT transformer baseline (large download of model weights on first use).
+finbert = [
+    "transformers>=4.40",
+    "torch>=2.0",
+]
 
 [project.scripts]
 sentiment-bench = "sentiment_benchmark.cli:app"

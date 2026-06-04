@@ -3,8 +3,10 @@ import json
 import sqlite3
 from pathlib import Path
 
-from textual.widgets import Button, DataTable, Input, ProgressBar, Static
+import pytest
+from textual.widgets import Button, Checkbox, DataTable, Input, ProgressBar, Static
 
+from sentiment_benchmark.baseline_runner import BaselineRunSummary
 from sentiment_benchmark.models import DatasetRow, EvaluationResult, LLMResponseRecord, ModelConfig, PromptConfig
 from sentiment_benchmark.storage import BenchmarkStore
 from sentiment_benchmark.tui import ConfirmScreen, SentimentBenchmarkApp
@@ -537,5 +539,50 @@ def test_tui_refresh_action_notifies(tmp_path: Path) -> None:
                 severity == "information" and "Refreshed" in message
                 for severity, message in app.notifications
             )
+
+    asyncio.run(scenario())
+
+
+def test_tui_baseline_checkboxes_default_to_sklearn(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            assert app.query_one("#baseline-majority", Checkbox).value is True
+            assert app.query_one("#baseline-tfidf_logreg", Checkbox).value is True
+            assert set(app._selected_baselines()) == {"majority", "tfidf_logreg"}
+
+    asyncio.run(scenario())
+
+
+def test_tui_run_baselines_button_invokes_runner(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: dict[str, object] = {}
+
+    def fake_run_baselines(names: list[str], **kwargs: object) -> BaselineRunSummary:
+        calls["names"] = list(names)
+        calls["kwargs"] = kwargs
+        callback = kwargs.get("callback")
+        if callable(callback):
+            callback("baseline progress")
+        return BaselineRunSummary(run_id=7, selected_row_count=90, baseline_count=len(names))
+
+    monkeypatch.setattr("sentiment_benchmark.tui.run_baselines", fake_run_baselines)
+
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        app.db_path = tmp_path / "bench.sqlite"
+        app.dataset_path = Path("Data/data.csv")
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            app._start_baselines()
+            for _ in range(80):
+                if "names" in calls and not app._baseline_in_progress:
+                    break
+                await pilot.pause(0.05)
+            assert calls.get("names") == ["majority", "tfidf_logreg"]
+            kwargs = calls["kwargs"]
+            assert isinstance(kwargs, dict)
+            assert kwargs["mode"] == "pilot"
+            assert str(kwargs["db_path"]) == str(app.db_path)
 
     asyncio.run(scenario())

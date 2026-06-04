@@ -132,3 +132,90 @@ def evaluate_responses(
 
 def load_metric_json(value: str) -> dict[str, Any]:
     return json.loads(value)
+
+
+def _metric_value(y_true: list[str], y_pred: list[str], metric: str) -> float:
+    from sklearn.metrics import f1_score
+
+    if metric == "macro_f1":
+        return float(f1_score(y_true, y_pred, labels=list(ALLOWED_LABELS), average="macro", zero_division=0))
+    return float(accuracy_score(y_true, y_pred))
+
+
+def bootstrap_metric_ci(
+    y_true: list[str],
+    y_pred: list[str],
+    metric: str = "accuracy",
+    n_resamples: int = 1000,
+    confidence: float = 0.95,
+    seed: int = 42,
+) -> dict[str, float | int]:
+    """Bootstrap percentile confidence interval for accuracy or macro-F1.
+
+    Indices are resampled with replacement ``n_resamples`` times using a numpy
+    Generator seeded with ``seed`` so the interval is reproducible.
+    """
+    n = len(y_true)
+    if n == 0:
+        return {
+            "point": 0.0,
+            "lower": 0.0,
+            "upper": 0.0,
+            "confidence": confidence,
+            "n": 0,
+            "n_resamples": n_resamples,
+        }
+
+    import numpy as np
+
+    point = _metric_value(y_true, y_pred, metric)
+    true_array = np.asarray(y_true, dtype=object)
+    pred_array = np.asarray(y_pred, dtype=object)
+    rng = np.random.default_rng(seed)
+    samples = np.empty(n_resamples, dtype=float)
+    for index in range(n_resamples):
+        indices = rng.integers(0, n, size=n)
+        samples[index] = _metric_value(true_array[indices].tolist(), pred_array[indices].tolist(), metric)
+
+    lower_pct = (1.0 - confidence) / 2.0 * 100.0
+    upper_pct = (1.0 + confidence) / 2.0 * 100.0
+    return {
+        "point": point,
+        "lower": float(np.percentile(samples, lower_pct)),
+        "upper": float(np.percentile(samples, upper_pct)),
+        "confidence": confidence,
+        "n": n,
+        "n_resamples": n_resamples,
+    }
+
+
+def mcnemar_test(y_true: list[str], y_pred_a: list[str], y_pred_b: list[str]) -> dict[str, float | int | str]:
+    """McNemar's test comparing two models' correctness on the same items.
+
+    Uses the exact two-sided binomial test for small discordant counts
+    (``n_discordant <= 25``) and the continuity-corrected chi-square statistic
+    otherwise. ``correct`` means the prediction equals the true label.
+    """
+    b = sum(1 for true, pred_a, pred_b in zip(y_true, y_pred_a, y_pred_b, strict=False) if pred_a == true and pred_b != true)
+    c = sum(1 for true, pred_a, pred_b in zip(y_true, y_pred_a, y_pred_b, strict=False) if pred_a != true and pred_b == true)
+    n_discordant = b + c
+    base: dict[str, float | int | str] = {
+        "n": len(y_true),
+        "n_discordant": n_discordant,
+        "b_a_correct_b_wrong": b,
+        "c_a_wrong_b_correct": c,
+    }
+    if n_discordant == 0:
+        return {**base, "statistic": 0.0, "p_value": 1.0, "method": "exact_binomial"}
+
+    if n_discordant <= 25:
+        from scipy.stats import binomtest
+
+        p_value = float(binomtest(min(b, c), n_discordant, 0.5, alternative="two-sided").pvalue)
+        return {**base, "statistic": 0.0, "p_value": p_value, "method": "exact_binomial"}
+
+    from scipy.stats import chi2
+
+    statistic = (abs(b - c) - 1) ** 2 / (b + c)
+    p_value = float(chi2.sf(statistic, 1))
+    return {**base, "statistic": float(statistic), "p_value": p_value, "method": "chi2_continuity"}
