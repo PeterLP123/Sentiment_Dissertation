@@ -152,6 +152,42 @@ def _predict_vader(rows: list[DatasetRow]) -> list[str | None]:
     return predictions
 
 
+def _disable_hf_progress_bars() -> None:
+    """Silence Hugging Face / tqdm progress bars before loading FinBERT.
+
+    The TUI runs baselines in a worker thread. On first use tqdm tries to build a
+    *multiprocessing* lock (spawning the resource tracker via fork_exec), which
+    fails from a non-main thread on Python 3.13 with "bad value(s) in fds_to_keep".
+    Disabling the bars avoids creating any tqdm instance, and pre-seeding tqdm with
+    a plain thread lock keeps it off the multiprocessing path even if something
+    else instantiates it.
+    """
+    import os
+
+    os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+    os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+    try:
+        import threading
+
+        from tqdm import tqdm
+
+        tqdm.set_lock(threading.RLock())
+    except Exception:  # pragma: no cover - tqdm internals are best-effort
+        pass
+    try:
+        from transformers.utils import logging as hf_logging
+
+        hf_logging.disable_progress_bar()
+    except Exception:  # pragma: no cover - depends on transformers version
+        pass
+    try:
+        from huggingface_hub.utils import disable_progress_bars
+
+        disable_progress_bars()
+    except Exception:  # pragma: no cover - depends on hub version
+        pass
+
+
 def _predict_finbert(rows: list[DatasetRow], batch_size: int = 32) -> list[str | None]:
     try:
         from transformers import pipeline as hf_pipeline
@@ -160,6 +196,7 @@ def _predict_finbert(rows: list[DatasetRow], batch_size: int = 32) -> list[str |
             "FinBERT baseline requires transformers and torch. Install with: pip install '.[finbert]'"
         ) from exc
 
+    _disable_hf_progress_bars()
     classifier = hf_pipeline("text-classification", model="ProsusAI/finbert", truncation=True)
     sentences = [row.sentence for row in rows]
     predictions: list[str | None] = []

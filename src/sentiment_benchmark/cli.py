@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 from pathlib import Path
 from typing import Annotated
@@ -11,7 +12,9 @@ from rich.table import Table
 
 from .baseline_runner import run_baselines
 from .baselines import BASELINE_SPECS
+from .comparison import ModelTarget, compare_models
 from .constants import (
+    ALLOWED_LABELS,
     DEFAULT_BASE_URL,
     DEFAULT_CONCURRENCY,
     DEFAULT_DATASET_PATH,
@@ -32,6 +35,8 @@ from .openrouter import OpenRouterClient
 from .prompts import load_prompts
 from .runner import BenchmarkRunner
 from .storage import BenchmarkStore
+
+_CONFUSION_PRED_LABELS = (*ALLOWED_LABELS, "__invalid__", "__error__")
 
 console = Console()
 app = typer.Typer(help="Benchmark OpenRouter LLMs on dissertation sentiment data.")
@@ -224,6 +229,147 @@ def export(
     paths = export_run(db_path, run_id, output_dir=output_dir)
     for path in paths:
         console.print(path)
+
+
+@app.command("runs")
+def list_runs_command(
+    db_path: Annotated[Path, typer.Option("--db-path")] = DEFAULT_DB_PATH,
+) -> None:
+    """List stored benchmark runs (most recent first)."""
+    runs = BenchmarkStore(db_path).list_runs()
+    if not runs:
+        console.print(f"No runs found in {db_path}.")
+        return
+    table = Table(title=f"Benchmark Runs: {db_path}")
+    table.add_column("ID", justify="right")
+    table.add_column("Created")
+    table.add_column("Mode")
+    table.add_column("Status")
+    table.add_column("Models")
+    for run in runs:
+        models = json.loads(run["models_json"]) if run["models_json"] else []
+        preview = ", ".join(models[:3]) + (f" (+{len(models) - 3})" if len(models) > 3 else "")
+        table.add_row(str(run["id"]), (run["created_at"] or "")[:19], run["mode"], run["status"], preview)
+    console.print(table)
+
+
+def _confusion_table(model_id: str, scope: str, matrix: dict[str, dict[str, int]]) -> Table:
+    table = Table(title=f"Confusion matrix — {model_id} ({scope})")
+    table.add_column("actual \\ pred")
+    for predicted in _CONFUSION_PRED_LABELS:
+        table.add_column(predicted.strip("_"), justify="right")
+    for actual in ALLOWED_LABELS:
+        counts = matrix.get(actual, {})
+        table.add_row(actual, *[str(int(counts.get(predicted, 0) or 0)) for predicted in _CONFUSION_PRED_LABELS])
+    return table
+
+
+@app.command("results")
+def results_command(
+    run_id: Annotated[int, typer.Option("--run-id", help="Run id to summarise.")],
+    db_path: Annotated[Path, typer.Option("--db-path")] = DEFAULT_DB_PATH,
+    confusion: Annotated[bool, typer.Option("--confusion", help="Also print per-model confusion matrices.")] = False,
+) -> None:
+    """Show stored metrics (and optionally confusion matrices) for a run."""
+    store = BenchmarkStore(db_path)
+    metric_rows = store.fetch_metrics(run_id)
+    if not metric_rows:
+        console.print(f"No metrics found for run {run_id}. It may still be running or have failed before scoring.")
+        raise typer.Exit(code=1)
+    cost_by_model = store.run_cost_by_model(run_id)
+
+    table = Table(title=f"Run {run_id} Metrics")
+    for column in ("Model", "Scope", "Rows", "Accuracy", "Macro F1", "Latency", "Tokens", "Cost", "Invalid", "Errors"):
+        table.add_column(column, justify="right" if column not in {"Model", "Scope"} else "left")
+    parsed = [(row["model_id"], row["scope"], json.loads(row["metrics_json"])) for row in metric_rows]
+    scope_order = {"primary": 0, "all": 1}
+    parsed.sort(key=lambda item: (scope_order.get(item[1], 2), -item[2]["accuracy"], item[0]))
+    for model_id, scope, metric in parsed:
+        latency = metric.get("mean_latency_ms")
+        tokens = metric.get("total_tokens") or 0
+        cost = cost_by_model.get(model_id)
+        table.add_row(
+            model_id,
+            scope,
+            str(metric["row_count"]),
+            f"{metric['accuracy']:.4f}",
+            f"{metric['macro_f1']:.4f}",
+            f"{latency:.0f} ms" if isinstance(latency, (int, float)) else "-",
+            f"{int(tokens):,}" if tokens else "-",
+            f"${cost:.4f}" if isinstance(cost, (int, float)) else "-",
+            str(metric["invalid_output_count"]),
+            str(metric["api_error_count"]),
+        )
+    console.print(table)
+
+    if confusion:
+        for model_id, scope, metric in parsed:
+            matrix = metric.get("confusion_matrix") or {}
+            if matrix:
+                console.print(_confusion_table(model_id, scope, matrix))
+
+
+@app.command("compare")
+def compare_command(
+    run_a: Annotated[int, typer.Option("--run-a", help="Run id for model A.")],
+    model_a: Annotated[str, typer.Option("--model-a", help="Model id for side A.")],
+    model_b: Annotated[str, typer.Option("--model-b", help="Model id for side B.")],
+    run_b: Annotated[int | None, typer.Option("--run-b", help="Run id for model B (defaults to --run-a).")] = None,
+    scope: Annotated[str, typer.Option("--scope", help="primary or all.")] = "primary",
+    metric: Annotated[str, typer.Option("--metric", help="accuracy or macro_f1.")] = "accuracy",
+    db_path: Annotated[Path, typer.Option("--db-path")] = DEFAULT_DB_PATH,
+    n_resamples: Annotated[int, typer.Option("--n-resamples", help="Bootstrap resamples for the CIs.")] = 1000,
+    confidence: Annotated[float, typer.Option("--confidence", help="CI confidence level.")] = 0.95,
+    seed: Annotated[int, typer.Option("--seed", help="Bootstrap seed for reproducibility.")] = DEFAULT_SEED,
+    alpha: Annotated[float, typer.Option("--alpha", help="Significance threshold for McNemar.")] = 0.05,
+) -> None:
+    """Compare two models with paired McNemar's test and bootstrap CIs."""
+    if scope not in {"primary", "all"}:
+        raise typer.BadParameter("scope must be primary or all")
+    if metric not in {"accuracy", "macro_f1"}:
+        raise typer.BadParameter("metric must be accuracy or macro_f1")
+
+    target_a = ModelTarget(run_a, model_a)
+    target_b = ModelTarget(run_b if run_b is not None else run_a, model_b)
+    result = compare_models(
+        BenchmarkStore(db_path),
+        target_a,
+        target_b,
+        scope=scope,
+        metric=metric,
+        n_resamples=n_resamples,
+        confidence=confidence,
+        seed=seed,
+    )
+    if result.n_paired == 0:
+        console.print(
+            f"No overlapping {scope}-scope rows between {target_a.label()} and {target_b.label()}. "
+            "Compare models evaluated on the same dataset selection."
+        )
+        raise typer.Exit(code=1)
+
+    confidence_pct = f"{confidence * 100:.0f}"
+    table = Table(title=f"Comparison ({metric}, {scope} scope, n={result.n_paired})")
+    table.add_column("Target")
+    table.add_column(metric.replace("_", " ").title(), justify="right")
+    table.add_column(f"{confidence_pct}% CI", justify="right")
+    for target, ci in ((target_a, result.ci_a), (target_b, result.ci_b)):
+        table.add_row(target.label(), f"{float(ci['point']):.4f}", f"[{float(ci['lower']):.4f}, {float(ci['upper']):.4f}]")
+    console.print(table)
+
+    mcnemar = result.mcnemar
+    leader = target_a if result.point_a >= result.point_b else target_b
+    significant = result.is_significant(alpha)
+    verdict = (
+        f"{leader.model_id} is higher and the difference is statistically significant"
+        if significant
+        else "the difference is not statistically significant"
+    )
+    console.print(
+        f"McNemar p = {float(mcnemar['p_value']):.4f} ({mcnemar['method']}, "
+        f"discordant b={mcnemar['b_a_correct_b_wrong']} / c={mcnemar['c_a_wrong_b_correct']}). "
+        f"At α={alpha}, {verdict}."
+    )
 
 
 @app.command("tui")

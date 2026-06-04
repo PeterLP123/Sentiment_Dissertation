@@ -35,6 +35,7 @@ from textual.widgets import (
 from .baseline_runner import run_baselines
 from .baselines import BASELINE_SPECS, DEFAULT_BASELINES, BaselineSpec
 from .constants import (
+    ALLOWED_LABELS,
     DEFAULT_BASE_URL,
     DEFAULT_DATASET_PATH,
     DEFAULT_DB_PATH,
@@ -298,6 +299,11 @@ class SentimentBenchmarkApp(App):
         margin-bottom: 1;
     }
     #perclass-table {
+        height: auto;
+        max-height: 8;
+        margin-bottom: 1;
+    }
+    #confusion-table {
         height: auto;
         max-height: 8;
         margin-bottom: 1;
@@ -589,6 +595,7 @@ class SentimentBenchmarkApp(App):
                 yield DataTable(id="runs-table")
                 yield Button("Refresh Runs", id="refresh-runs")
                 yield Button("Export Selected Run", id="export-run")
+                yield Button("View Figures", id="view-figures", variant="primary")
                 yield Button("Open Exports Folder", id="open-exports")
                 yield Static("Metrics", classes="section-title")
                 yield Static(
@@ -598,6 +605,12 @@ class SentimentBenchmarkApp(App):
                 yield DataTable(id="metrics-table")
                 yield Static("Per-class breakdown", classes="section-title")
                 yield DataTable(id="perclass-table")
+                yield Static("Confusion matrix", classes="section-title")
+                yield Static(
+                    "Rows = actual label, columns = predicted (incl. invalid/error). Select a metric row above to populate.",
+                    classes="help",
+                )
+                yield DataTable(id="confusion-table")
                 yield Static("Misclassified and failed rows", classes="section-title")
                 yield Static(
                     "Load a run to see mismatches. Select a metric row to filter by model/scope; press Enter on a row for details.",
@@ -625,6 +638,8 @@ class SentimentBenchmarkApp(App):
         runs.cursor_type = "row"
         perclass = self.query_one("#perclass-table", DataTable)
         perclass.add_columns("Class", "Precision", "Recall", "F1", "Support")
+        confusion = self.query_one("#confusion-table", DataTable)
+        confusion.add_columns("Actual \\ Pred", "positive", "negative", "neutral", "invalid", "error")
         misclassified = self.query_one("#misclassified-table", DataTable)
         misclassified.add_columns("Row", "Model", "Actual", "Predicted", "Status", "Sentence")
         misclassified.cursor_type = "row"
@@ -1118,6 +1133,8 @@ class SentimentBenchmarkApp(App):
             self._refresh_results_help()
         elif button_id == "export-run":
             self._export_run()
+        elif button_id == "view-figures":
+            self._view_figures()
         elif button_id == "open-exports":
             self._open_exports()
 
@@ -1210,6 +1227,7 @@ class SentimentBenchmarkApp(App):
             metric = self._metric_rows.get(str(key))
             if metric is not None:
                 self._show_per_class(metric)
+                self._show_confusion(metric)
                 self._active_metric_model = str(metric.get("model_id") or "") or None
                 self._active_metric_scope = str(metric.get("scope") or "all")
                 self._refresh_misclassifications()
@@ -1464,6 +1482,7 @@ class SentimentBenchmarkApp(App):
         metrics_table = self.query_one("#metrics-table", DataTable)
         metrics_table.clear()
         self.query_one("#perclass-table", DataTable).clear()
+        self.query_one("#confusion-table", DataTable).clear()
         self.query_one("#misclassified-table", DataTable).clear()
         self._misclassification_rows = {}
         self.query_one("#misclassified-detail", Static).update(
@@ -1524,6 +1543,28 @@ class SentimentBenchmarkApp(App):
                 f"{float(scores.get('f1', 0.0)):.4f}",
                 str(int(float(scores.get('support', 0.0)))),
             )
+
+    def _show_confusion(self, metric: dict) -> None:
+        table = self.query_one("#confusion-table", DataTable)
+        table.clear()
+        matrix = metric.get("confusion_matrix") or {}
+        if not matrix:
+            return
+        pred_labels = (*ALLOWED_LABELS, "__invalid__", "__error__")
+        for actual in ALLOWED_LABELS:
+            counts = matrix.get(actual, {})
+            cells: list[Text] = [Text(actual, style="bold")]
+            for predicted in pred_labels:
+                count = int(counts.get(predicted, 0) or 0)
+                if predicted == actual:
+                    # Diagonal = correct predictions.
+                    style = "green" if count > 0 else "grey58"
+                elif count > 0:
+                    style = "red"
+                else:
+                    style = "grey58"
+                cells.append(Text(str(count), style=style))
+            table.add_row(*cells)
 
     def _refresh_misclassifications(self) -> None:
         table = self.query_one("#misclassified-table", DataTable)
@@ -1597,21 +1638,22 @@ class SentimentBenchmarkApp(App):
             self._notify_error("Select a run in the table above before exporting.", title="No run selected")
             return
         paths = export_run(self.db_path, self._active_run_id)
+        figure_count = sum(1 for path in paths if path.suffix == ".png")
+        figure_note = f", incl. {figure_count} figure(s)" if figure_count else " (install '.[figures]' for plots)"
         self._notify_info(
-            f"Exported run {self._active_run_id} ({len(paths)} files).",
+            f"Exported run {self._active_run_id} ({len(paths)} files{figure_note}).",
             title="Export complete",
         )
         self._set_monitor(
             f"Exported run {self._active_run_id}:\n" + "\n".join(str(path) for path in paths)
         )
 
-    def _open_exports(self) -> None:
+    def _open_path(self, path: Path) -> bool:
+        """Open a file or folder in the OS file manager / viewer. Returns success."""
         import shutil
         import subprocess
         import sys
 
-        folder = Path("results/exports")
-        folder.mkdir(parents=True, exist_ok=True)
         if sys.platform == "darwin":
             opener = "open"
         elif sys.platform.startswith("win"):
@@ -1619,13 +1661,44 @@ class SentimentBenchmarkApp(App):
         else:
             opener = "xdg-open"
         if shutil.which(opener) is None:
-            self._notify_error(f"Cannot open {folder}: {opener} is not on PATH.", title="Open failed")
+            self._notify_error(f"Cannot open {path}: {opener} is not on PATH.", title="Open failed")
+            return False
+        try:
+            subprocess.Popen([opener, str(path)])
+            return True
+        except OSError as exc:
+            self._notify_error(f"Could not open {path}: {exc}", title="Open failed")
+            return False
+
+    def _view_figures(self) -> None:
+        if self._active_run_id is None:
+            self._notify_error("Select a run in the table above before viewing figures.", title="No run selected")
             return
         try:
-            subprocess.Popen([opener, str(folder)])
+            paths = export_run(self.db_path, self._active_run_id)
+        except Exception as exc:
+            self._notify_error(f"Could not export run {self._active_run_id}: {exc}", title="Export failed")
+            return
+        figures = [path for path in paths if path.suffix == ".png"]
+        if not figures:
+            self._notify_error(
+                "No figures were generated. Install plotting support with: pip install '.[figures]'",
+                title="No figures",
+            )
+            return
+        figures_dir = figures[0].parent
+        self._set_monitor(f"Generated {len(figures)} figure(s) for run {self._active_run_id} in {figures_dir}")
+        if self._open_path(figures_dir):
+            self._notify_info(
+                f"Opened {len(figures)} figure(s) for run {self._active_run_id} in your viewer.",
+                title="Figures",
+            )
+
+    def _open_exports(self) -> None:
+        folder = Path("results/exports")
+        folder.mkdir(parents=True, exist_ok=True)
+        if self._open_path(folder):
             self._notify_info(f"Opened {folder} in your file manager.")
-        except OSError as exc:
-            self._notify_error(f"Could not open {folder}: {exc}", title="Open failed")
 
 
 def main() -> None:

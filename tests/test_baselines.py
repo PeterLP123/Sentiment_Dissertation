@@ -113,3 +113,34 @@ def test_vader_baseline_if_available() -> None:
         pytest.skip(f"VADER unavailable: {exc}")
     assert len(predictions) == len(rows)
     assert all(label in ALLOWED_LABELS for label in predictions)
+
+
+def test_disable_hf_progress_bars_avoids_multiprocessing_lock() -> None:
+    """Regression: FinBERT crashed in the TUI worker thread because tqdm built a
+    multiprocessing lock (fork_exec) from a non-main thread. The helper must run
+    cleanly and leave tqdm on a non-multiprocessing lock."""
+    import os
+    import threading
+
+    from sentiment_benchmark.baselines import _disable_hf_progress_bars
+
+    result: dict[str, object] = {}
+
+    def worker() -> None:
+        try:
+            _disable_hf_progress_bars()
+            result["ok"] = True
+        except Exception as exc:  # pragma: no cover - the bug would surface here
+            result["error"] = exc
+
+    thread = threading.Thread(target=worker)
+    thread.start()
+    thread.join()
+
+    assert result.get("error") is None
+    assert result.get("ok") is True
+    assert os.environ.get("HF_HUB_DISABLE_PROGRESS_BARS") == "1"
+
+    tqdm = pytest.importorskip("tqdm").tqdm
+    # The lock must not be tqdm's multiprocessing default lock.
+    assert "multiprocessing" not in type(tqdm.get_lock()).__module__

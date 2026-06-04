@@ -33,6 +33,10 @@ finbert = [
     "transformers>=4.40",
     "torch>=2.0",
 ]
+# Publication-ready figures written into run exports.
+figures = [
+    "matplotlib>=3.7",
+]
 
 [project.scripts]
 sentiment-bench = "sentiment_benchmark.cli:app"

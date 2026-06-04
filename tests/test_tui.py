@@ -283,6 +283,55 @@ def test_tui_metrics_table_shows_latency_tokens_and_cost(tmp_path: Path) -> None
     asyncio.run(scenario())
 
 
+def test_tui_metric_selection_populates_confusion_matrix(tmp_path: Path) -> None:
+    db_path = tmp_path / "bench.sqlite"
+    run_id = _seed_run_with_metrics(db_path)
+    # Replace the seeded (empty-matrix) primary metric with one carrying a confusion matrix.
+    store = BenchmarkStore(db_path)
+    store.save_metrics(
+        run_id,
+        EvaluationResult(
+            model_id="openai/test-model",
+            scope="primary",
+            row_count=4,
+            accuracy=0.75,
+            macro_f1=0.7,
+            weighted_f1=0.72,
+            per_class={"positive": {"precision": 1.0, "recall": 1.0, "f1": 1.0, "support": 2.0}},
+            confusion_matrix={
+                "positive": {"positive": 2, "negative": 0, "neutral": 0, "__invalid__": 0, "__error__": 0},
+                "negative": {"positive": 1, "negative": 1, "neutral": 0, "__invalid__": 0, "__error__": 0},
+                "neutral": {"positive": 0, "negative": 0, "neutral": 0, "__invalid__": 1, "__error__": 0},
+            },
+            invalid_output_count=1,
+            api_error_count=0,
+            mean_latency_ms=100.0,
+            total_prompt_tokens=4,
+            total_completion_tokens=4,
+            total_tokens=8,
+        ),
+    )
+
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        app.db_path = db_path
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            app._load_metrics_for(run_id)
+
+            metrics_table = app.query_one("#metrics-table", DataTable)
+            metric_key = next(iter(metrics_table.rows))
+            app.on_data_table_row_selected(DataTable.RowSelected(metrics_table, 0, metric_key))
+
+            confusion = app.query_one("#confusion-table", DataTable)
+            assert confusion.row_count == 3
+            first_row = [str(cell) for cell in confusion.get_row_at(0)]
+            assert first_row[0] == "positive"
+            assert first_row[1] == "2"  # positive predicted as positive
+
+    asyncio.run(scenario())
+
+
 def test_tui_loads_misclassified_rows_and_details(tmp_path: Path) -> None:
     db_path = tmp_path / "bench.sqlite"
     run_id = _seed_run_with_misclassifications(db_path)
@@ -514,6 +563,75 @@ def test_tui_export_run_requires_active_run(tmp_path: Path) -> None:
             app._export_run()
             assert any(
                 severity == "error" and "Select a run" in message
+                for severity, message in app.notifications
+            )
+
+    asyncio.run(scenario())
+
+
+def test_tui_view_figures_requires_active_run(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            app._active_run_id = None
+            app._view_figures()
+            assert any(
+                severity == "error" and "Select a run" in message
+                for severity, message in app.notifications
+            )
+
+    asyncio.run(scenario())
+
+
+def test_tui_view_figures_opens_generated_figures(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    figures_dir = tmp_path / "run_1" / "figures"
+    figures_dir.mkdir(parents=True)
+    leaderboard = figures_dir / "leaderboard.png"
+    leaderboard.write_bytes(b"fake-png")
+
+    def fake_export(db_path: object, run_id: int, output_dir: object = None) -> list[Path]:
+        return [tmp_path / "run_1" / "summary.md", leaderboard]
+
+    monkeypatch.setattr("sentiment_benchmark.tui.export_run", fake_export)
+    opened: dict[str, Path] = {}
+
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            app._active_run_id = 1
+
+            def fake_open(path: Path) -> bool:
+                opened["path"] = path
+                return True
+
+            monkeypatch.setattr(app, "_open_path", fake_open)
+            app._view_figures()
+
+            assert opened.get("path") == figures_dir
+            assert any(
+                severity == "information" and "figure" in message.lower()
+                for severity, message in app.notifications
+            )
+
+    asyncio.run(scenario())
+
+
+def test_tui_view_figures_without_plots_hints_install(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_export(db_path: object, run_id: int, output_dir: object = None) -> list[Path]:
+        return [tmp_path / "run_1" / "summary.md"]  # no .png figures
+
+    monkeypatch.setattr("sentiment_benchmark.tui.export_run", fake_export)
+
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            app._active_run_id = 1
+            app._view_figures()
+            assert any(
+                severity == "error" and ".[figures]" in message
                 for severity, message in app.notifications
             )
 

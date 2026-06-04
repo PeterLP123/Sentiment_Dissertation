@@ -12,6 +12,7 @@ import pandas as pd
 
 from . import __version__
 from .metrics import _response_prediction, bootstrap_metric_ci, load_metric_json, mcnemar_test
+from .plotting import generate_figures
 
 
 def _row_prediction(row: dict[str, Any]) -> str:
@@ -249,4 +250,8 @@ def export_run(db_path: str | Path, run_id: int, output_dir: str | Path | None =
             lines.append("")
     summary_path.write_text("\n".join(lines), encoding="utf-8")
     paths.append(summary_path)
+
+    # Publication-ready figures (no-op if matplotlib is not installed).
+    figure_paths = generate_figures(metric_records, statistics, destination / "figures")
+    paths.extend(figure_paths)
     return paths

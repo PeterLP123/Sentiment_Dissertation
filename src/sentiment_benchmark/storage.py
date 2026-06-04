@@ -433,6 +433,26 @@ class BenchmarkStore:
                 (run_id, result.model_id, result.scope, json.dumps(asdict(result), sort_keys=True), utc_now()),
             )
 
+    def fetch_predictions(self, run_id: int, model_id: str, scope: str = "all") -> list[sqlite3.Row]:
+        """Aligned (gold, prediction) rows for one model, used for paired comparison."""
+        filters = ["r.run_id = ?", "r.model_id = ?"]
+        params: list[Any] = [run_id, model_id]
+        if scope == "primary":
+            filters.append("d.has_conflicting_duplicate = 0")
+        where = " AND ".join(filters)
+        with self.connect() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT r.row_number, d.hidden_label, r.normalized_label, r.parse_status, r.status
+                FROM responses r
+                JOIN dataset_items d ON d.row_number = r.row_number
+                WHERE {where}
+                ORDER BY r.row_number
+                """,
+                params,
+            ).fetchall()
+        return list(rows)
+
     def fetch_metrics(self, run_id: int) -> list[sqlite3.Row]:
         with self.connect() as connection:
             rows = connection.execute(

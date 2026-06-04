@@ -143,7 +143,10 @@ def test_runner_creates_metrics_and_exports(tmp_path) -> None:
 
     paths = export_run(db_path, summary.run_id, output_dir=tmp_path / "exports")
     exported_names = {Path(path).name for path in paths}
-    assert {"responses.csv", "responses.json", "metrics.json", "run.json", "summary.md", "statistics.json"} == exported_names
+    core_files = {"responses.csv", "responses.json", "metrics.json", "run.json", "summary.md", "statistics.json"}
+    assert core_files <= exported_names
+    # Any non-core artifacts are publication figures (only when matplotlib is installed).
+    assert all(name.endswith(".png") for name in exported_names - core_files)
     run_payload = json.loads((tmp_path / "exports" / "run.json").read_text(encoding="utf-8"))
     metadata = run_payload["metadata"]
     assert metadata["package_version"] == "0.1.0"

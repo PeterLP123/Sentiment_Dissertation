@@ -54,6 +54,31 @@ sentiment-bench run-baselines --match-run-id 5 --baselines majority --baselines 
 sentiment-bench run-baselines --mode full --baselines vader --baselines finbert
 ```
 
+Inspect stored results without opening the TUI:
+
+```bash
+# List recent runs (id, mode, status, models).
+sentiment-bench runs
+
+# Metrics table for one run; add --confusion for per-model confusion matrices.
+sentiment-bench results --run-id 1 --confusion
+```
+
+Compare two models with a paired significance test:
+
+```bash
+# Same run, two models (defaults to --scope primary, --metric accuracy).
+sentiment-bench compare --run-a 1 --model-a openai/gpt-4o-mini --model-b anthropic/claude-3.5-sonnet
+
+# Across runs (e.g. prompt sensitivity), on macro-F1.
+sentiment-bench compare --run-a 1 --model-a openai/gpt-4o-mini \
+    --run-b 2 --model-b openai/gpt-4o-mini --metric macro_f1
+```
+
+Predictions are paired by row so McNemar's test is valid, and each side reports a
+bootstrap confidence interval computed on the shared rows. The Results tab in the
+TUI shows the same metrics plus a colour-coded confusion matrix per model/scope.
+
 Export a completed run:
 
 ```bash
@@ -61,6 +86,8 @@ sentiment-bench export --run-id 1
 ```
 
 Exports are written under `results/exports/run_<id>/` and include responses, metrics, run configuration, prompt data, and reproducibility metadata.
+
+If the optional plotting extra is installed (`pip install ".[figures]"`), each export also writes publication-ready PNGs to `results/exports/run_<id>/figures/`: a model leaderboard, an accuracy bootstrap-CI forest plot, and per-model confusion-matrix heatmaps and per-class score bars. In the TUI, the Results tab's **View Figures** button exports the selected run and opens its `figures/` folder in your OS image viewer.
 
 ## Reproducibility Notes
 
