@@ -1121,11 +1121,21 @@ class SentimentBenchmarkApp(App):
         )
         confirm = self._confirm_message(config.mode, rows_per_model, len(config.models))
         if confirm is not None:
-            proceed = await self.push_screen_wait(ConfirmScreen(confirm))
-            if not proceed:
-                self._set_monitor("Run cancelled before it started.")
-                return
+            self.push_screen(
+                ConfirmScreen(confirm),
+                callback=lambda proceed: self._handle_run_confirmation(proceed, config),
+            )
+            return
 
+        self._begin_run(config)
+
+    def _handle_run_confirmation(self, proceed: bool, config: RunConfig) -> None:
+        if not proceed:
+            self._set_monitor("Run cancelled before it started.")
+            return
+        self._begin_run(config)
+
+    def _begin_run(self, config: RunConfig) -> None:
         self._cancel_event = asyncio.Event()
         self._run_in_progress = True
         try:

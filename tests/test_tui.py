@@ -7,7 +7,7 @@ from textual.widgets import Button, DataTable, Input, ProgressBar, Static
 
 from sentiment_benchmark.models import DatasetRow, EvaluationResult, LLMResponseRecord, ModelConfig, PromptConfig
 from sentiment_benchmark.storage import BenchmarkStore
-from sentiment_benchmark.tui import SentimentBenchmarkApp
+from sentiment_benchmark.tui import ConfirmScreen, SentimentBenchmarkApp
 
 
 def _make_app(tmp_path: Path) -> SentimentBenchmarkApp:
@@ -335,6 +335,31 @@ def test_tui_confirm_threshold(tmp_path: Path) -> None:
             message = app._confirm_message("full", 5842, 2)
             assert message is not None
             assert "11684" in message
+
+    asyncio.run(scenario())
+
+
+def test_tui_full_run_confirmation_uses_callback(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        app.selected_models = ["openai/gpt-4o-mini"]
+        app.run_mode = "full"
+        started_modes: list[str] = []
+
+        def fake_begin_run(config) -> None:
+            started_modes.append(config.mode)
+
+        app._begin_run = fake_begin_run  # type: ignore[method-assign]
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            await app._start_run()
+            await pilot.pause(0.05)
+
+            assert isinstance(app.screen, ConfirmScreen)
+            app.screen.dismiss(True)
+            await pilot.pause(0.05)
+
+            assert started_modes == ["full"]
 
     asyncio.run(scenario())
 
