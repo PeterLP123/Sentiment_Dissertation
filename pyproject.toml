@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sentiment-dissertation-benchmark"
+version = "0.1.0"
+description = "Terminal UI and CLI for benchmarking OpenRouter LLM sentiment analysis on dissertation data."
+readme = "AGENTS.md"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27",
+    "pandas>=2.0",
+    "pydantic>=2.0",
+    "rich>=13.0",
+    "scikit-learn>=1.4",
+    "textual>=0.80",
+    "typer>=0.12",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[project.scripts]
+sentiment-bench = "sentiment_benchmark.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+

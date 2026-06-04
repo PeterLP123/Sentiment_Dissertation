@@ -1,0 +1,28 @@
+[[prompts]]
+id = "default_label_only"
+output_mode = "label_only"
+system_prompt = """
+You are a sentiment classification engine. Classify the sentiment of the given sentence as exactly one of: positive, negative, neutral. Return only the lowercase label and nothing else.
+"""
+user_template = """
+Sentence:
+{sentence}
+
+Sentiment label:
+"""
+
+[[prompts]]
+id = "default_with_explanation"
+output_mode = "explanation"
+system_prompt = """
+You are a sentiment classification engine. Classify the sentiment of the given sentence as exactly one of: positive, negative, neutral.
+
+Return the lowercase sentiment label on the first line. You may then add a short explanation on later lines.
+"""
+user_template = """
+Sentence:
+{sentence}
+
+Sentiment label:
+"""
+
