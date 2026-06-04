@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 
 from rich.markup import escape
+from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal
 from textual.coordinate import Coordinate
@@ -15,6 +16,7 @@ from textual.validation import Integer, Number, ValidationResult
 from textual.widgets import (
     Button,
     Checkbox,
+    Collapsible,
     DataTable,
     Footer,
     Header,
@@ -70,6 +72,58 @@ _SESSION_PATH = Path("results/tui_session.json")
 _SELECTED_MARK = "[x]"
 _UNSELECTED_MARK = "[ ]"
 _CONFIRM_THRESHOLD = 1000
+
+# Status keyword -> colour, used to tint table cells so runs can be scanned at a glance.
+_STATUS_COLORS = {
+    "completed": "green",
+    "done": "green",
+    "success": "green",
+    "running": "yellow",
+    "queued": "grey58",
+    "cancelled": "red",
+    "failed": "red",
+    "error": "red",
+}
+
+
+def _accuracy_text(value: float, *, bold: bool = False) -> Text:
+    """Colour an accuracy/F1 score on a traffic-light scale."""
+    if value >= 0.8:
+        color = "green"
+    elif value >= 0.6:
+        color = "yellow"
+    else:
+        color = "red"
+    return Text(f"{value:.4f}", style=f"bold {color}" if bold else color)
+
+
+def _status_text(status: str) -> Text:
+    """Colour a status label (first word drives the colour, e.g. 'done (acc ...)')."""
+    key = status.split(" ", 1)[0].lower()
+    return Text(status, style=_STATUS_COLORS.get(key, "white"))
+
+
+def _count_text(value: int) -> Text:
+    """Red when there is something to worry about (errors/invalids), dim otherwise."""
+    return Text(str(value), style="red" if value > 0 else "grey58")
+
+
+def _latency_text(value: float | None) -> Text:
+    if not isinstance(value, (int, float)):
+        return Text("-", style="grey58")
+    return Text(f"{value:.0f} ms")
+
+
+def _tokens_text(value: int | None) -> Text:
+    if not isinstance(value, (int, float)) or value == 0:
+        return Text("-", style="grey58")
+    return Text(f"{int(value):,}")
+
+
+def _cost_text(value: float | None) -> Text:
+    if not isinstance(value, (int, float)):
+        return Text("-", style="grey58")
+    return Text(f"${value:.4f}", style="cyan")
 
 
 class ConfirmScreen(ModalScreen[bool]):
@@ -148,6 +202,8 @@ class HelpScreen(ModalScreen[None]):
 
 
 class SentimentBenchmarkApp(App):
+    TITLE = "Sentiment Benchmark"
+    SUB_TITLE = "OpenRouter LLM sentiment evaluation"
     CSS = """
     Screen {
         layout: vertical;
@@ -309,7 +365,7 @@ class SentimentBenchmarkApp(App):
         self._load_session()
 
     def compose(self) -> ComposeResult:
-        yield Header()
+        yield Header(show_clock=True)
         yield Static("", id="status-bar")
         with TabbedContent():
             with TabPane("Dashboard", id="dashboard-tab"):
@@ -423,71 +479,76 @@ class SentimentBenchmarkApp(App):
                     id="hint-sample-per-class",
                     classes="validation-hint",
                 )
-                yield Static("Random seed", classes="field-label")
-                yield Static(
-                    "Controls which rows are selected for pilot runs so experiments are reproducible.",
-                    classes="help",
-                )
-                yield Input(
-                    value="42",
-                    placeholder="seed",
-                    id="seed",
-                    type="integer",
-                    validators=[Integer(minimum=0)],
-                )
-                yield Static(
-                    "Non-negative whole number.",
-                    id="hint-seed",
-                    classes="validation-hint",
-                )
-                yield Static("Concurrency", classes="field-label")
-                yield Static(
-                    "Number of simultaneous API calls. Keep this at 1 unless you are comfortable with rate limits.",
-                    classes="help",
-                )
-                yield Input(
-                    value="1",
-                    placeholder="concurrency",
-                    id="concurrency",
-                    type="integer",
-                    validators=[Integer(minimum=1, maximum=64)],
-                )
-                yield Static(
-                    "Whole number between 1 and 64.",
-                    id="hint-concurrency",
-                    classes="validation-hint",
-                )
-                yield Static("Temperature", classes="field-label")
-                yield Static("0 is recommended for deterministic classification.", classes="help")
-                yield Input(
-                    value="0",
-                    placeholder="temperature",
-                    id="temperature",
-                    type="number",
-                    validators=[Number(minimum=0.0, maximum=2.0)],
-                )
-                yield Static(
-                    "Number between 0.0 and 2.0.",
-                    id="hint-temperature",
-                    classes="validation-hint",
-                )
-                yield Static("Max completion tokens", classes="field-label")
-                yield Static(
-                    "64 is recommended. Some reasoning-capable models reject tiny limits or spend them before emitting a label.",
-                    classes="help",
-                )
-                yield Input(
-                    value=str(DEFAULT_MAX_COMPLETION_TOKENS),
-                    placeholder="max completion tokens",
-                    id="max-tokens",
-                    type="integer",
-                    validators=[Integer(minimum=16, maximum=8192)],
-                )
-                yield Static(
-                    "Whole number between 16 and 8192.",
-                    id="hint-max-tokens",
-                    classes="validation-hint",
-                )
+                with Collapsible(
+                    title="Advanced settings — seed, concurrency, temperature, tokens",
+                    collapsed=True,
+                    id="advanced-settings",
+                ):
+                    yield Static("Random seed", classes="field-label")
+                    yield Static(
+                        "Controls which rows are selected for pilot runs so experiments are reproducible.",
+                        classes="help",
+                    )
+                    yield Input(
+                        value="42",
+                        placeholder="seed",
+                        id="seed",
+                        type="integer",
+                        validators=[Integer(minimum=0)],
+                    )
+                    yield Static(
+                        "Non-negative whole number.",
+                        id="hint-seed",
+                        classes="validation-hint",
+                    )
+                    yield Static("Concurrency", classes="field-label")
+                    yield Static(
+                        "Number of simultaneous API calls. Keep this at 1 unless you are comfortable with rate limits.",
+                        classes="help",
+                    )
+                    yield Input(
+                        value="1",
+                        placeholder="concurrency",
+                        id="concurrency",
+                        type="integer",
+                        validators=[Integer(minimum=1, maximum=64)],
+                    )
+                    yield Static(
+                        "Whole number between 1 and 64.",
+                        id="hint-concurrency",
+                        classes="validation-hint",
+                    )
+                    yield Static("Temperature", classes="field-label")
+                    yield Static("0 is recommended for deterministic classification.", classes="help")
+                    yield Input(
+                        value="0",
+                        placeholder="temperature",
+                        id="temperature",
+                        type="number",
+                        validators=[Number(minimum=0.0, maximum=2.0)],
+                    )
+                    yield Static(
+                        "Number between 0.0 and 2.0.",
+                        id="hint-temperature",
+                        classes="validation-hint",
+                    )
+                    yield Static("Max completion tokens", classes="field-label")
+                    yield Static(
+                        "64 is recommended. Some reasoning-capable models reject tiny limits or spend them before emitting a label.",
+                        classes="help",
+                    )
+                    yield Input(
+                        value=str(DEFAULT_MAX_COMPLETION_TOKENS),
+                        placeholder="max completion tokens",
+                        id="max-tokens",
+                        type="integer",
+                        validators=[Integer(minimum=16, maximum=8192)],
+                    )
+                    yield Static(
+                        "Whole number between 16 and 8192.",
+                        id="hint-max-tokens",
+                        classes="validation-hint",
+                    )
                 yield Static("Baselines", classes="section-title")
                 yield Static(
                     "Non-LLM comparators evaluated on the same rows (uses the run mode, seed, and sample-per-class above). "
@@ -510,7 +571,7 @@ class SentimentBenchmarkApp(App):
                     yield Button("Run Baselines", id="run-baselines", variant="success")
                     yield Button("Cancel Run", id="cancel-run", disabled=True, variant="error")
                 yield Static("Progress", classes="section-title")
-                yield ProgressBar(id="run-progress-bar", total=100, show_percentage=True, show_eta=False)
+                yield ProgressBar(id="run-progress-bar", total=100, show_percentage=True, show_eta=True)
                 yield DataTable(id="run-progress")
                 yield Static("Live log", classes="section-title")
                 yield RichLog(id="monitor", highlight=True, markup=False, wrap=True)
@@ -557,7 +618,7 @@ class SentimentBenchmarkApp(App):
         selected_table.add_columns("Model ID", "Name")
         selected_table.cursor_type = "row"
         metrics = self.query_one("#metrics-table", DataTable)
-        metrics.add_columns("Model", "Scope", "Rows", "Accuracy", "Macro F1", "Invalid", "Errors")
+        metrics.add_columns("Model", "Scope", "Rows", "Accuracy", "Macro F1", "Latency", "Tokens", "Cost", "Invalid", "Errors")
         metrics.cursor_type = "row"
         runs = self.query_one("#runs-table", DataTable)
         runs.add_columns("ID", "Created", "Mode", "Status", "Models")
@@ -569,6 +630,17 @@ class SentimentBenchmarkApp(App):
         misclassified.cursor_type = "row"
         progress = self.query_one("#run-progress", DataTable)
         progress.add_columns("Model", "Done/Total", "Errors", "Avg latency", "Status")
+
+        # Label the free-standing bordered panels so they read as titled cards.
+        for panel_id, title in (
+            ("#dashboard", "Dataset & environment"),
+            ("#prompt-preview", "Active prompt"),
+            ("#misclassified-detail", "Row detail"),
+        ):
+            try:
+                self.query_one(panel_id, Static).border_title = title
+            except Exception:
+                pass
 
         self._refresh_dashboard()
         self._render_selected_table()
@@ -695,7 +767,11 @@ class SentimentBenchmarkApp(App):
                 haystack = f"{model.model_id} {model.name or ''}".lower()
                 if query not in haystack:
                     continue
-            mark = _SELECTED_MARK if model.model_id in selected else _UNSELECTED_MARK
+            mark = (
+                Text(_SELECTED_MARK, style="bold green")
+                if model.model_id in selected
+                else Text(_UNSELECTED_MARK, style="grey58")
+            )
             table.add_row(
                 mark,
                 model.model_id,
@@ -932,7 +1008,7 @@ class SentimentBenchmarkApp(App):
             return
         table.clear()
         for model_id in models:
-            table.add_row(model_id, f"0/{rows_per_model}", "0", "-", "queued", key=model_id)
+            table.add_row(model_id, f"0/{rows_per_model}", _count_text(0), "-", _status_text("queued"), key=model_id)
         try:
             bar = self.query_one("#run-progress-bar", ProgressBar)
             bar.update(total=max(1, rows_per_model * len(models)), progress=0)
@@ -959,9 +1035,9 @@ class SentimentBenchmarkApp(App):
         cells = [
             model_id,
             f"{state['done']}/{self._rows_per_model}",
-            str(state["errors"]),
+            _count_text(state["errors"]),
             avg,
-            state["status"],
+            _status_text(state["status"]),
         ]
         for column_index, value in enumerate(cells):
             try:
@@ -1053,6 +1129,14 @@ class SentimentBenchmarkApp(App):
         if event.input.id in _VALIDATED_INPUTS:
             self._update_validation_hint(event.input.id, event.validation_result)
             self._refresh_stepper()
+            # Surface validation problems hidden inside the collapsed advanced panel.
+            advanced_ids = {"seed", "concurrency", "temperature", "max-tokens"}
+            result = event.validation_result
+            if event.input.id in advanced_ids and result is not None and not result.is_valid:
+                try:
+                    self.query_one("#advanced-settings", Collapsible).collapsed = False
+                except Exception:
+                    pass
 
     def on_radio_set_changed(self, event: RadioSet.Changed) -> None:
         if event.radio_set.id != "run-mode":
@@ -1170,7 +1254,10 @@ class SentimentBenchmarkApp(App):
             return
         self._refresh_prompt_preview()
         self._save_session()
-        self._notify_info("Saved prompt configuration for this TUI session.", title="Prompt saved")
+        self._notify_info(
+            "Saved prompt for this session. Press 4 to configure and start the run.",
+            title="Prompt saved",
+        )
 
     async def _start_run(self) -> None:
         if self._run_in_progress:
@@ -1364,14 +1451,12 @@ class SentimentBenchmarkApp(App):
                 str(run["id"]),
                 created,
                 run["mode"],
-                run["status"],
+                _status_text(run["status"]),
                 preview,
                 key=str(run["id"]),
             )
 
     def _load_metrics_for(self, run_id: int) -> None:
-        import sqlite3
-
         self._active_run_id = run_id
         self._metric_rows = {}
         self._active_metric_model = None
@@ -1384,31 +1469,47 @@ class SentimentBenchmarkApp(App):
         self.query_one("#misclassified-detail", Static).update(
             "Select a misclassified row to inspect the sentence and raw model output."
         )
-        with sqlite3.connect(self.db_path) as connection:
-            rows = connection.execute(
-                "SELECT model_id, scope, metrics_json FROM metrics WHERE run_id = ? ORDER BY model_id, scope",
-                (run_id,),
-            ).fetchall()
-        for model_id, scope, metrics_json in rows:
-            metric = json.loads(metrics_json)
+        try:
+            store = BenchmarkStore(self.db_path)
+            metric_rows = store.fetch_metrics(run_id)
+            cost_by_model = store.run_cost_by_model(run_id)
+        except Exception as exc:
+            self._notify_error(f"Could not load metrics for run {run_id}: {exc}", title="Load failed")
+            return
+
+        parsed = [(row["model_id"], row["scope"], json.loads(row["metrics_json"])) for row in metric_rows]
+        # Highlight the strongest primary-scope model so comparisons are obvious.
+        best_primary = max(
+            (metric["accuracy"] for _, scope, metric in parsed if scope == "primary"),
+            default=None,
+        )
+        # Lead with primary scope, then best accuracy first, so the leaderboard reads top-down.
+        scope_order = {"primary": 0, "all": 1}
+        parsed.sort(key=lambda item: (scope_order.get(item[1], 2), -item[2]["accuracy"], item[0]))
+
+        for model_id, scope, metric in parsed:
             row_key = f"{model_id}|{scope}"
             self._metric_rows[row_key] = metric
+            is_best = scope == "primary" and best_primary is not None and metric["accuracy"] >= best_primary
             metrics_table.add_row(
-                model_id,
+                Text(model_id, style="bold") if is_best else model_id,
                 scope,
                 str(metric["row_count"]),
-                f"{metric['accuracy']:.4f}",
-                f"{metric['macro_f1']:.4f}",
-                str(metric["invalid_output_count"]),
-                str(metric["api_error_count"]),
+                _accuracy_text(metric["accuracy"], bold=is_best),
+                _accuracy_text(metric["macro_f1"]),
+                _latency_text(metric.get("mean_latency_ms")),
+                _tokens_text(metric.get("total_tokens")),
+                _cost_text(cost_by_model.get(model_id)),
+                _count_text(metric["invalid_output_count"]),
+                _count_text(metric["api_error_count"]),
                 key=row_key,
             )
-        if not rows:
+        if not parsed:
             self._set_monitor(
                 f"No metrics found for run {run_id}. The run may still be running or may have failed before metrics were saved."
             )
         else:
-            self._set_monitor(f"Loaded {len(rows)} metric rows for run {run_id}.")
+            self._set_monitor(f"Loaded {len(parsed)} metric rows for run {run_id}.")
             self._refresh_misclassifications()
 
     def _show_per_class(self, metric: dict) -> None:
@@ -1450,9 +1551,9 @@ class SentimentBenchmarkApp(App):
             table.add_row(
                 str(record.get("row_number")),
                 str(record.get("model_id")),
-                str(record.get("hidden_label")),
-                str(predicted),
-                str(record.get("status")),
+                Text(str(record.get("hidden_label")), style="green"),
+                Text(str(predicted), style="red"),
+                _status_text(str(record.get("status"))),
                 sentence,
                 key=row_key,
             )

@@ -433,6 +433,28 @@ class BenchmarkStore:
                 (run_id, result.model_id, result.scope, json.dumps(asdict(result), sort_keys=True), utc_now()),
             )
 
+    def fetch_metrics(self, run_id: int) -> list[sqlite3.Row]:
+        with self.connect() as connection:
+            rows = connection.execute(
+                "SELECT model_id, scope, metrics_json FROM metrics WHERE run_id = ? ORDER BY model_id, scope",
+                (run_id,),
+            ).fetchall()
+        return list(rows)
+
+    def run_cost_by_model(self, run_id: int) -> dict[str, float]:
+        """Sum the observed OpenRouter cost per model for a run, if recorded."""
+        with self.connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT model_id, SUM(total_cost) AS cost
+                FROM generation_metadata
+                WHERE run_id = ? AND total_cost IS NOT NULL
+                GROUP BY model_id
+                """,
+                (run_id,),
+            ).fetchall()
+        return {row["model_id"]: float(row["cost"]) for row in rows if row["cost"] is not None}
+
     def list_runs(self) -> list[sqlite3.Row]:
         with self.connect() as connection:
             rows = connection.execute(

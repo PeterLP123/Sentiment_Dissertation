@@ -257,6 +257,32 @@ def test_tui_runs_table_loads_metrics_and_per_class(tmp_path: Path) -> None:
     asyncio.run(scenario())
 
 
+def test_tui_metrics_table_shows_latency_tokens_and_cost(tmp_path: Path) -> None:
+    db_path = tmp_path / "bench.sqlite"
+    run_id = _seed_run_with_metrics(db_path)
+    store = BenchmarkStore(db_path)
+    store.save_generation_metadata(run_id, 1, "openai/test-model", "gen-1", {"total_cost": 0.0025})
+
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        app.db_path = db_path
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            app._load_metrics_for(run_id)
+
+            metrics_table = app.query_one("#metrics-table", DataTable)
+            assert len(metrics_table.columns) == 10
+            assert metrics_table.row_count == 1
+
+            row = metrics_table.get_row("openai/test-model|primary")
+            rendered = [str(cell) for cell in row]
+            assert "990" in rendered  # total tokens
+            assert "120 ms" in rendered  # mean latency
+            assert "$0.0025" in rendered  # observed cost
+
+    asyncio.run(scenario())
+
+
 def test_tui_loads_misclassified_rows_and_details(tmp_path: Path) -> None:
     db_path = tmp_path / "bench.sqlite"
     run_id = _seed_run_with_misclassifications(db_path)

@@ -1,5 +1,5 @@
 from sentiment_benchmark.metrics import evaluate_responses
-from sentiment_benchmark.models import DatasetRow, LLMResponseRecord
+from sentiment_benchmark.models import DatasetRow, EvaluationResult, LLMResponseRecord
 from sentiment_benchmark.storage import BenchmarkStore
 
 
@@ -67,4 +67,49 @@ def test_metrics_counts_invalid_as_wrong_and_excludes_conflicts() -> None:
     assert primary.accuracy == 0.5
     assert primary.invalid_output_count == 1
     assert audit.row_count == 3
+
+
+def _eval_result(model_id: str, scope: str, accuracy: float) -> EvaluationResult:
+    return EvaluationResult(
+        model_id=model_id,
+        scope=scope,
+        row_count=10,
+        accuracy=accuracy,
+        macro_f1=accuracy,
+        weighted_f1=accuracy,
+        per_class={},
+        confusion_matrix={},
+        invalid_output_count=0,
+        api_error_count=0,
+        mean_latency_ms=100.0,
+        total_prompt_tokens=10,
+        total_completion_tokens=10,
+        total_tokens=20,
+    )
+
+
+def test_fetch_metrics_returns_all_scopes(tmp_path) -> None:
+    store = BenchmarkStore(tmp_path / "test.sqlite")
+    store.initialize()
+    store.save_metrics(1, _eval_result("a/model", "primary", 0.9))
+    store.save_metrics(1, _eval_result("a/model", "all", 0.8))
+    store.save_metrics(2, _eval_result("b/model", "primary", 0.5))
+
+    rows = store.fetch_metrics(1)
+    assert {(row["model_id"], row["scope"]) for row in rows} == {("a/model", "primary"), ("a/model", "all")}
+
+
+def test_run_cost_by_model_sums_recorded_generation_cost(tmp_path) -> None:
+    store = BenchmarkStore(tmp_path / "test.sqlite")
+    store.initialize()
+    store.save_generation_metadata(1, 2, "a/model", "gen-1", {"total_cost": 0.001})
+    store.save_generation_metadata(1, 3, "a/model", "gen-2", {"total_cost": 0.002})
+    store.save_generation_metadata(1, 4, "b/model", "gen-3", {"total_cost": 0.005})
+    # Missing cost should be ignored rather than counted as zero.
+    store.save_generation_metadata(1, 5, "b/model", "gen-4", {})
+
+    costs = store.run_cost_by_model(1)
+    assert costs["a/model"] == 0.003
+    assert costs["b/model"] == 0.005
+    assert store.run_cost_by_model(99) == {}
 
