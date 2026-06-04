@@ -65,8 +65,66 @@ def test_metrics_counts_invalid_as_wrong_and_excludes_conflicts() -> None:
     audit = evaluate_responses(rows, responses, "test/model", scope="all")
     assert primary.row_count == 2
     assert primary.accuracy == 0.5
+    assert primary.balanced_accuracy == 0.5
+    assert primary.mcc == 0.0
     assert primary.invalid_output_count == 1
     assert audit.row_count == 3
+
+
+def test_balanced_accuracy_and_mcc_count_invalid_as_wrong() -> None:
+    rows = [
+        DatasetRow(1, "a", "positive", False, False, 1),
+        DatasetRow(2, "b", "negative", False, False, 1),
+        DatasetRow(3, "c", "neutral", False, False, 1),
+        DatasetRow(4, "d", "positive", False, False, 1),
+    ]
+    responses = [
+        {
+            "row_number": 1,
+            "status": "success",
+            "parse_status": "valid",
+            "normalized_label": "positive",
+            "latency_ms": 1,
+            "prompt_tokens": 1,
+            "completion_tokens": 1,
+            "total_tokens": 2,
+        },
+        {
+            "row_number": 2,
+            "status": "success",
+            "parse_status": "invalid",
+            "normalized_label": None,
+            "latency_ms": 1,
+            "prompt_tokens": 1,
+            "completion_tokens": 1,
+            "total_tokens": 2,
+        },
+        {
+            "row_number": 3,
+            "status": "success",
+            "parse_status": "valid",
+            "normalized_label": "neutral",
+            "latency_ms": 1,
+            "prompt_tokens": 1,
+            "completion_tokens": 1,
+            "total_tokens": 2,
+        },
+        {
+            "row_number": 4,
+            "status": "api_error",
+            "parse_status": "error",
+            "normalized_label": None,
+            "latency_ms": 1,
+            "prompt_tokens": 1,
+            "completion_tokens": 1,
+            "total_tokens": 2,
+        },
+    ]
+    result = evaluate_responses(rows, responses, "test/model", scope="primary")
+    assert result.accuracy == 0.5
+    # Scored only over ALLOWED_LABELS: invalid/error map to a wrong class, not extra categories.
+    assert result.balanced_accuracy == 0.5
+    assert result.mcc == 0.2
 
 
 def _eval_result(model_id: str, scope: str, accuracy: float) -> EvaluationResult:
@@ -75,6 +133,8 @@ def _eval_result(model_id: str, scope: str, accuracy: float) -> EvaluationResult
         scope=scope,
         row_count=10,
         accuracy=accuracy,
+        balanced_accuracy=accuracy,
+        mcc=accuracy,
         macro_f1=accuracy,
         weighted_f1=accuracy,
         per_class={},

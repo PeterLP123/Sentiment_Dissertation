@@ -2,14 +2,16 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from .budgets import resolve_max_completion_tokens
 from .dataset import load_dataset, select_rows
+from .demonstrations import demonstration_pool, select_demonstrations
 from .metrics import evaluate_responses
-from .models import BlindExample, RunConfig
+from .models import BlindExample, DatasetRow, PromptConfig, RunConfig, RunResumeSettings
 from .openrouter import OpenRouterClient
+from .prompts import with_demonstrations
 from .storage import BenchmarkStore
 
 ProgressCallback = Callable[[str], None | Awaitable[None]]
@@ -44,6 +46,52 @@ class BenchmarkRunner:
         if result is not None:
             await result
 
+    @staticmethod
+    def _build_prompt(config: RunConfig, rows: list[DatasetRow], selected_rows: list[DatasetRow]) -> PromptConfig:
+        if config.few_shot_k <= 0:
+            return config.prompt
+        seed = config.few_shot_seed if config.few_shot_seed is not None else config.seed
+        pool = demonstration_pool(rows, [row.row_number for row in selected_rows])
+        demonstrations = select_demonstrations(pool, config.few_shot_k, seed)
+        return with_demonstrations(config.prompt, demonstrations, seed)
+
+    def _resolve_selected_rows(
+        self,
+        rows: list[DatasetRow],
+        config: RunConfig,
+        resume_run_id: int | None,
+    ) -> tuple[RunConfig, list[DatasetRow], RunResumeSettings | None]:
+        if resume_run_id is None:
+            selected = select_rows(rows, config.mode, config.sample_per_class, config.seed)
+            return config, selected, None
+
+        resume_settings = self.store.get_run_resume_settings(resume_run_id)
+        config = replace(
+            config,
+            few_shot_k=resume_settings.few_shot_k,
+            few_shot_seed=resume_settings.few_shot_seed,
+        )
+        selected_numbers = set(self.store.get_run_selected_rows(resume_run_id))
+        selected = [row for row in rows if row.row_number in selected_numbers]
+        return config, selected, resume_settings
+
+    def _apply_prompt(
+        self,
+        config: RunConfig,
+        rows: list[DatasetRow],
+        selected_rows: list[DatasetRow],
+        resume_run_id: int | None,
+        resume_settings: RunResumeSettings | None,
+    ) -> RunConfig:
+        config = replace(config, prompt=self._build_prompt(config, rows, selected_rows))
+        if resume_settings is not None and config.prompt.prompt_hash != resume_settings.prompt_hash:
+            raise ValueError(
+                f"Rebuilt prompt hash {config.prompt.prompt_hash!r} does not match run {resume_run_id} "
+                f"stored hash {resume_settings.prompt_hash!r}. Use the same dataset, seed, and row selection."
+            )
+        self.store.save_prompt(config.prompt)
+        return config
+
     async def run(
         self,
         config: RunConfig,
@@ -55,14 +103,13 @@ class BenchmarkRunner:
         self.store.initialize()
         rows = load_dataset(config.dataset_path)
         self.store.upsert_dataset(rows, config.dataset_path)
-        self.store.save_prompt(config.prompt)
+
+        config, selected_rows, resume_settings = self._resolve_selected_rows(rows, config, resume_run_id)
+        config = self._apply_prompt(config, rows, selected_rows, resume_run_id, resume_settings)
 
         if resume_run_id is None:
-            selected_rows = select_rows(rows, config.mode, config.sample_per_class, config.seed)
             run_id = self.store.create_run(config, [row.row_number for row in selected_rows])
         else:
-            selected_numbers = set(self.store.get_run_selected_rows(resume_run_id))
-            selected_rows = [row for row in rows if row.row_number in selected_numbers]
             run_id = resume_run_id
 
         selected_by_number = {row.row_number: row for row in selected_rows}

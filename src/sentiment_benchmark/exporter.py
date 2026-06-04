@@ -4,6 +4,7 @@ import hashlib
 import json
 import math
 import sqlite3
+from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -11,6 +12,8 @@ from typing import Any
 import pandas as pd
 
 from . import __version__
+from .agreement import compute_agreement
+from .constants import ALLOWED_LABELS, is_valid_label
 from .metrics import _response_prediction, bootstrap_metric_ci, load_metric_json, mcnemar_test
 from .plotting import generate_figures
 
@@ -29,7 +32,13 @@ def _row_prediction(row: dict[str, Any]) -> str:
 
 
 def _compute_statistics(responses: pd.DataFrame, seed: int) -> dict[str, Any]:
-    payload: dict[str, Any] = {"scope": "primary", "seed": seed, "per_model": {}, "pairwise_mcnemar": []}
+    payload: dict[str, Any] = {
+        "scope": "primary",
+        "seed": seed,
+        "per_model": {},
+        "pairwise_mcnemar": [],
+        "agreement": None,
+    }
     if responses.empty or "has_conflicting_duplicate" not in responses.columns:
         return payload
 
@@ -37,6 +46,7 @@ def _compute_statistics(responses: pd.DataFrame, seed: int) -> dict[str, Any]:
     if primary.empty:
         return payload
 
+    predictions_by_model: dict[str, dict[int, str]] = {}
     aligned: dict[str, dict[int, tuple[str, str]]] = {}
     for model_id, group in primary.groupby("model_id"):
         records = group.to_dict(orient="records")
@@ -51,6 +61,13 @@ def _compute_statistics(responses: pd.DataFrame, seed: int) -> dict[str, Any]:
             int(record["row_number"]): (str(record["hidden_label"]), prediction)
             for record, prediction in zip(records, y_pred, strict=True)
         }
+        valid = {
+            int(record["row_number"]): prediction
+            for record, prediction in zip(records, y_pred, strict=True)
+            if is_valid_label(prediction)
+        }
+        if valid:
+            predictions_by_model[str(model_id)] = valid
 
     model_ids = sorted(aligned)
     for first_index in range(len(model_ids)):
@@ -65,6 +82,9 @@ def _compute_statistics(responses: pd.DataFrame, seed: int) -> dict[str, Any]:
             y_pred_b = [aligned[model_b][row_number][1] for row_number in common]
             result = mcnemar_test(y_true, y_pred_a, y_pred_b)
             payload["pairwise_mcnemar"].append({"model_a": model_a, "model_b": model_b, **result})
+
+    if len(predictions_by_model) >= 2:
+        payload["agreement"] = asdict(compute_agreement(predictions_by_model))
     return payload
 
 
@@ -213,6 +233,8 @@ def export_run(db_path: str | Path, run_id: int, output_dir: str | Path | None =
                     "",
                     f"- Rows: {metric['row_count']}",
                     f"- Accuracy: {metric['accuracy']:.4f}",
+                    f"- Balanced accuracy: {metric.get('balanced_accuracy', 0.0):.4f}",
+                    f"- MCC: {metric.get('mcc', 0.0):.4f}",
                     f"- Macro F1: {metric['macro_f1']:.4f}",
                     f"- Weighted F1: {metric['weighted_f1']:.4f}",
                     f"- Invalid outputs: {metric['invalid_output_count']}",
@@ -248,6 +270,27 @@ def export_run(db_path: str | Path, run_id: int, output_dir: str | Path | None =
                     f"(n_discordant = {pair['n_discordant']}, {pair['method']})"
                 )
             lines.append("")
+    agreement = statistics.get("agreement")
+    if agreement:
+        def _fmt(value: float | None) -> str:
+            return f"{value:.4f}" if isinstance(value, (int, float)) else "n/a"
+
+        lines.extend(
+            [
+                "## Inter-model agreement (primary scope)",
+                "",
+                f"- Raters (models): {agreement['n_raters']}",
+                f"- Observed agreement: {_fmt(agreement['observed_agreement'])}",
+                f"- Fleiss' kappa: {_fmt(agreement['fleiss_kappa'])}",
+                f"- Krippendorff's alpha: {_fmt(agreement['krippendorff_alpha'])}",
+                "",
+            ]
+        )
+        for pair in agreement["pairwise_cohen_kappa"]:
+            lines.append(
+                f"- Cohen's kappa {pair['rater_a']} vs {pair['rater_b']}: {pair['kappa']:.4f} (n = {pair['n']})"
+            )
+        lines.append("")
     summary_path.write_text("\n".join(lines), encoding="utf-8")
     paths.append(summary_path)
 

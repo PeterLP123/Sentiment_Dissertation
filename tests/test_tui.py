@@ -51,6 +51,8 @@ def _seed_run_with_metrics(db_path: Path, model_id: str = "openai/test-model") -
         scope="primary",
         row_count=90,
         accuracy=0.8,
+        balanced_accuracy=0.78,
+        mcc=0.7,
         macro_f1=0.79,
         weighted_f1=0.81,
         per_class={
@@ -295,6 +297,8 @@ def test_tui_metric_selection_populates_confusion_matrix(tmp_path: Path) -> None
             scope="primary",
             row_count=4,
             accuracy=0.75,
+            balanced_accuracy=0.66,
+            mcc=0.6,
             macro_f1=0.7,
             weighted_f1=0.72,
             per_class={"positive": {"precision": 1.0, "recall": 1.0, "f1": 1.0, "support": 2.0}},
