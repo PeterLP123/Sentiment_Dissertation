@@ -57,7 +57,7 @@ class RunConfig:
     sample_per_class: int = 30
     seed: int = 42
     temperature: float = 0.0
-    max_completion_tokens: int = 8
+    max_completion_tokens: int = 64
     concurrency: int = 1
     retries: int = 3
 
@@ -104,4 +104,3 @@ class EvaluationResult:
     total_prompt_tokens: int
     total_completion_tokens: int
     total_tokens: int
-

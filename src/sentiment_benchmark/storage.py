@@ -343,6 +343,54 @@ class BenchmarkStore:
             ).fetchall()
         return list(rows)
 
+    def fetch_misclassifications(
+        self,
+        run_id: int,
+        model_id: str | None = None,
+        scope: str = "all",
+        limit: int = 500,
+    ) -> list[sqlite3.Row]:
+        filters = ["r.run_id = ?"]
+        params: list[Any] = [run_id]
+        if model_id:
+            filters.append("r.model_id = ?")
+            params.append(model_id)
+        if scope == "primary":
+            filters.append("d.has_conflicting_duplicate = 0")
+        params.append(limit)
+        where = " AND ".join(filters)
+        with self.connect() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT
+                    r.row_number,
+                    r.model_id,
+                    d.hidden_label,
+                    r.normalized_label,
+                    r.parse_status,
+                    r.status,
+                    r.raw_content,
+                    r.error,
+                    r.latency_ms,
+                    d.sentence,
+                    d.has_conflicting_duplicate,
+                    d.duplicate_group_size
+                FROM responses r
+                JOIN dataset_items d ON d.row_number = r.row_number
+                WHERE {where}
+                  AND (
+                    r.status != 'success'
+                    OR r.parse_status != 'valid'
+                    OR r.normalized_label IS NULL
+                    OR r.normalized_label != d.hidden_label
+                  )
+                ORDER BY r.model_id, r.row_number
+                LIMIT ?
+                """,
+                params,
+            ).fetchall()
+        return list(rows)
+
     def save_metrics(self, run_id: int, result: EvaluationResult) -> None:
         with self.connect() as connection:
             connection.execute(
@@ -367,4 +415,3 @@ class BenchmarkStore:
                 """
             ).fetchall()
         return list(rows)
-

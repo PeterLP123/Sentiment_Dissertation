@@ -5,7 +5,7 @@ from pathlib import Path
 
 from textual.widgets import Button, DataTable, Input, ProgressBar, Static
 
-from sentiment_benchmark.models import EvaluationResult, ModelConfig, PromptConfig
+from sentiment_benchmark.models import DatasetRow, EvaluationResult, LLMResponseRecord, ModelConfig, PromptConfig
 from sentiment_benchmark.storage import BenchmarkStore
 from sentiment_benchmark.tui import SentimentBenchmarkApp
 
@@ -65,6 +65,56 @@ def _seed_run_with_metrics(db_path: Path, model_id: str = "openai/test-model") -
         total_tokens=990,
     )
     store.save_metrics(run_id, result)
+    return run_id
+
+
+def _seed_run_with_misclassifications(db_path: Path, model_id: str = "openai/test-model") -> int:
+    run_id = _seed_run_with_metrics(db_path, model_id=model_id)
+    store = BenchmarkStore(db_path)
+    store.upsert_dataset(
+        [
+            DatasetRow(1, "Share price rose after earnings.", "positive", False, False, 1),
+            DatasetRow(2, "Guidance was cut sharply.", "negative", False, False, 1),
+            DatasetRow(3, "The company opened a new office.", "neutral", False, False, 1),
+        ],
+        "Data/data.csv",
+    )
+    store.save_response(
+        run_id,
+        LLMResponseRecord(
+            row_number=1,
+            model_id=model_id,
+            prompt_hash="hash123456",
+            raw_content="positive",
+            normalized_label="positive",
+            parse_status="valid",
+            status="success",
+        ),
+    )
+    store.save_response(
+        run_id,
+        LLMResponseRecord(
+            row_number=2,
+            model_id=model_id,
+            prompt_hash="hash123456",
+            raw_content="positive",
+            normalized_label="positive",
+            parse_status="valid",
+            status="success",
+        ),
+    )
+    store.save_response(
+        run_id,
+        LLMResponseRecord(
+            row_number=3,
+            model_id=model_id,
+            prompt_hash="hash123456",
+            raw_content="I think this is mixed.",
+            normalized_label=None,
+            parse_status="invalid",
+            status="success",
+        ),
+    )
     return run_id
 
 
@@ -201,6 +251,30 @@ def test_tui_runs_table_loads_metrics_and_per_class(tmp_path: Path) -> None:
 
             perclass = app.query_one("#perclass-table", DataTable)
             assert perclass.row_count == 3
+
+    asyncio.run(scenario())
+
+
+def test_tui_loads_misclassified_rows_and_details(tmp_path: Path) -> None:
+    db_path = tmp_path / "bench.sqlite"
+    run_id = _seed_run_with_misclassifications(db_path)
+
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        app.db_path = db_path
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            app._load_metrics_for(run_id)
+
+            misclassified = app.query_one("#misclassified-table", DataTable)
+            assert misclassified.row_count == 2
+
+            row_key = next(iter(misclassified.rows))
+            app.on_data_table_row_selected(DataTable.RowSelected(misclassified, 0, row_key))
+
+            detail = app.query_one("#misclassified-detail", Static)
+            assert "Actual: negative" in str(detail.content)
+            assert "Guidance was cut sharply." in str(detail.content)
 
     asyncio.run(scenario())
 
@@ -367,4 +441,3 @@ def test_tui_refresh_action_notifies(tmp_path: Path) -> None:
             )
 
     asyncio.run(scenario())
-

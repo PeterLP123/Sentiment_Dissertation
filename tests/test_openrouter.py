@@ -80,3 +80,34 @@ def test_openrouter_invalid_model_returns_api_error() -> None:
 
     run(scenario())
 
+
+def test_openrouter_malformed_length_response_mentions_token_limit() -> None:
+    async def scenario():
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "id": "gen-3",
+                    "choices": [
+                        {
+                            "finish_reason": "length",
+                            "native_finish_reason": "MAX_TOKENS",
+                            "message": {
+                                "role": "assistant",
+                                "content": None,
+                                "reasoning": "Thinking used the available token budget.",
+                            },
+                        }
+                    ],
+                },
+            )
+
+        client = make_client(handler)
+        prompt = make_prompt("test", "Return a label.", "Sentence:\n{sentence}\n\nSentiment label:", "label_only")
+        record = await client.classify("test/model", prompt, BlindExample(2, "sentence"), retries=1)
+        await client._client.aclose()  # type: ignore[union-attr]
+        assert record.status == "malformed_response"
+        assert "MAX_TOKENS" in (record.error or "")
+        assert "increase max_completion_tokens" in (record.error or "")
+
+    run(scenario())

@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 
+from rich.markup import escape
 from textual.app import App, ComposeResult
 from textual.validation import Integer, Number, ValidationResult
 from textual.containers import Container, Horizontal
@@ -27,7 +28,13 @@ from textual.widgets import (
     TextArea,
 )
 
-from .constants import DEFAULT_BASE_URL, DEFAULT_DATASET_PATH, DEFAULT_DB_PATH, DEFAULT_PROMPTS_PATH
+from .constants import (
+    DEFAULT_BASE_URL,
+    DEFAULT_DATASET_PATH,
+    DEFAULT_DB_PATH,
+    DEFAULT_MAX_COMPLETION_TOKENS,
+    DEFAULT_PROMPTS_PATH,
+)
 from .dataset import compute_stats, load_dataset
 from .env import load_env_file
 from .exporter import export_run
@@ -204,6 +211,32 @@ class SentimentBenchmarkApp(App):
         margin-bottom: 1;
         border: solid $accent;
     }
+    #runs-table {
+        height: auto;
+        max-height: 10;
+        margin-bottom: 1;
+    }
+    #metrics-table {
+        height: auto;
+        max-height: 10;
+        margin-bottom: 1;
+    }
+    #perclass-table {
+        height: auto;
+        max-height: 8;
+        margin-bottom: 1;
+    }
+    #misclassified-table {
+        height: auto;
+        max-height: 12;
+        margin-bottom: 1;
+    }
+    #misclassified-detail {
+        border: solid $accent;
+        padding: 1;
+        min-height: 8;
+        margin-bottom: 1;
+    }
     #run-controls {
         height: auto;
         margin-bottom: 1;
@@ -242,9 +275,13 @@ class SentimentBenchmarkApp(App):
         self._active_run_id: int | None = None
         self._metric_rows: dict[str, dict] = {}
         self._cancel_event: asyncio.Event | None = None
+        self._run_task: asyncio.Task | None = None
         self._run_in_progress: bool = False
         self._progress: dict[str, dict] = {}
         self._rows_per_model: int = 0
+        self._active_metric_model: str | None = None
+        self._active_metric_scope: str = "all"
+        self._misclassification_rows: dict[str, dict] = {}
         self.notifications: list[tuple[str, str]] = []
         self._load_session()
 
@@ -412,16 +449,19 @@ class SentimentBenchmarkApp(App):
                     classes="validation-hint",
                 )
                 yield Static("Max completion tokens", classes="field-label")
-                yield Static("8 is enough for label-only output. Increase for explanation mode.", classes="help")
+                yield Static(
+                    "64 is recommended. Some reasoning-capable models reject tiny limits or spend them before emitting a label.",
+                    classes="help",
+                )
                 yield Input(
-                    value="8",
+                    value=str(DEFAULT_MAX_COMPLETION_TOKENS),
                     placeholder="max completion tokens",
                     id="max-tokens",
                     type="integer",
-                    validators=[Integer(minimum=1, maximum=8192)],
+                    validators=[Integer(minimum=16, maximum=8192)],
                 )
                 yield Static(
-                    "Whole number between 1 and 8192.",
+                    "Whole number between 16 and 8192.",
                     id="hint-max-tokens",
                     classes="validation-hint",
                 )
@@ -456,6 +496,16 @@ class SentimentBenchmarkApp(App):
                 yield DataTable(id="metrics-table")
                 yield Static("Per-class breakdown", classes="section-title")
                 yield DataTable(id="perclass-table")
+                yield Static("Misclassified and failed rows", classes="section-title")
+                yield Static(
+                    "Load a run to see mismatches. Select a metric row to filter by model/scope; press Enter on a row for details.",
+                    classes="help",
+                )
+                yield DataTable(id="misclassified-table")
+                yield Static(
+                    "Select a misclassified row to inspect the sentence and raw model output.",
+                    id="misclassified-detail",
+                )
         yield Footer()
 
     def on_mount(self) -> None:
@@ -473,6 +523,9 @@ class SentimentBenchmarkApp(App):
         runs.cursor_type = "row"
         perclass = self.query_one("#perclass-table", DataTable)
         perclass.add_columns("Class", "Precision", "Recall", "F1", "Support")
+        misclassified = self.query_one("#misclassified-table", DataTable)
+        misclassified.add_columns("Row", "Model", "Actual", "Predicted", "Status", "Sentence")
+        misclassified.cursor_type = "row"
         progress = self.query_one("#run-progress", DataTable)
         progress.add_columns("Model", "Done/Total", "Errors", "Avg latency", "Status")
 
@@ -493,7 +546,8 @@ class SentimentBenchmarkApp(App):
             log = self.query_one("#monitor", RichLog)
         except Exception:
             return
-        log.write(message)
+        should_follow = bool(log.is_vertical_scroll_end)
+        log.write(message, scroll_end=should_follow)
 
     def _notify_error(self, message: str, *, title: str = "Error") -> None:
         self.notifications.append(("error", message))
@@ -984,6 +1038,16 @@ class SentimentBenchmarkApp(App):
             metric = self._metric_rows.get(str(key))
             if metric is not None:
                 self._show_per_class(metric)
+                self._active_metric_model = str(metric.get("model_id") or "") or None
+                self._active_metric_scope = str(metric.get("scope") or "all")
+                self._refresh_misclassifications()
+        elif table_id == "misclassified-table":
+            key = event.row_key.value
+            if key is None:
+                return
+            row = self._misclassification_rows.get(str(key))
+            if row is not None:
+                self._show_misclassification_detail(row)
 
     async def _fetch_models(self) -> None:
         try:
@@ -1062,10 +1126,6 @@ class SentimentBenchmarkApp(App):
                 self._set_monitor("Run cancelled before it started.")
                 return
 
-        store = BenchmarkStore(self.db_path)
-        client = OpenRouterClient(base_url=self.base_url)
-        runner = BenchmarkRunner(client=client, store=store)
-
         self._cancel_event = asyncio.Event()
         self._run_in_progress = True
         try:
@@ -1074,6 +1134,12 @@ class SentimentBenchmarkApp(App):
             pass
         self._refresh_stepper()
         self._set_monitor("Starting benchmark run...")
+        self._run_task = asyncio.create_task(self._run_benchmark(config))
+
+    async def _run_benchmark(self, config: RunConfig) -> None:
+        store = BenchmarkStore(self.db_path)
+        client = OpenRouterClient(base_url=self.base_url)
+        runner = BenchmarkRunner(client=client, store=store)
         try:
             summary = await runner.run(
                 config,
@@ -1089,6 +1155,7 @@ class SentimentBenchmarkApp(App):
         finally:
             self._run_in_progress = False
             self._cancel_event = None
+            self._run_task = None
             try:
                 self.query_one("#cancel-run", Button).disabled = True
             except Exception:
@@ -1137,9 +1204,16 @@ class SentimentBenchmarkApp(App):
 
         self._active_run_id = run_id
         self._metric_rows = {}
+        self._active_metric_model = None
+        self._active_metric_scope = "all"
         metrics_table = self.query_one("#metrics-table", DataTable)
         metrics_table.clear()
         self.query_one("#perclass-table", DataTable).clear()
+        self.query_one("#misclassified-table", DataTable).clear()
+        self._misclassification_rows = {}
+        self.query_one("#misclassified-detail", Static).update(
+            "Select a misclassified row to inspect the sentence and raw model output."
+        )
         with sqlite3.connect(self.db_path) as connection:
             rows = connection.execute(
                 "SELECT model_id, scope, metrics_json FROM metrics WHERE run_id = ? ORDER BY model_id, scope",
@@ -1165,6 +1239,7 @@ class SentimentBenchmarkApp(App):
             )
         else:
             self._set_monitor(f"Loaded {len(rows)} metric rows for run {run_id}.")
+            self._refresh_misclassifications()
 
     def _show_per_class(self, metric: dict) -> None:
         table = self.query_one("#perclass-table", DataTable)
@@ -1178,6 +1253,71 @@ class SentimentBenchmarkApp(App):
                 f"{float(scores.get('f1', 0.0)):.4f}",
                 str(int(float(scores.get('support', 0.0)))),
             )
+
+    def _refresh_misclassifications(self) -> None:
+        table = self.query_one("#misclassified-table", DataTable)
+        table.clear()
+        self._misclassification_rows = {}
+        if self._active_run_id is None:
+            return
+        try:
+            rows = BenchmarkStore(self.db_path).fetch_misclassifications(
+                self._active_run_id,
+                model_id=self._active_metric_model,
+                scope=self._active_metric_scope,
+            )
+        except Exception as exc:
+            self._notify_error(f"Could not load misclassified rows: {exc}", title="Load failed")
+            return
+        for index, row in enumerate(rows):
+            record = dict(row)
+            row_key = f"{record['model_id']}|{record['row_number']}|{index}"
+            self._misclassification_rows[row_key] = record
+            predicted = record.get("normalized_label") or "__invalid__"
+            sentence = str(record.get("sentence") or "").replace("\n", " ")
+            if len(sentence) > 96:
+                sentence = sentence[:93] + "..."
+            table.add_row(
+                str(record.get("row_number")),
+                str(record.get("model_id")),
+                str(record.get("hidden_label")),
+                str(predicted),
+                str(record.get("status")),
+                sentence,
+                key=row_key,
+            )
+        detail = self.query_one("#misclassified-detail", Static)
+        model = self._active_metric_model or "all models"
+        scope = self._active_metric_scope
+        if rows:
+            detail.update(
+                f"Loaded {len(rows)} misclassified/failed row(s) for {escape(model)} ({escape(scope)} scope)."
+            )
+        else:
+            detail.update(f"No misclassified or failed rows found for {escape(model)} ({escape(scope)} scope).")
+
+    def _show_misclassification_detail(self, row: dict) -> None:
+        raw_content = str(row.get("raw_content") or "")
+        if len(raw_content) > 1200:
+            raw_content = raw_content[:1200] + "\n..."
+        error = str(row.get("error") or "")
+        if len(error) > 500:
+            error = error[:500] + "\n..."
+        detail_lines = [
+            f"Row: {row.get('row_number')} | Model: {row.get('model_id')}",
+            f"Actual: {row.get('hidden_label')} | Predicted: {row.get('normalized_label') or '__invalid__'}",
+            f"Status: {row.get('status')} | Parse: {row.get('parse_status')} | Latency: {row.get('latency_ms') or '-'} ms",
+            f"Conflicting duplicate: {'yes' if row.get('has_conflicting_duplicate') else 'no'} | Duplicate group: {row.get('duplicate_group_size')}",
+            "",
+            "Sentence:",
+            str(row.get("sentence") or ""),
+            "",
+            "Raw model output:",
+            raw_content or "(empty)",
+        ]
+        if error:
+            detail_lines.extend(["", "Error:", error])
+        self.query_one("#misclassified-detail", Static).update(escape("\n".join(detail_lines)))
 
     def _export_run(self) -> None:
         if self._active_run_id is None:

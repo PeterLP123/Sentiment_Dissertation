@@ -101,7 +101,7 @@ class OpenRouterClient:
         prompt: PromptConfig,
         example: BlindExample,
         temperature: float = 0.0,
-        max_completion_tokens: int = 8,
+        max_completion_tokens: int = 64,
         retries: int = 3,
     ) -> LLMResponseRecord:
         payload = {
@@ -133,6 +133,13 @@ class OpenRouterClient:
             message = choice.get("message") or {}
             raw_content = message.get("content")
             if not isinstance(raw_content, str):
+                finish_reason = choice.get("finish_reason")
+                native_finish_reason = choice.get("native_finish_reason")
+                error = "Response did not contain choices[0].message.content"
+                if finish_reason or native_finish_reason:
+                    error += f" (finish_reason={finish_reason}, native_finish_reason={native_finish_reason})"
+                if finish_reason == "length" or native_finish_reason == "MAX_TOKENS":
+                    error += "; increase max_completion_tokens"
                 return LLMResponseRecord(
                     row_number=example.row_number,
                     model_id=model_id,
@@ -143,7 +150,7 @@ class OpenRouterClient:
                     status="malformed_response",
                     raw_response_json=raw_json,
                     latency_ms=latency_ms,
-                    error="Response did not contain choices[0].message.content",
+                    error=error,
                     generation_id=raw_json.get("id"),
                 )
             parsed = parse_model_response(raw_content, prompt.output_mode)
