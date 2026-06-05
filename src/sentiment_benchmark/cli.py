@@ -38,6 +38,8 @@ from .prompt_sensitivity import SENSITIVITY_METRICS, prompt_sensitivity
 from .prompts import load_prompts
 from .reliability import run_agreement
 from .runner import BenchmarkRunner
+from .sc_runner import SelfConsistencyRunner
+from .self_consistency import SelfConsistencyResult, compute_self_consistency, entropy_from_counts
 from .storage import BenchmarkStore
 
 console = Console()
@@ -588,6 +590,278 @@ def tui() -> None:
     from .tui import SentimentBenchmarkApp
 
     SentimentBenchmarkApp().run()
+
+
+# ------------------------------------------------------------------
+# Self-consistency CLI commands
+# ------------------------------------------------------------------
+
+
+@app.command("run-self-consistency")
+def run_self_consistency(
+    model: Annotated[
+        str, typer.Option("--model", "-m", help="OpenRouter model id to sample.")
+    ],
+    mode: Annotated[
+        str, typer.Option("--mode", help="pilot or full.")
+    ] = "pilot",
+    prompt_id: Annotated[
+        str, typer.Option("--prompt-id", help="Prompt id from configs/default_prompts.toml.")
+    ] = "default_label_only",
+    dataset_path: Annotated[Path, typer.Option("--dataset-path")] = DEFAULT_DATASET_PATH,
+    db_path: Annotated[Path, typer.Option("--db-path")] = DEFAULT_DB_PATH,
+    prompts_path: Annotated[Path, typer.Option("--prompts-path")] = DEFAULT_PROMPTS_PATH,
+    base_url: Annotated[
+        str, typer.Option("--base-url")
+    ] = os.getenv("OPENROUTER_BASE_URL", DEFAULT_BASE_URL),
+    sample_per_class: Annotated[
+        int, typer.Option("--sample-per-class")
+    ] = DEFAULT_PILOT_PER_CLASS,
+    seed: Annotated[int, typer.Option("--seed")] = DEFAULT_SEED,
+    temperature: Annotated[
+        float,
+        typer.Option("--temperature", "-t", help="Sampling temperature (default 0.7). Use > 0 for diversity."),
+    ] = 0.7,
+    num_samples: Annotated[
+        int,
+        typer.Option("--num-samples", "-n", help="Number of repeated samples per row."),
+    ] = 5,
+    max_completion_tokens: Annotated[
+        int, typer.Option("--max-completion-tokens")
+    ] = DEFAULT_MAX_COMPLETION_TOKENS,
+    concurrency: Annotated[int, typer.Option("--concurrency")] = DEFAULT_CONCURRENCY,
+    retries: Annotated[int, typer.Option("--retries")] = DEFAULT_RETRIES,
+) -> None:
+    """Run a model multiple times at temperature > 0 to measure self-consistency.
+
+    This is the core experimental data-collection tool for the dissertation.
+    Each row is classified ``num_samples`` times at the given ``temperature``,
+    producing a label distribution whose entropy quantifies LLM sentiment ambiguity.
+    """
+    if mode not in {"pilot", "full"}:
+        raise typer.BadParameter("mode must be pilot or full")
+    if num_samples < 2:
+        raise typer.BadParameter("--num-samples must be >= 2")
+    if temperature < 0.0:
+        raise typer.BadParameter("--temperature must be >= 0.0")
+
+    prompt = _resolve_prompt(prompt_id, prompts_path)
+
+    async def main() -> None:
+        store = BenchmarkStore(db_path)
+        async with OpenRouterClient(base_url=base_url) as client:
+            runner = SelfConsistencyRunner(client=client, store=store)
+            result = await runner.run(
+                model_id=model,
+                prompt=prompt,
+                temperature=temperature,
+                num_samples=num_samples,
+                mode=mode,
+                dataset_path=str(dataset_path),
+                max_completion_tokens=max_completion_tokens,
+                concurrency=concurrency,
+                retries=retries,
+                seed=seed,
+                sample_per_class=sample_per_class,
+                callback=lambda message: console.print(message),
+            )
+        _print_sc_result(result)
+
+    asyncio.run(main())
+
+
+def _print_sc_result(result: SelfConsistencyResult) -> None:
+    """Pretty-print a SelfConsistencyResult to the console."""
+    box = Table(title=f"Self-Consistency — {result.model_id}")
+    box.add_column("Metric")
+    box.add_column("Value", justify="right")
+    box.add_row("Temperature", f"{result.temperature}")
+    box.add_row("Samples/row", str(result.num_samples))
+    box.add_row("Rows", str(result.n_rows))
+    box.add_row("Scope", result.scope)
+    box.add_row("Mean entropy", f"{result.mean_entropy:.4f}")
+    box.add_row("Median entropy", f"{result.median_entropy:.4f}")
+    box.add_row("Mean majority fraction", f"{result.mean_majority_fraction:.4f}")
+    box.add_row("Consistency rate (entropy=0)", f"{result.consistency_rate:.4f}")
+    box.add_row("Majority-vote accuracy", f"{result.majority_vote_accuracy:.4f}")
+    box.add_row("Majority-vote balanced acc", f"{result.majority_vote_balanced_accuracy:.4f}")
+    if result.conflicting_entropy is not None:
+        box.add_row("Conflicting rows", str(result.conflicting_rows))
+        box.add_row("Conflicting mean entropy", f"{result.conflicting_entropy:.4f}")
+        box.add_row("Non-conflicting rows", str(result.non_conflicting_rows))
+        box.add_row("Non-conflicting mean entropy", f"{result.non_conflicting_entropy:.4f}")
+        gap = result.entropy_gap
+        if gap is not None:
+            direction = "lower" if gap < 0 else "higher"
+            box.add_row("Entropy gap", f"{gap:.4f} ({direction} on conflicting rows)")
+    if result.total_cost is not None:
+        box.add_row("Total cost", f"${result.total_cost:.4f}")
+    console.print(box)
+
+
+@app.command("self-consistency")
+def self_consistency_command(
+    sc_run_id: Annotated[
+        int, typer.Option("--sc-run-id", help="Self-consistency run id.")
+    ],
+    db_path: Annotated[Path, typer.Option("--db-path")] = DEFAULT_DB_PATH,
+    top_rows: Annotated[
+        int | None,
+        typer.Option("--top-rows", help="Show the N most ambiguous rows (highest entropy)."),
+    ] = None,
+) -> None:
+    """Analyse an existing self-consistency run.
+
+    Displays aggregate entropy statistics and, with --top-rows, the most
+    ambiguous individual sentences.
+    """
+    store = BenchmarkStore(db_path)
+    run_info = store.sc_run_by_id(sc_run_id)
+    if run_info is None:
+        console.print(f"No self-consistency run found with id {sc_run_id}.")
+        raise typer.Exit(code=1)
+
+    result = store.build_sc_row_consistency(
+        sc_run_id,
+        model_id=str(run_info["model_id"]),
+        temperature=float(run_info["temperature"]),
+        num_samples=int(run_info["num_samples"]),
+        scope=str(run_info["scope"]),
+    )
+
+    _print_sc_result(result)
+
+    if top_rows and result.rows:
+        sorted_rows = sorted(result.rows, key=lambda r: (-r.entropy, -r.n_valid))
+        top = sorted_rows[:top_rows]
+        top_table = Table(title=f"Top {len(top)} Most Ambiguous Rows (highest entropy)")
+        top_table.add_column("Row")
+        top_table.add_column("Sentence")
+        top_table.add_column("Label")
+        top_table.add_column("Conflict")
+        top_table.add_column("Entropy", justify="right")
+        top_table.add_column("Distribution", justify="right")
+        top_table.add_column("Valid", justify="right")
+        for r in top:
+            dist = ", ".join(
+                f"{k}={v}" for k, v in sorted(r.label_counts.items(), key=lambda x: -x[1])
+            )
+            top_table.add_row(
+                str(r.row_number),
+                r.sentence[:60],
+                r.hidden_label,
+                "✓" if r.is_conflicting_duplicate else "",
+                f"{r.entropy:.3f}",
+                dist,
+                str(r.n_valid),
+            )
+        console.print(top_table)
+
+
+@app.command("self-consistency-list")
+def self_consistency_list_command(
+    db_path: Annotated[Path, typer.Option("--db-path")] = DEFAULT_DB_PATH,
+) -> None:
+    """List existing self-consistency runs."""
+    store = BenchmarkStore(db_path)
+    runs = store.list_sc_runs()
+    if not runs:
+        console.print("No self-consistency runs found.")
+        return
+    table = Table(title="Self-Consistency Runs")
+    table.add_column("ID", justify="right")
+    table.add_column("Created")
+    table.add_column("Model")
+    table.add_column("T", justify="right")
+    table.add_column("Samples", justify="right")
+    table.add_column("Mode")
+    table.add_column("Status")
+    table.add_column("Cost", justify="right")
+    for run in runs:
+        table.add_row(
+            str(run["id"]),
+            (run["created_at"] or "")[:19],
+            str(run["model_id"]),
+            f"{run['temperature']:.1f}",
+            str(run["num_samples"]),
+            str(run["mode"]),
+            str(run["status"]),
+            f"${run['total_cost']:.4f}" if run["total_cost"] else "-",
+        )
+    console.print(table)
+
+
+@app.command("sc-compare-by-conflict")
+def sc_compare_by_conflict_command(
+    sc_run_id: Annotated[
+        int, typer.Option("--sc-run-id", help="Self-consistency run id.")
+    ],
+    db_path: Annotated[Path, typer.Option("--db-path")] = DEFAULT_DB_PATH,
+) -> None:
+    """Test the dissertation hypothesis: do conflicting-duplicate rows have higher entropy?
+
+    Compares mean entropy between rows with conflicting human annotations and
+    rows without. This is the primary experimental validation of LLM disagreement
+    as a proxy for ground-truth uncertainty.
+    """
+    store = BenchmarkStore(db_path)
+    run_info = store.sc_run_by_id(sc_run_id)
+    if run_info is None:
+        console.print(f"No self-consistency run found with id {sc_run_id}.")
+        raise typer.Exit(code=1)
+
+    result = store.build_sc_row_consistency(
+        sc_run_id,
+        model_id=str(run_info["model_id"]),
+        temperature=float(run_info["temperature"]),
+        num_samples=int(run_info["num_samples"]),
+        scope="all",
+    )
+
+    conflicting = [r for r in result.rows if r.is_conflicting_duplicate]
+    non_conflicting = [r for r in result.rows if not r.is_conflicting_duplicate]
+
+    if not conflicting:
+        console.print("No conflicting-duplicate rows found in this run.")
+        raise typer.Exit(code=1)
+    if not non_conflicting:
+        console.print("No non-conflicting rows found.")
+        raise typer.Exit(code=1)
+
+    c_entropy = sum(r.entropy for r in conflicting) / len(conflicting)
+    nc_entropy = sum(r.entropy for r in non_conflicting) / len(non_conflicting)
+    gap = nc_entropy - c_entropy  # negative = supports hypothesis
+
+    table = Table(
+        title=f"Hypothesis Test — Conflicting vs Non-Conflicting Entropy\n"
+        f"{run_info['model_id']} t={run_info['temperature']} n={run_info['num_samples']}×"
+    )
+    table.add_column("Group")
+    table.add_column("Rows", justify="right")
+    table.add_column("Mean Entropy", justify="right")
+    table.add_column("Consistency Rate", justify="right")
+    table.add_column("Majority Acc", justify="right")
+    for group, rows in [("Conflicting", conflicting), ("Non-conflicting", non_conflicting)]:
+        mean_e = sum(r.entropy for r in rows) / len(rows)
+        cons_rate = sum(1 for r in rows if r.entropy == 0) / len(rows)
+        maj_acc = sum(1 for r in rows if r.correct_majority) / len(rows)
+        table.add_row(group, str(len(rows)), f"{mean_e:.4f}", f"{cons_rate:.4f}", f"{maj_acc:.4f}")
+    console.print(table)
+
+    from scipy.stats import mannwhitneyu
+
+    c_vals = [r.entropy for r in conflicting]
+    nc_vals = [r.entropy for r in non_conflicting]
+    stat, p_value = mannwhitneyu(c_vals, nc_vals, alternative="greater")
+    verdict = "SUPPORTS hypothesis" if p_value < 0.05 else "does NOT support hypothesis"
+    console.print(
+        f"\nMann-Whitney U test (conflicting > non-conflicting): "
+        f"U={stat:.1f}, p={p_value:.4f} → {verdict} at α=0.05"
+    )
+    console.print(
+        f"\nEntropy gap (non-conflicting - conflicting) = {gap:.4f}\n"
+        f"({'Conflicting rows have HIGHER entropy' if gap < 0 else 'Non-conflicting rows have higher entropy'})"
+    )
 
 
 if __name__ == "__main__":

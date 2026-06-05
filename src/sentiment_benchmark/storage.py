@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from .models import DatasetRow, EvaluationResult, LLMResponseRecord, PromptConfig, RunConfig, RunResumeSettings
+from .self_consistency import SelfConsistencyResult, RowSelfConsistency, compute_row_consistency
 
 
 def utc_now() -> str:
@@ -123,6 +124,61 @@ class BenchmarkStore:
                     metrics_json TEXT NOT NULL,
                     created_at TEXT NOT NULL,
                     UNIQUE (run_id, model_id, scope)
+                );
+
+                CREATE TABLE IF NOT EXISTS sc_runs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    created_at TEXT NOT NULL,
+                    completed_at TEXT,
+                    model_id TEXT NOT NULL,
+                    temperature REAL NOT NULL,
+                    num_samples INTEGER NOT NULL,
+                    mode TEXT NOT NULL,
+                    dataset_path TEXT NOT NULL,
+                    prompt_hash TEXT NOT NULL,
+                    scope TEXT NOT NULL DEFAULT 'primary',
+                    status TEXT NOT NULL DEFAULT 'running',
+                    total_cost REAL
+                );
+
+                CREATE TABLE IF NOT EXISTS sc_samples (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    sc_run_id INTEGER NOT NULL,
+                    row_number INTEGER NOT NULL,
+                    sample_index INTEGER NOT NULL,
+                    normalized_label TEXT,
+                    parse_status TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    latency_ms REAL,
+                    prompt_tokens INTEGER,
+                    completion_tokens INTEGER,
+                    total_tokens INTEGER,
+                    generation_id TEXT,
+                    error TEXT,
+                    created_at TEXT NOT NULL,
+                    FOREIGN KEY (sc_run_id) REFERENCES sc_runs(id)
+                );
+
+                CREATE TABLE IF NOT EXISTS sc_results (
+                    sc_run_id INTEGER PRIMARY KEY,
+                    model_id TEXT NOT NULL,
+                    temperature REAL NOT NULL,
+                    num_samples INTEGER NOT NULL,
+                    scope TEXT NOT NULL,
+                    n_rows INTEGER NOT NULL,
+                    mean_entropy REAL NOT NULL,
+                    median_entropy REAL NOT NULL,
+                    mean_majority_fraction REAL NOT NULL,
+                    consistency_rate REAL NOT NULL,
+                    majority_vote_accuracy REAL NOT NULL,
+                    majority_vote_balanced_accuracy REAL NOT NULL,
+                    conflicting_entropy REAL,
+                    non_conflicting_entropy REAL,
+                    conflicting_rows INTEGER NOT NULL DEFAULT 0,
+                    non_conflicting_rows INTEGER NOT NULL DEFAULT 0,
+                    total_cost REAL,
+                    created_at TEXT NOT NULL,
+                    FOREIGN KEY (sc_run_id) REFERENCES sc_runs(id)
                 );
                 """
             )
@@ -528,3 +584,222 @@ class BenchmarkStore:
                 """
             ).fetchall()
         return list(rows)
+
+    # ------------------------------------------------------------------
+    # Self-consistency run storage
+    # ------------------------------------------------------------------
+
+    def create_sc_run(
+        self,
+        *,
+        model_id: str,
+        temperature: float,
+        num_samples: int,
+        mode: str,
+        dataset_path: str,
+        prompt_hash: str,
+        scope: str = "primary",
+    ) -> int:
+        """Create a new self-consistency run entry and return its id."""
+        with self.connect() as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO sc_runs (created_at, model_id, temperature, num_samples, mode,
+                                     dataset_path, prompt_hash, scope, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (utc_now(), model_id, temperature, num_samples, mode,
+                 dataset_path, prompt_hash, scope, "running"),
+            )
+            if cursor.lastrowid is None:
+                raise RuntimeError("Could not create self-consistency run")
+            return int(cursor.lastrowid)
+
+    def mark_sc_run_complete(self, sc_run_id: int, *, status: str = "completed") -> None:
+        with self.connect() as connection:
+            connection.execute(
+                "UPDATE sc_runs SET status = ?, completed_at = ? WHERE id = ?",
+                (status, utc_now(), sc_run_id),
+            )
+
+    def save_sc_sample(
+        self,
+        sc_run_id: int,
+        *,
+        row_number: int,
+        sample_index: int,
+        normalized_label: str | None,
+        parse_status: str,
+        status: str,
+        latency_ms: float | None = None,
+        prompt_tokens: int | None = None,
+        completion_tokens: int | None = None,
+        total_tokens: int | None = None,
+        generation_id: str | None = None,
+        error: str | None = None,
+    ) -> None:
+        with self.connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO sc_samples (
+                    sc_run_id, row_number, sample_index, normalized_label,
+                    parse_status, status, latency_ms, prompt_tokens,
+                    completion_tokens, total_tokens, generation_id,
+                    error, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    sc_run_id, row_number, sample_index, normalized_label,
+                    parse_status, status, latency_ms,
+                    prompt_tokens, completion_tokens, total_tokens,
+                    generation_id, error, utc_now(),
+                ),
+            )
+
+    def save_sc_result(self, sc_run_id: int, result: SelfConsistencyResult) -> None:
+        """Store aggregated self-consistency metrics."""
+        with self.connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO sc_results (
+                    sc_run_id, model_id, temperature, num_samples, scope, n_rows,
+                    mean_entropy, median_entropy, mean_majority_fraction,
+                    consistency_rate, majority_vote_accuracy,
+                    majority_vote_balanced_accuracy,
+                    conflicting_entropy, non_conflicting_entropy,
+                    conflicting_rows, non_conflicting_rows, total_cost, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(sc_run_id) DO UPDATE SET
+                    mean_entropy=excluded.mean_entropy,
+                    median_entropy=excluded.median_entropy,
+                    mean_majority_fraction=excluded.mean_majority_fraction,
+                    consistency_rate=excluded.consistency_rate,
+                    majority_vote_accuracy=excluded.majority_vote_accuracy,
+                    majority_vote_balanced_accuracy=excluded.majority_vote_balanced_accuracy,
+                    conflicting_entropy=excluded.conflicting_entropy,
+                    non_conflicting_entropy=excluded.non_conflicting_entropy,
+                    conflicting_rows=excluded.conflicting_rows,
+                    non_conflicting_rows=excluded.non_conflicting_rows,
+                    total_cost=excluded.total_cost
+                """,
+                (
+                    sc_run_id, result.model_id, result.temperature,
+                    result.num_samples, result.scope, result.n_rows,
+                    result.mean_entropy, result.median_entropy,
+                    result.mean_majority_fraction, result.consistency_rate,
+                    result.majority_vote_accuracy,
+                    result.majority_vote_balanced_accuracy,
+                    result.conflicting_entropy, result.non_conflicting_entropy,
+                    result.conflicting_rows, result.non_conflicting_rows,
+                    result.total_cost, utc_now(),
+                ),
+            )
+
+    def fetch_sc_samples(self, sc_run_id: int) -> list[sqlite3.Row]:
+        """All raw samples for a self-consistency run, ordered by row then sample."""
+        with self.connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM sc_samples
+                WHERE sc_run_id = ?
+                ORDER BY row_number, sample_index
+                """,
+                (sc_run_id,),
+            ).fetchall()
+        return list(rows)
+
+    def fetch_sc_result(self, sc_run_id: int) -> sqlite3.Row | None:
+        """Stored aggregate result for a self-consistency run."""
+        with self.connect() as connection:
+            return connection.execute(
+                "SELECT * FROM sc_results WHERE sc_run_id = ?", (sc_run_id,)
+            ).fetchone()
+
+    def sc_run_by_id(self, sc_run_id: int) -> sqlite3.Row | None:
+        """Metadata for a self-consistency run."""
+        with self.connect() as connection:
+            return connection.execute(
+                "SELECT * FROM sc_runs WHERE id = ?", (sc_run_id,)
+            ).fetchone()
+
+    def list_sc_runs(self) -> list[sqlite3.Row]:
+        """List self-consistency runs (most recent first)."""
+        with self.connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT id, created_at, completed_at, model_id, temperature,
+                       num_samples, mode, status, total_cost
+                FROM sc_runs
+                ORDER BY id DESC
+                LIMIT 50
+                """
+            ).fetchall()
+        return list(rows)
+
+    def fetch_sc_row_samples(
+        self, sc_run_id: int
+    ) -> dict[int, list[str]]:
+        """Group all sample labels by row_number for a sc_run.
+
+        Returns {row_number: [label_0, label_1, ..., label_{N-1}]} with
+        invalid/error labels included (caller filters as needed).
+        """
+        samples = self.fetch_sc_samples(sc_run_id)
+        by_row: dict[int, list[str]] = {}
+        for row in samples:
+            rn = int(row["row_number"])
+            label = row["normalized_label"] if row["normalized_label"] else "__invalid__"
+            by_row.setdefault(rn, []).append(str(label))
+        return by_row
+
+    def build_sc_row_consistency(
+        self,
+        sc_run_id: int,
+        *,
+        model_id: str,
+        temperature: float,
+        num_samples: int,
+        scope: str = "primary",
+    ) -> SelfConsistencyResult:
+        """Rebuild SelfConsistencyResult from raw samples in the DB.
+
+        Looks up dataset rows to get hidden labels and conflict metadata,
+        then computes per-row entropy and aggregate statistics.
+        """
+        samples_by_row = self.fetch_sc_row_samples(sc_run_id)
+        run_info = self.sc_run_by_id(sc_run_id)
+        if run_info is None:
+            raise ValueError(f"Self-consistency run {sc_run_id} not found")
+
+        # Load dataset rows
+        dataset_path = str(run_info["dataset_path"])
+        from .dataset import load_dataset
+        all_rows = load_dataset(dataset_path)
+        row_map = {r.row_number: r for r in all_rows}
+
+        rows_consistency: list[RowSelfConsistency] = []
+        for rn in sorted(samples_by_row):
+            ds_row = row_map.get(rn)
+            if ds_row is None:
+                continue
+            if scope == "primary" and ds_row.has_conflicting_duplicate:
+                continue
+
+            row_cons = compute_row_consistency(
+                samples_by_row[rn],
+                row_number=rn,
+                sentence=ds_row.sentence,
+                hidden_label=ds_row.hidden_label,
+                is_conflicting_duplicate=ds_row.has_conflicting_duplicate,
+            )
+            rows_consistency.append(row_cons)
+
+        result = compute_self_consistency(
+            model_id=model_id,
+            temperature=temperature,
+            num_samples=num_samples,
+            scope=scope,
+            rows=rows_consistency,
+            total_cost=float(run_info["total_cost"]) if run_info["total_cost"] else None,
+        )
+        return result
