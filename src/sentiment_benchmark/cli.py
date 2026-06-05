@@ -39,7 +39,7 @@ from .prompts import load_prompts
 from .reliability import run_agreement
 from .runner import BenchmarkRunner
 from .sc_runner import SelfConsistencyRunner
-from .self_consistency import SelfConsistencyResult, compute_self_consistency, entropy_from_counts
+from .self_consistency import SelfConsistencyResult
 from .storage import BenchmarkStore
 
 console = Console()
@@ -688,12 +688,13 @@ def _print_sc_result(result: SelfConsistencyResult) -> None:
     if result.conflicting_entropy is not None:
         box.add_row("Conflicting rows", str(result.conflicting_rows))
         box.add_row("Conflicting mean entropy", f"{result.conflicting_entropy:.4f}")
+    if result.non_conflicting_entropy is not None:
         box.add_row("Non-conflicting rows", str(result.non_conflicting_rows))
         box.add_row("Non-conflicting mean entropy", f"{result.non_conflicting_entropy:.4f}")
-        gap = result.entropy_gap
-        if gap is not None:
-            direction = "lower" if gap < 0 else "higher"
-            box.add_row("Entropy gap", f"{gap:.4f} ({direction} on conflicting rows)")
+    gap = result.entropy_gap
+    if gap is not None:
+        direction = "lower" if gap < 0 else "higher"
+        box.add_row("Entropy gap", f"{gap:.4f} ({direction} on conflicting rows)")
     if result.total_cost is not None:
         box.add_row("Total cost", f"${result.total_cost:.4f}")
     console.print(box)
@@ -852,15 +853,26 @@ def sc_compare_by_conflict_command(
 
     c_vals = [r.entropy for r in conflicting]
     nc_vals = [r.entropy for r in non_conflicting]
-    stat, p_value = mannwhitneyu(c_vals, nc_vals, alternative="greater")
-    verdict = "SUPPORTS hypothesis" if p_value < 0.05 else "does NOT support hypothesis"
-    console.print(
-        f"\nMann-Whitney U test (conflicting > non-conflicting): "
-        f"U={stat:.1f}, p={p_value:.4f} → {verdict} at α=0.05"
+    try:
+        stat, p_value = mannwhitneyu(c_vals, nc_vals, alternative="greater")
+    except ValueError as exc:
+        # scipy raises when every entropy value is identical (e.g. all rows perfectly
+        # consistent), so there is no rank variation to test.
+        console.print(f"\nMann-Whitney U test could not be computed: {exc}")
+    else:
+        verdict = "SUPPORTS hypothesis" if p_value < 0.05 else "does NOT support hypothesis"
+        console.print(
+            f"\nMann-Whitney U test (conflicting > non-conflicting): "
+            f"U={stat:.1f}, p={p_value:.4f} → {verdict} at α=0.05"
+        )
+
+    gap_direction = (
+        "Conflicting rows have HIGHER entropy"
+        if gap < 0
+        else "Non-conflicting rows have higher entropy"
     )
     console.print(
-        f"\nEntropy gap (non-conflicting - conflicting) = {gap:.4f}\n"
-        f"({'Conflicting rows have HIGHER entropy' if gap < 0 else 'Non-conflicting rows have higher entropy'})"
+        f"\nEntropy gap (non-conflicting - conflicting) = {gap:.4f}\n({gap_direction})"
     )
 
 

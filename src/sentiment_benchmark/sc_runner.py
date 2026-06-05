@@ -8,19 +8,11 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
-from typing import Any
 
-from .budgets import resolve_max_completion_tokens
 from .dataset import load_dataset, select_rows
-from .models import LLMResponseRecord, PromptConfig
+from .models import PromptConfig
 from .openrouter import OpenRouterClient
-from .prompts import render_messages
-from .self_consistency import (
-    RowSelfConsistency,
-    SelfConsistencyResult,
-    compute_row_consistency,
-    compute_self_consistency,
-)
+from .self_consistency import SelfConsistencyResult
 from .storage import BenchmarkStore
 
 ProgressCallback = Callable[[str], None | Awaitable[None]]
@@ -90,21 +82,31 @@ class SelfConsistencyRunner:
             nonlocal total_cost
             ds_row = row_map[row_number]
             example = ds_row.blind()
-            record = await self.client.classify(
-                model_id=model_id,
-                prompt=prompt,
-                example=example,
-                temperature=temperature,
-                max_completion_tokens=max_completion_tokens,
-                retries=retries,
-            )
-            # Record cost from generation metadata if available
-            if record.generation_id:
-                meta = await self.client.get_generation_metadata(
-                    record.generation_id, retries=retries
+            async with semaphore:
+                record = await self.client.classify(
+                    model_id=model_id,
+                    prompt=prompt,
+                    example=example,
+                    temperature=temperature,
+                    max_completion_tokens=max_completion_tokens,
+                    retries=retries,
                 )
-                if meta and meta.get("total_cost"):
-                    total_cost += float(meta["total_cost"])
+                # Record cost from generation metadata if available. A metadata
+                # lookup failure must not abort the sample, mirroring BenchmarkRunner.
+                if record.status == "success" and record.generation_id:
+                    try:
+                        meta = await self.client.get_generation_metadata(
+                            record.generation_id, retries=retries
+                        )
+                    except Exception as exc:  # noqa: BLE001 - best-effort cost tracking
+                        meta = None
+                        await self._notify(
+                            callback,
+                            f"  metadata lookup failed for row {row_number} "
+                            f"sample {sample_index + 1}: {exc}",
+                        )
+                    if meta and meta.get("total_cost"):
+                        total_cost += float(meta["total_cost"])
 
             self.store.save_sc_sample(
                 sc_run_id,
@@ -126,38 +128,28 @@ class SelfConsistencyRunner:
                 f"{record.normalized_label or record.status}",
             )
 
-        async def sample_row(row_number: int) -> list[None]:
-            """Sample one row ``num_samples`` times (with semaphore)."""
-            async with semaphore:
-                tasks = [
-                    sample_one(row_number, sample_index)
-                    for sample_index in range(num_samples)
-                ]
-                return await asyncio.gather(*tasks)
+        async def sample_row(row_number: int) -> None:
+            """Sample one row ``num_samples`` times (concurrency bounded by the semaphore)."""
+            tasks = [
+                sample_one(row_number, sample_index)
+                for sample_index in range(num_samples)
+            ]
+            await asyncio.gather(*tasks)
 
         for row in selected:
             await sample_row(row.row_number)
 
-        # Mark run complete
-        self.store.mark_sc_run_complete(sc_run_id)
+        # Mark run complete and persist the accumulated cost so it is available to
+        # build_sc_row_consistency (below) and to later read-only analysis commands.
+        self.store.mark_sc_run_complete(sc_run_id, total_cost=total_cost)
 
-        # Build results
+        # Build results from the stored samples (cost is read back from sc_runs).
         result = self.store.build_sc_row_consistency(
             sc_run_id,
             model_id=model_id,
             temperature=temperature,
             num_samples=num_samples,
             scope="all",
-        )
-        # Patch in the actual cost
-        result = SelfConsistencyResult(
-            **{**{k: getattr(result, k) for k in [
-                "model_id", "temperature", "num_samples", "scope", "n_rows", "rows",
-                "mean_entropy", "median_entropy", "mean_majority_fraction",
-                "consistency_rate", "majority_vote_accuracy",
-                "majority_vote_balanced_accuracy", "conflicting_entropy",
-                "non_conflicting_entropy", "conflicting_rows", "non_conflicting_rows"
-            ]}, "total_cost": total_cost}
         )
 
         self.store.save_sc_result(sc_run_id, result)

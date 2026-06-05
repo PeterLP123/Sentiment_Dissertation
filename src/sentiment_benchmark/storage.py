@@ -10,7 +10,12 @@ from pathlib import Path
 from typing import Any
 
 from .models import DatasetRow, EvaluationResult, LLMResponseRecord, PromptConfig, RunConfig, RunResumeSettings
-from .self_consistency import SelfConsistencyResult, RowSelfConsistency, compute_row_consistency
+from .self_consistency import (
+    RowSelfConsistency,
+    SelfConsistencyResult,
+    compute_row_consistency,
+    compute_self_consistency,
+)
 
 
 def utc_now() -> str:
@@ -615,11 +620,17 @@ class BenchmarkStore:
                 raise RuntimeError("Could not create self-consistency run")
             return int(cursor.lastrowid)
 
-    def mark_sc_run_complete(self, sc_run_id: int, *, status: str = "completed") -> None:
+    def mark_sc_run_complete(
+        self,
+        sc_run_id: int,
+        *,
+        status: str = "completed",
+        total_cost: float | None = None,
+    ) -> None:
         with self.connect() as connection:
             connection.execute(
-                "UPDATE sc_runs SET status = ?, completed_at = ? WHERE id = ?",
-                (status, utc_now(), sc_run_id),
+                "UPDATE sc_runs SET status = ?, completed_at = ?, total_cost = ? WHERE id = ?",
+                (status, utc_now(), total_cost, sc_run_id),
             )
 
     def save_sc_sample(

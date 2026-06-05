@@ -5,21 +5,15 @@ Uses a small synthetic dataset to avoid external dependencies.
 """
 
 import math
-import tempfile
-from pathlib import Path
-
-import pytest
 
 from sentiment_benchmark.self_consistency import (
     RowSelfConsistency,
-    SelfConsistencyResult,
     compute_row_consistency,
     compute_self_consistency,
     entropy_from_counts,
     majority_fraction,
     majority_label,
 )
-
 
 # ---------------------------------------------------------------------------
 # entropy_from_counts
@@ -58,6 +52,30 @@ def test_entropy_partial_valid() -> None:
     counts = {"positive": 5, "negative": 3}
     ent = entropy_from_counts(counts, normalize=True)
     assert 0.0 < ent <= 1.0
+
+
+def test_entropy_two_way_even_split_below_one() -> None:
+    """A 2-way even split is NOT maximal ambiguity: with 3 possible labels it
+    normalises to log2(2)/log2(3) ≈ 0.631, strictly below the 3-way maximum.
+
+    This pins fixed-K normalisation. Normalising by the number of *observed*
+    labels (the old behaviour) would wrongly return 1.0 here, equating a 2-way
+    disagreement with maximal 3-way uncertainty.
+    """
+    ent = entropy_from_counts({"positive": 3, "negative": 3})
+    assert math.isclose(ent, math.log2(2) / math.log2(3), abs_tol=1e-4)
+    assert ent < 1.0
+
+
+def test_entropy_three_way_split_exceeds_two_way() -> None:
+    """A 3-way even split (max uncertainty) must rank above a 2-way even split.
+
+    Observed-k normalisation collapses both to 1.0; fixed-K preserves the order.
+    """
+    two_way = entropy_from_counts({"positive": 3, "negative": 3})
+    three_way = entropy_from_counts({"positive": 2, "negative": 2, "neutral": 2})
+    assert math.isclose(three_way, 1.0, abs_tol=1e-4)
+    assert three_way > two_way
 
 
 # ---------------------------------------------------------------------------

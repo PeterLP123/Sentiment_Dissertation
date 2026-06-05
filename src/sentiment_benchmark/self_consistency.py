@@ -15,9 +15,8 @@ from __future__ import annotations
 
 import math
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from statistics import median
-from typing import Any
 
 from .constants import ALLOWED_LABELS
 
@@ -34,13 +33,18 @@ def entropy_from_counts(counts: dict[str, int], *, normalize: bool = True) -> fl
     counts:
         Mapping from label to observed count (e.g. {"positive": 3, "neutral": 1}).
     normalize:
-        If True (default), entropy is normalised by log₂(k) where k is the
-        number of categories present, yielding a [0, 1] scale so the value is
-        comparable across rows with different category counts.
+        If True (default), entropy is normalised by log₂(K) where K is the
+        *fixed* number of possible labels (len(ALLOWED_LABELS)), yielding a
+        [0, 1] scale. Because K is constant, this is a linear rescale of the raw
+        entropy: it preserves the ordering of rows by uncertainty, so a 3-way
+        even split (max ambiguity) scores 1.0 while a 2-way even split scores
+        ~0.63. Normalising by the number of *observed* categories instead would
+        collapse both to 1.0, conflating uncertainty with label richness — the
+        wrong construct for an ambiguity measure.
 
     Returns
     -------
-    Entropy in bits.
+    Entropy in bits (or its [0, 1] normalisation when ``normalize`` is True).
     """
     total = sum(counts.values())
     if total == 0:
@@ -54,7 +58,7 @@ def entropy_from_counts(counts: dict[str, int], *, normalize: bool = True) -> fl
         result -= p * math.log2(p)
 
     if normalize:
-        k = sum(1 for c in counts.values() if c > 0)
+        k = len(ALLOWED_LABELS)
         if k > 1:
             result /= math.log2(k)
 
