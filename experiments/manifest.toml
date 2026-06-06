@@ -1,0 +1,67 @@
+# Formal dissertation experiment registry.
+#
+# Add one [[experiments]] entry for each formal run or run family that may be
+# cited in the dissertation. Keep generated artifacts in results/exports/ and
+# record their paths here rather than committing large runtime state.
+#
+# For future runs, update commit_sha to the exact commit used when the run was
+# executed, then export the run and record the export path.
+
+[[experiments]]
+id = "pilot-baselines-run-12"
+title = "Pilot baseline comparison on balanced primary sample"
+status = "completed"
+dissertation_relevance = "Establishes non-LLM baseline performance for the benchmark chapter and provides context before LLM comparisons."
+run_ids = [12]
+commit_sha = "TODO-record-commit-sha-used-for-run-12"
+export_path = "results/exports/run_12"
+created_at = "2026-06-04T20:42:26.785796+00:00"
+completed_at = "2026-06-04T20:42:31.673912+00:00"
+
+[experiments.dataset]
+path = "Data/data.csv"
+sha256 = "3d86ea04e694471479b7473a84c005a5456491ddfdc43ce5340cb2ae1b6c6b05"
+source = "Kaggle Financial Sentiment Analysis"
+source_url = "https://www.kaggle.com/datasets/sbhatti/financial-sentiment-analysis"
+
+[experiments.prompt]
+id = "baseline"
+hash = "b1271fc052ea2409"
+output_mode = "label_only"
+notes = "Non-LLM baseline classifiers; no LLM prompt is used."
+
+[experiments.models]
+ids = [
+  "baseline/majority",
+  "baseline/tfidf_logreg",
+  "baseline/vader",
+  "baseline/finbert",
+]
+selection_notes = "Includes trivial, lexical, supervised bag-of-words, and financial-domain transformer baselines."
+
+[experiments.settings]
+mode = "pilot"
+seed = 42
+sample_logic = "Balanced pilot sample: 30 primary-scope rows per class selected with seed 42."
+temperature = 0.0
+sample_per_class = 30
+concurrency = 1
+retries = 0
+max_completion_tokens = 0
+reasoning_max_completion_tokens = 2048
+
+[experiments.analysis]
+primary_scope = "primary"
+audit_scope = "all"
+metrics_focus = [
+  "accuracy",
+  "macro_f1",
+  "weighted_f1",
+  "balanced_accuracy",
+  "mcc",
+  "confusion_matrix",
+  "bootstrap_ci",
+  "mcnemar",
+]
+cost_notes = "No OpenRouter API cost; baselines ran locally. FinBERT may require local model download and compute time."
+interpretation_notes = "Use as contextual baseline evidence only. Pilot sample is balanced by design and should not be treated as full-dataset prevalence."
