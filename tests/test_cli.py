@@ -5,6 +5,7 @@ from typer.testing import CliRunner
 from sentiment_benchmark.cli import app
 from sentiment_benchmark.metrics import evaluate_responses
 from sentiment_benchmark.models import DatasetRow, LLMResponseRecord, RunConfig
+from sentiment_benchmark.news_source import NewsArticleRecord, NewsFetchResult, article_record_id, make_news_fetch_config, normalize_url
 from sentiment_benchmark.prompts import make_prompt
 from sentiment_benchmark.storage import BenchmarkStore
 
@@ -124,3 +125,90 @@ def test_cli_compare_rejects_bad_metric(tmp_path: Path) -> None:
          "--metric", "bogus", "--db-path", str(db_path)],
     )
     assert result.exit_code != 0
+
+
+def _news_result(query: str = "market news") -> NewsFetchResult:
+    normalized = normalize_url("https://example.com/article")
+    return NewsFetchResult(
+        config=make_news_fetch_config(query=query, max_results=1),
+        fetched_at="2026-06-07T12:00:00+00:00",
+        records=[
+            NewsArticleRecord(
+                record_id=article_record_id(normalized),
+                url="https://example.com/article",
+                normalized_url=normalized,
+                title="Market article",
+                snippet="Snippet",
+                article_text="Full article text",
+                extraction_status="success",
+            )
+        ],
+        search_request_id="search-1",
+        search_usage={"credits": 1},
+    )
+
+
+class FakeNewsClient:
+    def __init__(self) -> None:
+        self.configs = []
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, traceback) -> None:
+        return None
+
+    async def fetch(self, config):
+        self.configs.append(config)
+        return _news_result(config.query)
+
+
+def test_cli_news_check_uses_tavily_client(monkeypatch) -> None:
+    fake = FakeNewsClient()
+    monkeypatch.setattr("sentiment_benchmark.cli._make_tavily_news_client", lambda: fake)
+
+    result = runner.invoke(app, ["news-check", "--query", "financial markets", "--max-results", "1"])
+
+    assert result.exit_code == 0
+    assert "Tavily News Check" in result.output
+    assert "search-1" in result.output
+    assert fake.configs[0].extract is False
+
+
+def test_cli_fetch_news_writes_outputs(tmp_path: Path, monkeypatch) -> None:
+    fake = FakeNewsClient()
+    monkeypatch.setattr("sentiment_benchmark.cli._make_tavily_news_client", lambda: fake)
+    output_dir = tmp_path / "news"
+
+    result = runner.invoke(
+        app,
+        [
+            "fetch-news",
+            "--query", "bank earnings sentiment",
+            "--max-results", "1",
+            "--output-dir", str(output_dir),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Tavily News Fetch" in result.output
+    exported = list(output_dir.glob("tavily_news_*"))
+    assert len(exported) == 1
+    assert (exported[0] / "articles.jsonl").exists()
+    assert (exported[0] / "articles.csv").exists()
+    assert (exported[0] / "manifest.json").exists()
+
+
+def test_cli_fetch_news_rejects_invalid_topic(tmp_path: Path) -> None:
+    result = runner.invoke(
+        app,
+        [
+            "fetch-news",
+            "--query", "bank earnings sentiment",
+            "--topic", "bogus",
+            "--output-dir", str(tmp_path / "news"),
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "topic must be one of" in result.output

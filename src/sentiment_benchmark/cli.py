@@ -34,6 +34,19 @@ from .dataset import compute_stats, load_dataset
 from .env import load_env_file
 from .exporter import export_run
 from .models import PromptConfig, RunConfig
+from .news_source import (
+    DEFAULT_NEWS_MAX_RESULTS,
+    DEFAULT_NEWS_OUTPUT_DIR,
+    DEFAULT_NEWS_SEARCH_DEPTH,
+    DEFAULT_NEWS_TIME_RANGE,
+    DEFAULT_NEWS_TOPIC,
+    NEWS_SEARCH_DEPTHS,
+    NEWS_TIME_RANGES,
+    NEWS_TOPICS,
+    TavilyNewsClient,
+    make_news_fetch_config,
+    write_news_corpus,
+)
 from .perturbations import generate_prompt_suite
 from .prompt_sensitivity import SENSITIVITY_METRICS, prompt_sensitivity
 from .prompts import load_prompts
@@ -47,6 +60,10 @@ from .storage import BenchmarkStore
 console = Console()
 app = typer.Typer(help="Benchmark OpenRouter and Ollama LLMs on dissertation sentiment data.")
 load_env_file()
+
+
+def _make_tavily_news_client() -> TavilyNewsClient:
+    return TavilyNewsClient()
 
 
 def _resolve_prompt(prompt_id: str, prompts_path: Path):
@@ -143,6 +160,116 @@ def validate_data(
     table.add_row("Primary scoring rows", str(stats.primary_row_count))
     table.add_row("Primary label counts", str(stats.primary_label_counts))
     console.print(table)
+
+
+@app.command("news-check")
+def news_check(
+    query: Annotated[str, typer.Option("--query", help="Small Tavily news query for the connectivity check.")] = "financial markets",
+    max_results: Annotated[
+        int,
+        typer.Option("--max-results", help="Maximum Tavily results for the check."),
+    ] = 1,
+) -> None:
+    """Run a small Tavily news search to verify API connectivity."""
+    try:
+        config = make_news_fetch_config(query=query, max_results=max_results, extract=False)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+    async def main() -> None:
+        async with _make_tavily_news_client() as client:
+            result = await client.fetch(config)
+        table = Table(title="Tavily News Check")
+        table.add_column("Metric")
+        table.add_column("Value", justify="right")
+        table.add_row("Query", result.config.query)
+        table.add_row("Records", str(len(result.records)))
+        table.add_row("Request ID", result.search_request_id or "-")
+        credits = result.search_usage.get("credits") if isinstance(result.search_usage, dict) else None
+        table.add_row("Credits", str(credits) if credits is not None else "-")
+        console.print(table)
+
+    asyncio.run(main())
+
+
+@app.command("fetch-news")
+def fetch_news(
+    query: Annotated[str, typer.Option("--query", help="Tavily news search query.")],
+    max_results: Annotated[
+        int,
+        typer.Option("--max-results", help="Maximum Tavily results to save (1-20)."),
+    ] = DEFAULT_NEWS_MAX_RESULTS,
+    topic: Annotated[
+        str,
+        typer.Option("--topic", help=f"Search topic: {', '.join(NEWS_TOPICS)}."),
+    ] = DEFAULT_NEWS_TOPIC,
+    time_range: Annotated[
+        str | None,
+        typer.Option("--time-range", help=f"Publish/update time range: {', '.join(NEWS_TIME_RANGES)}."),
+    ] = DEFAULT_NEWS_TIME_RANGE,
+    search_depth: Annotated[
+        str,
+        typer.Option("--search-depth", help=f"Tavily search depth: {', '.join(NEWS_SEARCH_DEPTHS)}."),
+    ] = DEFAULT_NEWS_SEARCH_DEPTH,
+    start_date: Annotated[
+        str | None,
+        typer.Option("--start-date", help="Only return results after this date (YYYY-MM-DD)."),
+    ] = None,
+    end_date: Annotated[
+        str | None,
+        typer.Option("--end-date", help="Only return results before this date (YYYY-MM-DD)."),
+    ] = None,
+    include_domain: Annotated[
+        list[str] | None,
+        typer.Option("--include-domain", help="Domain to include. Repeat for multiple domains."),
+    ] = None,
+    exclude_domain: Annotated[
+        list[str] | None,
+        typer.Option("--exclude-domain", help="Domain to exclude. Repeat for multiple domains."),
+    ] = None,
+    extract: Annotated[
+        bool,
+        typer.Option("--extract/--no-extract", help="Run Tavily Extract for full article text."),
+    ] = True,
+    output_dir: Annotated[
+        Path,
+        typer.Option("--output-dir", help="Directory where timestamped Tavily article exports are written."),
+    ] = DEFAULT_NEWS_OUTPUT_DIR,
+) -> None:
+    """Fetch Tavily-sourced news articles into a derived article corpus."""
+    try:
+        config = make_news_fetch_config(
+            query=query,
+            max_results=max_results,
+            topic=topic,
+            time_range=time_range,
+            search_depth=search_depth,
+            extract=extract,
+            start_date=start_date,
+            end_date=end_date,
+            include_domains=include_domain,
+            exclude_domains=exclude_domain,
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+    async def main() -> None:
+        async with _make_tavily_news_client() as client:
+            result = await client.fetch(config)
+        paths = write_news_corpus(result, output_dir)
+        failed = sum(1 for record in result.records if record.extraction_status == "failed")
+        table = Table(title="Tavily News Fetch")
+        table.add_column("Metric")
+        table.add_column("Value", justify="right")
+        table.add_row("Records", str(len(result.records)))
+        table.add_row("Failed extractions", str(failed))
+        table.add_row("Output directory", str(paths.output_dir))
+        table.add_row("JSONL", str(paths.articles_jsonl))
+        table.add_row("CSV", str(paths.articles_csv))
+        table.add_row("Manifest", str(paths.manifest_json))
+        console.print(table)
+
+    asyncio.run(main())
 
 
 @app.command("list-models")

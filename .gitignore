@@ -11,6 +11,8 @@ __pycache__/
 *.db
 results/*
 !results/.gitkeep
+Data/news/*
+!Data/news/.gitkeep
 models/
 checkpoints/
 artifacts/

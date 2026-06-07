@@ -8,6 +8,7 @@ from textual.widgets import Button, Checkbox, DataTable, Input, ProgressBar, Sta
 
 from sentiment_benchmark.baseline_runner import BaselineRunSummary
 from sentiment_benchmark.models import DatasetRow, EvaluationResult, LLMResponseRecord, ModelConfig, PromptConfig
+from sentiment_benchmark.news_source import NewsArticleRecord, NewsFetchResult, article_record_id, make_news_fetch_config, normalize_url
 from sentiment_benchmark.storage import BenchmarkStore
 from sentiment_benchmark.tui import ConfirmScreen, SentimentBenchmarkApp
 
@@ -732,5 +733,98 @@ def test_tui_run_baselines_button_invokes_runner(tmp_path: Path, monkeypatch: py
             assert isinstance(kwargs, dict)
             assert kwargs["mode"] == "pilot"
             assert str(kwargs["db_path"]) == str(app.db_path)
+
+    asyncio.run(scenario())
+
+
+def _tui_news_result(query: str = "market news", *, failed: bool = False) -> NewsFetchResult:
+    normalized = normalize_url("https://example.com/article")
+    return NewsFetchResult(
+        config=make_news_fetch_config(query=query, max_results=1),
+        fetched_at="2026-06-07T12:00:00+00:00",
+        records=[
+            NewsArticleRecord(
+                record_id=article_record_id(normalized),
+                url="https://example.com/article",
+                normalized_url=normalized,
+                title="Market article",
+                snippet="Snippet",
+                article_text=None if failed else "Full article text",
+                extraction_status="failed" if failed else "success",
+                extract_error="blocked" if failed else None,
+            )
+        ],
+        search_request_id="search-1",
+        search_usage={"credits": 1},
+    )
+
+
+class FakeTuiNewsClient:
+    def __init__(self, *, failed: bool = False) -> None:
+        self.failed = failed
+        self.configs = []
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, traceback) -> None:
+        return None
+
+    async def fetch(self, config):
+        self.configs.append(config)
+        return _tui_news_result(config.query, failed=self.failed)
+
+
+def test_tui_news_tab_renders_controls(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            from textual.widgets import TabbedContent
+
+            tabs = app.query_one(TabbedContent)
+            await pilot.press("6")
+            await pilot.pause(0.05)
+
+            assert tabs.active == "news-tab"
+            assert app.query_one("#news-query", Input).value == "financial markets"
+            assert app.query_one("#news-extract", Checkbox).value is True
+            assert "Tavily API key" in str(app.query_one("#news-summary", Static).content)
+
+    asyncio.run(scenario())
+
+
+def test_tui_news_check_uses_client_and_logs_status(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        fake = FakeTuiNewsClient()
+        monkeypatch.setattr(app, "_make_news_client", lambda: fake)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            await app._check_news()
+
+            assert fake.configs[0].extract is False
+            assert any("Tavily check OK" in line for line in app.news_lines)
+            assert any("succeeded" in message for _, message in app.notifications)
+
+    asyncio.run(scenario())
+
+
+def test_tui_news_fetch_writes_outputs_and_logs_failures(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        app.news_output_dir = tmp_path / "news"
+        fake = FakeTuiNewsClient(failed=True)
+        monkeypatch.setattr(app, "_make_news_client", lambda: fake)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            await app._fetch_news()
+
+            assert fake.configs[0].extract is True
+            assert any("failed extractions=1" in line for line in app.news_lines)
+            assert any("articles.jsonl" in line for line in app.news_lines)
+            exported = list((tmp_path / "news").glob("tavily_news_*"))
+            assert len(exported) == 1
+            assert (exported[0] / "manifest.json").exists()
 
     asyncio.run(scenario())

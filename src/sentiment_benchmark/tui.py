@@ -48,6 +48,17 @@ from .dataset import compute_stats, load_dataset
 from .env import load_env_file
 from .exporter import export_run
 from .models import ModelConfig, RunConfig
+from .news_source import (
+    DEFAULT_NEWS_MAX_RESULTS,
+    DEFAULT_NEWS_OUTPUT_DIR,
+    DEFAULT_NEWS_TIME_RANGE,
+    DEFAULT_NEWS_TOPIC,
+    NEWS_TIME_RANGES,
+    NEWS_TOPICS,
+    TavilyNewsClient,
+    make_news_fetch_config,
+    write_news_corpus,
+)
 from .prompts import load_prompts, make_prompt
 from .providers import endpoint_for_provider, make_llm_client, normalize_provider
 from .runner import BenchmarkRunner
@@ -185,7 +196,7 @@ class HelpScreen(ModalScreen[None]):
     BINDINGS = [("escape", "dismiss(None)", "Close"), ("?", "dismiss(None)", "Close")]
 
     _HELP_LINES = [
-        "1-5    Switch tabs (Dashboard, Models, Prompt, Run, Results)",
+        "1-6    Switch tabs (Dashboard, Models, Prompt, Run, Results, News)",
         "r      Refresh the dashboard",
         "s      Start the benchmark run",
         "c      Cancel an in-progress run",
@@ -254,7 +265,7 @@ class SentimentBenchmarkApp(App):
     .validation-hint.-error {
         color: $error;
     }
-    #dashboard, #prompt-preview, #run-estimate, #results-help, #selected-summary {
+    #dashboard, #prompt-preview, #run-estimate, #results-help, #selected-summary, #news-summary {
         border: solid $accent;
         padding: 1;
         margin-bottom: 1;
@@ -286,6 +297,11 @@ class SentimentBenchmarkApp(App):
         margin-bottom: 1;
     }
     #monitor {
+        height: 12;
+        margin-bottom: 1;
+        border: solid $accent;
+    }
+    #news-log {
         height: 12;
         margin-bottom: 1;
         border: solid $accent;
@@ -334,6 +350,7 @@ class SentimentBenchmarkApp(App):
         ("3", "show_tab('prompt-tab')", "Prompt"),
         ("4", "show_tab('run-tab')", "Run"),
         ("5", "show_tab('results-tab')", "Results"),
+        ("6", "show_tab('news-tab')", "News"),
         ("r", "refresh", "Refresh"),
         ("s", "start_run", "Start"),
         ("b", "run_baselines", "Baselines"),
@@ -351,6 +368,12 @@ class SentimentBenchmarkApp(App):
             self.provider = normalize_provider(DEFAULT_PROVIDER)
         self.base_url = os.getenv("OPENROUTER_BASE_URL", DEFAULT_BASE_URL)
         self.ollama_host = os.getenv("OLLAMA_HOST", DEFAULT_OLLAMA_HOST)
+        self.news_query = "financial markets"
+        self.news_topic = DEFAULT_NEWS_TOPIC
+        self.news_time_range = DEFAULT_NEWS_TIME_RANGE
+        self.news_max_results = DEFAULT_NEWS_MAX_RESULTS
+        self.news_extract = True
+        self.news_output_dir = DEFAULT_NEWS_OUTPUT_DIR
         self.selected_models: list[str] = []
         self.prompts = load_prompts(DEFAULT_PROMPTS_PATH)
         self._default_prompt_id = (
@@ -359,6 +382,7 @@ class SentimentBenchmarkApp(App):
         self.prompt = self.prompts[self._default_prompt_id]
         self.run_mode: str = "pilot"
         self.monitor_lines: list[str] = []
+        self.news_lines: list[str] = []
         self._all_models: list[ModelConfig] = []
         self._model_names: dict[str, str] = {}
         self._session_path = _SESSION_PATH
@@ -368,6 +392,7 @@ class SentimentBenchmarkApp(App):
         self._run_task: asyncio.Task | None = None
         self._run_in_progress: bool = False
         self._baseline_in_progress: bool = False
+        self._news_in_progress: bool = False
         self._confirmation_pending: bool = False
         self._progress: dict[str, dict] = {}
         self._rows_per_model: int = 0
@@ -641,6 +666,44 @@ class SentimentBenchmarkApp(App):
                     "Select a misclassified row to inspect the sentence and raw model output.",
                     id="misclassified-detail",
                 )
+            with TabPane("News", id="news-tab"):
+                yield Static(
+                    "Source unlabeled news articles from Tavily into derived files. This does not modify Data/data.csv.",
+                    classes="help",
+                )
+                yield Static("Search query", classes="field-label")
+                yield Input(value=self.news_query, placeholder="bank earnings sentiment", id="news-query")
+                yield Static("Topic", classes="field-label")
+                yield Select(
+                    [(topic.title(), topic) for topic in NEWS_TOPICS],
+                    id="news-topic",
+                    value=self.news_topic,
+                    allow_blank=False,
+                )
+                yield Static("Time range", classes="field-label")
+                yield Select(
+                    [(value.title(), value) for value in NEWS_TIME_RANGES],
+                    id="news-time-range",
+                    value=self.news_time_range,
+                    allow_blank=False,
+                )
+                yield Static("Max results", classes="field-label")
+                yield Input(
+                    value=str(self.news_max_results),
+                    placeholder="10",
+                    id="news-max-results",
+                    type="integer",
+                    validators=[Integer(minimum=1, maximum=20)],
+                )
+                yield Checkbox("Extract full article text", value=self.news_extract, id="news-extract")
+                yield Static("Output directory", classes="field-label")
+                yield Input(value=str(self.news_output_dir), placeholder="Data/news", id="news-output-dir")
+                yield Static(id="news-summary")
+                with Horizontal(id="news-controls"):
+                    yield Button("Check Tavily", id="news-check")
+                    yield Button("Fetch News", id="news-fetch", variant="primary")
+                yield Static("News log", classes="section-title")
+                yield RichLog(id="news-log", highlight=True, markup=False, wrap=True)
         yield Footer()
 
     def on_mount(self) -> None:
@@ -671,6 +734,7 @@ class SentimentBenchmarkApp(App):
             ("#dashboard", "Dataset & environment"),
             ("#prompt-preview", "Active prompt"),
             ("#misclassified-detail", "Row detail"),
+            ("#news-summary", "Tavily sourcing"),
         ):
             try:
                 self.query_one(panel_id, Static).border_title = title
@@ -684,6 +748,7 @@ class SentimentBenchmarkApp(App):
         self._refresh_run_estimate()
         self._refresh_results_help()
         self._refresh_runs_table()
+        self._refresh_news_summary()
         self._refresh_status_bar()
         self._refresh_stepper()
 
@@ -696,6 +761,35 @@ class SentimentBenchmarkApp(App):
             return
         should_follow = bool(log.is_vertical_scroll_end)
         log.write(message, scroll_end=should_follow)
+
+    def _set_news_log(self, message: str) -> None:
+        self.news_lines.append(message)
+        self.news_lines = self.news_lines[-500:]
+        try:
+            log = self.query_one("#news-log", RichLog)
+        except Exception:
+            return
+        should_follow = bool(log.is_vertical_scroll_end)
+        log.write(message, scroll_end=should_follow)
+
+    def _make_news_client(self) -> TavilyNewsClient:
+        return TavilyNewsClient()
+
+    def _refresh_news_summary(self) -> None:
+        try:
+            summary = self.query_one("#news-summary", Static)
+        except Exception:
+            return
+        api_state = "present" if os.getenv("TAVILY_API_KEY") else "missing"
+        summary.update(
+            "\n".join(
+                [
+                    f"Tavily API key: {api_state}",
+                    f"Output directory: {self.news_output_dir}",
+                    "Generated corpora are unlabeled source material.",
+                ]
+            )
+        )
 
     def _notify_error(self, message: str, *, title: str = "Error") -> None:
         self.notifications.append(("error", message))
@@ -897,6 +991,24 @@ class SentimentBenchmarkApp(App):
         ollama_host = data.get("ollama_host")
         if isinstance(ollama_host, str) and ollama_host:
             self.ollama_host = ollama_host
+        news_query = data.get("news_query")
+        if isinstance(news_query, str) and news_query:
+            self.news_query = news_query
+        news_topic = data.get("news_topic")
+        if isinstance(news_topic, str) and news_topic in NEWS_TOPICS:
+            self.news_topic = news_topic
+        news_time_range = data.get("news_time_range")
+        if isinstance(news_time_range, str) and news_time_range in NEWS_TIME_RANGES:
+            self.news_time_range = news_time_range
+        news_max_results = data.get("news_max_results")
+        if isinstance(news_max_results, int) and 1 <= news_max_results <= 20:
+            self.news_max_results = news_max_results
+        news_extract = data.get("news_extract")
+        if isinstance(news_extract, bool):
+            self.news_extract = news_extract
+        news_output_dir = data.get("news_output_dir")
+        if isinstance(news_output_dir, str) and news_output_dir:
+            self.news_output_dir = Path(news_output_dir)
 
     def _save_session(self) -> None:
         payload = {
@@ -906,6 +1018,12 @@ class SentimentBenchmarkApp(App):
             "provider": self.provider,
             "base_url": self.base_url,
             "ollama_host": self.ollama_host,
+            "news_query": self.news_query,
+            "news_topic": self.news_topic,
+            "news_time_range": self.news_time_range,
+            "news_max_results": self.news_max_results,
+            "news_extract": self.news_extract,
+            "news_output_dir": str(self.news_output_dir),
         }
         try:
             self._session_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1188,6 +1306,10 @@ class SentimentBenchmarkApp(App):
             self._view_figures()
         elif button_id == "open-exports":
             self._open_exports()
+        elif button_id == "news-check":
+            await self._check_news()
+        elif button_id == "news-fetch":
+            await self._fetch_news()
 
     def on_input_changed(self, event: Input.Changed) -> None:
         if event.input.id == "sample-per-class":
@@ -1202,6 +1324,20 @@ class SentimentBenchmarkApp(App):
                 self.base_url = value or DEFAULT_BASE_URL
             self._refresh_dashboard()
             self._refresh_status_bar()
+            self._save_session()
+        if event.input.id == "news-query":
+            self.news_query = event.input.value.strip()
+            self._save_session()
+        if event.input.id == "news-output-dir":
+            value = event.input.value.strip() or str(DEFAULT_NEWS_OUTPUT_DIR)
+            self.news_output_dir = Path(value)
+            self._refresh_news_summary()
+            self._save_session()
+        if event.input.id == "news-max-results":
+            try:
+                self.news_max_results = int(event.input.value.strip() or DEFAULT_NEWS_MAX_RESULTS)
+            except ValueError:
+                pass
             self._save_session()
         if event.input.id in _VALIDATED_INPUTS:
             self._update_validation_hint(event.input.id, event.validation_result)
@@ -1257,6 +1393,99 @@ class SentimentBenchmarkApp(App):
             self.prompt = preset
             self._refresh_prompt_preview()
             self._save_session()
+        elif event.select.id == "news-topic":
+            self.news_topic = str(event.value)
+            self._save_session()
+        elif event.select.id == "news-time-range":
+            self.news_time_range = str(event.value)
+            self._save_session()
+
+    def on_checkbox_changed(self, event: Checkbox.Changed) -> None:
+        if event.checkbox.id == "news-extract":
+            self.news_extract = bool(event.value)
+            self._save_session()
+
+    def _set_news_busy(self, busy: bool) -> None:
+        self._news_in_progress = busy
+        for button_id in ("#news-check", "#news-fetch"):
+            try:
+                self.query_one(button_id, Button).disabled = busy
+            except Exception:
+                pass
+
+    def _news_config_from_ui(self, *, check_only: bool = False):
+        try:
+            query = self.query_one("#news-query", Input).value.strip()
+            max_results = 1 if check_only else int(self.query_one("#news-max-results", Input).value.strip())
+            topic_value = self.query_one("#news-topic", Select).value
+            time_range_value = self.query_one("#news-time-range", Select).value
+            if topic_value is Select.BLANK or time_range_value is Select.BLANK:
+                raise ValueError("Choose a Tavily topic and time range")
+            extract = False if check_only else bool(self.query_one("#news-extract", Checkbox).value)
+            return make_news_fetch_config(
+                query=query,
+                max_results=max_results,
+                topic=str(topic_value),
+                time_range=str(time_range_value),
+                extract=extract,
+            )
+        except Exception as exc:
+            raise ValueError(f"News setup error: {exc}") from exc
+
+    async def _check_news(self) -> None:
+        if self._news_in_progress:
+            self._notify_error("A Tavily request is already in progress.", title="Busy")
+            return
+        try:
+            config = self._news_config_from_ui(check_only=True)
+        except ValueError as exc:
+            self._notify_error(str(exc), title="Cannot check")
+            return
+        self._set_news_busy(True)
+        self._set_news_log(f"Checking Tavily with query: {config.query}")
+        try:
+            async with self._make_news_client() as client:
+                result = await client.fetch(config)
+            credits = result.search_usage.get("credits") if isinstance(result.search_usage, dict) else None
+            credit_text = f", credits={credits}" if credits is not None else ""
+            self._set_news_log(
+                f"Tavily check OK: {len(result.records)} result(s), request_id={result.search_request_id or '-'}{credit_text}"
+            )
+            self._notify_info("Tavily news API check succeeded.", title="Tavily")
+        except Exception as exc:
+            self._notify_error(f"Tavily check failed: {exc}", title="Tavily failed")
+            self._set_news_log(f"Tavily check failed: {exc}")
+        finally:
+            self._set_news_busy(False)
+
+    async def _fetch_news(self) -> None:
+        if self._news_in_progress:
+            self._notify_error("A Tavily request is already in progress.", title="Busy")
+            return
+        try:
+            config = self._news_config_from_ui()
+        except ValueError as exc:
+            self._notify_error(str(exc), title="Cannot fetch")
+            return
+        self._set_news_busy(True)
+        self._set_news_log(f"Fetching Tavily news: {config.query}")
+        try:
+            async with self._make_news_client() as client:
+                result = await client.fetch(config)
+            paths = write_news_corpus(result, self.news_output_dir)
+            failed = sum(1 for record in result.records if record.extraction_status == "failed")
+            self._set_news_log(
+                f"Saved {len(result.records)} article record(s), failed extractions={failed}: {paths.output_dir}"
+            )
+            self._set_news_log(f"JSONL: {paths.articles_jsonl}")
+            self._set_news_log(f"CSV: {paths.articles_csv}")
+            self._set_news_log(f"Manifest: {paths.manifest_json}")
+            self._notify_info(f"Saved Tavily article corpus to {paths.output_dir}", title="News saved")
+        except Exception as exc:
+            self._notify_error(f"Tavily fetch failed: {exc}", title="Fetch failed")
+            self._set_news_log(f"Tavily fetch failed: {exc}")
+        finally:
+            self._set_news_busy(False)
 
     def _update_validation_hint(self, input_id: str, result: ValidationResult | None) -> None:
         try:

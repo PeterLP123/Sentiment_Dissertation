@@ -1,6 +1,6 @@
 # Sentiment Dissertation Benchmark
 
-Terminal UI and CLI tooling for benchmarking OpenRouter language models on the dissertation sentiment dataset.
+Terminal UI and CLI tooling for benchmarking LLM sentiment analysis and sourcing dissertation news articles.
 
 ## Setup
 
@@ -15,6 +15,9 @@ Create a local `.env` file for provider settings:
 ```bash
 OPENROUTER_API_KEY=your-key
 OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+TAVILY_API_KEY=tvly-your-key
+# Optional for Tavily usage tracking:
+TAVILY_PROJECT=sentiment-dissertation
 ```
 
 `OPENROUTER_BASE_URL` is optional. The default points to OpenRouter.
@@ -66,6 +69,21 @@ Launch the terminal UI:
 ```bash
 sentiment-bench tui
 ```
+
+Source news articles through Tavily:
+
+```bash
+# Small API connectivity check.
+sentiment-bench news-check --query "financial markets" --max-results 1
+
+# Search news and extract full article text into a timestamped derived corpus.
+sentiment-bench fetch-news --query "bank earnings sentiment" \
+    --max-results 10 --time-range week --output-dir Data/news
+```
+
+Each Tavily fetch writes `articles.jsonl`, `articles.csv`, and `manifest.json`
+under `Data/news/tavily_news_<timestamp>_<query>/`. These records are unlabeled
+source material; they are not converted into benchmark rows automatically.
 
 Run non-LLM baselines for context:
 
@@ -155,6 +173,7 @@ If the optional plotting extra is installed (`pip install ".[figures]"`), each e
 ## Reproducibility Notes
 
 - The source dataset in `Data/` is treated as source material. Do not edit it in place for experiments.
+- Tavily article corpora under `Data/news/` are generated derived data and are ignored by git except for `.gitkeep`.
 - Pilot row selection records the random seed and selected rows in SQLite.
 - Exports include the dataset path, dataset SHA-256 hash, prompt hash, model list, request settings, package version, and export timestamp.
 - Primary metrics exclude rows whose duplicate sentence has conflicting labels. Audit metrics include all selected rows.
