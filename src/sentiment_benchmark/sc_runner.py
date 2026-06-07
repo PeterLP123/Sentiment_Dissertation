@@ -48,10 +48,11 @@ class SelfConsistencyRunner:
     ) -> SelfConsistencyResult:
         self.store.initialize()
 
-        # Load and select rows
+        # Load and select rows. Samples are scored under scope="all" so conflicting
+        # duplicates are kept in the metrics; note that "full" mode is required to
+        # actually include them, since "pilot" mode samples only from primary
+        # (non-conflicting) rows.
         rows = load_dataset(dataset_path)
-        # For self-consistency we always evaluate on ALL rows (not just primary) to
-        # get the full picture including conflicting duplicates.
         selected = select_rows(
             rows, mode=mode, sample_per_class=sample_per_class, seed=seed  # type: ignore[arg-type]
         )

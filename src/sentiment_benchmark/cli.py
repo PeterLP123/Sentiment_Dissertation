@@ -875,7 +875,9 @@ def _print_sc_result(result: SelfConsistencyResult) -> None:
         box.add_row("Non-conflicting mean entropy", f"{result.non_conflicting_entropy:.4f}")
     gap = result.entropy_gap
     if gap is not None:
-        direction = "lower" if gap < 0 else "higher"
+        # gap = non_conflicting - conflicting, so gap < 0 means conflicting rows
+        # have the higher entropy.
+        direction = "higher" if gap < 0 else "lower"
         box.add_row("Entropy gap", f"{gap:.4f} ({direction} on conflicting rows)")
     if result.total_cost is not None:
         box.add_row("Total cost", f"${result.total_cost:.4f}")

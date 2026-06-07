@@ -14,10 +14,7 @@ _WORD = re.compile(r"[a-zA-Z]+")
 
 def _clean_candidate(value: str) -> str:
     candidate = value.strip().lower()
-    while len(candidate) >= 2 and (
-        (candidate[0] == candidate[-1] and candidate[0] in {"'", '"', "`"})
-        or (candidate[0] == "`" and candidate[-1] == "`")
-    ):
+    while len(candidate) >= 2 and candidate[0] == candidate[-1] and candidate[0] in {"'", '"', "`"}:
         candidate = candidate[1:-1].strip()
     if candidate.endswith("."):
         candidate = candidate[:-1].strip()
