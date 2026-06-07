@@ -21,8 +21,10 @@ from .constants import (
     DEFAULT_DATASET_PATH,
     DEFAULT_DB_PATH,
     DEFAULT_MAX_COMPLETION_TOKENS,
+    DEFAULT_OLLAMA_HOST,
     DEFAULT_PILOT_PER_CLASS,
     DEFAULT_PROMPTS_PATH,
+    DEFAULT_PROVIDER,
     DEFAULT_REASONING_MAX_COMPLETION_TOKENS,
     DEFAULT_RETRIES,
     DEFAULT_SEED,
@@ -32,10 +34,10 @@ from .dataset import compute_stats, load_dataset
 from .env import load_env_file
 from .exporter import export_run
 from .models import PromptConfig, RunConfig
-from .openrouter import OpenRouterClient
 from .perturbations import generate_prompt_suite
 from .prompt_sensitivity import SENSITIVITY_METRICS, prompt_sensitivity
 from .prompts import load_prompts
+from .providers import endpoint_for_provider, make_llm_client, normalize_provider
 from .reliability import run_agreement
 from .runner import BenchmarkRunner
 from .sc_runner import SelfConsistencyRunner
@@ -43,7 +45,7 @@ from .self_consistency import SelfConsistencyResult
 from .storage import BenchmarkStore
 
 console = Console()
-app = typer.Typer(help="Benchmark OpenRouter LLMs on dissertation sentiment data.")
+app = typer.Typer(help="Benchmark OpenRouter and Ollama LLMs on dissertation sentiment data.")
 load_env_file()
 
 
@@ -55,6 +57,13 @@ def _resolve_prompt(prompt_id: str, prompts_path: Path):
     return prompts[prompt_id]
 
 
+def _resolve_provider(provider: str):
+    try:
+        return normalize_provider(provider)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+
 def _make_run_config(
     *,
     models: list[str],
@@ -63,6 +72,7 @@ def _make_run_config(
     dataset_path: Path,
     db_path: Path,
     base_url: str,
+    provider: str,
     sample_per_class: int,
     seed: int,
     temperature: float,
@@ -81,6 +91,7 @@ def _make_run_config(
         dataset_path=str(dataset_path),
         db_path=str(db_path),
         base_url=base_url,
+        provider=_resolve_provider(provider),
         sample_per_class=sample_per_class,
         seed=seed,
         temperature=temperature,
@@ -136,16 +147,26 @@ def validate_data(
 
 @app.command("list-models")
 def list_models(
+    provider: Annotated[
+        str,
+        typer.Option("--provider", help="Model provider: openrouter or ollama."),
+    ] = os.getenv("SENTIMENT_BENCH_PROVIDER", DEFAULT_PROVIDER),
     base_url: Annotated[
         str,
         typer.Option("--base-url", help="OpenRouter-compatible base URL."),
     ] = os.getenv("OPENROUTER_BASE_URL", DEFAULT_BASE_URL),
+    ollama_host: Annotated[
+        str,
+        typer.Option("--ollama-host", help="Ollama host URL, e.g. http://desktop-pc:11434."),
+    ] = os.getenv("OLLAMA_HOST", DEFAULT_OLLAMA_HOST),
     limit: Annotated[int, typer.Option("--limit", help="Maximum rows to show.")] = 50,
 ) -> None:
+    resolved_provider = _resolve_provider(provider)
+
     async def main() -> None:
-        async with OpenRouterClient(base_url=base_url) as client:
+        async with make_llm_client(resolved_provider, base_url=base_url, ollama_host=ollama_host) as client:
             models = await client.list_models()
-        table = Table(title="OpenRouter Models")
+        table = Table(title=f"{resolved_provider.title()} Models")
         table.add_column("Model ID")
         table.add_column("Name")
         table.add_column("Context", justify="right")
@@ -159,13 +180,21 @@ def list_models(
 
 @app.command("run")
 def run_benchmark(
-    models: Annotated[list[str], typer.Option("--models", "-m", help="OpenRouter model id. Repeat for multiple models.")],
+    models: Annotated[list[str], typer.Option("--models", "-m", help="Model id. Repeat for multiple models.")],
     mode: Annotated[str, typer.Option("--mode", help="pilot or full.")] = "pilot",
     prompt_id: Annotated[str, typer.Option("--prompt-id", help="Prompt id from configs/default_prompts.toml.")] = "default_label_only",
     dataset_path: Annotated[Path, typer.Option("--dataset-path")] = DEFAULT_DATASET_PATH,
     db_path: Annotated[Path, typer.Option("--db-path")] = DEFAULT_DB_PATH,
     prompts_path: Annotated[Path, typer.Option("--prompts-path")] = DEFAULT_PROMPTS_PATH,
+    provider: Annotated[
+        str,
+        typer.Option("--provider", help="Model provider: openrouter or ollama."),
+    ] = os.getenv("SENTIMENT_BENCH_PROVIDER", DEFAULT_PROVIDER),
     base_url: Annotated[str, typer.Option("--base-url")] = os.getenv("OPENROUTER_BASE_URL", DEFAULT_BASE_URL),
+    ollama_host: Annotated[
+        str,
+        typer.Option("--ollama-host", help="Ollama host URL, e.g. http://desktop-pc:11434."),
+    ] = os.getenv("OLLAMA_HOST", DEFAULT_OLLAMA_HOST),
     sample_per_class: Annotated[int, typer.Option("--sample-per-class")] = DEFAULT_PILOT_PER_CLASS,
     seed: Annotated[int, typer.Option("--seed")] = DEFAULT_SEED,
     temperature: Annotated[float, typer.Option("--temperature")] = DEFAULT_TEMPERATURE,
@@ -198,7 +227,10 @@ def run_benchmark(
         int | None,
         typer.Option(
             "--resume-run-id",
-            help="Resume an existing run without duplicating completed responses. Few-shot settings are loaded from the stored run (CLI few-shot flags are ignored).",
+            help=(
+                "Resume an existing run without duplicating completed responses. Few-shot settings are loaded from the "
+                "stored run (CLI few-shot flags are ignored)."
+            ),
         ),
     ] = None,
 ) -> None:
@@ -208,6 +240,8 @@ def run_benchmark(
         raise typer.BadParameter("At least one --models value is required")
     if few_shot_k < 0:
         raise typer.BadParameter("--few-shot-k must be >= 0")
+    resolved_provider = _resolve_provider(provider)
+    endpoint = endpoint_for_provider(resolved_provider, base_url=base_url, ollama_host=ollama_host)
     model_token_overrides = _parse_model_max_tokens(model_max_tokens)
     prompt = _resolve_prompt(prompt_id, prompts_path)
     config = _make_run_config(
@@ -216,7 +250,8 @@ def run_benchmark(
         mode=mode,
         dataset_path=dataset_path,
         db_path=db_path,
-        base_url=base_url,
+        base_url=endpoint,
+        provider=resolved_provider,
         sample_per_class=sample_per_class,
         seed=seed,
         temperature=temperature,
@@ -231,7 +266,7 @@ def run_benchmark(
 
     async def main() -> None:
         store = BenchmarkStore(db_path)
-        async with OpenRouterClient(base_url=base_url) as client:
+        async with make_llm_client(resolved_provider, base_url=base_url, ollama_host=ollama_host) as client:
             runner = BenchmarkRunner(client=client, store=store)
             summary = await runner.run(config, resume_run_id=resume_run_id, callback=lambda message: console.print(message))
         console.print(f"Run {summary.run_id} complete: {summary.model_count} model(s), {summary.selected_row_count} row(s)")
@@ -434,7 +469,7 @@ def compare_command(
 
 @app.command("run-prompt-suite")
 def run_prompt_suite_command(
-    models: Annotated[list[str], typer.Option("--models", "-m", help="OpenRouter model id. Repeat for multiple models.")],
+    models: Annotated[list[str], typer.Option("--models", "-m", help="Model id. Repeat for multiple models.")],
     base_prompt_id: Annotated[
         str,
         typer.Option("--base-prompt-id", help="Prompt id to perturb into a variant family."),
@@ -447,7 +482,15 @@ def run_prompt_suite_command(
     dataset_path: Annotated[Path, typer.Option("--dataset-path")] = DEFAULT_DATASET_PATH,
     db_path: Annotated[Path, typer.Option("--db-path")] = DEFAULT_DB_PATH,
     prompts_path: Annotated[Path, typer.Option("--prompts-path")] = DEFAULT_PROMPTS_PATH,
+    provider: Annotated[
+        str,
+        typer.Option("--provider", help="Model provider: openrouter or ollama."),
+    ] = os.getenv("SENTIMENT_BENCH_PROVIDER", DEFAULT_PROVIDER),
     base_url: Annotated[str, typer.Option("--base-url")] = os.getenv("OPENROUTER_BASE_URL", DEFAULT_BASE_URL),
+    ollama_host: Annotated[
+        str,
+        typer.Option("--ollama-host", help="Ollama host URL, e.g. http://desktop-pc:11434."),
+    ] = os.getenv("OLLAMA_HOST", DEFAULT_OLLAMA_HOST),
     sample_per_class: Annotated[int, typer.Option("--sample-per-class")] = DEFAULT_PILOT_PER_CLASS,
     seed: Annotated[int, typer.Option("--seed")] = DEFAULT_SEED,
     temperature: Annotated[float, typer.Option("--temperature")] = DEFAULT_TEMPERATURE,
@@ -465,6 +508,8 @@ def run_prompt_suite_command(
         raise typer.BadParameter("mode must be pilot or full")
     if not models:
         raise typer.BadParameter("At least one --models value is required")
+    resolved_provider = _resolve_provider(provider)
+    endpoint = endpoint_for_provider(resolved_provider, base_url=base_url, ollama_host=ollama_host)
     base_prompt = _resolve_prompt(base_prompt_id, prompts_path)
     families = tuple(include) if include else ("label_order", "paraphrase")
     try:
@@ -477,7 +522,7 @@ def run_prompt_suite_command(
     async def main() -> list[tuple[str, int]]:
         produced: list[tuple[str, int]] = []
         store = BenchmarkStore(db_path)
-        async with OpenRouterClient(base_url=base_url) as client:
+        async with make_llm_client(resolved_provider, base_url=base_url, ollama_host=ollama_host) as client:
             runner = BenchmarkRunner(client=client, store=store)
             for variant in variants:
                 config = _make_run_config(
@@ -486,7 +531,8 @@ def run_prompt_suite_command(
                     mode=mode,
                     dataset_path=dataset_path,
                     db_path=db_path,
-                    base_url=base_url,
+                    base_url=endpoint,
+                    provider=resolved_provider,
                     sample_per_class=sample_per_class,
                     seed=seed,
                     temperature=temperature,
@@ -600,7 +646,7 @@ def tui() -> None:
 @app.command("run-self-consistency")
 def run_self_consistency(
     model: Annotated[
-        str, typer.Option("--model", "-m", help="OpenRouter model id to sample.")
+        str, typer.Option("--model", "-m", help="Model id to sample.")
     ],
     mode: Annotated[
         str, typer.Option("--mode", help="pilot or full.")
@@ -611,9 +657,17 @@ def run_self_consistency(
     dataset_path: Annotated[Path, typer.Option("--dataset-path")] = DEFAULT_DATASET_PATH,
     db_path: Annotated[Path, typer.Option("--db-path")] = DEFAULT_DB_PATH,
     prompts_path: Annotated[Path, typer.Option("--prompts-path")] = DEFAULT_PROMPTS_PATH,
+    provider: Annotated[
+        str,
+        typer.Option("--provider", help="Model provider: openrouter or ollama."),
+    ] = os.getenv("SENTIMENT_BENCH_PROVIDER", DEFAULT_PROVIDER),
     base_url: Annotated[
         str, typer.Option("--base-url")
     ] = os.getenv("OPENROUTER_BASE_URL", DEFAULT_BASE_URL),
+    ollama_host: Annotated[
+        str,
+        typer.Option("--ollama-host", help="Ollama host URL, e.g. http://desktop-pc:11434."),
+    ] = os.getenv("OLLAMA_HOST", DEFAULT_OLLAMA_HOST),
     sample_per_class: Annotated[
         int, typer.Option("--sample-per-class")
     ] = DEFAULT_PILOT_PER_CLASS,
@@ -644,12 +698,13 @@ def run_self_consistency(
         raise typer.BadParameter("--num-samples must be >= 2")
     if temperature < 0.0:
         raise typer.BadParameter("--temperature must be >= 0.0")
+    resolved_provider = _resolve_provider(provider)
 
     prompt = _resolve_prompt(prompt_id, prompts_path)
 
     async def main() -> None:
         store = BenchmarkStore(db_path)
-        async with OpenRouterClient(base_url=base_url) as client:
+        async with make_llm_client(resolved_provider, base_url=base_url, ollama_host=ollama_host) as client:
             runner = SelfConsistencyRunner(client=client, store=store)
             result = await runner.run(
                 model_id=model,

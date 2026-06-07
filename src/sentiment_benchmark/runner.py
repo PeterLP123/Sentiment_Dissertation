@@ -10,7 +10,6 @@ from .dataset import load_dataset, select_rows
 from .demonstrations import demonstration_pool, select_demonstrations
 from .metrics import evaluate_responses
 from .models import BlindExample, DatasetRow, PromptConfig, RunConfig, RunResumeSettings
-from .openrouter import OpenRouterClient
 from .prompts import with_demonstrations
 from .storage import BenchmarkStore
 
@@ -28,7 +27,7 @@ class RunSummary:
 
 
 class BenchmarkRunner:
-    def __init__(self, client: OpenRouterClient, store: BenchmarkStore) -> None:
+    def __init__(self, client: Any, store: BenchmarkStore) -> None:
         self.client = client
         self.store = store
 

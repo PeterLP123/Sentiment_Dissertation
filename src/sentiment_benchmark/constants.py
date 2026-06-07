@@ -11,7 +11,9 @@ def is_valid_label(label: str) -> bool:
 DEFAULT_DATASET_PATH = Path("Data/data.csv")
 DEFAULT_DB_PATH = Path("results/sentiment_benchmark.sqlite")
 DEFAULT_PROMPTS_PATH = Path("configs/default_prompts.toml")
+DEFAULT_PROVIDER = "openrouter"
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
+DEFAULT_OLLAMA_HOST = "http://localhost:11434"
 DEFAULT_APP_TITLE = "Sentiment Dissertation Benchmark"
 DEFAULT_SEED = 42
 DEFAULT_PILOT_PER_CLASS = 30

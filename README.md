@@ -10,7 +10,7 @@ Install the package in editable mode with development tools:
 python -m pip install -e ".[dev]"
 ```
 
-Create a local `.env` file for OpenRouter credentials:
+Create a local `.env` file for provider settings:
 
 ```bash
 OPENROUTER_API_KEY=your-key
@@ -18,6 +18,18 @@ OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 ```
 
 `OPENROUTER_BASE_URL` is optional. The default points to OpenRouter.
+
+To use a local Ollama server instead of OpenRouter, add:
+
+```bash
+SENTIMENT_BENCH_PROVIDER=ollama
+OLLAMA_HOST=http://desktop-pc:11434
+```
+
+`SENTIMENT_BENCH_PROVIDER` defaults to `openrouter`. For Ollama, install and run
+Ollama on the machine that hosts the local model, pull the model there (for
+example `ollama pull gemma3`), and set `OLLAMA_HOST` on this machine to the
+desktop PC's reachable Ollama URL.
 
 ## Usage
 
@@ -31,6 +43,10 @@ Run a pilot benchmark from the CLI:
 
 ```bash
 sentiment-bench run --models openai/gpt-4o-mini --mode pilot
+
+# Local Ollama model running on another machine:
+sentiment-bench run --provider ollama --ollama-host http://desktop-pc:11434 \
+    --models gemma3 --mode pilot
 
 # Chain-of-thought (reason-then-label) prompting:
 sentiment-bench run --models openai/gpt-4o-mini --prompt-id default_chain_of_thought

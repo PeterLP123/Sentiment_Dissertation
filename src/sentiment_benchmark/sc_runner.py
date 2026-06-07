@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
+from typing import Any
 
 from .dataset import load_dataset, select_rows
 from .models import PromptConfig
-from .openrouter import OpenRouterClient
 from .self_consistency import SelfConsistencyResult
 from .storage import BenchmarkStore
 
@@ -26,7 +26,7 @@ class SelfConsistencyRunner:
     consistency metrics are computed per-row and overall.
     """
 
-    def __init__(self, client: OpenRouterClient, store: BenchmarkStore) -> None:
+    def __init__(self, client: Any, store: BenchmarkStore) -> None:
         self.client = client
         self.store = store
 

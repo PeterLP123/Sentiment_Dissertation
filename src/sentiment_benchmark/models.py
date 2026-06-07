@@ -7,6 +7,7 @@ from .constants import DEFAULT_REASONING_MAX_COMPLETION_TOKENS
 
 OutputMode = Literal["label_only", "explanation", "cot"]
 RunMode = Literal["pilot", "full"]
+Provider = Literal["openrouter", "ollama"]
 ParseStatus = Literal["valid", "invalid", "error"]
 ResponseStatus = Literal["success", "api_error", "transport_error", "malformed_response", "skipped"]
 
@@ -68,6 +69,7 @@ class RunConfig:
     dataset_path: str
     db_path: str
     base_url: str
+    provider: Provider = "openrouter"
     sample_per_class: int = 30
     seed: int = 42
     temperature: float = 0.0

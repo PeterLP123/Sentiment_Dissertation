@@ -13,7 +13,7 @@ import pandas as pd
 
 from . import __version__
 from .agreement import compute_agreement
-from .constants import ALLOWED_LABELS, is_valid_label
+from .constants import is_valid_label
 from .metrics import _response_prediction, bootstrap_metric_ci, load_metric_json, mcnemar_test
 from .plotting import generate_figures
 
@@ -197,6 +197,7 @@ def export_run(db_path: str | Path, run_id: int, output_dir: str | Path | None =
             "seed": request_settings.get("seed"),
             "mode": run_record.get("mode"),
             "models": models,
+            "provider": request_settings.get("provider", "openrouter"),
             "base_url": run_record.get("base_url"),
             "request_settings": request_settings,
         },

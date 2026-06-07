@@ -246,6 +246,7 @@ class BenchmarkStore:
 
     def create_run(self, config: RunConfig, selected_row_numbers: list[int]) -> int:
         request = {
+            "provider": config.provider,
             "temperature": config.temperature,
             "max_completion_tokens": config.max_completion_tokens,
             "reasoning_max_completion_tokens": config.reasoning_max_completion_tokens,
@@ -565,7 +566,7 @@ class BenchmarkStore:
         return list(rows)
 
     def run_cost_by_model(self, run_id: int) -> dict[str, float]:
-        """Sum the observed OpenRouter cost per model for a run, if recorded."""
+        """Sum observed provider cost per model for a run, if recorded."""
         with self.connect() as connection:
             rows = connection.execute(
                 """

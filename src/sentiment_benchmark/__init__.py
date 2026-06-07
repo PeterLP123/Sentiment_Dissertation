@@ -1,6 +1,5 @@
-"""OpenRouter sentiment benchmark tooling."""
+"""OpenRouter and Ollama sentiment benchmark tooling."""
 
 __all__ = ["__version__"]
 
 __version__ = "0.1.0"
-

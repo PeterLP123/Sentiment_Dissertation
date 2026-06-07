@@ -40,14 +40,16 @@ from .constants import (
     DEFAULT_DATASET_PATH,
     DEFAULT_DB_PATH,
     DEFAULT_MAX_COMPLETION_TOKENS,
+    DEFAULT_OLLAMA_HOST,
     DEFAULT_PROMPTS_PATH,
+    DEFAULT_PROVIDER,
 )
 from .dataset import compute_stats, load_dataset
 from .env import load_env_file
 from .exporter import export_run
 from .models import ModelConfig, RunConfig
-from .openrouter import OpenRouterClient
 from .prompts import load_prompts, make_prompt
+from .providers import endpoint_for_provider, make_llm_client, normalize_provider
 from .runner import BenchmarkRunner
 from .storage import BenchmarkStore
 
@@ -204,7 +206,7 @@ class HelpScreen(ModalScreen[None]):
 
 class SentimentBenchmarkApp(App):
     TITLE = "Sentiment Benchmark"
-    SUB_TITLE = "OpenRouter LLM sentiment evaluation"
+    SUB_TITLE = "LLM sentiment evaluation"
     CSS = """
     Screen {
         layout: vertical;
@@ -343,7 +345,12 @@ class SentimentBenchmarkApp(App):
         load_env_file()
         self.dataset_path = DEFAULT_DATASET_PATH
         self.db_path = DEFAULT_DB_PATH
+        try:
+            self.provider = normalize_provider(os.getenv("SENTIMENT_BENCH_PROVIDER", DEFAULT_PROVIDER))
+        except ValueError:
+            self.provider = normalize_provider(DEFAULT_PROVIDER)
         self.base_url = os.getenv("OPENROUTER_BASE_URL", DEFAULT_BASE_URL)
+        self.ollama_host = os.getenv("OLLAMA_HOST", DEFAULT_OLLAMA_HOST)
         self.selected_models: list[str] = []
         self.prompts = load_prompts(DEFAULT_PROMPTS_PATH)
         self._default_prompt_id = (
@@ -376,7 +383,7 @@ class SentimentBenchmarkApp(App):
         with TabbedContent():
             with TabPane("Dashboard", id="dashboard-tab"):
                 yield Static(
-                    "Use this app to run OpenRouter models against the dissertation sentiment dataset. "
+                    "Use this app to run OpenRouter or Ollama models against the dissertation sentiment dataset. "
                     "Only Sentence text is sent to models; hidden Sentiment labels stay in the evaluator.",
                     classes="help",
                 )
@@ -384,16 +391,29 @@ class SentimentBenchmarkApp(App):
                 yield Button("Refresh Dashboard", id="refresh-dashboard")
             with TabPane("Models", id="models-tab"):
                 yield Static(
-                    "Step 1: choose the OpenRouter models to test. Fetch models to browse available IDs, "
+                    "Step 1: choose the models to test. Fetch models to browse available IDs, "
                     "press Enter on a row to toggle it, or type a model ID manually.",
                     classes="help",
                 )
+                yield Static("Provider", classes="field-label")
+                yield Select(
+                    [("OpenRouter", "openrouter"), ("Ollama", "ollama")],
+                    id="provider",
+                    value=self.provider,
+                    allow_blank=False,
+                )
+                yield Static("Provider endpoint", classes="field-label")
+                yield Input(
+                    value=self._active_endpoint(),
+                    placeholder=self._endpoint_placeholder(),
+                    id="provider-endpoint",
+                )
                 yield Static("Manual model ID", classes="field-label")
                 yield Static(
-                    "Example: openai/gpt-4o-mini. Repeat Add Model for each model you want in the same benchmark run.",
+                    "Examples: openai/gpt-4o-mini or gemma3. Repeat Add Model for each model you want in the same benchmark run.",
                     classes="help",
                 )
-                yield Input(placeholder="openai/gpt-4o-mini", id="manual-model")
+                yield Input(placeholder="openai/gpt-4o-mini or gemma3", id="manual-model")
                 yield Button("Add Model", id="add-model")
                 yield Button("Fetch Models", id="fetch-models")
                 yield Static("Selected models", classes="section-title")
@@ -403,7 +423,7 @@ class SentimentBenchmarkApp(App):
                     classes="help",
                 )
                 yield DataTable(id="selected-table")
-                yield Static("Fetched OpenRouter models", classes="section-title")
+                yield Static("Fetched provider models", classes="section-title")
                 yield Static(
                     "Type to filter. Press Enter on a row to toggle selection. [x] = currently selected.",
                     classes="help",
@@ -691,6 +711,15 @@ class SentimentBenchmarkApp(App):
         except Exception:
             pass
 
+    def _active_endpoint(self) -> str:
+        return endpoint_for_provider(self.provider, base_url=self.base_url, ollama_host=self.ollama_host)
+
+    def _endpoint_placeholder(self) -> str:
+        return "http://desktop-pc:11434" if self.provider == "ollama" else DEFAULT_BASE_URL
+
+    def _provider_title(self) -> str:
+        return "Ollama" if self.provider == "ollama" else "OpenRouter"
+
     def action_show_tab(self, tab_id: str) -> None:
         try:
             self.query_one(TabbedContent).active = tab_id
@@ -717,9 +746,13 @@ class SentimentBenchmarkApp(App):
             bar = self.query_one("#status-bar", Static)
         except Exception:
             return
-        key_state = "OK" if os.getenv("OPENROUTER_API_KEY") else "missing"
+        provider_status = (
+            f"OpenRouter key: {'OK' if os.getenv('OPENROUTER_API_KEY') else 'missing'}"
+            if self.provider == "openrouter"
+            else f"Ollama: {self.ollama_host}"
+        )
         bar.update(
-            f" API key: {key_state}  |  models: {len(self.selected_models)}  |  "
+            f" {provider_status}  |  models: {len(self.selected_models)}  |  "
             f"prompt: {self.prompt.prompt_id}  |  mode: {self.run_mode} "
         )
         self._refresh_stepper()
@@ -728,6 +761,7 @@ class SentimentBenchmarkApp(App):
         rows = load_dataset(self.dataset_path)
         stats = compute_stats(rows)
         key_status = "present" if os.getenv("OPENROUTER_API_KEY") else "missing"
+        endpoint = self._active_endpoint()
         self.query_one("#dashboard", Static).update(
             "\n".join(
                 [
@@ -737,6 +771,8 @@ class SentimentBenchmarkApp(App):
                     f"Conflicting duplicate rows excluded from primary metrics: {stats.conflicting_duplicate_rows}",
                     f"Primary scoring rows: {stats.primary_row_count}",
                     f"Result DB: {self.db_path}",
+                    f"Provider: {self._provider_title()}",
+                    f"Endpoint: {endpoint}",
                     f"OpenRouter API key: {key_status}",
                 ]
             )
@@ -845,6 +881,12 @@ class SentimentBenchmarkApp(App):
             self._model_names = {
                 str(key): str(value) for key, value in names.items() if isinstance(key, str) and isinstance(value, str)
             }
+        provider = data.get("provider")
+        if isinstance(provider, str):
+            try:
+                self.provider = normalize_provider(provider)
+            except ValueError:
+                pass
         prompt_id = data.get("prompt_id")
         if isinstance(prompt_id, str) and prompt_id in self.prompts:
             self.prompt = self.prompts[prompt_id]
@@ -852,13 +894,18 @@ class SentimentBenchmarkApp(App):
         base_url = data.get("base_url")
         if isinstance(base_url, str) and base_url:
             self.base_url = base_url
+        ollama_host = data.get("ollama_host")
+        if isinstance(ollama_host, str) and ollama_host:
+            self.ollama_host = ollama_host
 
     def _save_session(self) -> None:
         payload = {
             "selected_models": self.selected_models,
             "model_names": self._model_names,
             "prompt_id": self.prompt.prompt_id,
+            "provider": self.provider,
             "base_url": self.base_url,
+            "ollama_host": self.ollama_host,
         }
         try:
             self._session_path.parent.mkdir(parents=True, exist_ok=True)
@@ -928,6 +975,7 @@ class SentimentBenchmarkApp(App):
         rows_per_model: int,
         models: list[str],
         max_completion_tokens: int | None = None,
+        provider_name: str | None = None,
     ) -> str | None:
         model_count = len(models)
         total_calls = rows_per_model * model_count
@@ -935,8 +983,9 @@ class SentimentBenchmarkApp(App):
             return None
         cost_text = self._cost_estimate_text(rows_per_model, models, max_completion_tokens)
         cost_line = f"\n\n{cost_text}" if cost_text else ""
+        destination = provider_name or self._provider_title()
         return (
-            f"You are about to send {total_calls} request(s) to OpenRouter "
+            f"You are about to send {total_calls} request(s) to {destination} "
             f"({rows_per_model} per model x {model_count} models, mode={mode})."
             f"{cost_line}\n\n"
             "This may take time and incur cost. Continue?"
@@ -948,6 +997,8 @@ class SentimentBenchmarkApp(App):
         models: list[str],
         max_completion_tokens: int | None,
     ) -> str | None:
+        if self.provider == "ollama":
+            return None
         if max_completion_tokens is None:
             return None
         pricing_by_model = {model.model_id: model.pricing for model in self._all_models}
@@ -1143,6 +1194,15 @@ class SentimentBenchmarkApp(App):
             self._refresh_run_estimate()
         if event.input.id == "model-search":
             self._render_model_table()
+        if event.input.id == "provider-endpoint":
+            value = event.input.value.strip()
+            if self.provider == "ollama":
+                self.ollama_host = value or DEFAULT_OLLAMA_HOST
+            else:
+                self.base_url = value or DEFAULT_BASE_URL
+            self._refresh_dashboard()
+            self._refresh_status_bar()
+            self._save_session()
         if event.input.id in _VALIDATED_INPUTS:
             self._update_validation_hint(event.input.id, event.validation_result)
             self._refresh_stepper()
@@ -1167,19 +1227,36 @@ class SentimentBenchmarkApp(App):
         self._refresh_run_estimate()
 
     def on_select_changed(self, event: Select.Changed) -> None:
-        if event.select.id != "prompt-preset":
-            return
         if event.value is Select.BLANK:
             return
-        preset = self.prompts.get(str(event.value))
-        if preset is None:
+        if event.select.id == "provider":
+            try:
+                self.provider = normalize_provider(str(event.value))
+            except ValueError as exc:
+                self._notify_error(str(exc), title="Provider invalid")
+                return
+            try:
+                endpoint = self.query_one("#provider-endpoint", Input)
+                endpoint.value = self._active_endpoint()
+                endpoint.placeholder = self._endpoint_placeholder()
+            except Exception:
+                pass
+            self._all_models = []
+            self._render_model_table()
+            self._refresh_dashboard()
+            self._refresh_run_estimate()
+            self._save_session()
             return
-        self.query_one("#system-prompt", TextArea).text = preset.system_prompt
-        self.query_one("#user-template", TextArea).text = preset.user_template
-        self.query_one("#output-mode", Select).value = preset.output_mode
-        self.prompt = preset
-        self._refresh_prompt_preview()
-        self._save_session()
+        if event.select.id == "prompt-preset":
+            preset = self.prompts.get(str(event.value))
+            if preset is None:
+                return
+            self.query_one("#system-prompt", TextArea).text = preset.system_prompt
+            self.query_one("#user-template", TextArea).text = preset.user_template
+            self.query_one("#output-mode", Select).value = preset.output_mode
+            self.prompt = preset
+            self._refresh_prompt_preview()
+            self._save_session()
 
     def _update_validation_hint(self, input_id: str, result: ValidationResult | None) -> None:
         try:
@@ -1241,7 +1318,7 @@ class SentimentBenchmarkApp(App):
 
     async def _fetch_models(self) -> None:
         try:
-            async with OpenRouterClient(base_url=self.base_url) as client:
+            async with make_llm_client(self.provider, base_url=self.base_url, ollama_host=self.ollama_host) as client:
                 models = await client.list_models()
         except Exception as exc:
             self._notify_error(f"Could not fetch models: {exc}", title="Fetch failed")
@@ -1253,7 +1330,7 @@ class SentimentBenchmarkApp(App):
         self._render_model_table()
         self._render_selected_table()
         self._set_monitor(
-            f"Fetched {len(models)} models. Type in the search box to filter, press Enter on a row to toggle."
+            f"Fetched {len(models)} {self._provider_title()} models. Type in the search box to filter, press Enter on a row to toggle."
         )
 
     def _save_prompt_from_ui(self) -> None:
@@ -1297,7 +1374,8 @@ class SentimentBenchmarkApp(App):
                 mode=self.run_mode,  # type: ignore[arg-type]
                 dataset_path=str(self.dataset_path),
                 db_path=str(self.db_path),
-                base_url=self.base_url,
+                base_url=self._active_endpoint(),
+                provider=self.provider,
                 sample_per_class=int(self.query_one("#sample-per-class", Input).value),
                 seed=int(self.query_one("#seed", Input).value),
                 concurrency=int(self.query_one("#concurrency", Input).value),
@@ -1349,7 +1427,7 @@ class SentimentBenchmarkApp(App):
     async def _run_benchmark(self, config: RunConfig) -> None:
         store = BenchmarkStore(self.db_path)
         try:
-            async with OpenRouterClient(base_url=self.base_url) as client:
+            async with make_llm_client(config.provider, base_url=config.base_url, ollama_host=config.base_url) as client:
                 runner = BenchmarkRunner(client=client, store=store)
                 summary = await runner.run(
                     config,
