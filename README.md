@@ -1,8 +1,22 @@
 # Sentiment Dissertation Benchmark
 
-Terminal UI and CLI tooling for benchmarking LLM sentiment analysis and sourcing dissertation news articles.
+![Sentiment benchmark workflow](docs/assets/research-workflow.svg)
 
-## Setup
+A reproducible CLI and terminal UI for dissertation experiments on financial sentiment analysis. The project validates an immutable source dataset, runs OpenRouter or Ollama-hosted models, compares them with non-LLM baselines, exports publication-ready evidence, and sources unlabeled news articles through Tavily for later annotation workflows.
+
+## What This Project Does
+
+| Capability | Use it for | Main entry point |
+| --- | --- | --- |
+| Dataset validation | Confirm `Data/data.csv` has the expected columns, labels, duplicates, and conflict metadata. | `sentiment-bench validate-data` |
+| LLM benchmarking | Run model sentiment classifications through OpenRouter or a remote/local Ollama server. | `sentiment-bench run` |
+| Baselines | Add majority, TF-IDF logistic regression, VADER, or FinBERT comparisons. | `sentiment-bench run-baselines` |
+| Results analysis | Inspect stored metrics, paired tests, agreement, and prompt sensitivity. | `sentiment-bench results`, `compare`, `agreement` |
+| Self-consistency | Sample one model repeatedly to estimate sentiment ambiguity. | `sentiment-bench run-self-consistency` |
+| Tavily news sourcing | Search and extract current articles into reproducible derived corpora. | `sentiment-bench fetch-news` |
+| Terminal UI | Run the same workflows interactively with tabs for models, prompts, runs, results, and news. | `sentiment-bench tui` |
+
+## Quick Start
 
 Install the package in editable mode with development tools:
 
@@ -10,31 +24,19 @@ Install the package in editable mode with development tools:
 python -m pip install -e ".[dev]"
 ```
 
-Create a local `.env` file for provider settings:
+Create a local `.env` file. Use placeholder values until you add your real keys:
 
 ```bash
-OPENROUTER_API_KEY=your-key
+OPENROUTER_API_KEY=your-openrouter-key
 OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
-TAVILY_API_KEY=tvly-your-key
-# Optional for Tavily usage tracking:
+
+TAVILY_API_KEY=your-tavily-key
 TAVILY_PROJECT=sentiment-dissertation
-```
 
-`OPENROUTER_BASE_URL` is optional. The default points to OpenRouter.
-
-To use a local Ollama server instead of OpenRouter, add:
-
-```bash
+# Optional: route model calls to Ollama instead of OpenRouter.
 SENTIMENT_BENCH_PROVIDER=ollama
 OLLAMA_HOST=http://desktop-pc:11434
 ```
-
-`SENTIMENT_BENCH_PROVIDER` defaults to `openrouter`. For Ollama, install and run
-Ollama on the machine that hosts the local model, pull the model there (for
-example `ollama pull gemma3`), and set `OLLAMA_HOST` on this machine to the
-desktop PC's reachable Ollama URL.
-
-## Usage
 
 Validate the dataset:
 
@@ -42,122 +44,100 @@ Validate the dataset:
 sentiment-bench validate-data --dataset-path Data/data.csv
 ```
 
-Run a pilot benchmark from the CLI:
+Run a small OpenRouter pilot:
 
 ```bash
 sentiment-bench run --models openai/gpt-4o-mini --mode pilot
-
-# Local Ollama model running on another machine:
-sentiment-bench run --provider ollama --ollama-host http://desktop-pc:11434 \
-    --models gemma3 --mode pilot
-
-# Chain-of-thought (reason-then-label) prompting:
-sentiment-bench run --models openai/gpt-4o-mini --prompt-id default_chain_of_thought
-
-# Few-shot in-context learning: k class-balanced demonstrations per class, drawn
-# from non-evaluation rows so no demonstration can leak into the scored set.
-sentiment-bench run --models openai/gpt-4o-mini --few-shot-k 4 --few-shot-seed 42
 ```
 
-Few-shot demonstrations are folded into the prompt hash, so a k-shot run is a
-distinct, reproducible prompt that can be compared against its zero-shot sibling
-with `compare`. The demonstration selection is reproducible from the run's seed
-and row selection, including on resume.
+Run a local Gemma model hosted by Ollama on another machine:
 
-Launch the terminal UI:
+```bash
+sentiment-bench run --provider ollama --ollama-host http://desktop-pc:11434 \
+  --models gemma3 --mode pilot
+```
+
+Source unlabeled news articles through Tavily:
+
+```bash
+sentiment-bench news-check --query "financial markets" --max-results 1
+
+sentiment-bench fetch-news --query "bank earnings sentiment" \
+  --max-results 10 --time-range week --output-dir Data/news
+```
+
+Launch the TUI:
 
 ```bash
 sentiment-bench tui
 ```
 
-Source news articles through Tavily:
+## Documentation
 
-```bash
-# Small API connectivity check.
-sentiment-bench news-check --query "financial markets" --max-results 1
+Start here if you are setting up the project or writing the dissertation methods section:
 
-# Search news and extract full article text into a timestamped derived corpus.
-sentiment-bench fetch-news --query "bank earnings sentiment" \
-    --max-results 10 --time-range week --output-dir Data/news
+| Document | Type | Best for |
+| --- | --- | --- |
+| [Docs home](docs/README.md) | Map | Choosing the right guide. |
+| [Getting started](docs/getting_started.md) | Tutorial | First install, validation, pilot run, export, and news fetch. |
+| [CLI reference](docs/cli_reference.md) | Reference | Commands, options, defaults, and examples. |
+| [TUI guide](docs/tui_guide.md) | How-to | Interactive model, prompt, run, results, and news workflows. |
+| [Model providers](docs/model_providers.md) | How-to | OpenRouter setup and remote Ollama setup for desktop-hosted Gemma models. |
+| [Tavily news sourcing](docs/news_sourcing.md) | How-to | Search, extract, save, review, and troubleshoot article corpora. |
+| [Results and exports](docs/results_and_exports.md) | Reference | SQLite storage, export files, metrics, figures, and reproducibility metadata. |
+| [Architecture](docs/architecture.md) | Explanation | Why the project separates source data, runs, providers, news corpora, and exports. |
+| [Dataset card](docs/dataset_card.md) | Reference | Dataset identity, shape, label policy, limitations, and ethics. |
+| [Research protocol](docs/research_protocol.md) | Explanation | Dissertation research questions, hypotheses, metrics, and experiment rules. |
+
+## System Map
+
+```mermaid
+flowchart LR
+    A["Data/data.csv<br/>immutable source dataset"] --> B["validate-data<br/>duplicate/conflict audit"]
+    B --> C["run / run-baselines<br/>benchmark stored in SQLite"]
+    C --> D["results / compare / agreement<br/>analysis in CLI and TUI"]
+    D --> E["export<br/>responses, metrics, statistics, figures"]
+    F["Tavily API"] --> G["fetch-news<br/>search + optional extract"]
+    G --> H["Data/news/tavily_news_*<br/>unlabeled derived corpora"]
+    I["OpenRouter"] --> C
+    J["Ollama on desktop PC"] --> C
 ```
 
-Each Tavily fetch writes `articles.jsonl`, `articles.csv`, and `manifest.json`
-under `Data/news/tavily_news_<timestamp>_<query>/`. These records are unlabeled
-source material; they are not converted into benchmark rows automatically.
+## Data And Output Policy
 
-Run non-LLM baselines for context:
+`Data/data.csv` is treated as source material. Do not edit, clean, deduplicate, or relabel it in place. Create derived files and document their provenance instead.
+
+Generated artifacts are intentionally separated:
+
+| Path | Meaning | Git policy |
+| --- | --- | --- |
+| `Data/data.csv` | Source sentiment benchmark dataset. | Source-controlled. |
+| `Data/news/` | Tavily article corpora for later review or labeling. | Ignored except `.gitkeep`. |
+| `results/sentiment_benchmark.sqlite` | Local run database. | Ignored. |
+| `results/exports/run_<id>/` | Reproducible run exports and optional figures. | Ignored. |
+| `experiments/manifest.toml` | Curated registry for formal dissertation runs. | Source-controlled. |
+
+## Common Workflows
+
+Run a pilot with a few-shot prompt:
 
 ```bash
-# Default baselines (majority, tfidf_logreg) on the balanced pilot sample.
-sentiment-bench run-baselines --mode pilot
-
-# Evaluate baselines on the exact rows used by an existing LLM run (fair comparison).
-sentiment-bench run-baselines --match-run-id 5 --baselines majority --baselines tfidf_logreg
-
-# Optional baselines (require extra dependencies):
-#   pip install ".[baselines]"   # enables vader
-#   pip install ".[finbert]"     # enables finbert (large model download)
-sentiment-bench run-baselines --mode full --baselines vader --baselines finbert
+sentiment-bench run --models openai/gpt-4o-mini --mode pilot \
+  --few-shot-k 4 --few-shot-seed 42
 ```
 
-Inspect stored results without opening the TUI:
+Run baselines on the exact same rows as an LLM run:
 
 ```bash
-# List recent runs (id, mode, status, models).
-sentiment-bench runs
-
-# Metrics table for one run; add --confusion for per-model confusion matrices.
-sentiment-bench results --run-id 1 --confusion
+sentiment-bench run-baselines --match-run-id 5 \
+  --baselines majority --baselines tfidf_logreg
 ```
 
-Compare two models with a paired significance test:
+Compare two models on paired rows:
 
 ```bash
-# Same run, two models (defaults to --scope primary, --metric accuracy).
-sentiment-bench compare --run-a 1 --model-a openai/gpt-4o-mini --model-b anthropic/claude-3.5-sonnet
-
-# Across runs (e.g. prompt sensitivity), on macro-F1.
 sentiment-bench compare --run-a 1 --model-a openai/gpt-4o-mini \
-    --run-b 2 --model-b openai/gpt-4o-mini --metric macro_f1
-```
-
-Predictions are paired by row so McNemar's test is valid, and each side reports a
-bootstrap confidence interval computed on the shared rows. The Results tab in the
-TUI shows the same metrics plus a colour-coded confusion matrix per model/scope.
-
-Every run also reports **balanced accuracy** and **Matthews correlation
-coefficient (MCC)** alongside accuracy and macro-F1. Both are robust to the heavy
-class imbalance in the dataset (neutral dominates), so they give a fairer single
--number reading than raw accuracy.
-
-## Reliability and agreement
-
-Measure how much the models agree with one another (independently of who is most
-accurate) with Cohen's kappa, Fleiss' kappa, and Krippendorff's alpha:
-
-```bash
-sentiment-bench agreement --run-id 1 --scope primary
-```
-
-Agreement is computed over the rows where models produced a valid label; parse
-failures and API errors are treated as missing rather than as a shared category.
-The same statistics are written to `statistics.json` and `summary.md` on export.
-
-## Prompt sensitivity and robustness
-
-Run one model across a systematic family of prompt perturbations (label-order
-permutations and instruction paraphrases), then quantify how much the metric
-moves. Each variant evaluates the same seeded row selection, so the spread is a
-like-for-like measure of prompt fragility:
-
-```bash
-# One run per variant (prints the run ids and a ready-made analysis command).
-sentiment-bench run-prompt-suite --models openai/gpt-4o-mini \
-    --base-prompt-id default_label_only --include label_order --include paraphrase
-
-# Aggregate the variant runs: mean / std / min / max / spread / coefficient of variation.
-sentiment-bench prompt-sensitivity --run-id 3 --run-id 4 --run-id 5 \
-    --model openai/gpt-4o-mini --metric accuracy
+  --model-b anthropic/claude-3.5-sonnet --metric macro_f1
 ```
 
 Export a completed run:
@@ -166,25 +146,28 @@ Export a completed run:
 sentiment-bench export --run-id 1
 ```
 
-Exports are written under `results/exports/run_<id>/` and include responses, metrics, run configuration, prompt data, and reproducibility metadata.
+Generate prompt sensitivity runs:
 
-If the optional plotting extra is installed (`pip install ".[figures]"`), each export also writes publication-ready PNGs to `results/exports/run_<id>/figures/`: a model leaderboard, an accuracy bootstrap-CI forest plot, and per-model confusion-matrix heatmaps and per-class score bars. In the TUI, the Results tab's **View Figures** button exports the selected run and opens its `figures/` folder in your OS image viewer.
+```bash
+sentiment-bench run-prompt-suite --models openai/gpt-4o-mini \
+  --base-prompt-id default_label_only --include label_order --include paraphrase
+```
 
-## Reproducibility Notes
+Measure inter-model agreement:
 
-- The source dataset in `Data/` is treated as source material. Do not edit it in place for experiments.
-- Tavily article corpora under `Data/news/` are generated derived data and are ignored by git except for `.gitkeep`.
-- Pilot row selection records the random seed and selected rows in SQLite.
-- Exports include the dataset path, dataset SHA-256 hash, prompt hash, model list, request settings, package version, and export timestamp.
-- Primary metrics exclude rows whose duplicate sentence has conflicting labels. Audit metrics include all selected rows.
+```bash
+sentiment-bench agreement --run-id 1 --scope primary
+```
 
-## Baselines
+## Reproducibility Checklist
 
-Baselines are stored, scored, and exported exactly like LLM runs (same metrics, primary/audit scopes, and `export` command), so they appear alongside models in the runs list and can be compared directly.
+For every formal dissertation result, record:
 
-- `majority`: predicts the most frequent training label. Reported via stratified k-fold cross-validation (out-of-fold predictions), so it never sees a row it is scored on.
-- `tfidf_logreg`: TF-IDF (1–2 grams) features with multinomial logistic regression, also evaluated out-of-fold.
-- `vader`: NLTK VADER lexicon; the compound score is mapped to a label using the conventional ±0.05 threshold. Pretrained, predicts on every row.
-- `finbert`: `ProsusAI/finbert`, a transformer fine-tuned on financial sentiment. Pretrained, predicts on every row.
-
-Fitted baselines (`majority`, `tfidf_logreg`) use the recorded `--seed` and `--folds` for reproducibility. Use `--match-run-id` to evaluate baselines on the identical row selection as a prior LLM run.
+- Dataset path and SHA-256 hash.
+- Code commit SHA.
+- Run IDs and export paths.
+- Provider route, model IDs, prompt ID, and prompt hash.
+- Mode, seed, row-selection logic, temperature, token limits, retries, and concurrency.
+- Metrics emphasized in the dissertation.
+- Cost, latency, invalid-output count, and API-error count where available.
+- Interpretation limits, especially around duplicate-label conflict and financial-domain generalization.

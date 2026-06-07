@@ -1,6 +1,15 @@
 # Research Protocol
 
-Last updated: 2026-06-06
+Last updated: 2026-06-07
+
+Operational documentation:
+
+- [Getting started](getting_started.md)
+- [CLI reference](cli_reference.md)
+- [Model providers](model_providers.md)
+- [Tavily news sourcing](news_sourcing.md)
+- [Results and exports](results_and_exports.md)
+- [Architecture](architecture.md)
 
 ## Purpose
 
@@ -49,11 +58,14 @@ Experiments use two scoring scopes:
 
 Pilot experiments use a balanced sample of 30 primary rows per class by default. Full experiments may evaluate every row, subject to cost and runtime constraints. Any derived dataset or cleaned view must document its source file, cleaning steps, label mapping, split logic, and random seed.
 
+News articles sourced through Tavily are unlabeled derived source material. They may support future corpus construction, annotation, or qualitative context, but they must not be treated as benchmark labels until a separate labeling protocol is defined and documented.
+
 ## Model Selection
 
 Formal comparisons may include:
 
 - OpenRouter-accessed LLMs selected for relevance, availability, cost, and diversity of provider/model family.
+- Ollama-hosted local models, including Gemma-family models running on a separate desktop PC, when provider route, model tag, host configuration, and sampling settings are recorded.
 - `baseline/majority`, as a lower-bound sanity check.
 - `baseline/tfidf_logreg`, as a lightweight supervised lexical baseline evaluated out-of-fold.
 - `baseline/vader`, as a lexicon-based sentiment baseline.

@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" role="img" aria-labelledby="title desc">
+  <title id="title">Sentiment dissertation benchmark workflow</title>
+  <desc id="desc">A workflow diagram connecting source data, validation, model providers, benchmark storage, analysis exports, and Tavily news corpora.</desc>
+  <rect width="1200" height="520" fill="#f7f8fb"/>
+  <rect x="40" y="36" width="1120" height="448" rx="8" fill="#ffffff" stroke="#d8dee9"/>
+  <text x="72" y="86" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="700" fill="#172026">Sentiment Dissertation Benchmark</text>
+  <text x="72" y="116" font-family="Inter, Arial, sans-serif" font-size="15" fill="#5c6670">Source data stays immutable. Runs, news corpora, and exports are reproducible derived artifacts.</text>
+
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L7,3 z" fill="#52606d"/>
+    </marker>
+    <style>
+      .box-title { font: 700 16px Inter, Arial, sans-serif; fill: #172026; }
+      .box-text { font: 13px Inter, Arial, sans-serif; fill: #52606d; }
+      .tag { font: 700 12px Inter, Arial, sans-serif; fill: #0b5e63; }
+    </style>
+  </defs>
+
+  <rect x="72" y="168" width="170" height="110" rx="8" fill="#ecfdf5" stroke="#4f9f75"/>
+  <text x="94" y="200" class="box-title">Data/data.csv</text>
+  <text x="94" y="226" class="box-text">Financial text</text>
+  <text x="94" y="246" class="box-text">Sentence + Sentiment</text>
+  <text x="94" y="266" class="tag">immutable source</text>
+
+  <rect x="300" y="168" width="170" height="110" rx="8" fill="#eef7ff" stroke="#3b82c4"/>
+  <text x="322" y="200" class="box-title">Validate</text>
+  <text x="322" y="226" class="box-text">Labels</text>
+  <text x="322" y="246" class="box-text">Duplicates</text>
+  <text x="322" y="266" class="box-text">Primary scope</text>
+
+  <rect x="528" y="134" width="178" height="88" rx="8" fill="#fff7ed" stroke="#df8b32"/>
+  <text x="550" y="166" class="box-title">OpenRouter</text>
+  <text x="550" y="192" class="box-text">Hosted LLM APIs</text>
+
+  <rect x="528" y="246" width="178" height="88" rx="8" fill="#f4f0ff" stroke="#7c6ee6"/>
+  <text x="550" y="278" class="box-title">Ollama</text>
+  <text x="550" y="304" class="box-text">Desktop PC models</text>
+
+  <rect x="764" y="168" width="170" height="110" rx="8" fill="#f9fafb" stroke="#64748b"/>
+  <text x="786" y="200" class="box-title">Benchmark store</text>
+  <text x="786" y="226" class="box-text">SQLite responses</text>
+  <text x="786" y="246" class="box-text">Metrics</text>
+  <text x="786" y="266" class="box-text">Prompt hashes</text>
+
+  <rect x="992" y="168" width="130" height="110" rx="8" fill="#fefce8" stroke="#c2a029"/>
+  <text x="1014" y="200" class="box-title">Exports</text>
+  <text x="1014" y="226" class="box-text">CSV/JSON</text>
+  <text x="1014" y="246" class="box-text">Stats</text>
+  <text x="1014" y="266" class="box-text">Figures</text>
+
+  <rect x="300" y="360" width="170" height="78" rx="8" fill="#f8fafc" stroke="#94a3b8"/>
+  <text x="322" y="392" class="box-title">Tavily</text>
+  <text x="322" y="418" class="box-text">Search + Extract</text>
+
+  <rect x="528" y="360" width="178" height="78" rx="8" fill="#fff1f2" stroke="#d65b72"/>
+  <text x="550" y="392" class="box-title">Data/news</text>
+  <text x="550" y="418" class="box-text">Unlabeled corpora</text>
+
+  <line x1="242" y1="223" x2="300" y2="223" stroke="#52606d" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <line x1="470" y1="223" x2="528" y2="178" stroke="#52606d" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <line x1="470" y1="223" x2="528" y2="290" stroke="#52606d" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <line x1="706" y1="178" x2="764" y2="223" stroke="#52606d" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <line x1="706" y1="290" x2="764" y2="223" stroke="#52606d" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <line x1="934" y1="223" x2="992" y2="223" stroke="#52606d" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <line x1="470" y1="399" x2="528" y2="399" stroke="#52606d" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <text x="72" y="466" font-family="Inter, Arial, sans-serif" font-size="13" fill="#697586">Source-controlled: code, configs, source dataset, docs, experiment manifest. Ignored locally: API keys, SQLite databases, exports, generated news corpora.</text>
+</svg>

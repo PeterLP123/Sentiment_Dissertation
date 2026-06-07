@@ -1,6 +1,13 @@
 # Dataset Card
 
-Last updated: 2026-06-06
+Last updated: 2026-06-07
+
+Related documentation:
+
+- [Getting started](getting_started.md)
+- [Results and exports](results_and_exports.md)
+- [Research protocol](research_protocol.md)
+- [Tavily news sourcing](news_sourcing.md)
 
 ## Dataset Identity
 
@@ -66,6 +73,8 @@ This dataset is used to evaluate and compare sentiment classification systems in
 - Studying ambiguity through duplicate label conflict, model disagreement, and self-consistency entropy.
 
 The dataset should not be used as evidence for trading decisions, financial advice, or claims about future asset performance.
+
+News article corpora sourced through Tavily are separate derived source material under `Data/news/`. They are not part of this labeled benchmark dataset unless a later labeling workflow creates a documented derived dataset.
 
 ## Data Handling Rules
 
