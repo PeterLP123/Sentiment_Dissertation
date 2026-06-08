@@ -601,6 +601,14 @@ class BenchmarkStore:
             ).fetchall()
         return list(rows)
 
+    def fetch_all_metrics(self) -> list[sqlite3.Row]:
+        """All metric rows across every run (newest run first) for cross-run aggregation."""
+        with self.connect() as connection:
+            rows = connection.execute(
+                "SELECT run_id, model_id, scope, metrics_json FROM metrics ORDER BY run_id DESC, model_id, scope"
+            ).fetchall()
+        return list(rows)
+
     def run_cost_by_model(self, run_id: int) -> dict[str, float]:
         """Sum observed provider cost per model for a run, if recorded."""
         with self.connect() as connection:

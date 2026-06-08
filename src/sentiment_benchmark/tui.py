@@ -91,7 +91,8 @@ _VALIDATED_INPUTS = ("sample-per-class", "seed", "concurrency", "temperature", "
 # (cache key, widget id, caster, low, high) for run settings persisted across sessions.
 _RUN_SETTING_FIELDS = (
     ("sample_per_class", "sample-per-class", int, 1, 10000),
-    ("seed", "seed", int, 0, 10**9),
+    # Seed widget validator only enforces >= 0 (no upper bound), so don't reject large seeds on reload.
+    ("seed", "seed", int, 0, 2**63 - 1),
     ("concurrency", "concurrency", int, 1, 64),
     ("temperature", "temperature", float, 0.0, 2.0),
     ("max_completion_tokens", "max-tokens", int, 16, 8192),
@@ -394,6 +395,15 @@ class SentimentBenchmarkApp(App):
         max-height: 10;
         margin-bottom: 1;
     }
+    #leaderboard-table {
+        height: auto;
+        max-height: 12;
+        margin-bottom: 1;
+    }
+    #leaderboard-controls {
+        height: auto;
+        margin-bottom: 1;
+    }
     #metrics-table {
         height: auto;
         max-height: 10;
@@ -499,6 +509,7 @@ class SentimentBenchmarkApp(App):
         self._active_metric_model: str | None = None
         self._active_metric_scope: str = "all"
         self._misclassification_rows: dict[str, dict] = {}
+        self._leaderboard_best_run: dict[str, int] = {}
         self.notifications: list[tuple[str, str]] = []
         self._gpu_lines: list[str] = ["GPU: gathering data..."]
         self._run_settings: dict = {
@@ -827,6 +838,21 @@ class SentimentBenchmarkApp(App):
                 yield Button("Export Selected Run", id="export-run")
                 yield Button("View Figures", id="view-figures", variant="primary")
                 yield Button("Open Exports Folder", id="open-exports")
+                yield Static("Leaderboard — best run per model", classes="section-title")
+                yield Static(
+                    "Best accuracy each model has reached across all stored runs at the chosen scope. "
+                    "Macro F1, best run id, and run count are for that best run.",
+                    classes="help",
+                )
+                with Horizontal(id="leaderboard-controls"):
+                    yield Select(
+                        [("Primary (excludes conflicting duplicates)", "primary"), ("All scored rows", "all")],
+                        id="leaderboard-scope",
+                        value="primary",
+                        allow_blank=False,
+                    )
+                    yield Button("Refresh Leaderboard", id="refresh-leaderboard")
+                yield DataTable(id="leaderboard-table")
                 yield Static("Metrics", classes="section-title")
                 yield Static(
                     "Press Enter on a metric row to see its per-class precision, recall, F1, and support.",
@@ -923,6 +949,9 @@ class SentimentBenchmarkApp(App):
         runs = self.query_one("#runs-table", DataTable)
         runs.add_columns("ID", "Created", "Mode", "Status", "Machine", "Models")
         runs.cursor_type = "row"
+        leaderboard = self.query_one("#leaderboard-table", DataTable)
+        leaderboard.add_columns("Model", "Best Acc", "Macro F1", "Best run", "Runs", "Rows")
+        leaderboard.cursor_type = "row"
         perclass = self.query_one("#perclass-table", DataTable)
         perclass.add_columns("Class", "Precision", "Recall", "F1", "Support")
         confusion = self.query_one("#confusion-table", DataTable)
@@ -959,8 +988,7 @@ class SentimentBenchmarkApp(App):
         self._refresh_prompt_preview()
         self._refresh_run_estimate()
         self._refresh_results_help()
-        self._refresh_runs_table()
-        self._refresh_compare_targets()
+        self._refresh_runs_table()  # also refreshes the compare targets and leaderboard
         self._refresh_news_summary()
         self._refresh_status_bar()
         self._refresh_stepper()
@@ -1782,9 +1810,10 @@ class SentimentBenchmarkApp(App):
         elif button_id == "cancel-run":
             self._cancel_run()
         elif button_id == "refresh-runs":
-            self._refresh_runs_table()
+            self._refresh_runs_table()  # also refreshes compare targets and leaderboard
             self._refresh_results_help()
-            self._refresh_compare_targets()
+        elif button_id == "refresh-leaderboard":
+            self._refresh_leaderboard()
         elif button_id == "compare-run":
             self._compare_models_action()
         elif button_id == "export-run":
@@ -1893,6 +1922,8 @@ class SentimentBenchmarkApp(App):
         elif event.select.id == "news-time-range":
             self.news_time_range = str(event.value)
             self._save_session()
+        elif event.select.id == "leaderboard-scope":
+            self._refresh_leaderboard()
 
     def on_checkbox_changed(self, event: Checkbox.Changed) -> None:
         if event.checkbox.id == "news-extract":
@@ -2047,6 +2078,12 @@ class SentimentBenchmarkApp(App):
             key = event.row_key.value
             if key is not None:
                 self._remove_queue_item(str(key))
+        elif table_id == "leaderboard-table":
+            key = event.row_key.value
+            run_id = self._leaderboard_best_run.get(str(key)) if key is not None else None
+            if run_id is not None:
+                self._load_metrics_for(run_id)
+                self._set_monitor(f"Loaded best run {run_id} for {key} from the leaderboard.")
 
     async def _fetch_models(self) -> None:
         try:
@@ -2337,7 +2374,6 @@ class SentimentBenchmarkApp(App):
         self._experiment_queue.append(self._queue_item_from_config(config))
         self._render_queue_table()
         self._save_queue()
-        self._refresh_stepper()
         self._set_monitor(
             f"Queued experiment #{len(self._experiment_queue)}: {len(config.models)} model(s), "
             f"prompt {config.prompt.prompt_id}, mode {config.mode}."
@@ -2411,7 +2447,6 @@ class SentimentBenchmarkApp(App):
         self._experiment_queue.extend(items)
         self._render_queue_table()
         self._save_queue()
-        self._refresh_stepper()
         self._set_monitor(f"Added {len(items)} experiment(s) from a {axis} sweep.")
         self._notify_info(
             f"Queued {len(items)} sweep experiment(s) ({len(self._experiment_queue)} total).",
@@ -2427,7 +2462,6 @@ class SentimentBenchmarkApp(App):
         if len(self._experiment_queue) != before:
             self._render_queue_table()
             self._save_queue()
-            self._refresh_stepper()
             self._set_monitor("Removed an experiment from the queue.")
 
     def _clear_queue(self) -> None:
@@ -2440,7 +2474,6 @@ class SentimentBenchmarkApp(App):
         self._experiment_queue = []
         self._render_queue_table()
         self._save_queue()
-        self._refresh_stepper()
         self._set_monitor(f"Cleared {count} experiment(s) from the queue.")
 
     def _highlighted_queue_index(self) -> int | None:
@@ -2488,10 +2521,15 @@ class SentimentBenchmarkApp(App):
         self._experiment_queue.insert(index + 1, clone)
         self._render_queue_table()
         self._save_queue()
-        self._refresh_stepper()
         self._set_monitor(f"Cloned experiment #{index + 1} into position {index + 2}.")
 
     def _render_queue_table(self) -> None:
+        """Re-render the queue table and the UI that depends on queue state.
+
+        Owns the full "queue changed" refresh: the queue summary, the status-bar
+        depth, and (via ``_refresh_status_bar``) the stepper/button states. Callers
+        that mutate the queue only need to call this plus ``_save_queue``.
+        """
         try:
             table = self.query_one("#queue-table", DataTable)
         except Exception:
@@ -2675,8 +2713,7 @@ class SentimentBenchmarkApp(App):
                 self.query_one("#cancel-run", Button).disabled = True
             except Exception:
                 pass
-            self._render_queue_table()  # restore the static queue summary
-            self._refresh_stepper()
+            self._render_queue_table()  # restores the queue summary and refreshes status bar + stepper
         outcome = "cancelled" if cancelled else "finished"
         self._set_monitor(f"Experiment queue {outcome}: {completed}/{total} experiment(s) completed.")
         self._notify_info(
@@ -2780,6 +2817,67 @@ class SentimentBenchmarkApp(App):
                 key=str(run["id"]),
             )
         self._refresh_compare_targets(runs)
+        self._refresh_leaderboard()
+
+    def _leaderboard_rows(self, scope: str) -> list[dict]:
+        try:
+            metric_rows = BenchmarkStore(self.db_path).fetch_all_metrics()
+        except Exception:
+            return []
+        best: dict[str, dict] = {}
+        counts: dict[str, int] = {}
+        for row in metric_rows:
+            if row["scope"] != scope:
+                continue
+            model_id = row["model_id"]
+            try:
+                metric = json.loads(row["metrics_json"])
+            except (ValueError, TypeError):
+                continue
+            accuracy = float(metric.get("accuracy", 0.0))
+            counts[model_id] = counts.get(model_id, 0) + 1
+            current = best.get(model_id)
+            if current is None or accuracy > current["accuracy"]:
+                best[model_id] = {
+                    "model_id": model_id,
+                    "accuracy": accuracy,
+                    "macro_f1": float(metric.get("macro_f1", 0.0)),
+                    "run_id": int(row["run_id"]),
+                    "row_count": int(metric.get("row_count", 0)),
+                }
+        rows = []
+        for model_id, data in best.items():
+            entry = dict(data)
+            entry["runs"] = counts.get(model_id, 0)
+            rows.append(entry)
+        rows.sort(key=lambda item: (-item["accuracy"], item["model_id"]))
+        return rows
+
+    def _refresh_leaderboard(self) -> None:
+        try:
+            table = self.query_one("#leaderboard-table", DataTable)
+        except Exception:
+            return
+        try:
+            scope = str(self.query_one("#leaderboard-scope", Select).value)
+        except Exception:
+            scope = "primary"
+        table.clear()
+        self._leaderboard_best_run = {}
+        rows = self._leaderboard_rows(scope)
+        best_accuracy = rows[0]["accuracy"] if rows else None
+        for data in rows:
+            self._leaderboard_best_run[data["model_id"]] = data["run_id"]
+            is_best = best_accuracy is not None and data["accuracy"] >= best_accuracy
+            table.add_row(
+                Text(data["model_id"], style="bold") if is_best else data["model_id"],
+                _accuracy_text(data["accuracy"], bold=is_best),
+                _accuracy_text(data["macro_f1"]),
+                str(data["run_id"]),
+                str(data["runs"]),
+                str(data["row_count"]),
+                key=data["model_id"],
+            )
 
     def _compare_targets_from_runs(self, runs) -> list[tuple[str, str]]:
         options: list[tuple[str, str]] = []

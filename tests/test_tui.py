@@ -1339,3 +1339,96 @@ def test_tui_loaded_models_panel_requires_ollama_provider(tmp_path: Path) -> Non
             assert "Ollama only" in str(app.query_one("#ollama-loaded", Static).content)
 
     asyncio.run(scenario())
+
+
+def test_tui_leaderboard_ranks_best_run_per_model(tmp_path: Path) -> None:
+    db_path = tmp_path / "bench.sqlite"
+    # model/a: two runs (0.80 then 0.90) -> best 0.90; model/b: one run (0.80).
+    run_a1 = _seed_run_with_metrics(db_path, model_id="model/a")
+    store = BenchmarkStore(db_path)
+    store.save_metrics(
+        run_a1,
+        EvaluationResult(
+            model_id="model/a", scope="primary", row_count=90, accuracy=0.80,
+            balanced_accuracy=0.78, mcc=0.7, macro_f1=0.79, weighted_f1=0.81,
+            per_class={}, confusion_matrix={}, invalid_output_count=0, api_error_count=0,
+            mean_latency_ms=100.0, total_prompt_tokens=0, total_completion_tokens=0, total_tokens=0,
+        ),
+    )
+    run_a2 = _seed_run_with_metrics(db_path, model_id="model/a")
+    store.save_metrics(
+        run_a2,
+        EvaluationResult(
+            model_id="model/a", scope="primary", row_count=90, accuracy=0.90,
+            balanced_accuracy=0.88, mcc=0.8, macro_f1=0.89, weighted_f1=0.91,
+            per_class={}, confusion_matrix={}, invalid_output_count=0, api_error_count=0,
+            mean_latency_ms=100.0, total_prompt_tokens=0, total_completion_tokens=0, total_tokens=0,
+        ),
+    )
+    _seed_run_with_metrics(db_path, model_id="model/b")  # 0.80 primary from helper
+
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        app.db_path = db_path
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            app._refresh_leaderboard()
+
+            rows = app._leaderboard_rows("primary")
+            by_model = {r["model_id"]: r for r in rows}
+            assert by_model["model/a"]["accuracy"] == 0.90
+            assert by_model["model/a"]["run_id"] == run_a2
+            assert by_model["model/a"]["runs"] == 2
+            # Sorted best-first.
+            assert rows[0]["model_id"] == "model/a"
+            assert app._leaderboard_best_run["model/a"] == run_a2
+
+    asyncio.run(scenario())
+
+
+def test_tui_leaderboard_row_loads_best_run(tmp_path: Path) -> None:
+    db_path = tmp_path / "bench.sqlite"
+    run_id = _seed_run_with_metrics(db_path, model_id="model/a")
+
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        app.db_path = db_path
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            app._refresh_leaderboard()
+            table = app.query_one("#leaderboard-table", DataTable)
+            assert table.row_count == 1
+
+            row_key = next(iter(table.rows))
+            app.on_data_table_row_selected(DataTable.RowSelected(table, 0, row_key))
+            assert app._active_run_id == run_id
+
+    asyncio.run(scenario())
+
+
+def test_tui_leaderboard_scope_switch(tmp_path: Path) -> None:
+    db_path = tmp_path / "bench.sqlite"
+    run_id = _seed_run_with_metrics(db_path, model_id="model/a")
+    # Add an 'all' scope metric only; switching scope should change the rows.
+    BenchmarkStore(db_path).save_metrics(
+        run_id,
+        EvaluationResult(
+            model_id="model/zonly", scope="all", row_count=90, accuracy=0.5,
+            balanced_accuracy=0.5, mcc=0.0, macro_f1=0.5, weighted_f1=0.5,
+            per_class={}, confusion_matrix={}, invalid_output_count=0, api_error_count=0,
+            mean_latency_ms=100.0, total_prompt_tokens=0, total_completion_tokens=0, total_tokens=0,
+        ),
+    )
+
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        app.db_path = db_path
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            primary_models = {r["model_id"] for r in app._leaderboard_rows("primary")}
+            all_models = {r["model_id"] for r in app._leaderboard_rows("all")}
+            assert "model/a" in primary_models
+            assert "model/zonly" in all_models
+            assert "model/zonly" not in primary_models
+
+    asyncio.run(scenario())
