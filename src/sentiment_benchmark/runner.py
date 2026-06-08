@@ -145,14 +145,17 @@ class BenchmarkRunner:
                 config.reasoning_max_completion_tokens,
             )
             async with semaphore:
-                record = await self.client.classify(
-                    model_id=model_id,
-                    prompt=config.prompt,
-                    example=example,
-                    temperature=config.temperature,
-                    max_completion_tokens=max_completion_tokens,
-                    retries=config.retries,
-                )
+                classify_kwargs = {
+                    "model_id": model_id,
+                    "prompt": config.prompt,
+                    "example": example,
+                    "temperature": config.temperature,
+                    "max_completion_tokens": max_completion_tokens,
+                    "retries": config.retries,
+                }
+                if config.provider == "ollama":
+                    classify_kwargs["ollama_think"] = config.ollama_think
+                record = await self.client.classify(**classify_kwargs)
                 self.store.save_response(run_id, record)
                 if record.status == "success" and record.generation_id:
                     try:

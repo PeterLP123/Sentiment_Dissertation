@@ -253,6 +253,7 @@ class BenchmarkStore:
             "model_max_completion_tokens": config.model_max_completion_tokens,
             "concurrency": config.concurrency,
             "retries": config.retries,
+            "ollama_think": config.ollama_think,
             "sample_per_class": config.sample_per_class,
             "seed": config.seed,
             "few_shot_k": config.few_shot_k,

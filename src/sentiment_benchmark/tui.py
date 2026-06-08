@@ -4,6 +4,7 @@ import asyncio
 import importlib.util
 import json
 import os
+import subprocess
 from pathlib import Path
 
 from rich.markup import escape
@@ -265,7 +266,7 @@ class SentimentBenchmarkApp(App):
     .validation-hint.-error {
         color: $error;
     }
-    #dashboard, #prompt-preview, #run-estimate, #results-help, #selected-summary, #news-summary {
+    #dashboard, #dashboard-resource-monitor, #run-resource-monitor, #prompt-preview, #run-estimate, #results-help, #selected-summary, #news-summary {
         border: solid $accent;
         padding: 1;
         margin-bottom: 1;
@@ -374,6 +375,7 @@ class SentimentBenchmarkApp(App):
         self.news_max_results = DEFAULT_NEWS_MAX_RESULTS
         self.news_extract = True
         self.news_output_dir = DEFAULT_NEWS_OUTPUT_DIR
+        self.disable_ollama_thinking = True
         self.selected_models: list[str] = []
         self.prompts = load_prompts(DEFAULT_PROMPTS_PATH)
         self._default_prompt_id = (
@@ -390,6 +392,7 @@ class SentimentBenchmarkApp(App):
         self._metric_rows: dict[str, dict] = {}
         self._cancel_event: asyncio.Event | None = None
         self._run_task: asyncio.Task | None = None
+        self._model_fetch_task: asyncio.Task | None = None
         self._run_in_progress: bool = False
         self._baseline_in_progress: bool = False
         self._news_in_progress: bool = False
@@ -413,6 +416,7 @@ class SentimentBenchmarkApp(App):
                     classes="help",
                 )
                 yield Static(id="dashboard")
+                yield Static(id="dashboard-resource-monitor")
                 yield Button("Refresh Dashboard", id="refresh-dashboard")
             with TabPane("Models", id="models-tab"):
                 yield Static(
@@ -600,6 +604,21 @@ class SentimentBenchmarkApp(App):
                         id="hint-max-tokens",
                         classes="validation-hint",
                     )
+                    yield Static("Ollama thinking", classes="field-label")
+                    yield Static(
+                        "Disable thinking for short classification runs so reasoning tokens do not consume the answer budget.",
+                        classes="help",
+                    )
+                    yield Checkbox(
+                        "Disable Ollama thinking",
+                        value=self.disable_ollama_thinking,
+                        id="disable-ollama-thinking",
+                    )
+                    yield Static(
+                        "",
+                        id="ollama-thinking-recommendation",
+                        classes="validation-hint",
+                    )
                 yield Static("Baselines", classes="section-title")
                 yield Static(
                     "Non-LLM comparators evaluated on the same rows (uses the run mode, seed, and sample-per-class above). "
@@ -624,8 +643,9 @@ class SentimentBenchmarkApp(App):
                 yield Static("Progress", classes="section-title")
                 yield ProgressBar(id="run-progress-bar", total=100, show_percentage=True, show_eta=True)
                 yield DataTable(id="run-progress")
+                yield Static(id="run-resource-monitor")
                 yield Static("Live log", classes="section-title")
-                yield RichLog(id="monitor", highlight=True, markup=False, wrap=True)
+                yield RichLog(id="monitor", highlight=False, markup=False, wrap=True)
             with TabPane("Results", id="results-tab"):
                 yield Static(
                     "Step 4: review completed runs. Pick a run from the list to load its metrics.",
@@ -732,6 +752,8 @@ class SentimentBenchmarkApp(App):
         # Label the free-standing bordered panels so they read as titled cards.
         for panel_id, title in (
             ("#dashboard", "Dataset & environment"),
+            ("#dashboard-resource-monitor", "Local resource monitor"),
+            ("#run-resource-monitor", "Local resource monitor"),
             ("#prompt-preview", "Active prompt"),
             ("#misclassified-detail", "Row detail"),
             ("#news-summary", "Tavily sourcing"),
@@ -751,6 +773,25 @@ class SentimentBenchmarkApp(App):
         self._refresh_news_summary()
         self._refresh_status_bar()
         self._refresh_stepper()
+        self._refresh_resource_monitor()
+        self.set_interval(2.0, self._refresh_resource_monitor)
+        self._schedule_auto_fetch_models()
+
+    def _schedule_auto_fetch_models(self) -> None:
+        if not self._should_auto_fetch_models():
+            return
+        if self._model_fetch_task is not None and not self._model_fetch_task.done():
+            return
+        self._model_fetch_task = asyncio.create_task(self._auto_fetch_models())
+
+    def _should_auto_fetch_models(self) -> bool:
+        value = os.getenv("SENTIMENT_BENCH_AUTO_FETCH_MODELS", "1").strip().lower()
+        enabled = value not in {"0", "false", "no", "off"}
+        return enabled and self.provider == "ollama" and self.ollama_host.startswith("http://localhost")
+
+    async def _auto_fetch_models(self) -> None:
+        self._set_monitor("Auto-detecting local Ollama models...")
+        await self._fetch_models()
 
     def _set_monitor(self, message: str) -> None:
         self.monitor_lines.append(message)
@@ -873,6 +914,88 @@ class SentimentBenchmarkApp(App):
         )
         self._refresh_status_bar()
 
+    @staticmethod
+    def _format_gpu_value(value: str, suffix: str = "") -> str:
+        value = value.strip()
+        if not value or "not supported" in value.lower():
+            return "-"
+        try:
+            number = float(value)
+        except ValueError:
+            return value
+        if number.is_integer():
+            return f"{int(number)}{suffix}"
+        return f"{number:.1f}{suffix}"
+
+    def _gpu_monitor_lines(self) -> list[str]:
+        command = [
+            "nvidia-smi",
+            "--query-gpu=name,utilization.gpu,memory.used,memory.total,power.draw,power.limit,temperature.gpu",
+            "--format=csv,noheader,nounits",
+        ]
+        try:
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                check=True,
+                text=True,
+                timeout=2,
+            )
+        except FileNotFoundError:
+            return ["GPU: nvidia-smi not found."]
+        except subprocess.TimeoutExpired:
+            return ["GPU: nvidia-smi timed out."]
+        except subprocess.CalledProcessError as exc:
+            error = (exc.stderr or exc.stdout or str(exc)).strip()
+            return [f"GPU: nvidia-smi failed: {error}"]
+
+        lines: list[str] = []
+        for index, raw_line in enumerate(result.stdout.splitlines()):
+            parts = [part.strip() for part in raw_line.split(",")]
+            if len(parts) < 7:
+                continue
+            name, util, mem_used, mem_total, power_draw, power_limit, temp = parts[:7]
+            used = self._format_gpu_value(mem_used)
+            total = self._format_gpu_value(mem_total)
+            memory_percent = "-"
+            try:
+                memory_percent = f"{(float(mem_used) / float(mem_total)) * 100:.0f}%"
+            except (ValueError, ZeroDivisionError):
+                pass
+            lines.append(
+                "GPU "
+                f"{index}: {name} | util {self._format_gpu_value(util, '%')} | "
+                f"VRAM {used}/{total} MB ({memory_percent}) | "
+                f"power {self._format_gpu_value(power_draw)}/{self._format_gpu_value(power_limit)} W | "
+                f"temp {self._format_gpu_value(temp)} C"
+            )
+        return lines or ["GPU: no NVIDIA devices reported."]
+
+    def _refresh_resource_monitor(self) -> None:
+        try:
+            concurrency = self.query_one("#concurrency", Input).value.strip() or "?"
+        except Exception:
+            concurrency = "?"
+        try:
+            max_tokens = self.query_one("#max-tokens", Input).value.strip() or "?"
+        except Exception:
+            max_tokens = "?"
+
+        lines = [
+            f"Provider: {self._provider_title()} | Endpoint: {self._active_endpoint()}",
+            f"Selected models: {len(self.selected_models)} | Fetched provider models: {len(self._all_models)}",
+            f"Run settings: TUI concurrency {concurrency} | max completion tokens {max_tokens}",
+            f"Ollama NUM_PARALLEL env visible to TUI: {os.getenv('OLLAMA_NUM_PARALLEL') or 'default'}",
+            f"Ollama thinking: {'disabled' if self.disable_ollama_thinking else 'provider default'}",
+            *self._gpu_monitor_lines(),
+        ]
+        content = "\n".join(lines)
+        for widget_id in ("#dashboard-resource-monitor", "#run-resource-monitor"):
+            try:
+                self.query_one(widget_id, Static).update(content)
+            except Exception:
+                pass
+
     def _render_selected_table(self) -> None:
         try:
             table = self.query_one("#selected-table", DataTable)
@@ -924,6 +1047,51 @@ class SentimentBenchmarkApp(App):
                 str(model.context_length or ""),
                 key=model.model_id,
             )
+        self._refresh_ollama_thinking_recommendation()
+
+    def _selected_model_configs(self) -> list[ModelConfig]:
+        by_id = {model.model_id: model for model in self._all_models}
+        return [by_id[model_id] for model_id in self.selected_models if model_id in by_id]
+
+    @staticmethod
+    def _model_recommends_disabled_thinking(model_id: str, model: ModelConfig | None = None) -> bool:
+        lowered = model_id.lower()
+        if "gemma4" in lowered:
+            return True
+        raw = model.raw_metadata if model is not None else {}
+        capabilities = raw.get("capabilities") if isinstance(raw, dict) else None
+        if isinstance(capabilities, list) and any(str(item).lower() == "thinking" for item in capabilities):
+            return True
+        details = raw.get("details") if isinstance(raw, dict) else None
+        family = details.get("family") if isinstance(details, dict) else None
+        return isinstance(family, str) and "gemma4" in family.lower()
+
+    def _refresh_ollama_thinking_recommendation(self) -> None:
+        try:
+            target = self.query_one("#ollama-thinking-recommendation", Static)
+        except Exception:
+            return
+        by_id = {model.model_id: model for model in self._all_models}
+        recommended_models = [
+            model_id
+            for model_id in self.selected_models
+            if self._model_recommends_disabled_thinking(model_id, by_id.get(model_id))
+        ]
+        if self.provider != "ollama":
+            target.update("Used only for Ollama runs; OpenRouter runs ignore this setting.")
+            return
+        if recommended_models:
+            state = "ON" if self.disable_ollama_thinking else "OFF"
+            target.update(
+                Text(
+                    "Recommendation: keep Disable Ollama thinking ON for "
+                    f"{', '.join(recommended_models[:3])}"
+                    f"{'...' if len(recommended_models) > 3 else ''}. Current setting: {state}.",
+                    style="bold yellow",
+                )
+            )
+            return
+        target.update("Recommended for Gemma 4 and other thinking-capable Ollama models.")
 
     def _toggle_model(self, model_id: str, name: str | None = None) -> None:
         if not model_id:
@@ -1006,6 +1174,9 @@ class SentimentBenchmarkApp(App):
         news_extract = data.get("news_extract")
         if isinstance(news_extract, bool):
             self.news_extract = news_extract
+        disable_ollama_thinking = data.get("disable_ollama_thinking")
+        if isinstance(disable_ollama_thinking, bool):
+            self.disable_ollama_thinking = disable_ollama_thinking
         news_output_dir = data.get("news_output_dir")
         if isinstance(news_output_dir, str) and news_output_dir:
             self.news_output_dir = Path(news_output_dir)
@@ -1023,6 +1194,7 @@ class SentimentBenchmarkApp(App):
             "news_time_range": self.news_time_range,
             "news_max_results": self.news_max_results,
             "news_extract": self.news_extract,
+            "disable_ollama_thinking": self.disable_ollama_thinking,
             "news_output_dir": str(self.news_output_dir),
         }
         try:
@@ -1381,7 +1553,9 @@ class SentimentBenchmarkApp(App):
             self._render_model_table()
             self._refresh_dashboard()
             self._refresh_run_estimate()
+            self._refresh_ollama_thinking_recommendation()
             self._save_session()
+            self._schedule_auto_fetch_models()
             return
         if event.select.id == "prompt-preset":
             preset = self.prompts.get(str(event.value))
@@ -1403,6 +1577,11 @@ class SentimentBenchmarkApp(App):
     def on_checkbox_changed(self, event: Checkbox.Changed) -> None:
         if event.checkbox.id == "news-extract":
             self.news_extract = bool(event.value)
+            self._save_session()
+        if event.checkbox.id == "disable-ollama-thinking":
+            self.disable_ollama_thinking = bool(event.value)
+            self._refresh_ollama_thinking_recommendation()
+            self._refresh_resource_monitor()
             self._save_session()
 
     def _set_news_busy(self, busy: bool) -> None:
@@ -1610,6 +1789,7 @@ class SentimentBenchmarkApp(App):
                 concurrency=int(self.query_one("#concurrency", Input).value),
                 temperature=float(self.query_one("#temperature", Input).value),
                 max_completion_tokens=int(self.query_one("#max-tokens", Input).value),
+                ollama_think=False if self.provider == "ollama" and self.disable_ollama_thinking else None,
             )
             if config.mode not in {"pilot", "full"}:
                 raise ValueError("Mode must be pilot or full")

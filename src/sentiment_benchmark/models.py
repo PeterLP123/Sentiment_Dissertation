@@ -78,6 +78,7 @@ class RunConfig:
     retries: int = 3
     reasoning_max_completion_tokens: int = DEFAULT_REASONING_MAX_COMPLETION_TOKENS
     model_max_completion_tokens: dict[str, int] = field(default_factory=dict)
+    ollama_think: bool | None = None
     few_shot_k: int = 0
     few_shot_seed: int | None = None
 

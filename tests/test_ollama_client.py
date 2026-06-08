@@ -85,6 +85,25 @@ def test_ollama_classify_uses_chat_options_and_existing_parser() -> None:
     run(scenario())
 
 
+def test_ollama_classify_can_disable_thinking() -> None:
+    async def scenario() -> None:
+        fake = FakeOllamaAsyncClient()
+        client = OllamaClient(client=fake)
+        prompt = make_prompt("test", "Return a label.", "{sentence}", "label_only")
+
+        record = await client.classify(
+            "gemma4:12b",
+            prompt,
+            BlindExample(1, "Profits rose sharply."),
+            ollama_think=False,
+        )
+
+        assert record.status == "success"
+        assert fake.chat_calls[0]["think"] is False
+
+    run(scenario())
+
+
 def test_ollama_object_response_shape_is_supported() -> None:
     async def scenario() -> None:
         class ObjectResponseClient(FakeOllamaAsyncClient):

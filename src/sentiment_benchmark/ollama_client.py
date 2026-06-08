@@ -182,21 +182,25 @@ class OllamaClient:
         temperature: float = 0.0,
         max_completion_tokens: int = 64,
         retries: int = 3,
+        ollama_think: bool | None = None,
     ) -> LLMResponseRecord:
         options = {
             "temperature": temperature,
             "num_predict": max_completion_tokens,
         }
         messages = render_messages(prompt, example)
+        chat_kwargs = {
+            "model": model_id,
+            "messages": messages,
+            "options": options,
+            "stream": False,
+        }
+        if ollama_think is not None:
+            chat_kwargs["think"] = ollama_think
         start = time.monotonic()
         try:
             response = await self._call_with_retries(
-                lambda: self._get_client().chat(
-                    model=model_id,
-                    messages=messages,
-                    options=options,
-                    stream=False,
-                ),
+                lambda: self._get_client().chat(**chat_kwargs),
                 retries,
             )
             latency_ms = (time.monotonic() - start) * 1000
