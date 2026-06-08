@@ -1,5 +1,8 @@
+import json
+import sqlite3
+
 from sentiment_benchmark.metrics import evaluate_responses
-from sentiment_benchmark.models import DatasetRow, EvaluationResult, LLMResponseRecord
+from sentiment_benchmark.models import DatasetRow, EvaluationResult, LLMResponseRecord, PromptConfig, RunConfig
 from sentiment_benchmark.storage import BenchmarkStore
 
 
@@ -21,6 +24,79 @@ def test_storage_insert_and_resume_check(tmp_path) -> None:
     store.save_response(1, record)
     responses = store.fetch_responses(1, "test/model")
     assert len(responses) == 1
+
+
+def _prompt() -> PromptConfig:
+    return PromptConfig(
+        prompt_id="test",
+        system_prompt="Return a label.",
+        user_template="{sentence}",
+        output_mode="label_only",
+        prompt_hash="prompt-hash",
+    )
+
+
+def test_create_run_records_machine_and_environment_metadata(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("SENTIMENT_BENCH_MACHINE_ID", "lab desktop")
+    monkeypatch.setenv("SENTIMENT_BENCH_MACHINE_LABEL", "RTX 3070")
+    store = BenchmarkStore(tmp_path / "test.sqlite")
+    store.initialize()
+    prompt = _prompt()
+    config = RunConfig(
+        models=["gemma4:12b"],
+        prompt=prompt,
+        mode="pilot",
+        dataset_path="Data/data.csv",
+        db_path=str(tmp_path / "test.sqlite"),
+        base_url="http://localhost:11434",
+        provider="ollama",
+    )
+
+    run_id = store.create_run(config, [1, 2, 3])
+
+    with sqlite3.connect(tmp_path / "test.sqlite") as connection:
+        row = connection.execute(
+            "SELECT machine_id, machine_label, environment_json FROM runs WHERE id = ?",
+            (run_id,),
+        ).fetchone()
+    environment = json.loads(row[2])
+    assert row[0] == "lab-desktop"
+    assert row[1] == "RTX 3070"
+    assert environment["machine"]["id"] == "lab-desktop"
+    assert environment["machine"]["label"] == "RTX 3070"
+    assert environment["database"]["backend"] == "sqlite"
+    assert environment["package_version"] == "0.1.0"
+
+
+def test_initialize_migrates_old_runs_table_for_environment_metadata(tmp_path) -> None:
+    db_path = tmp_path / "old.sqlite"
+    with sqlite3.connect(db_path) as connection:
+        connection.execute(
+            """
+            CREATE TABLE runs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at TEXT NOT NULL,
+                completed_at TEXT,
+                mode TEXT NOT NULL,
+                prompt_hash TEXT NOT NULL,
+                output_mode TEXT NOT NULL,
+                models_json TEXT NOT NULL,
+                selected_rows_json TEXT NOT NULL,
+                dataset_path TEXT NOT NULL,
+                base_url TEXT NOT NULL,
+                request_json TEXT NOT NULL,
+                status TEXT NOT NULL
+            )
+            """
+        )
+        connection.commit()
+
+    store = BenchmarkStore(db_path)
+    store.initialize()
+
+    with sqlite3.connect(db_path) as connection:
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(runs)").fetchall()}
+    assert {"machine_id", "machine_label", "environment_json"} <= columns
 
 
 def test_metrics_counts_invalid_as_wrong_and_excludes_conflicts() -> None:

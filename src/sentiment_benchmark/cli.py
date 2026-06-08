@@ -465,11 +465,13 @@ def list_runs_command(
     table.add_column("Created")
     table.add_column("Mode")
     table.add_column("Status")
+    table.add_column("Machine")
     table.add_column("Models")
     for run in runs:
         models = json.loads(run["models_json"]) if run["models_json"] else []
         preview = ", ".join(models[:3]) + (f" (+{len(models) - 3})" if len(models) > 3 else "")
-        table.add_row(str(run["id"]), (run["created_at"] or "")[:19], run["mode"], run["status"], preview)
+        machine = run["machine_label"] or run["machine_id"] or "-"
+        table.add_row(str(run["id"]), (run["created_at"] or "")[:19], run["mode"], run["status"], machine, preview)
     console.print(table)
 
 

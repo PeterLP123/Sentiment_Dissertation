@@ -10,6 +10,7 @@ A reproducible CLI and terminal UI for dissertation experiments on financial sen
 | --- | --- | --- |
 | Dataset validation | Confirm `Data/data.csv` has the expected columns, labels, duplicates, and conflict metadata. | `sentiment-bench validate-data` |
 | LLM benchmarking | Run model sentiment classifications through OpenRouter or a remote/local Ollama server. | `sentiment-bench run` |
+| Shared run storage | Store results locally in SQLite or sync runs across machines with Turso/libSQL. | `.env`, `sentiment-bench runs` |
 | Baselines | Add majority, TF-IDF logistic regression, VADER, or FinBERT comparisons. | `sentiment-bench run-baselines` |
 | Results analysis | Inspect stored metrics, paired tests, agreement, and prompt sensitivity. | `sentiment-bench results`, `compare`, `agreement` |
 | Self-consistency | Sample one model repeatedly to estimate sentiment ambiguity. | `sentiment-bench run-self-consistency` |
@@ -35,6 +36,16 @@ On Windows, you can run the setup helper instead:
 
 The `.venv/` folder is machine-local and ignored by git. Recreate it on each machine with the setup helper; do not copy a virtual environment between machines.
 
+If PowerShell does not recognize `sentiment-bench`, activate the virtual environment first or run the executable directly:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+sentiment-bench tui
+
+# Or without activation:
+.\.venv\Scripts\sentiment-bench.exe tui
+```
+
 Create a local `.env` file. Use placeholder values until you add your real keys:
 
 ```bash
@@ -47,6 +58,15 @@ TAVILY_PROJECT=sentiment-dissertation
 # Optional: route model calls to Ollama instead of OpenRouter.
 SENTIMENT_BENCH_PROVIDER=ollama
 OLLAMA_HOST=http://desktop-pc:11434
+
+# Optional: friendly label stored with each run when using multiple machines.
+SENTIMENT_BENCH_MACHINE_LABEL=desktop-3070
+
+# Optional: shared Turso/libSQL run history.
+SENTIMENT_BENCH_DB_BACKEND=libsql
+TURSO_DATABASE_URL=libsql://your-database-your-org.turso.io
+TURSO_AUTH_TOKEN=your-database-token
+TURSO_REPLICA_PATH=results/turso_replica.db
 ```
 
 Validate the dataset:
@@ -65,7 +85,7 @@ Run a local Gemma model hosted by Ollama on another machine:
 
 ```bash
 sentiment-bench run --provider ollama --ollama-host http://desktop-pc:11434 \
-  --models gemma3 --mode pilot
+  --models gemma4:12b --mode pilot --prompt-id finance_calibrated_label_only
 ```
 
 Source unlabeled news articles through Tavily:
@@ -93,9 +113,9 @@ Start here if you are setting up the project or writing the dissertation methods
 | [Getting started](docs/getting_started.md) | Tutorial | First install, validation, pilot run, export, and news fetch. |
 | [CLI reference](docs/cli_reference.md) | Reference | Commands, options, defaults, and examples. |
 | [TUI guide](docs/tui_guide.md) | How-to | Interactive model, prompt, run, results, and news workflows. |
-| [Model providers](docs/model_providers.md) | How-to | OpenRouter setup and remote Ollama setup for desktop-hosted Gemma models. |
+| [Model providers](docs/model_providers.md) | How-to | OpenRouter setup and local/remote Ollama setup for Gemma models. |
 | [Tavily news sourcing](docs/news_sourcing.md) | How-to | Search, extract, save, review, and troubleshoot article corpora. |
-| [Results and exports](docs/results_and_exports.md) | Reference | SQLite storage, export files, metrics, figures, and reproducibility metadata. |
+| [Results and exports](docs/results_and_exports.md) | Reference | SQLite or Turso/libSQL storage, export files, metrics, figures, and reproducibility metadata. |
 | [Architecture](docs/architecture.md) | Explanation | Why the project separates source data, runs, providers, news corpora, and exports. |
 | [Dataset card](docs/dataset_card.md) | Reference | Dataset identity, shape, label policy, limitations, and ethics. |
 | [Research protocol](docs/research_protocol.md) | Explanation | Dissertation research questions, hypotheses, metrics, and experiment rules. |
@@ -105,7 +125,7 @@ Start here if you are setting up the project or writing the dissertation methods
 ```mermaid
 flowchart LR
     A["Data/data.csv<br/>immutable source dataset"] --> B["validate-data<br/>duplicate/conflict audit"]
-    B --> C["run / run-baselines<br/>benchmark stored in SQLite"]
+    B --> C["run / run-baselines<br/>benchmark stored in SQLite or Turso/libSQL"]
     C --> D["results / compare / agreement<br/>analysis in CLI and TUI"]
     D --> E["export<br/>responses, metrics, statistics, figures"]
     F["Tavily API"] --> G["fetch-news<br/>search + optional extract"]
@@ -124,7 +144,8 @@ Generated artifacts are intentionally separated:
 | --- | --- | --- |
 | `Data/data.csv` | Source sentiment benchmark dataset. | Source-controlled. |
 | `Data/news/` | Tavily article corpora for later review or labeling. | Ignored except `.gitkeep`. |
-| `results/sentiment_benchmark.sqlite` | Local run database. | Ignored. |
+| `results/sentiment_benchmark.sqlite` | Local run database when using SQLite. | Ignored. |
+| `results/turso_replica.db` | Local embedded libSQL replica when using Turso. | Ignored. |
 | `results/exports/run_<id>/` | Reproducible run exports and optional figures. | Ignored. |
 | `experiments/manifest.toml` | Curated registry for formal dissertation runs. | Source-controlled. |
 
@@ -178,6 +199,7 @@ For every formal dissertation result, record:
 - Code commit SHA.
 - Run IDs and export paths.
 - Provider route, model IDs, prompt ID, and prompt hash.
+- Machine label/id, package version, Python version, git commit, and database backend.
 - Mode, seed, row-selection logic, temperature, token limits, retries, and concurrency.
 - Metrics emphasized in the dissertation.
 - Cost, latency, invalid-output count, and API-error count where available.

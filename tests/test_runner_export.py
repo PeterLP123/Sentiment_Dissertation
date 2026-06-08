@@ -157,6 +157,9 @@ def test_runner_creates_metrics_and_exports(tmp_path) -> None:
     assert metadata["mode"] == "pilot"
     assert metadata["models"] == ["fake/model"]
     assert metadata["base_url"] == "https://openrouter.test/api/v1"
+    assert metadata["machine_id"] == "test-machine"
+    assert metadata["machine_label"] == "test-host"
+    assert metadata["run_environment"]["machine"]["id"] == "test-machine"
     assert metadata["request_settings"]["sample_per_class"] == 1
 
 

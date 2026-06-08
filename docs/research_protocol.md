@@ -71,7 +71,7 @@ Formal comparisons may include:
 - `baseline/vader`, as a lexicon-based sentiment baseline.
 - `baseline/finbert`, as a financial-domain transformer baseline.
 
-Model lists must be recorded in the experiment registry and exports. LLM runs should record provider route, model ID, prompt ID/hash, temperature, retry policy, concurrency, token limits, and run date. External model behavior may drift over time, so results should be interpreted as observations from the recorded run context.
+Model lists must be recorded in the experiment registry and exports. LLM runs should record provider route, model ID, prompt ID/hash, temperature, retry policy, concurrency, token limits, run date, machine label/id, package version, Python version, git commit, and database backend. External model behavior may drift over time, and local model behavior may vary by machine, so results should be interpreted as observations from the recorded run context.
 
 ## Default Experimental Settings
 
@@ -140,6 +140,7 @@ Every formal dissertation run or run family should have an entry in `experiments
 - Dataset path and SHA-256 hash
 - Prompt ID and prompt hash
 - Model IDs
+- Provider route, machine label/id, package version, Python version, and git commit/dirty state
 - Mode, seed, sample logic, temperature, and token settings
 - Metrics emphasized in the dissertation
 - Cost and latency notes when available

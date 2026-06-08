@@ -10,22 +10,35 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from .env import load_env_file
+from .libsql_backend import LibsqlConnection
 from .models import DatasetRow, EvaluationResult, LLMResponseRecord, PromptConfig, RunConfig, RunResumeSettings
+from .runtime_metadata import collect_run_environment
 from .self_consistency import (
     RowSelfConsistency,
     SelfConsistencyResult,
     compute_row_consistency,
     compute_self_consistency,
 )
-from .libsql_backend import LibsqlConnection
 
 
 def utc_now() -> str:
     return datetime.now(UTC).isoformat()
 
 
+def _table_columns(connection: Any, table_name: str) -> set[str]:
+    rows = connection.execute(f"PRAGMA table_info({table_name})").fetchall()
+    return {str(row["name"]) for row in rows}
+
+
+def _ensure_column(connection: Any, table_name: str, column_name: str, column_sql: str) -> None:
+    if column_name not in _table_columns(connection, table_name):
+        connection.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_sql}")
+
+
 class BenchmarkStore:
     def __init__(self, db_path: str | Path) -> None:
+        load_env_file()
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.backend = os.getenv("SENTIMENT_BENCH_DB_BACKEND", "sqlite").strip().lower()
@@ -81,6 +94,9 @@ class BenchmarkStore:
                     dataset_path TEXT NOT NULL,
                     base_url TEXT NOT NULL,
                     request_json TEXT NOT NULL,
+                    machine_id TEXT,
+                    machine_label TEXT,
+                    environment_json TEXT NOT NULL DEFAULT '{}',
                     status TEXT NOT NULL
                 );
 
@@ -195,6 +211,12 @@ class BenchmarkStore:
                 );
                 """
             )
+            self._migrate_schema(connection)
+
+    def _migrate_schema(self, connection: Any) -> None:
+        _ensure_column(connection, "runs", "machine_id", "TEXT")
+        _ensure_column(connection, "runs", "machine_label", "TEXT")
+        _ensure_column(connection, "runs", "environment_json", "TEXT NOT NULL DEFAULT '{}'")
 
     def upsert_dataset(self, rows: list[DatasetRow], dataset_path: str) -> None:
         loaded_at = utc_now()
@@ -253,6 +275,8 @@ class BenchmarkStore:
             )
 
     def create_run(self, config: RunConfig, selected_row_numbers: list[int]) -> int:
+        environment = collect_run_environment()
+        machine = environment.get("machine") if isinstance(environment.get("machine"), dict) else {}
         request = {
             "provider": config.provider,
             "temperature": config.temperature,
@@ -272,8 +296,8 @@ class BenchmarkStore:
                 """
                 INSERT INTO runs (
                     created_at, mode, prompt_hash, output_mode, models_json, selected_rows_json,
-                    dataset_path, base_url, request_json, status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    dataset_path, base_url, request_json, machine_id, machine_label, environment_json, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     utc_now(),
@@ -285,6 +309,9 @@ class BenchmarkStore:
                     config.dataset_path,
                     config.base_url,
                     json.dumps(request, sort_keys=True),
+                    machine.get("id"),
+                    machine.get("label"),
+                    json.dumps(environment, sort_keys=True),
                     "running",
                 ),
             )
@@ -590,9 +617,15 @@ class BenchmarkStore:
 
     def list_runs(self) -> list[sqlite3.Row]:
         with self.connect() as connection:
+            columns = _table_columns(connection, "runs")
+            machine_select = (
+                "machine_id, machine_label"
+                if {"machine_id", "machine_label"} <= columns
+                else "NULL AS machine_id, NULL AS machine_label"
+            )
             rows = connection.execute(
-                """
-                SELECT id, created_at, completed_at, mode, output_mode, models_json, status
+                f"""
+                SELECT id, created_at, completed_at, mode, output_mode, models_json, status, {machine_select}
                 FROM runs
                 ORDER BY id DESC
                 LIMIT 50

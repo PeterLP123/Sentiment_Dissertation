@@ -6,6 +6,16 @@ The `sentiment-bench` command is installed by the package entry point `sentiment
 sentiment-bench --help
 ```
 
+On Windows, if PowerShell does not recognize `sentiment-bench`, activate the virtual environment or call the executable directly:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+sentiment-bench --help
+
+# Or:
+.\.venv\Scripts\sentiment-bench.exe --help
+```
+
 ## Global Behavior
 
 | Behavior | Details |
@@ -21,6 +31,24 @@ sentiment-bench --help
 | Temperature default | `0.0` for standard benchmark runs. |
 | Retries default | `3` |
 | Concurrency default | `1` |
+| Database backend | Local SQLite unless `SENTIMENT_BENCH_DB_BACKEND=libsql`. |
+| Machine label | `SENTIMENT_BENCH_MACHINE_LABEL`, or the local hostname when unset. |
+
+## Environment Variables
+
+| Variable | Meaning |
+| --- | --- |
+| `SENTIMENT_BENCH_PROVIDER` | Default provider for CLI/TUI: `openrouter` or `ollama`. |
+| `OPENROUTER_API_KEY` | OpenRouter authentication token. |
+| `OPENROUTER_BASE_URL` | OpenRouter-compatible endpoint. |
+| `OLLAMA_HOST` | Ollama endpoint, such as `http://localhost:11434`. |
+| `SENTIMENT_BENCH_DB_BACKEND` | `sqlite` by default; set `libsql` for Turso/native libSQL. |
+| `TURSO_DATABASE_URL` | Turso/libSQL URL, such as `libsql://...turso.io`. |
+| `TURSO_AUTH_TOKEN` | Turso database auth token. Keep out of git. |
+| `TURSO_REPLICA_PATH` | Local embedded replica path, defaulting to `results/turso_replica.db`. |
+| `SENTIMENT_BENCH_MACHINE_LABEL` | Friendly per-machine label stored with new runs. |
+| `SENTIMENT_BENCH_MACHINE_ID` | Optional explicit stable machine id; otherwise a hashed OS machine value is used. |
+| `SENTIMENT_BENCH_AUTO_FETCH_MODELS` | TUI local-Ollama auto-fetch toggle, default `1`. |
 
 ## Commands
 
@@ -81,7 +109,7 @@ sentiment-bench run --models openai/gpt-4o-mini --mode pilot
 | `--mode` | `pilot` | `pilot` or `full`. |
 | `--prompt-id` | `default_label_only` | Prompt ID from `configs/default_prompts.toml`. |
 | `--dataset-path` | `Data/data.csv` | Dataset CSV. |
-| `--db-path` | `results/sentiment_benchmark.sqlite` | SQLite storage path. |
+| `--db-path` | `results/sentiment_benchmark.sqlite` | Local SQLite storage path; when `SENTIMENT_BENCH_DB_BACKEND=libsql`, Turso env vars select the synced replica. |
 | `--prompts-path` | `configs/default_prompts.toml` | Prompt config path. |
 | `--provider` | `openrouter` | `openrouter` or `ollama`. |
 | `--base-url` | `https://openrouter.ai/api/v1` | OpenRouter-compatible base URL. |
@@ -98,6 +126,15 @@ sentiment-bench run --models openai/gpt-4o-mini --mode pilot
 | `--few-shot-seed` | `--seed` | Demonstration sampling seed. |
 | `--resume-run-id` | none | Resume an existing run without duplicating completed responses. |
 
+Useful prompt IDs include:
+
+| Prompt ID | Use |
+| --- | --- |
+| `default_label_only` | Strict zero-shot label-only benchmark prompt. |
+| `finance_calibrated_label_only` | Finance-oriented label-only prompt for market/business/trading language; recommended for Gemma 4 pilots. |
+| `default_with_explanation` | Label plus short explanation. |
+| `default_chain_of_thought` | Reasoning-style output ending in `Answer: <label>`. |
+
 ## `run-baselines`
 
 ```bash
@@ -110,7 +147,7 @@ sentiment-bench run-baselines --match-run-id 5 --baselines majority --baselines 
 | `--baselines`, `-b` | `majority`, `tfidf_logreg` | Baseline names. Repeat for multiple. |
 | `--mode` | `pilot` | `pilot` or `full`. |
 | `--dataset-path` | `Data/data.csv` | Dataset CSV. |
-| `--db-path` | `results/sentiment_benchmark.sqlite` | SQLite storage path. |
+| `--db-path` | `results/sentiment_benchmark.sqlite` | Local SQLite storage path; when `SENTIMENT_BENCH_DB_BACKEND=libsql`, Turso env vars select the synced replica. |
 | `--sample-per-class` | `30` | Pilot rows per class. |
 | `--seed` | `42` | Sampling seed. |
 | `--folds` | `5` | Stratified CV folds for fitted baselines. |
@@ -165,6 +202,8 @@ sentiment-bench runs
 
 Lists stored benchmark runs, most recent first.
 
+The table includes the machine label/id for new runs, which is useful when reading a shared Turso history.
+
 ## `results`
 
 ```bash
@@ -188,7 +227,7 @@ sentiment-bench compare --run-a 1 --model-a openai/gpt-4o-mini \
 | `--run-b` | `--run-a` | Run ID for model B. |
 | `--scope` | `primary` | `primary` or `all`. |
 | `--metric` | `accuracy` | `accuracy` or `macro_f1`. |
-| `--db-path` | `results/sentiment_benchmark.sqlite` | SQLite storage path. |
+| `--db-path` | `results/sentiment_benchmark.sqlite` | Local SQLite storage path; when `SENTIMENT_BENCH_DB_BACKEND=libsql`, Turso env vars select the synced replica. |
 | `--n-resamples` | `1000` | Bootstrap resamples for CIs. |
 | `--confidence` | `0.95` | CI confidence level. |
 | `--seed` | `42` | Bootstrap seed. |
@@ -203,7 +242,7 @@ sentiment-bench export --run-id 1
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `--run-id` | required | Run ID to export. |
-| `--db-path` | `results/sentiment_benchmark.sqlite` | SQLite storage path. |
+| `--db-path` | `results/sentiment_benchmark.sqlite` | Local SQLite storage path; when `SENTIMENT_BENCH_DB_BACKEND=libsql`, Turso env vars select the synced replica. |
 | `--output-dir` | `results/exports/run_<id>` | Optional export destination override. |
 
 ## Prompt Robustness Commands

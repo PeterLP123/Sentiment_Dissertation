@@ -16,6 +16,7 @@ from sentiment_benchmark.tui import ConfirmScreen, SentimentBenchmarkApp
 def _make_app(tmp_path: Path) -> SentimentBenchmarkApp:
     app = SentimentBenchmarkApp()
     app._session_path = tmp_path / "tui_session.json"
+    app.provider = "openrouter"
     app.selected_models = []
     app._model_names = {}
     return app

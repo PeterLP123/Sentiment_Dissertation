@@ -10,7 +10,7 @@ Sentiment benchmark projects can become difficult to defend when they mix raw da
 - API behavior drifts without recorded run context.
 - Prompt changes are compared as if they were the same experiment.
 - Generated article corpora are mistaken for labeled benchmark data.
-- Results are reported without enough metadata to reproduce the row selection, model route, or prompt.
+- Results are reported without enough metadata to reproduce the row selection, model route, prompt, machine, or runtime environment.
 
 ## The Approach
 
@@ -21,7 +21,8 @@ flowchart LR
     R --> P["Provider adapter"]
     P --> O["OpenRouter"]
     P --> L["Ollama"]
-    R --> S["SQLite store<br/>responses + metrics"]
+    R --> S["SQLite or Turso/libSQL store<br/>responses + metrics"]
+    M["Machine/runtime metadata"] --> S
     S --> A["Analysis commands<br/>results, compare, agreement"]
     S --> E["Export bundle<br/>run.json, metrics, statistics, figures"]
     T["Tavily"] --> N["Data/news<br/>unlabeled derived corpora"]
@@ -36,7 +37,9 @@ Core boundaries:
 | `src/sentiment_benchmark/providers.py` | Chooses OpenRouter or Ollama client from provider settings. |
 | `src/sentiment_benchmark/runner.py` | Executes model runs and stores responses. |
 | `src/sentiment_benchmark/metrics.py` | Computes classification metrics and comparison statistics. |
-| `src/sentiment_benchmark/storage.py` | Owns SQLite schema and persistence. |
+| `src/sentiment_benchmark/storage.py` | Owns database schema and persistence for SQLite or native libSQL/Turso. |
+| `src/sentiment_benchmark/libsql_backend.py` | Adapts the native `libsql` client to the SQLite-like store interface. |
+| `src/sentiment_benchmark/runtime_metadata.py` | Captures machine id/label, git state, Python version, OS/platform, database backend, and timezone for new runs. |
 | `src/sentiment_benchmark/exporter.py` | Writes reproducible run export bundles. |
 | `src/sentiment_benchmark/news_source.py` | Sources Tavily article corpora without touching benchmark labels. |
 | `src/sentiment_benchmark/tui.py` | Interactive Textual interface over the same services. |
@@ -68,6 +71,12 @@ classify(model_id, prompt, sentence, request_settings) -> response record
 
 The provider boundary keeps the dissertation storage format consistent while still recording provider route, base URL, latency, token usage, cost metadata when available, and raw response fragments.
 
+## Why Runtime Metadata Is Stored
+
+Runs can now be produced on more than one machine and synced through Turso/libSQL. A run therefore records both a queryable `machine_id`/`machine_label` and an `environment_json` snapshot. The machine id is either explicitly configured with `SENTIMENT_BENCH_MACHINE_ID` or derived as a short hash from a stable OS value; raw OS machine identifiers are not stored.
+
+The environment snapshot records package version, git commit/branch/dirty state, Python version, OS/platform, database backend, and local timezone. This makes a shared run history easier to audit when local Gemma behavior differs across machines.
+
 ## Why Tavily Outputs Are Separate
 
 Tavily searches and extracts article text from the internet. Those articles are useful source material, but they are not labeled sentiment examples yet. Writing them under `Data/news` prevents accidental mutation of `Data/data.csv` and makes later labeling work explicit.
@@ -86,7 +95,8 @@ The Tavily corpus writer records:
 
 | Choice | Benefit | Cost |
 | --- | --- | --- |
-| SQLite local store | Simple, inspectable, no service dependency. | Not intended for multi-user concurrent experiment orchestration. |
+| SQLite local store by default | Simple, inspectable, no service dependency. | Not ideal for sharing one run history across machines. |
+| Optional Turso/libSQL backend | Shared run history with per-machine local replicas. | Requires Python 3.12 setup, Turso credentials, and careful secret handling. |
 | Ignored generated outputs | Keeps git clean and avoids large artifacts. | Formal outputs must be exported and registered deliberately. |
 | Provider abstraction | Same benchmark flow works for OpenRouter and Ollama. | Lowest common denominator interface hides provider-specific advanced controls. |
 | Primary/all scopes | Separates headline comparison from ambiguity audit. | Readers must understand which scope is being discussed. |
@@ -94,4 +104,4 @@ The Tavily corpus writer records:
 
 ## Alternatives Considered
 
-The current code favors conservative research traceability over automation. It does not automatically transform Tavily articles into a `Sentence,Sentiment` dataset because there is no labeling protocol yet. It does not edit the source CSV because derived data should carry provenance. It does not hard-code a single provider because the dissertation may compare API-hosted models with local Gemma-family models.
+The current code favors conservative research traceability over automation. It does not automatically transform Tavily articles into a `Sentence,Sentiment` dataset because there is no labeling protocol yet. It does not edit the source CSV because derived data should carry provenance. It does not hard-code a single provider because the dissertation may compare API-hosted models with local Gemma-family models. It does not copy old local SQLite runs into Turso automatically because a shared dissertation history should include only deliberate, reviewable runs.

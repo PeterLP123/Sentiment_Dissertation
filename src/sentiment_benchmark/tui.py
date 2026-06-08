@@ -298,7 +298,8 @@ class SentimentBenchmarkApp(App):
     .validation-hint.-error {
         color: $error;
     }
-    #dashboard, #dashboard-resource-monitor, #run-resource-monitor, #prompt-preview, #run-estimate, #results-help, #selected-summary, #news-summary {
+    #dashboard, #dashboard-resource-monitor, #run-resource-monitor, #prompt-preview,
+    #run-estimate, #results-help, #selected-summary, #news-summary {
         border: solid $accent;
         padding: 1;
         margin-bottom: 1;
@@ -769,7 +770,7 @@ class SentimentBenchmarkApp(App):
         metrics.add_columns("Model", "Scope", "Rows", "Accuracy", "Macro F1", "Latency", "Tokens", "Cost", "Invalid", "Errors")
         metrics.cursor_type = "row"
         runs = self.query_one("#runs-table", DataTable)
-        runs.add_columns("ID", "Created", "Mode", "Status", "Models")
+        runs.add_columns("ID", "Created", "Mode", "Status", "Machine", "Models")
         runs.cursor_type = "row"
         perclass = self.query_one("#perclass-table", DataTable)
         perclass.add_columns("Class", "Precision", "Recall", "F1", "Support")
@@ -1269,7 +1270,11 @@ class SentimentBenchmarkApp(App):
                 detail = f"{mode} will send {rows_per_model} request(s) per model, {total_calls} total request(s)."
         except ValueError:
             detail = "Sample per class must be a whole number."
-        self.query_one("#run-estimate", Static).update(
+        try:
+            run_estimate = self.query_one("#run-estimate", Static)
+        except Exception:
+            return
+        run_estimate.update(
             "Run estimate\n"
             f"{detail}\n"
             "Primary accuracy excludes rows whose duplicate sentence has conflicting labels."
@@ -1285,9 +1290,10 @@ class SentimentBenchmarkApp(App):
             text = "No benchmark runs are stored yet. Start a pilot run, then return here with its run id."
         else:
             latest = runs[0]
+            machine = latest["machine_label"] or latest["machine_id"] or "unknown machine"
             text = (
                 f"Latest run id: {latest['id']} | mode: {latest['mode']} | "
-                f"status: {latest['status']} | created: {latest['created_at']}"
+                f"status: {latest['status']} | machine: {machine} | created: {latest['created_at']}"
             )
         self.query_one("#results-help", Static).update(text)
 
@@ -1984,11 +1990,13 @@ class SentimentBenchmarkApp(App):
             if len(models) > 3:
                 preview += f" (+{len(models) - 3})"
             created = (run["created_at"] or "")[:19]
+            machine = run["machine_label"] or run["machine_id"] or "-"
             table.add_row(
                 str(run["id"]),
                 created,
                 run["mode"],
                 _status_text(run["status"]),
+                machine,
                 preview,
                 key=str(run["id"]),
             )

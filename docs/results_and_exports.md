@@ -7,6 +7,7 @@ This reference explains where benchmark evidence is stored, what gets exported, 
 | Path | Created by | Purpose | Git policy |
 | --- | --- | --- | --- |
 | `results/sentiment_benchmark.sqlite` | `run`, `run-baselines`, `run-self-consistency`, TUI workflows | Local SQLite database for runs, responses, metrics, and self-consistency samples. | Ignored. |
+| `results/turso_replica.db` | Native `libsql` backend | Embedded local replica that syncs with Turso when `SENTIMENT_BENCH_DB_BACKEND=libsql`. | Ignored. |
 | `results/exports/run_<id>/` | `export` or TUI Export Run | Reproducible run evidence for analysis and dissertation writing. | Ignored. |
 | `Data/news/tavily_news_*/` | `fetch-news` or TUI News tab | Unlabeled Tavily article corpora. | Ignored except `.gitkeep`. |
 | `experiments/manifest.toml` | Manual curation | Formal dissertation experiment registry. | Source-controlled. |
@@ -24,9 +25,18 @@ TURSO_REPLICA_PATH=results/turso_replica.db
 
 This creates an embedded local replica at `TURSO_REPLICA_PATH`, syncs from Turso when connections open, and syncs writes back to Turso after commits. Each machine should recreate its own `.venv/`, keep its own `.env`, and use its own local replica path while sharing the same Turso database URL and token.
 
+Each benchmark run stores machine metadata so a shared Turso history can be traced back to the computer that produced it. Set a friendly label per machine in `.env`:
+
+```text
+SENTIMENT_BENCH_MACHINE_LABEL=desktop-3070
+```
+
+If `SENTIMENT_BENCH_MACHINE_ID` is not set, the project derives a short hashed identifier from a stable OS machine value where available. The raw OS machine value is not stored. New runs also store `environment_json` with package version, git commit/branch/dirty state, Python version, OS/platform, database backend, and local timezone.
+
 Create credentials from Turso:
 
 ```bash
+turso auth login
 turso db create sentiment-dissertation-results
 turso db show --url sentiment-dissertation-results
 turso db tokens create sentiment-dissertation-results
@@ -43,15 +53,29 @@ python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 ```
 
-## SQLite Tables
+After adding the Turso values to `.env`, initialize or migrate the schema through the normal storage layer:
 
-The local database is an execution store, not a source dataset.
+```powershell
+@'
+from sentiment_benchmark.storage import BenchmarkStore
+store = BenchmarkStore("results/sentiment_benchmark.sqlite")
+store.initialize()
+'@ | .\.venv\Scripts\python.exe -
+```
+
+This is safe to run more than once. It creates missing tables and adds the run metadata columns (`machine_id`, `machine_label`, `environment_json`) to older local or Turso databases.
+
+Existing local SQLite runs are not automatically copied into Turso. Export them with `sentiment-bench export --run-id <id>` if you need the evidence, or migrate them deliberately after deciding which old runs belong in the shared history.
+
+## Database Tables
+
+The database is an execution store, not a source dataset. The same logical tables are used by local SQLite and the native libSQL/Turso backend.
 
 | Table | Meaning |
 | --- | --- |
 | `dataset_items` | Loaded dataset rows, duplicate flags, conflict flags, and hidden labels. |
 | `prompts` | Prompt text keyed by prompt hash. |
-| `runs` | Run metadata, model list, selected rows, provider route, and request settings. |
+| `runs` | Run metadata, model list, selected rows, provider route, request settings, machine id, machine label, and environment snapshot. |
 | `run_models` | Per-model run status. |
 | `responses` | One model response per run/model/row/prompt hash. |
 | `generation_metadata` | Provider cost, provider name, latency, and raw generation metadata when available. |
@@ -79,7 +103,7 @@ results/exports/run_1/
 | `responses.csv` | Spreadsheet-friendly response table with hidden label, normalized label, parse status, latency, tokens, provider cost, and errors. |
 | `responses.json` | JSON version of response records. |
 | `metrics.json` | Per-model metrics and per-class scores for each scope. |
-| `run.json` | Run metadata, prompt metadata, package version, export timestamp, dataset SHA-256, prompt hash, provider, base URL, and request settings. |
+| `run.json` | Run metadata, prompt metadata, package version, export timestamp, dataset SHA-256, prompt hash, provider, base URL, machine metadata, environment snapshot, and request settings. |
 | `statistics.json` | Bootstrap confidence intervals, paired McNemar tests, and agreement statistics where applicable. |
 | `summary.md` | Human-readable run summary for notes and dissertation drafting. |
 | `figures/` | Optional PNG figures when installed with `python -m pip install -e ".[figures]"`. |

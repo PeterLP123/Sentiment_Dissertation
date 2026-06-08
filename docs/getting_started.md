@@ -33,6 +33,19 @@ This installs the `sentiment-bench` command, runtime dependencies, and developme
 
 The `.venv/` folder is local to each machine and is intentionally ignored by git. Do not copy it between machines; recreate it on each machine with the setup command above. The repository carries the reproducible setup instructions through `.python-version`, `pyproject.toml`, and `scripts/setup_windows_py312.ps1`.
 
+If PowerShell says `sentiment-bench` is not recognized, the virtual environment is not active. Use:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+sentiment-bench --help
+```
+
+or call the script directly:
+
+```powershell
+.\.venv\Scripts\sentiment-bench.exe --help
+```
+
 ## Step 2: Add Local Credentials
 
 Create `.env` in the repository root:
@@ -43,6 +56,8 @@ OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 
 TAVILY_API_KEY=your-tavily-key
 TAVILY_PROJECT=sentiment-dissertation
+
+SENTIMENT_BENCH_MACHINE_LABEL=desktop-3070
 ```
 
 Do not commit `.env`. It is ignored by git.
@@ -51,10 +66,21 @@ For Ollama instead of OpenRouter, add:
 
 ```bash
 SENTIMENT_BENCH_PROVIDER=ollama
-OLLAMA_HOST=http://desktop-pc:11434
+OLLAMA_HOST=http://localhost:11434
 ```
 
 See [Model providers](model_providers.md) for the desktop PC setup.
+
+To share one run history across machines with Turso/libSQL, also add:
+
+```bash
+SENTIMENT_BENCH_DB_BACKEND=libsql
+TURSO_DATABASE_URL=libsql://your-database-your-org.turso.io
+TURSO_AUTH_TOKEN=your-database-token
+TURSO_REPLICA_PATH=results/turso_replica.db
+```
+
+Each machine should keep its own `.env`, local `.venv/`, and local replica path. New runs store a machine label/id and an environment snapshot so shared results can be traced later.
 
 ## Step 3: Validate The Dataset
 
@@ -74,14 +100,16 @@ Run one small OpenRouter pilot:
 sentiment-bench run --models openai/gpt-4o-mini --mode pilot
 ```
 
-Pilot mode samples 30 primary rows per class with seed `42` by default. Results are stored in `results/sentiment_benchmark.sqlite`.
+Pilot mode samples 30 primary rows per class with seed `42` by default. Results are stored in `results/sentiment_benchmark.sqlite` unless `SENTIMENT_BENCH_DB_BACKEND=libsql`, in which case they sync through the Turso/libSQL replica configured in `.env`.
 
 To use a local Gemma model through Ollama:
 
 ```bash
-sentiment-bench run --provider ollama --ollama-host http://desktop-pc:11434 \
-  --models gemma3 --mode pilot
+sentiment-bench run --provider ollama --ollama-host http://localhost:11434 \
+  --models gemma4:12b --mode pilot --prompt-id finance_calibrated_label_only
 ```
+
+The `finance_calibrated_label_only` prompt is tuned for short financial-sentiment headlines and trading language. For Gemma 4 in the TUI, keep the `Disable Ollama thinking` checkbox enabled so reasoning tokens do not consume the short label-only completion budget.
 
 ## Step 5: Inspect Results
 
@@ -142,6 +170,8 @@ sentiment-bench tui
 
 Use tabs `1` through `6` for Dashboard, Models, Prompt, Run, Results, and News. The TUI persists its local session state in `results/tui_session.json`.
 
+When the provider is local Ollama, the TUI can automatically fetch installed model IDs from `http://localhost:11434`. The Dashboard and Run tabs also show a local resource monitor with selected/fetched model counts, TUI concurrency, max tokens, Ollama thinking state, `OLLAMA_NUM_PARALLEL`, and NVIDIA GPU stats when `nvidia-smi` is available.
+
 ## What You Built
 
 You now have a working dissertation benchmark environment with:
@@ -149,7 +179,9 @@ You now have a working dissertation benchmark environment with:
 - A validated immutable source dataset.
 - At least one stored benchmark run.
 - Inspectable metrics and exports.
+- Per-run machine and environment metadata for shared histories.
 - Optional Tavily article sourcing.
-- Optional remote Ollama routing for desktop-hosted local models.
+- Optional local/remote Ollama routing for Gemma-family models.
+- Optional Turso/libSQL shared result storage with a local replica.
 
 For exact command options, use [CLI reference](cli_reference.md). For output interpretation, use [Results and exports](results_and_exports.md).

@@ -10,6 +10,7 @@ This documentation is organized by reader task. Use the tutorial when you are ne
 | --- | --- |
 | Install the project and run the first benchmark. | [Getting started](getting_started.md) |
 | Use Gemma or another local model running on a desktop PC. | [Model providers](model_providers.md) |
+| Share run history across machines with Turso/libSQL. | [Results and exports](results_and_exports.md) |
 | Fetch articles from Tavily into `Data/news`. | [Tavily news sourcing](news_sourcing.md) |
 | Work through the terminal UI. | [TUI guide](tui_guide.md) |
 | Look up a command, option, or default. | [CLI reference](cli_reference.md) |
@@ -40,9 +41,10 @@ flowchart TB
         P["Provider adapter<br/>OpenRouter or Ollama"]
     end
     subgraph Evidence["Evidence"]
-        DB["results/sentiment_benchmark.sqlite"]
+        DB["SQLite or Turso/libSQL<br/>run history"]
         E["results/exports/run_<id>/"]
         M["experiments/manifest.toml"]
+        ENV["machine + environment metadata"]
     end
     D --> CLI
     D --> TUI
@@ -51,6 +53,7 @@ flowchart TB
     TUI --> P
     CLI --> DB
     TUI --> DB
+    ENV --> DB
     DB --> E
     E --> M
 ```
@@ -61,7 +64,7 @@ Source-controlled files should explain how an experiment was produced. Local gen
 
 | Source-controlled | Local/generated |
 | --- | --- |
-| Code under `src/` and tests under `tests/`. | SQLite run database under `results/`. |
+| Code under `src/` and tests under `tests/`. | SQLite run database and Turso local replica under `results/`. |
 | `Data/data.csv` source dataset. | Export folders under `results/exports/`. |
 | Prompt configs under `configs/`. | Tavily article corpora under `Data/news/`. |
 | Experiment registry under `experiments/manifest.toml`. | Local credentials in `.env`. |

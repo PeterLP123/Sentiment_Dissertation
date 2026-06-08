@@ -99,6 +99,25 @@ def dataset_sha256(path: str | Path) -> str | None:
     return digest.hexdigest()
 
 
+def _json_object(value: Any) -> dict[str, Any]:
+    if not isinstance(value, str) or not value.strip():
+        return {}
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _optional_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, float) and math.isnan(value):
+        return None
+    text = str(value).strip()
+    return text or None
+
+
 def export_run(db_path: str | Path, run_id: int, output_dir: str | Path | None = None) -> list[Path]:
     db = Path(db_path)
     destination = Path(output_dir) if output_dir else Path("results/exports") / f"run_{run_id}"
@@ -185,6 +204,10 @@ def export_run(db_path: str | Path, run_id: int, output_dir: str | Path | None =
     request_settings = json.loads(run_record.get("request_json") or "{}") if run_record else {}
     models = json.loads(run_record.get("models_json") or "[]") if run_record else []
     dataset_path = str(run_record.get("dataset_path") or "")
+    run_environment = _json_object(run_record.get("environment_json")) if run_record else {}
+    machine = run_environment.get("machine") if isinstance(run_environment.get("machine"), dict) else {}
+    machine_id = _optional_text(run_record.get("machine_id")) if run_record else None
+    machine_label = _optional_text(run_record.get("machine_label")) if run_record else None
     run_payload = {
         "run": run_records,
         "prompt": prompt_records,
@@ -199,6 +222,9 @@ def export_run(db_path: str | Path, run_id: int, output_dir: str | Path | None =
             "models": models,
             "provider": request_settings.get("provider", "openrouter"),
             "base_url": run_record.get("base_url"),
+            "machine_id": machine_id or machine.get("id"),
+            "machine_label": machine_label or machine.get("label"),
+            "run_environment": run_environment,
             "request_settings": request_settings,
         },
     }
@@ -222,6 +248,7 @@ def export_run(db_path: str | Path, run_id: int, output_dir: str | Path | None =
                 f"- Status: `{run['status']}`",
                 f"- Output mode: `{run['output_mode']}`",
                 f"- Created: `{run['created_at']}`",
+                f"- Machine: `{_optional_text(run.get('machine_label')) or _optional_text(run.get('machine_id')) or 'unknown'}`",
                 "",
             ]
         )
