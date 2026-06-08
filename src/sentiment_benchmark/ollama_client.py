@@ -174,6 +174,26 @@ class OllamaClient:
             )
         return models
 
+    async def list_loaded_models(self, retries: int = 3) -> list[dict[str, Any]]:
+        """Return models Ollama currently holds in memory (via /api/ps)."""
+        payload = await self._call_with_retries(lambda: self._get_client().ps(), retries)
+        items = _get_field(payload, "models", [])
+        loaded: list[dict[str, Any]] = []
+        for item in items or []:
+            model_id = _get_field(item, "model") or _get_field(item, "name")
+            if not isinstance(model_id, str) or not model_id:
+                continue
+            expires_at = _get_field(item, "expires_at")
+            loaded.append(
+                {
+                    "model": model_id,
+                    "size": _as_int(_get_field(item, "size")),
+                    "size_vram": _as_int(_get_field(item, "size_vram")),
+                    "expires_at": expires_at if isinstance(expires_at, str) else None,
+                }
+            )
+        return loaded
+
     async def classify(
         self,
         model_id: str,

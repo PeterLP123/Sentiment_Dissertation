@@ -4,7 +4,7 @@ import sqlite3
 from pathlib import Path
 
 import pytest
-from textual.widgets import Button, Checkbox, DataTable, Input, ProgressBar, Static
+from textual.widgets import Button, Checkbox, DataTable, Input, ProgressBar, Select, Static
 
 from sentiment_benchmark.baseline_runner import BaselineRunSummary
 from sentiment_benchmark.models import DatasetRow, EvaluationResult, LLMResponseRecord, ModelConfig, PromptConfig
@@ -16,6 +16,8 @@ from sentiment_benchmark.tui import ConfirmScreen, SentimentBenchmarkApp
 def _make_app(tmp_path: Path) -> SentimentBenchmarkApp:
     app = SentimentBenchmarkApp()
     app._session_path = tmp_path / "tui_session.json"
+    app._queue_path = tmp_path / "tui_queue.json"
+    app._experiment_queue = []
     app.provider = "openrouter"
     app.selected_models = []
     app._model_names = {}
@@ -827,5 +829,513 @@ def test_tui_news_fetch_writes_outputs_and_logs_failures(tmp_path: Path, monkeyp
             exported = list((tmp_path / "news").glob("tavily_news_*"))
             assert len(exported) == 1
             assert (exported[0] / "manifest.json").exists()
+
+    asyncio.run(scenario())
+
+
+class _FakeRunSummary:
+    def __init__(self, run_id: int, status: str = "completed") -> None:
+        self.run_id = run_id
+        self.status = status
+        self.selected_row_count = 15
+        self.model_count = 1
+
+
+def test_tui_add_to_queue_snapshots_config_and_persists(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            app.selected_models = ["provider/model"]
+            app.query_one("#sample-per-class", Input).value = "5"
+
+            app._add_current_to_queue()
+
+            assert len(app._experiment_queue) == 1
+            item = app._experiment_queue[0]
+            assert item["models"] == ["provider/model"]
+            assert item["sample_per_class"] == 5
+            assert item["mode"] == "pilot"
+            assert item["status"] == "queued"
+
+            queue_table = app.query_one("#queue-table", DataTable)
+            assert queue_table.row_count == 1
+
+            # Persisted to disk and reconstructable into a RunConfig.
+            assert app._queue_path.exists()
+            saved = json.loads(app._queue_path.read_text(encoding="utf-8"))
+            assert len(saved) == 1
+            config = app._config_from_queue_item(item)
+            assert config.models == ["provider/model"]
+            assert config.sample_per_class == 5
+
+    asyncio.run(scenario())
+
+
+def test_tui_queue_remove_row_and_clear(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            app.selected_models = ["a/one"]
+            app._add_current_to_queue()
+            app.selected_models = ["b/two"]
+            app._add_current_to_queue()
+            assert len(app._experiment_queue) == 2
+
+            queue_table = app.query_one("#queue-table", DataTable)
+            first_key = next(iter(queue_table.rows))
+            app.on_data_table_row_selected(DataTable.RowSelected(queue_table, 0, first_key))
+            assert len(app._experiment_queue) == 1
+            assert app._experiment_queue[0]["models"] == ["b/two"]
+
+            app._clear_queue()
+            assert app._experiment_queue == []
+            assert app.query_one("#queue-table", DataTable).row_count == 0
+
+    asyncio.run(scenario())
+
+
+def test_tui_saved_queue_reloads_on_new_app(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            app.selected_models = ["a/one"]
+            app._add_current_to_queue()
+
+        # A fresh app pointed at the same queue file loads the saved experiment.
+        revived = _make_app(tmp_path)
+        revived._experiment_queue = []
+        revived._load_queue()
+        assert any(item["models"] == ["a/one"] for item in revived._experiment_queue)
+
+    asyncio.run(scenario())
+
+
+def test_tui_run_queue_executes_each_experiment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            app.selected_models = ["a/one"]
+            app._add_current_to_queue()
+            app.selected_models = ["b/two"]
+            app._add_current_to_queue()
+
+            executed: list[list[str]] = []
+
+            async def fake_execute(config):
+                executed.append(list(config.models))
+                return _FakeRunSummary(run_id=len(executed))
+
+            monkeypatch.setattr(app, "_execute_config", fake_execute)
+
+            await app._start_queue()
+            if app._run_task is not None:
+                await app._run_task
+
+            assert executed == [["a/one"], ["b/two"]]
+            assert all(item["status"].startswith("done") for item in app._experiment_queue)
+            assert app._run_in_progress is False
+            assert app._queue_running is False
+
+    asyncio.run(scenario())
+
+
+def test_tui_cancel_stops_queue_from_advancing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            app.selected_models = ["a/one"]
+            app._add_current_to_queue()
+            app.selected_models = ["b/two"]
+            app._add_current_to_queue()
+
+            executed: list[list[str]] = []
+
+            async def fake_execute(config):
+                executed.append(list(config.models))
+                # Request cancellation during the first experiment.
+                app._cancel_run()
+                return _FakeRunSummary(run_id=len(executed), status="cancelled")
+
+            monkeypatch.setattr(app, "_execute_config", fake_execute)
+
+            await app._start_queue()
+            if app._run_task is not None:
+                await app._run_task
+
+            # Only the first experiment ran; the second was left for a later run.
+            assert executed == [["a/one"]]
+            assert app._experiment_queue[1]["status"] == "cancelled"
+            assert app._run_in_progress is False
+
+    asyncio.run(scenario())
+
+
+def test_tui_start_queue_blocked_while_baselines_running(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            app.selected_models = ["a/one"]
+            app._add_current_to_queue()
+
+            # Simulate an in-flight baseline run (separate thread worker).
+            app._baseline_in_progress = True
+            await app._start_queue()
+
+            assert app._run_task is None
+            assert app._queue_running is False
+            assert app._experiment_queue[0]["status"] == "queued"
+
+    asyncio.run(scenario())
+
+
+def test_tui_add_to_queue_blocked_while_queue_running(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            app.selected_models = ["a/one"]
+            app._add_current_to_queue()
+
+            # Pretend the queue is mid-drain; adding must be refused.
+            app._queue_running = True
+            app.selected_models = ["b/two"]
+            app._add_current_to_queue()
+
+            assert len(app._experiment_queue) == 1
+            assert app._experiment_queue[0]["models"] == ["a/one"]
+
+    asyncio.run(scenario())
+
+
+def test_tui_gpu_monitor_refreshes_off_thread(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            monkeypatch.setattr(app, "_gpu_monitor_lines", lambda: ["GPU 0: TestCard | util 5%"])
+
+            await app._refresh_gpu_lines()
+
+            assert app._gpu_lines == ["GPU 0: TestCard | util 5%"]
+            monitor = app.query_one("#run-resource-monitor", Static)
+            assert "TestCard" in str(monitor.content)
+
+    asyncio.run(scenario())
+
+
+def test_tui_resume_prompt_suppressed_when_no_pending(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+
+            pushed: list[object] = []
+            app.push_screen = lambda *args, **kwargs: pushed.append(args[0])  # type: ignore[assignment]
+
+            # All-done queue: no prompt.
+            app._experiment_queue = [{"status": "done (run 1)", "models": ["a/one"], "prompt": {}}]
+            app._maybe_prompt_queue_resume()
+            assert pushed == []
+
+            # A pending experiment triggers the resume prompt.
+            app._experiment_queue.append({"status": "queued", "models": ["b/two"], "prompt": {}})
+            app._maybe_prompt_queue_resume()
+            assert len(pushed) == 1
+
+    asyncio.run(scenario())
+
+
+def test_tui_run_settings_persist_across_sessions(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            app.query_one("#sample-per-class", Input).value = "12"
+            app.query_one("#seed", Input).value = "7"
+            app.query_one("#concurrency", Input).value = "4"
+            app.query_one("#temperature", Input).value = "0.5"
+            app.query_one("#max-tokens", Input).value = "128"
+            app.run_mode = "full"
+            await pilot.pause(0.05)
+            app._save_session()
+
+        # A fresh app loads the persisted settings and applies them to the widgets.
+        revived = _make_app(tmp_path)
+        revived._load_session()
+        assert revived._run_settings["sample_per_class"] == 12
+        assert revived._run_settings["seed"] == 7
+        assert revived._run_settings["concurrency"] == 4
+        assert revived._run_settings["temperature"] == 0.5
+        assert revived._run_settings["max_completion_tokens"] == 128
+        assert revived._run_settings["run_mode"] == "full"
+
+        async with revived.run_test() as pilot:
+            await pilot.pause(0.1)
+            assert revived.query_one("#seed", Input).value == "7"
+            assert revived.run_mode == "full"
+            assert revived.query_one("#sample-per-class", Input).disabled is True
+
+    asyncio.run(scenario())
+
+
+def test_tui_queue_move_and_clone(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            for model in ("a/one", "b/two", "c/three"):
+                app.selected_models = [model]
+                app._add_current_to_queue()
+
+            table = app.query_one("#queue-table", DataTable)
+
+            # Move the last item up one slot.
+            table.move_cursor(row=2)
+            app._move_queue_item(-1)
+            assert [i["models"][0] for i in app._experiment_queue] == ["a/one", "c/three", "b/two"]
+
+            # Clone the highlighted (now row 1 = c/three): a queued copy lands right after it.
+            table.move_cursor(row=1)
+            app._clone_queue_item()
+            models = [i["models"][0] for i in app._experiment_queue]
+            assert models == ["a/one", "c/three", "c/three", "b/two"]
+            uids = [i["uid"] for i in app._experiment_queue]
+            assert len(set(uids)) == len(uids)  # clone got a fresh uid
+            assert app._experiment_queue[2]["status"] == "queued"
+
+    asyncio.run(scenario())
+
+
+def test_tui_queue_edits_blocked_while_running(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            for model in ("a/one", "b/two"):
+                app.selected_models = [model]
+                app._add_current_to_queue()
+            app.query_one("#queue-table", DataTable).move_cursor(row=0)
+
+            app._queue_running = True
+            app._move_queue_item(1)
+            app._clone_queue_item()
+
+            # Nothing changed while the queue was draining.
+            assert [i["models"][0] for i in app._experiment_queue] == ["a/one", "b/two"]
+            assert len(app._experiment_queue) == 2
+
+    asyncio.run(scenario())
+
+
+def test_tui_sweep_temperature_expands_queue(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            app.selected_models = ["a/one", "b/two"]
+            app.query_one("#sweep-axis", Select).value = "temperature"
+            app.query_one("#sweep-values", Input).value = "0,0.5"
+
+            app._add_sweep_to_queue()
+
+            assert len(app._experiment_queue) == 2
+            temps = sorted(item["temperature"] for item in app._experiment_queue)
+            assert temps == [0.0, 0.5]
+            # Each item keeps the full (unchanged) model set.
+            assert all(item["models"] == ["a/one", "b/two"] for item in app._experiment_queue)
+
+    asyncio.run(scenario())
+
+
+def test_tui_sweep_per_model_splits_models(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            app.selected_models = ["a/one", "b/two", "c/three"]
+            app.query_one("#sweep-axis", Select).value = "model"
+
+            app._add_sweep_to_queue()
+
+            assert [item["models"] for item in app._experiment_queue] == [["a/one"], ["b/two"], ["c/three"]]
+
+    asyncio.run(scenario())
+
+
+def test_tui_sweep_prompt_presets_and_bad_values(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            app.selected_models = ["a/one"]
+
+            # Blank values on the prompt axis = one experiment per available preset.
+            app.query_one("#sweep-axis", Select).value = "prompt"
+            app.query_one("#sweep-values", Input).value = ""
+            app._add_sweep_to_queue()
+            assert len(app._experiment_queue) == len(app.prompts)
+            queued_prompt_ids = {item["prompt"]["prompt_id"] for item in app._experiment_queue}
+            assert queued_prompt_ids == set(app.prompts)
+
+            # Bad temperature values are rejected and leave the queue unchanged.
+            before = len(app._experiment_queue)
+            app.query_one("#sweep-axis", Select).value = "temperature"
+            app.query_one("#sweep-values", Input).value = "0,abc"
+            app._add_sweep_to_queue()
+            assert len(app._experiment_queue) == before
+            assert any("not a number" in message for _, message in app.notifications)
+
+    asyncio.run(scenario())
+
+
+def test_tui_compare_targets_populate_from_runs(tmp_path: Path) -> None:
+    db_path = tmp_path / "bench.sqlite"
+    _seed_run_with_metrics(db_path, model_id="model/a")
+    _seed_run_with_metrics(db_path, model_id="model/b")
+
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        app.db_path = db_path
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            app._refresh_compare_targets()
+            select_a = app.query_one("#compare-a", Select)
+            # Nothing chosen yet -> unset (non-string) value.
+            assert not isinstance(select_a.value, str)
+            # Two runs, one model each -> two selectable targets.
+            options = app._compare_targets_from_runs(BenchmarkStore(db_path).list_runs())
+            assert len(options) == 2
+
+    asyncio.run(scenario())
+
+
+def test_tui_compare_renders_significance_result(tmp_path: Path) -> None:
+    from sentiment_benchmark.comparison import ModelTarget, compare_models
+
+    db_path = tmp_path / "bench.sqlite"
+    run_a = _seed_run_with_misclassifications(db_path, model_id="model/a")
+    run_b = _seed_run_with_misclassifications(db_path, model_id="model/b")
+
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        app.db_path = db_path
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            store = BenchmarkStore(db_path)
+            result = compare_models(
+                store,
+                ModelTarget(run_id=run_a, model_id="model/a"),
+                ModelTarget(run_id=run_b, model_id="model/b"),
+                scope="primary",
+            )
+            app._render_comparison(result)
+
+            panel = str(app.query_one("#compare-result", Static).content)
+            assert "paired rows:" in panel
+            assert "McNemar" in panel
+            assert "Verdict:" in panel
+
+    asyncio.run(scenario())
+
+
+def test_tui_compare_rejects_blank_or_identical_targets(tmp_path: Path) -> None:
+    db_path = tmp_path / "bench.sqlite"
+    _seed_run_with_metrics(db_path, model_id="model/a")
+
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        app.db_path = db_path
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            app._refresh_compare_targets()
+
+            # Both blank -> error.
+            app._compare_models_action()
+            assert any("both A and B" in message for _, message in app.notifications)
+
+            # Identical targets -> error.
+            target = "1|model/a"
+            app.query_one("#compare-a", Select).value = target
+            app.query_one("#compare-b", Select).value = target
+            app.notifications.clear()
+            app._compare_models_action()
+            assert any("two different" in message for _, message in app.notifications)
+
+    asyncio.run(scenario())
+
+
+def test_tui_status_bar_shows_queue_depth(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            bar = app.query_one("#status-bar", Static)
+            assert "queue: empty" in str(bar.content)
+
+            app.selected_models = ["a/one"]
+            app._add_current_to_queue()
+            assert "queue: 1 pending" in str(app.query_one("#status-bar", Static).content)
+
+    asyncio.run(scenario())
+
+
+def test_tui_baselines_collapsed_by_default(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        from textual.widgets import Collapsible
+
+        app = _make_app(tmp_path)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            section = app.query_one("#baselines-section", Collapsible)
+            assert section.collapsed is True
+            # The baseline checkboxes still exist inside the collapsible.
+            assert app.query_one("#baseline-majority", Checkbox) is not None
+
+    asyncio.run(scenario())
+
+
+def test_tui_loaded_models_panel_lists_ollama_ps(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import sentiment_benchmark.tui as tui_module
+
+    class _FakeOllama:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return None
+
+        async def list_loaded_models(self, retries: int = 3):
+            return [{"model": "gemma3", "size": 6_000_000_000, "size_vram": 5_000_000_000, "expires_at": None}]
+
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        app.provider = "ollama"
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            monkeypatch.setattr(tui_module, "make_llm_client", lambda *a, **k: _FakeOllama())
+
+            await app._fetch_loaded_models()
+
+            panel = str(app.query_one("#ollama-loaded", Static).content)
+            assert "gemma3" in panel
+            assert "5.0 GB" in panel
+
+    asyncio.run(scenario())
+
+
+def test_tui_loaded_models_panel_requires_ollama_provider(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        app.provider = "openrouter"
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            await app._fetch_loaded_models()
+            assert "Ollama only" in str(app.query_one("#ollama-loaded", Static).content)
 
     asyncio.run(scenario())

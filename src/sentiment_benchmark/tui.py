@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import importlib.util
 import json
 import os
 import re
 import subprocess
+import time
+from dataclasses import replace
 from pathlib import Path
 
 from rich.markup import escape
@@ -36,6 +39,7 @@ from textual.widgets import (
 
 from .baseline_runner import run_baselines
 from .baselines import BASELINE_SPECS, DEFAULT_BASELINES, BaselineSpec
+from .comparison import ComparisonResult, ModelTarget, compare_models
 from .constants import (
     ALLOWED_LABELS,
     DEFAULT_BASE_URL,
@@ -84,7 +88,16 @@ def _baseline_install_hint(name: str) -> str:
 
 
 _VALIDATED_INPUTS = ("sample-per-class", "seed", "concurrency", "temperature", "max-tokens")
+# (cache key, widget id, caster, low, high) for run settings persisted across sessions.
+_RUN_SETTING_FIELDS = (
+    ("sample_per_class", "sample-per-class", int, 1, 10000),
+    ("seed", "seed", int, 0, 10**9),
+    ("concurrency", "concurrency", int, 1, 64),
+    ("temperature", "temperature", float, 0.0, 2.0),
+    ("max_completion_tokens", "max-tokens", int, 16, 8192),
+)
 _SESSION_PATH = Path("results/tui_session.json")
+_QUEUE_PATH = Path("results/tui_queue.json")
 _SELECTED_MARK = "[x]"
 _UNSELECTED_MARK = "[ ]"
 _CONFIRM_THRESHOLD = 1000
@@ -205,6 +218,40 @@ class ConfirmScreen(ModalScreen[bool]):
         self.dismiss(event.button.id == "confirm-ok")
 
 
+class QueueResumeScreen(ModalScreen[bool]):
+    """Ask whether to resume a saved experiment queue or start fresh."""
+
+    DEFAULT_CSS = """
+    QueueResumeScreen {
+        align: center middle;
+    }
+    #queue-resume-box {
+        background: $surface;
+        border: thick $accent;
+        padding: 1 2;
+        width: 70;
+        height: auto;
+    }
+    #queue-resume-message {
+        margin-bottom: 1;
+    }
+    """
+
+    def __init__(self, message: str) -> None:
+        super().__init__()
+        self._message = message
+
+    def compose(self) -> ComposeResult:
+        with Container(id="queue-resume-box"):
+            yield Static(self._message, id="queue-resume-message")
+            with Horizontal():
+                yield Button("Resume queue", id="queue-resume-yes", variant="primary")
+                yield Button("Start new", id="queue-resume-no", variant="warning")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        self.dismiss(event.button.id == "queue-resume-yes")
+
+
 class HelpScreen(ModalScreen[None]):
     DEFAULT_CSS = """
     HelpScreen {
@@ -232,7 +279,9 @@ class HelpScreen(ModalScreen[None]):
         "1-6    Switch tabs (Dashboard, Models, Prompt, Run, Results, News)",
         "r      Refresh the dashboard",
         "s      Start the benchmark run",
-        "c      Cancel an in-progress run",
+        "a      Add the current config to the experiment queue",
+        "g      Run the queued experiments in order",
+        "c      Cancel an in-progress run or queue",
         "?      Toggle this help",
         "q      Quit",
     ]
@@ -299,7 +348,7 @@ class SentimentBenchmarkApp(App):
         color: $error;
     }
     #dashboard, #dashboard-resource-monitor, #run-resource-monitor, #prompt-preview,
-    #run-estimate, #results-help, #selected-summary, #news-summary {
+    #run-estimate, #results-help, #selected-summary, #news-summary, #compare-result, #ollama-loaded {
         border: solid $accent;
         padding: 1;
         margin-bottom: 1;
@@ -375,6 +424,19 @@ class SentimentBenchmarkApp(App):
         height: auto;
         margin-bottom: 1;
     }
+    #queue-controls, #queue-row-controls {
+        height: auto;
+        margin-bottom: 1;
+    }
+    #queue-table {
+        height: auto;
+        max-height: 10;
+        margin-bottom: 1;
+    }
+    #queue-summary {
+        color: $text-muted;
+        margin-bottom: 1;
+    }
     """
     BINDINGS = [
         ("q", "quit", "Quit"),
@@ -387,6 +449,8 @@ class SentimentBenchmarkApp(App):
         ("6", "show_tab('news-tab')", "News"),
         ("r", "refresh", "Refresh"),
         ("s", "start_run", "Start"),
+        ("a", "queue_add", "Queue"),
+        ("g", "run_queue", "Run queue"),
         ("b", "run_baselines", "Baselines"),
         ("c", "cancel_run", "Cancel"),
     ]
@@ -436,7 +500,22 @@ class SentimentBenchmarkApp(App):
         self._active_metric_scope: str = "all"
         self._misclassification_rows: dict[str, dict] = {}
         self.notifications: list[tuple[str, str]] = []
+        self._gpu_lines: list[str] = ["GPU: gathering data..."]
+        self._run_settings: dict = {
+            "run_mode": "pilot",
+            "sample_per_class": 30,
+            "seed": 42,
+            "concurrency": 1,
+            "temperature": 0.0,
+            "max_completion_tokens": DEFAULT_MAX_COMPLETION_TOKENS,
+        }
+        self._experiment_queue: list[dict] = []
+        self._queue_path = _QUEUE_PATH
+        self._queue_uid_counter: int = 0
+        self._queue_running: bool = False
+        self._queue_cancel: bool = False
         self._load_session()
+        self._load_queue()
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -478,6 +557,8 @@ class SentimentBenchmarkApp(App):
                 yield Input(placeholder="openai/gpt-4o-mini or gemma3", id="manual-model")
                 yield Button("Add Model", id="add-model")
                 yield Button("Fetch Models", id="fetch-models")
+                yield Button("Loaded in Ollama", id="fetch-loaded")
+                yield Static(id="ollama-loaded")
                 yield Static("Selected models", classes="section-title")
                 yield Static(id="selected-summary")
                 yield Static(
@@ -652,27 +733,78 @@ class SentimentBenchmarkApp(App):
                         id="ollama-thinking-recommendation",
                         classes="validation-hint",
                     )
-                yield Static("Baselines", classes="section-title")
-                yield Static(
-                    "Non-LLM comparators evaluated on the same rows (uses the run mode, seed, and sample-per-class above). "
-                    "Fitted baselines are scored out-of-fold; vader and finbert need optional dependencies.",
-                    classes="help",
-                )
-                for _name, _spec in BASELINE_SPECS.items():
-                    _available = _baseline_available(_spec)
-                    _label = f"{_name} \u2014 {_spec.description}"
-                    if not _available:
-                        _label += f"  ({_baseline_install_hint(_name)})"
-                    yield Checkbox(
-                        _label,
-                        value=_name in DEFAULT_BASELINES and _available,
-                        id=f"baseline-{_name}",
-                        disabled=not _available,
+                with Collapsible(
+                    title="Baselines \u2014 non-LLM comparators (optional)",
+                    collapsed=True,
+                    id="baselines-section",
+                ):
+                    yield Static(
+                        "Non-LLM comparators evaluated on the same rows (uses the run mode, seed, and sample-per-class above). "
+                        "Fitted baselines are scored out-of-fold; vader and finbert need optional dependencies.",
+                        classes="help",
                     )
+                    for _name, _spec in BASELINE_SPECS.items():
+                        _available = _baseline_available(_spec)
+                        _label = f"{_name} \u2014 {_spec.description}"
+                        if not _available:
+                            _label += f"  ({_baseline_install_hint(_name)})"
+                        yield Checkbox(
+                            _label,
+                            value=_name in DEFAULT_BASELINES and _available,
+                            id=f"baseline-{_name}",
+                            disabled=not _available,
+                        )
                 with Horizontal(id="run-controls"):
                     yield Button("Start Run", id="start-run", variant="primary")
                     yield Button("Run Baselines", id="run-baselines", variant="success")
                     yield Button("Cancel Run", id="cancel-run", disabled=True, variant="error")
+                yield Static("Experiment queue", classes="section-title")
+                yield Static(
+                    "Snapshot the current models, prompt, and run settings as a queued experiment, then run several "
+                    "back to back. Each experiment is stored as its own run. The queue is saved to results/tui_queue.json. "
+                    "Press Enter on a row to remove it; Move/Clone act on the highlighted row.",
+                    classes="help",
+                )
+                yield Static(id="queue-summary")
+                with Horizontal(id="queue-controls"):
+                    yield Button("Add to Queue", id="add-to-queue", variant="primary")
+                    yield Button("Run Queue", id="run-queue", variant="success")
+                    yield Button("Clear Queue", id="clear-queue", variant="error")
+                with Horizontal(id="queue-row-controls"):
+                    yield Button("Move Up", id="queue-move-up")
+                    yield Button("Move Down", id="queue-move-down")
+                    yield Button("Clone", id="queue-clone")
+                yield DataTable(id="queue-table")
+                with Collapsible(
+                    title="Sweep builder — queue many experiments at once",
+                    collapsed=True,
+                    id="sweep-builder",
+                ):
+                    yield Static(
+                        "Expand the current models, prompt, and settings into several queued experiments that "
+                        "vary one axis. Everything else stays fixed.",
+                        classes="help",
+                    )
+                    yield Static("Axis", classes="field-label")
+                    yield Select(
+                        [
+                            ("Temperatures", "temperature"),
+                            ("Prompt presets", "prompt"),
+                            ("One experiment per model", "model"),
+                        ],
+                        id="sweep-axis",
+                        value="temperature",
+                        allow_blank=False,
+                    )
+                    yield Static("Values", classes="field-label")
+                    yield Static(
+                        "Temperatures: comma list, e.g. 0,0.3,0.7. "
+                        "Prompt presets: comma list of preset ids (blank = every preset). "
+                        "Per model: this box is ignored; each selected model becomes its own experiment.",
+                        classes="help",
+                    )
+                    yield Input(placeholder="0,0.3,0.7", id="sweep-values")
+                    yield Button("Add Sweep to Queue", id="add-sweep", variant="primary")
                 yield Static("Progress", classes="section-title")
                 yield ProgressBar(id="run-progress-bar", total=100, show_percentage=True, show_eta=True)
                 yield DataTable(id="run-progress")
@@ -719,6 +851,25 @@ class SentimentBenchmarkApp(App):
                     "Select a misclassified row to inspect the sentence and raw model output.",
                     id="misclassified-detail",
                 )
+                yield Static("Compare two runs", classes="section-title")
+                yield Static(
+                    "Pick two run/model targets to test whether their accuracy differs on the rows they share "
+                    "(paired McNemar test + bootstrap confidence intervals).",
+                    classes="help",
+                )
+                yield Static("Target A", classes="field-label")
+                yield Select([], id="compare-a", prompt="Pick run · model")
+                yield Static("Target B", classes="field-label")
+                yield Select([], id="compare-b", prompt="Pick run · model")
+                yield Static("Scope", classes="field-label")
+                yield Select(
+                    [("Primary (excludes conflicting duplicates)", "primary"), ("All scored rows", "all")],
+                    id="compare-scope",
+                    value="primary",
+                    allow_blank=False,
+                )
+                yield Button("Compare", id="compare-run", variant="primary")
+                yield Static("Pick two targets and press Compare.", id="compare-result")
             with TabPane("News", id="news-tab"):
                 yield Static(
                     "Source unlabeled news articles from Tavily into derived files. This does not modify Data/data.csv.",
@@ -781,6 +932,9 @@ class SentimentBenchmarkApp(App):
         misclassified.cursor_type = "row"
         progress = self.query_one("#run-progress", DataTable)
         progress.add_columns("Model", "Done/Total", "Errors", "Avg latency", "Status")
+        queue = self.query_one("#queue-table", DataTable)
+        queue.add_columns("#", "Provider", "Mode", "Models", "Prompt", "Sample", "Status")
+        queue.cursor_type = "row"
 
         # Label the free-standing bordered panels so they read as titled cards.
         for panel_id, title in (
@@ -790,12 +944,15 @@ class SentimentBenchmarkApp(App):
             ("#prompt-preview", "Active prompt"),
             ("#misclassified-detail", "Row detail"),
             ("#news-summary", "Tavily sourcing"),
+            ("#compare-result", "Statistical comparison"),
+            ("#ollama-loaded", "Loaded in Ollama (VRAM)"),
         ):
             try:
                 self.query_one(panel_id, Static).border_title = title
             except Exception:
                 pass
 
+        self._apply_loaded_run_settings()
         self._refresh_dashboard()
         self._render_selected_table()
         self._render_model_table()
@@ -803,12 +960,38 @@ class SentimentBenchmarkApp(App):
         self._refresh_run_estimate()
         self._refresh_results_help()
         self._refresh_runs_table()
+        self._refresh_compare_targets()
         self._refresh_news_summary()
         self._refresh_status_bar()
         self._refresh_stepper()
         self._refresh_resource_monitor()
-        self.set_interval(2.0, self._refresh_resource_monitor)
+        self._render_queue_table()
+        self._reset_ollama_loaded_hint()
+        # Gather GPU stats off the event loop so the blocking nvidia-smi call does
+        # not stall in-flight API requests during a run or queue drain.
+        self.set_interval(2.0, self._refresh_gpu_lines)
         self._schedule_auto_fetch_models()
+        self._maybe_prompt_queue_resume()
+
+    def _maybe_prompt_queue_resume(self) -> None:
+        pending = sum(1 for item in self._experiment_queue if not self._queue_item_done(item))
+        # Nothing to resume if the saved queue is empty or every experiment already ran.
+        if pending == 0:
+            return
+        message = (
+            f"Found a saved experiment queue with {len(self._experiment_queue)} experiment(s) "
+            f"({pending} still pending).\n\nResume it, or start a new (empty) queue?"
+        )
+        self.push_screen(QueueResumeScreen(message), callback=self._handle_queue_resume)
+
+    def _handle_queue_resume(self, resume: bool) -> None:
+        if resume:
+            self._set_monitor(f"Resumed saved experiment queue ({len(self._experiment_queue)} experiment(s)).")
+            return
+        self._experiment_queue = []
+        self._render_queue_table()
+        self._save_queue()
+        self._set_monitor("Started a new (empty) experiment queue.")
 
     def _schedule_auto_fetch_models(self) -> None:
         if not self._should_auto_fetch_models():
@@ -906,6 +1089,12 @@ class SentimentBenchmarkApp(App):
     async def action_start_run(self) -> None:
         await self._start_run()
 
+    def action_queue_add(self) -> None:
+        self._add_current_to_queue()
+
+    async def action_run_queue(self) -> None:
+        await self._start_queue()
+
     def action_cancel_run(self) -> None:
         self._cancel_run()
 
@@ -919,9 +1108,11 @@ class SentimentBenchmarkApp(App):
             if self.provider == "openrouter"
             else f"Ollama: {self.ollama_host}"
         )
+        queue_pending = sum(1 for item in self._experiment_queue if not self._queue_item_done(item))
+        queue_status = f"queue: {queue_pending} pending" if self._experiment_queue else "queue: empty"
         bar.update(
             f" {provider_status}  |  models: {len(self.selected_models)}  |  "
-            f"prompt: {self.prompt.prompt_id}  |  mode: {self.run_mode} "
+            f"prompt: {self.prompt.prompt_id}  |  mode: {self.run_mode}  |  {queue_status} "
         )
         self._refresh_stepper()
 
@@ -1020,7 +1211,7 @@ class SentimentBenchmarkApp(App):
             f"Run settings: TUI concurrency {concurrency} | max completion tokens {max_tokens}",
             f"Ollama NUM_PARALLEL env visible to TUI: {os.getenv('OLLAMA_NUM_PARALLEL') or 'default'}",
             f"Ollama thinking: {'disabled' if self.disable_ollama_thinking else 'provider default'}",
-            *self._gpu_monitor_lines(),
+            *self._gpu_lines,
         ]
         content = "\n".join(lines)
         for widget_id in ("#dashboard-resource-monitor", "#run-resource-monitor"):
@@ -1028,6 +1219,14 @@ class SentimentBenchmarkApp(App):
                 self.query_one(widget_id, Static).update(content)
             except Exception:
                 pass
+
+    async def _refresh_gpu_lines(self) -> None:
+        """Refresh cached GPU stats in a worker thread, then re-render the monitor."""
+        try:
+            self._gpu_lines = await asyncio.to_thread(self._gpu_monitor_lines)
+        except Exception:  # pragma: no cover - defensive
+            self._gpu_lines = ["GPU: monitor unavailable."]
+        self._refresh_resource_monitor()
 
     def _render_selected_table(self) -> None:
         try:
@@ -1213,8 +1412,47 @@ class SentimentBenchmarkApp(App):
         news_output_dir = data.get("news_output_dir")
         if isinstance(news_output_dir, str) and news_output_dir:
             self.news_output_dir = Path(news_output_dir)
+        run_mode = data.get("run_mode")
+        if run_mode in {"pilot", "full"}:
+            self._run_settings["run_mode"] = run_mode
+            self.run_mode = run_mode
+        for key, _widget_id, caster, low, high in _RUN_SETTING_FIELDS:
+            value = data.get(key)
+            if isinstance(value, (int, float)) and not isinstance(value, bool) and low <= value <= high:
+                self._run_settings[key] = caster(value)
+
+    def _refresh_run_settings_cache(self) -> None:
+        """Pull current run-setting widget values into the persisted cache (skips invalid/missing)."""
+        self._run_settings["run_mode"] = self.run_mode
+        for key, widget_id, caster, _low, _high in _RUN_SETTING_FIELDS:
+            try:
+                self._run_settings[key] = caster(self.query_one(f"#{widget_id}", Input).value)
+            except Exception:
+                pass
+
+    def _apply_loaded_run_settings(self) -> None:
+        """Write loaded run settings onto the Run-tab widgets (called once after mount).
+
+        ``self.run_mode`` is already the source of truth (set by ``_load_session``),
+        so the radio reflects it rather than re-deriving from the settings cache.
+        """
+        try:
+            target_id = "mode-full" if self.run_mode == "full" else "mode-pilot"
+            self.query_one(f"#{target_id}", RadioButton).value = True
+        except Exception:
+            pass
+        for key, widget_id, _caster, _low, _high in _RUN_SETTING_FIELDS:
+            try:
+                self.query_one(f"#{widget_id}", Input).value = str(self._run_settings[key])
+            except Exception:
+                pass
+        try:
+            self.query_one("#sample-per-class", Input).disabled = self.run_mode != "pilot"
+        except Exception:
+            pass
 
     def _save_session(self) -> None:
+        self._refresh_run_settings_cache()
         payload = {
             "selected_models": self.selected_models,
             "model_names": self._model_names,
@@ -1229,6 +1467,7 @@ class SentimentBenchmarkApp(App):
             "news_extract": self.news_extract,
             "disable_ollama_thinking": self.disable_ollama_thinking,
             "news_output_dir": str(self.news_output_dir),
+            **self._run_settings,
         }
         try:
             self._session_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1389,6 +1628,22 @@ class SentimentBenchmarkApp(App):
             self.query_one("#run-baselines", Button).disabled = busy
         except Exception:
             pass
+        has_pending = any(not self._queue_item_done(item) for item in self._experiment_queue)
+        # Editing the queue is safe except while it is draining; starting it needs a fully idle app.
+        queue_editable = not self._queue_running
+        has_items = bool(self._experiment_queue)
+        for button_id, enabled in (
+            ("#add-to-queue", ready and queue_editable),
+            ("#run-queue", has_pending and not busy),
+            ("#clear-queue", has_items and queue_editable),
+            ("#queue-move-up", has_items and queue_editable),
+            ("#queue-move-down", has_items and queue_editable),
+            ("#queue-clone", has_items and queue_editable),
+        ):
+            try:
+                self.query_one(button_id, Button).disabled = not enabled
+            except Exception:
+                pass
 
     def _reset_progress(self, models: list[str], rows_per_model: int) -> None:
         self._progress = {
@@ -1479,12 +1734,15 @@ class SentimentBenchmarkApp(App):
                 self._render_progress_row(model_id)
         elif event_type == "run_completed":
             status = event.get("status", "completed")
-            try:
-                self.query_one("#cancel-run", Button).disabled = True
-            except Exception:
-                pass
-            self._run_in_progress = False
-            self._refresh_stepper()
+            # During a queue drain the loop owns these flags across experiments;
+            # only a standalone run resets them here.
+            if not self._queue_running:
+                try:
+                    self.query_one("#cancel-run", Button).disabled = True
+                except Exception:
+                    pass
+                self._run_in_progress = False
+                self._refresh_stepper()
             self._set_monitor(f"Run finished with status: {status}")
 
     async def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -1499,17 +1757,36 @@ class SentimentBenchmarkApp(App):
                 manual.value = ""
         elif button_id == "fetch-models":
             await self._fetch_models()
+        elif button_id == "fetch-loaded":
+            await self._fetch_loaded_models()
         elif button_id == "save-prompt":
             self._save_prompt_from_ui()
         elif button_id == "start-run":
             await self._start_run()
         elif button_id == "run-baselines":
             self._start_baselines()
+        elif button_id == "add-to-queue":
+            self._add_current_to_queue()
+        elif button_id == "run-queue":
+            await self._start_queue()
+        elif button_id == "clear-queue":
+            self._clear_queue()
+        elif button_id == "queue-move-up":
+            self._move_queue_item(-1)
+        elif button_id == "queue-move-down":
+            self._move_queue_item(1)
+        elif button_id == "queue-clone":
+            self._clone_queue_item()
+        elif button_id == "add-sweep":
+            self._add_sweep_to_queue()
         elif button_id == "cancel-run":
             self._cancel_run()
         elif button_id == "refresh-runs":
             self._refresh_runs_table()
             self._refresh_results_help()
+            self._refresh_compare_targets()
+        elif button_id == "compare-run":
+            self._compare_models_action()
         elif button_id == "export-run":
             self._export_run()
         elif button_id == "view-figures":
@@ -1552,6 +1829,9 @@ class SentimentBenchmarkApp(App):
         if event.input.id in _VALIDATED_INPUTS:
             self._update_validation_hint(event.input.id, event.validation_result)
             self._refresh_stepper()
+            # Persist valid run settings so they survive a restart.
+            if event.validation_result is None or event.validation_result.is_valid:
+                self._save_session()
             # Surface validation problems hidden inside the collapsed advanced panel.
             advanced_ids = {"seed", "concurrency", "temperature", "max-tokens"}
             result = event.validation_result
@@ -1571,6 +1851,7 @@ class SentimentBenchmarkApp(App):
         except Exception:
             pass
         self._refresh_run_estimate()
+        self._save_session()
 
     def on_select_changed(self, event: Select.Changed) -> None:
         if event.value is Select.BLANK:
@@ -1592,6 +1873,7 @@ class SentimentBenchmarkApp(App):
             self._refresh_dashboard()
             self._refresh_run_estimate()
             self._refresh_ollama_thinking_recommendation()
+            self._reset_ollama_loaded_hint()
             self._save_session()
             self._schedule_auto_fetch_models()
             return
@@ -1761,6 +2043,10 @@ class SentimentBenchmarkApp(App):
             row = self._misclassification_rows.get(str(key))
             if row is not None:
                 self._show_misclassification_detail(row)
+        elif table_id == "queue-table":
+            key = event.row_key.value
+            if key is not None:
+                self._remove_queue_item(str(key))
 
     async def _fetch_models(self) -> None:
         try:
@@ -1778,6 +2064,46 @@ class SentimentBenchmarkApp(App):
         self._set_monitor(
             f"Fetched {len(models)} {self._provider_title()} models. Type in the search box to filter, press Enter on a row to toggle."
         )
+        if self.provider == "ollama":
+            await self._fetch_loaded_models()
+
+    def _set_ollama_loaded(self, text: str) -> None:
+        try:
+            self.query_one("#ollama-loaded", Static).update(text)
+        except Exception:
+            pass
+
+    def _reset_ollama_loaded_hint(self) -> None:
+        self._set_ollama_loaded(
+            "Press 'Loaded in Ollama' to query /api/ps for models held in VRAM."
+            if self.provider == "ollama"
+            else "Ollama only — switch the provider to Ollama to see models loaded in VRAM."
+        )
+
+    @staticmethod
+    def _format_vram(size_bytes: int | None) -> str:
+        if not isinstance(size_bytes, (int, float)) or size_bytes <= 0:
+            return "-"
+        return f"{size_bytes / 1e9:.1f} GB"
+
+    async def _fetch_loaded_models(self) -> None:
+        if self.provider != "ollama":
+            self._set_ollama_loaded("Ollama only — switch the provider to Ollama to see models loaded in VRAM.")
+            return
+        try:
+            async with make_llm_client("ollama", base_url=self.base_url, ollama_host=self.ollama_host) as client:
+                loaded = await client.list_loaded_models()
+        except Exception as exc:
+            self._set_ollama_loaded(f"Could not query Ollama /api/ps: {exc}")
+            return
+        if not loaded:
+            self._set_ollama_loaded("No models are currently loaded in Ollama.")
+            return
+        lines = []
+        for entry in loaded:
+            vram = self._format_vram(entry.get("size_vram") or entry.get("size"))
+            lines.append(f"{entry['model']} | VRAM {vram}")
+        self._set_ollama_loaded("\n".join(lines))
 
     def _save_prompt_from_ui(self) -> None:
         try:
@@ -1804,6 +2130,9 @@ class SentimentBenchmarkApp(App):
         if self._run_in_progress:
             self._notify_error("A run is already in progress.", title="Cannot start")
             return
+        if self._baseline_in_progress:
+            self._notify_error("Baselines are still running. Wait for them to finish.", title="Cannot start")
+            return
         if self._confirmation_pending:
             self._notify_error("A run confirmation is already open.", title="Cannot start")
             return
@@ -1814,23 +2143,7 @@ class SentimentBenchmarkApp(App):
             self._notify_error("Fix the highlighted run settings before starting.", title="Cannot start")
             return
         try:
-            config = RunConfig(
-                models=self.selected_models,
-                prompt=self.prompt,
-                mode=self.run_mode,  # type: ignore[arg-type]
-                dataset_path=str(self.dataset_path),
-                db_path=str(self.db_path),
-                base_url=self._active_endpoint(),
-                provider=self.provider,
-                sample_per_class=int(self.query_one("#sample-per-class", Input).value),
-                seed=int(self.query_one("#seed", Input).value),
-                concurrency=int(self.query_one("#concurrency", Input).value),
-                temperature=float(self.query_one("#temperature", Input).value),
-                max_completion_tokens=int(self.query_one("#max-tokens", Input).value),
-                ollama_think=False if self.provider == "ollama" and self.disable_ollama_thinking else None,
-            )
-            if config.mode not in {"pilot", "full"}:
-                raise ValueError("Mode must be pilot or full")
+            config = self._build_run_config_from_ui()
         except Exception as exc:
             self._notify_error(f"Run setup error: {exc}", title="Cannot start")
             return
@@ -1871,17 +2184,25 @@ class SentimentBenchmarkApp(App):
         self._set_monitor("Starting benchmark run...")
         self._run_task = asyncio.create_task(self._run_benchmark(config))
 
-    async def _run_benchmark(self, config: RunConfig) -> None:
+    async def _execute_config(self, config: RunConfig):
+        """Run one RunConfig to completion and return its RunSummary.
+
+        Shared by the single Start Run path and the experiment queue. Uses the
+        current ``self._cancel_event`` so a cancel request reaches the runner.
+        """
         store = BenchmarkStore(self.db_path)
+        async with make_llm_client(config.provider, base_url=config.base_url, ollama_host=config.base_url) as client:
+            runner = BenchmarkRunner(client=client, store=store)
+            return await runner.run(
+                config,
+                callback=lambda message: self._set_monitor(message),
+                event_callback=self._handle_run_event,
+                cancel_event=self._cancel_event,
+            )
+
+    async def _run_benchmark(self, config: RunConfig) -> None:
         try:
-            async with make_llm_client(config.provider, base_url=config.base_url, ollama_host=config.base_url) as client:
-                runner = BenchmarkRunner(client=client, store=store)
-                summary = await runner.run(
-                    config,
-                    callback=lambda message: self._set_monitor(message),
-                    event_callback=self._handle_run_event,
-                    cancel_event=self._cancel_event,
-                )
+            summary = await self._execute_config(config)
             self._set_monitor(
                 f"Run {summary.run_id} {summary.status} ({summary.selected_row_count} rows x {summary.model_count} models)."
             )
@@ -1900,14 +2221,472 @@ class SentimentBenchmarkApp(App):
             self._refresh_runs_table()
 
     def _cancel_run(self) -> None:
-        if self._cancel_event is None or not self._run_in_progress:
+        if not self._run_in_progress:
             self._notify_error("No active run to cancel.", title="Nothing to cancel")
             return
-        self._cancel_event.set()
-        self._notify_info(
-            "Cancel requested. The run will stop after in-flight requests finish.",
-            title="Cancelling",
+        # Stop the current run, and if a queue is draining, stop it advancing too.
+        self._queue_cancel = True
+        if self._cancel_event is not None:
+            self._cancel_event.set()
+        message = (
+            "Cancel requested. The current experiment will stop and the queue will not advance."
+            if self._queue_running
+            else "Cancel requested. The run will stop after in-flight requests finish."
         )
+        self._notify_info(message, title="Cancelling")
+
+    # --- Experiment queue ------------------------------------------------
+
+    def _build_run_config_from_ui(self) -> RunConfig:
+        """Build a RunConfig from the current Run-tab widget state (raises on error)."""
+        config = RunConfig(
+            models=list(self.selected_models),
+            prompt=self.prompt,
+            mode=self.run_mode,  # type: ignore[arg-type]
+            dataset_path=str(self.dataset_path),
+            db_path=str(self.db_path),
+            base_url=self._active_endpoint(),
+            provider=self.provider,
+            sample_per_class=int(self.query_one("#sample-per-class", Input).value),
+            seed=int(self.query_one("#seed", Input).value),
+            concurrency=int(self.query_one("#concurrency", Input).value),
+            temperature=float(self.query_one("#temperature", Input).value),
+            max_completion_tokens=int(self.query_one("#max-tokens", Input).value),
+            ollama_think=False if self.provider == "ollama" and self.disable_ollama_thinking else None,
+        )
+        if config.mode not in {"pilot", "full"}:
+            raise ValueError("Mode must be pilot or full")
+        return config
+
+    @staticmethod
+    def _queue_item_done(item: dict) -> bool:
+        return str(item.get("status", "")).startswith("done")
+
+    def _rows_per_model_for(self, item: dict) -> int:
+        if item.get("mode") == "pilot":
+            return int(item.get("sample_per_class", 30)) * 3
+        return compute_stats(load_dataset(self.dataset_path)).row_count
+
+    def _queue_item_from_config(self, config: RunConfig) -> dict:
+        self._queue_uid_counter += 1
+        return {
+            "uid": f"q{self._queue_uid_counter}",
+            "status": "queued",
+            "models": list(config.models),
+            "model_names": {model_id: self._model_names.get(model_id, "") for model_id in config.models},
+            "provider": config.provider,
+            "base_url": config.base_url,
+            "mode": config.mode,
+            "sample_per_class": config.sample_per_class,
+            "seed": config.seed,
+            "concurrency": config.concurrency,
+            "temperature": config.temperature,
+            "max_completion_tokens": config.max_completion_tokens,
+            "ollama_think": config.ollama_think,
+            "prompt": {
+                "prompt_id": config.prompt.prompt_id,
+                "system_prompt": config.prompt.system_prompt,
+                "user_template": config.prompt.user_template,
+                "output_mode": config.prompt.output_mode,
+                "demonstrations": [list(pair) for pair in config.prompt.demonstrations],
+                "few_shot_seed": config.prompt.few_shot_seed,
+            },
+        }
+
+    def _config_from_queue_item(self, item: dict) -> RunConfig:
+        prompt_data = item["prompt"]
+        prompt = make_prompt(
+            prompt_id=prompt_data["prompt_id"],
+            system_prompt=prompt_data["system_prompt"],
+            user_template=prompt_data["user_template"],
+            output_mode=prompt_data["output_mode"],
+            demonstrations=[tuple(pair) for pair in prompt_data.get("demonstrations", [])],
+            few_shot_seed=prompt_data.get("few_shot_seed"),
+        )
+        return RunConfig(
+            models=list(item["models"]),
+            prompt=prompt,
+            mode=item["mode"],  # type: ignore[arg-type]
+            dataset_path=str(self.dataset_path),
+            db_path=str(self.db_path),
+            base_url=item["base_url"],
+            provider=item["provider"],
+            sample_per_class=int(item["sample_per_class"]),
+            seed=int(item["seed"]),
+            concurrency=int(item["concurrency"]),
+            temperature=float(item["temperature"]),
+            max_completion_tokens=int(item["max_completion_tokens"]),
+            ollama_think=item.get("ollama_think"),
+        )
+
+    def _add_current_to_queue(self) -> None:
+        if self._queue_running:
+            self._notify_error("Wait for the queue to finish before adding experiments.", title="Queue running")
+            return
+        if not self.selected_models:
+            self._notify_error("Add at least one model before queueing an experiment.", title="Cannot queue")
+            return
+        if not self._settings_valid():
+            self._notify_error("Fix the highlighted run settings before queueing.", title="Cannot queue")
+            return
+        try:
+            config = self._build_run_config_from_ui()
+        except Exception as exc:
+            self._notify_error(f"Queue setup error: {exc}", title="Cannot queue")
+            return
+        self._experiment_queue.append(self._queue_item_from_config(config))
+        self._render_queue_table()
+        self._save_queue()
+        self._refresh_stepper()
+        self._set_monitor(
+            f"Queued experiment #{len(self._experiment_queue)}: {len(config.models)} model(s), "
+            f"prompt {config.prompt.prompt_id}, mode {config.mode}."
+        )
+        self._notify_info(
+            f"Added experiment to queue ({len(self._experiment_queue)} total).",
+            title="Queued",
+        )
+
+    @staticmethod
+    def _parse_float_list(raw: str) -> list[float]:
+        values: list[float] = []
+        for token in raw.split(","):
+            token = token.strip()
+            if not token:
+                continue
+            try:
+                values.append(float(token))
+            except ValueError as exc:
+                raise ValueError(f"'{token}' is not a number.") from exc
+        return values
+
+    def _build_sweep_items(self, base: RunConfig, axis: str, raw_values: str) -> list[dict]:
+        items: list[dict] = []
+        if axis == "temperature":
+            temps = self._parse_float_list(raw_values)
+            if not temps:
+                raise ValueError("Enter one or more temperatures, e.g. 0,0.3,0.7.")
+            for temp in temps:
+                if not 0.0 <= temp <= 2.0:
+                    raise ValueError(f"Temperature {temp} is outside the 0.0-2.0 range.")
+                items.append(self._queue_item_from_config(replace(base, temperature=temp)))
+        elif axis == "prompt":
+            ids = [pid.strip() for pid in raw_values.split(",") if pid.strip()] or list(self.prompts)
+            unknown = [pid for pid in ids if pid not in self.prompts]
+            if unknown:
+                raise ValueError(f"Unknown prompt preset(s): {', '.join(unknown)}.")
+            for pid in ids:
+                items.append(self._queue_item_from_config(replace(base, prompt=self.prompts[pid])))
+        elif axis == "model":
+            for model_id in base.models:
+                items.append(self._queue_item_from_config(replace(base, models=[model_id])))
+        else:
+            raise ValueError(f"Unknown sweep axis: {axis}")
+        return items
+
+    def _add_sweep_to_queue(self) -> None:
+        if self._queue_running:
+            self._notify_error("Wait for the queue to finish before adding experiments.", title="Queue running")
+            return
+        if not self.selected_models:
+            self._notify_error("Add at least one model before building a sweep.", title="Cannot sweep")
+            return
+        if not self._settings_valid():
+            self._notify_error("Fix the highlighted run settings before building a sweep.", title="Cannot sweep")
+            return
+        try:
+            axis = str(self.query_one("#sweep-axis", Select).value)
+            raw_values = self.query_one("#sweep-values", Input).value.strip()
+            base = self._build_run_config_from_ui()
+            items = self._build_sweep_items(base, axis, raw_values)
+        except ValueError as exc:
+            self._notify_error(str(exc), title="Cannot sweep")
+            return
+        except Exception as exc:
+            self._notify_error(f"Sweep setup error: {exc}", title="Cannot sweep")
+            return
+        if not items:
+            self._notify_error("The sweep produced no experiments. Check the values.", title="Cannot sweep")
+            return
+        self._experiment_queue.extend(items)
+        self._render_queue_table()
+        self._save_queue()
+        self._refresh_stepper()
+        self._set_monitor(f"Added {len(items)} experiment(s) from a {axis} sweep.")
+        self._notify_info(
+            f"Queued {len(items)} sweep experiment(s) ({len(self._experiment_queue)} total).",
+            title="Sweep queued",
+        )
+
+    def _remove_queue_item(self, uid: str) -> None:
+        if self._queue_running:
+            self._notify_error("Cannot edit the queue while it is running.", title="Queue busy")
+            return
+        before = len(self._experiment_queue)
+        self._experiment_queue = [item for item in self._experiment_queue if str(item.get("uid")) != uid]
+        if len(self._experiment_queue) != before:
+            self._render_queue_table()
+            self._save_queue()
+            self._refresh_stepper()
+            self._set_monitor("Removed an experiment from the queue.")
+
+    def _clear_queue(self) -> None:
+        if self._queue_running:
+            self._notify_error("Cannot clear the queue while it is running.", title="Queue busy")
+            return
+        if not self._experiment_queue:
+            return
+        count = len(self._experiment_queue)
+        self._experiment_queue = []
+        self._render_queue_table()
+        self._save_queue()
+        self._refresh_stepper()
+        self._set_monitor(f"Cleared {count} experiment(s) from the queue.")
+
+    def _highlighted_queue_index(self) -> int | None:
+        try:
+            index = self.query_one("#queue-table", DataTable).cursor_row
+        except Exception:
+            return None
+        if index is None or not (0 <= index < len(self._experiment_queue)):
+            return None
+        return index
+
+    def _move_queue_item(self, delta: int) -> None:
+        if self._queue_running:
+            self._notify_error("Cannot reorder the queue while it is running.", title="Queue busy")
+            return
+        index = self._highlighted_queue_index()
+        if index is None:
+            self._notify_error("Highlight a queue row to move it.", title="No selection")
+            return
+        target = index + delta
+        if not (0 <= target < len(self._experiment_queue)):
+            return
+        queue = self._experiment_queue
+        queue[index], queue[target] = queue[target], queue[index]
+        self._render_queue_table()
+        self._save_queue()
+        try:
+            self.query_one("#queue-table", DataTable).move_cursor(row=target)
+        except Exception:
+            pass
+        self._set_monitor(f"Moved experiment to position {target + 1}.")
+
+    def _clone_queue_item(self) -> None:
+        if self._queue_running:
+            self._notify_error("Cannot edit the queue while it is running.", title="Queue busy")
+            return
+        index = self._highlighted_queue_index()
+        if index is None:
+            self._notify_error("Highlight a queue row to clone it.", title="No selection")
+            return
+        clone = copy.deepcopy(self._experiment_queue[index])
+        self._queue_uid_counter += 1
+        clone["uid"] = f"q{self._queue_uid_counter}"
+        clone["status"] = "queued"
+        self._experiment_queue.insert(index + 1, clone)
+        self._render_queue_table()
+        self._save_queue()
+        self._refresh_stepper()
+        self._set_monitor(f"Cloned experiment #{index + 1} into position {index + 2}.")
+
+    def _render_queue_table(self) -> None:
+        try:
+            table = self.query_one("#queue-table", DataTable)
+        except Exception:
+            return
+        table.clear()
+        for index, item in enumerate(self._experiment_queue, start=1):
+            models = item.get("models", [])
+            preview = ", ".join(models[:2])
+            if len(models) > 2:
+                preview += f" (+{len(models) - 2})"
+            provider = "Ollama" if item.get("provider") == "ollama" else "OpenRouter"
+            mode = item.get("mode", "pilot")
+            sample = str(item.get("sample_per_class", "")) if mode == "pilot" else "full"
+            prompt_id = (item.get("prompt") or {}).get("prompt_id", "-")
+            table.add_row(
+                str(index),
+                provider,
+                mode,
+                preview or "(none)",
+                prompt_id,
+                sample,
+                _status_text(str(item.get("status", "queued"))),
+                key=str(item.get("uid")),
+            )
+        self._refresh_queue_summary()
+        self._refresh_status_bar()
+
+    def _refresh_queue_summary(self) -> None:
+        try:
+            summary = self.query_one("#queue-summary", Static)
+        except Exception:
+            return
+        total = len(self._experiment_queue)
+        if total == 0:
+            summary.update("Queue is empty. Configure a run above and press Add to Queue.")
+            return
+        pending = sum(1 for item in self._experiment_queue if not self._queue_item_done(item))
+        summary.update(f"{total} experiment(s) queued | {pending} pending | {total - pending} done.")
+
+    def _save_queue(self) -> None:
+        try:
+            self._queue_path.parent.mkdir(parents=True, exist_ok=True)
+            self._queue_path.write_text(json.dumps(self._experiment_queue, indent=2), encoding="utf-8")
+        except OSError:
+            pass
+
+    def _load_queue(self) -> None:
+        try:
+            data = json.loads(self._queue_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return
+        if not isinstance(data, list):
+            return
+        queue: list[dict] = []
+        max_uid = 0
+        for entry in data:
+            if not isinstance(entry, dict) or "prompt" not in entry or "models" not in entry:
+                continue
+            status = str(entry.get("status", "queued"))
+            # A "running" status means the TUI was closed mid-experiment; let it re-run.
+            entry["status"] = "queued" if status == "running" else status
+            uid = str(entry.get("uid") or "")
+            if not uid:
+                self._queue_uid_counter += 1
+                uid = f"q{self._queue_uid_counter}"
+                entry["uid"] = uid
+            if uid.startswith("q") and uid[1:].isdigit():
+                max_uid = max(max_uid, int(uid[1:]))
+            queue.append(entry)
+        self._experiment_queue = queue
+        self._queue_uid_counter = max(self._queue_uid_counter, max_uid)
+
+    async def _start_queue(self) -> None:
+        if self._run_in_progress:
+            self._notify_error("A run is already in progress.", title="Cannot start")
+            return
+        if self._baseline_in_progress:
+            self._notify_error("Baselines are still running. Wait for them to finish.", title="Cannot start")
+            return
+        if self._confirmation_pending:
+            self._notify_error("A run confirmation is already open.", title="Cannot start")
+            return
+        pending = [item for item in self._experiment_queue if not self._queue_item_done(item)]
+        if not pending:
+            self._notify_error("The experiment queue has no pending experiments.", title="Queue empty")
+            return
+        total_calls = sum(self._rows_per_model_for(item) * len(item.get("models", [])) for item in pending)
+        if total_calls > _CONFIRM_THRESHOLD:
+            self._confirmation_pending = True
+            self._refresh_stepper()
+            message = (
+                f"You are about to run {len(pending)} queued experiment(s) totalling about "
+                f"{total_calls} request(s). This may take time and incur cost. Continue?"
+            )
+            self.push_screen(ConfirmScreen(message), callback=self._handle_queue_confirmation)
+            return
+        self._begin_queue()
+
+    def _handle_queue_confirmation(self, proceed: bool) -> None:
+        self._confirmation_pending = False
+        self._refresh_stepper()
+        if not proceed:
+            self._set_monitor("Queue run cancelled before it started.")
+            return
+        self._begin_queue()
+
+    def _begin_queue(self) -> None:
+        self._queue_cancel = False
+        self._queue_running = True
+        self._run_in_progress = True
+        try:
+            self.query_one("#cancel-run", Button).disabled = False
+        except Exception:
+            pass
+        self._refresh_stepper()
+        self._run_task = asyncio.create_task(self._run_queue())
+
+    def _update_queue_progress(self, position: int, total: int, started: float) -> None:
+        try:
+            summary = self.query_one("#queue-summary", Static)
+        except Exception:
+            return
+        minutes, seconds = divmod(int(time.monotonic() - started), 60)
+        summary.update(f"Running experiment {position}/{total} · elapsed {minutes:02d}:{seconds:02d}")
+
+    async def _run_queue(self) -> None:
+        pending = [item for item in self._experiment_queue if not self._queue_item_done(item)]
+        total = len(pending)
+        started = time.monotonic()
+        self._set_monitor(f"Running experiment queue: {total} experiment(s).")
+        completed = 0
+        cancelled = False
+        try:
+            for position, item in enumerate(pending, start=1):
+                if self._queue_cancel:
+                    item["status"] = "cancelled"
+                    cancelled = True
+                    self._render_queue_table()
+                    self._save_queue()
+                    break
+                try:
+                    config = self._config_from_queue_item(item)
+                except Exception as exc:
+                    item["status"] = "failed"
+                    self._notify_error(f"Experiment {position} setup failed: {exc}", title="Queue")
+                    self._render_queue_table()
+                    self._save_queue()
+                    continue
+                item["status"] = "running"
+                self._render_queue_table()
+                self._save_queue()
+                self._set_monitor(
+                    f"Queue {position}/{total}: {len(config.models)} model(s), "
+                    f"prompt {config.prompt.prompt_id}, mode {config.mode}."
+                )
+                self._update_queue_progress(position, total, started)
+                self._cancel_event = asyncio.Event()
+                try:
+                    summary = await self._execute_config(config)
+                    if summary.status == "completed":
+                        item["status"] = f"done (run {summary.run_id})"
+                        completed += 1
+                    else:
+                        item["status"] = f"{summary.status} (run {summary.run_id})"
+                        cancelled = cancelled or summary.status == "cancelled"
+                except Exception as exc:
+                    item["status"] = "failed"
+                    self._notify_error(f"Experiment {position} failed: {exc}", title="Queue")
+                finally:
+                    self._cancel_event = None
+                self._render_queue_table()
+                self._save_queue()
+                self._refresh_runs_table()
+                self._refresh_results_help()
+        finally:
+            self._queue_running = False
+            self._run_in_progress = False
+            self._run_task = None
+            self._queue_cancel = False
+            try:
+                self.query_one("#cancel-run", Button).disabled = True
+            except Exception:
+                pass
+            self._render_queue_table()  # restore the static queue summary
+            self._refresh_stepper()
+        outcome = "cancelled" if cancelled else "finished"
+        self._set_monitor(f"Experiment queue {outcome}: {completed}/{total} experiment(s) completed.")
+        self._notify_info(
+            f"Queue {outcome}: {completed}/{total} experiment(s) completed.",
+            title="Queue",
+        )
+        try:
+            self.bell()  # audible cue that an unattended queue has finished
+        except Exception:
+            pass
 
     def _selected_baselines(self) -> list[str]:
         names: list[str] = []
@@ -2000,6 +2779,105 @@ class SentimentBenchmarkApp(App):
                 preview,
                 key=str(run["id"]),
             )
+        self._refresh_compare_targets(runs)
+
+    def _compare_targets_from_runs(self, runs) -> list[tuple[str, str]]:
+        options: list[tuple[str, str]] = []
+        for run in runs:
+            try:
+                models = json.loads(run["models_json"]) if run["models_json"] else []
+            except (ValueError, TypeError):
+                models = []
+            for model_id in models:
+                options.append((f"run {run['id']} · {model_id}", f"{run['id']}|{model_id}"))
+        return options
+
+    def _refresh_compare_targets(self, runs=None) -> None:
+        if runs is None:
+            try:
+                runs = BenchmarkStore(self.db_path).list_runs()
+            except Exception:
+                runs = []
+        options = self._compare_targets_from_runs(runs)
+        valid = {value for _, value in options}
+        for select_id in ("#compare-a", "#compare-b"):
+            try:
+                select = self.query_one(select_id, Select)
+            except Exception:
+                continue
+            current = select.value
+            select.set_options(options)
+            if isinstance(current, str) and current in valid:
+                select.value = current
+
+    def _set_compare_status(self, text: str) -> None:
+        try:
+            self.query_one("#compare-result", Static).update(text)
+        except Exception:
+            pass
+
+    @staticmethod
+    def _parse_compare_target(value: str) -> ModelTarget:
+        run_str, model_id = value.split("|", 1)
+        return ModelTarget(run_id=int(run_str), model_id=model_id)
+
+    def _compare_models_action(self) -> None:
+        try:
+            a_value = self.query_one("#compare-a", Select).value
+            b_value = self.query_one("#compare-b", Select).value
+            scope = str(self.query_one("#compare-scope", Select).value)
+        except Exception as exc:
+            self._notify_error(f"Compare setup error: {exc}", title="Cannot compare")
+            return
+        if not isinstance(a_value, str) or not isinstance(b_value, str):
+            self._notify_error("Pick a model for both A and B.", title="Cannot compare")
+            return
+        if a_value == b_value:
+            self._notify_error("Pick two different run/model targets.", title="Cannot compare")
+            return
+        target_a = self._parse_compare_target(str(a_value))
+        target_b = self._parse_compare_target(str(b_value))
+        self._set_compare_status("Comparing... (bootstrapping confidence intervals)")
+        self.run_worker(
+            lambda: self._run_comparison_blocking(target_a, target_b, scope),
+            thread=True,
+            group="compare",
+            exclusive=False,
+        )
+
+    def _run_comparison_blocking(self, target_a: ModelTarget, target_b: ModelTarget, scope: str) -> None:
+        try:
+            store = BenchmarkStore(self.db_path)
+            result = compare_models(store, target_a, target_b, scope=scope)
+        except Exception as exc:
+            self.call_from_thread(self._notify_error, f"Comparison failed: {exc}", title="Compare failed")
+            self.call_from_thread(self._set_compare_status, f"Comparison failed: {exc}")
+            return
+        self.call_from_thread(self._render_comparison, result)
+
+    def _render_comparison(self, result: ComparisonResult) -> None:
+        if result.n_paired == 0:
+            self._set_compare_status(
+                "No shared rows between these targets — they were evaluated on different rows, so they cannot be paired."
+            )
+            return
+        verdict = (
+            "SIGNIFICANT difference (p < 0.05)"
+            if result.is_significant()
+            else "no significant difference (p >= 0.05)"
+        )
+        lines = [
+            f"Metric: {result.metric} | scope: {result.scope} | paired rows: {result.n_paired}",
+            f"A  {result.target_a.label()}: {result.point_a:.4f}  "
+            f"CI [{float(result.ci_a['lower']):.4f}, {float(result.ci_a['upper']):.4f}]",
+            f"B  {result.target_b.label()}: {result.point_b:.4f}  "
+            f"CI [{float(result.ci_b['lower']):.4f}, {float(result.ci_b['upper']):.4f}]",
+            f"McNemar: statistic={float(result.mcnemar['statistic']):.4f}, "
+            f"p={float(result.mcnemar['p_value']):.4g} ({result.mcnemar.get('method')})",
+            f"Discordant pairs: {result.mcnemar.get('n_discordant')}",
+            f"Verdict: {verdict}",
+        ]
+        self._set_compare_status("\n".join(lines))
 
     def _load_metrics_for(self, run_id: int) -> None:
         self._active_run_id = run_id
