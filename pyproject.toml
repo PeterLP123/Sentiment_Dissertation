@@ -7,9 +7,10 @@ name = "sentiment-dissertation-benchmark"
 version = "0.1.0"
 description = "Terminal UI and CLI for benchmarking OpenRouter and Ollama LLM sentiment analysis on dissertation data."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12,<3.13"
 dependencies = [
     "httpx>=0.27",
+    "libsql>=0.1.11",
     "ollama>=0.6",
     "pandas>=2.0",
     "pydantic>=2.0",
@@ -53,13 +54,13 @@ pythonpath = ["src"]
 
 [tool.ruff]
 line-length = 140
-target-version = "py311"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 files = ["src/sentiment_benchmark"]
 ignore_missing_imports = true
 check_untyped_defs = true

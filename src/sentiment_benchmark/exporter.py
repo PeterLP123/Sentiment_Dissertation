@@ -3,7 +3,6 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-import sqlite3
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
@@ -16,6 +15,7 @@ from .agreement import compute_agreement
 from .constants import is_valid_label
 from .metrics import _response_prediction, bootstrap_metric_ci, load_metric_json, mcnemar_test
 from .plotting import generate_figures
+from .storage import BenchmarkStore
 
 
 def _row_prediction(row: dict[str, Any]) -> str:
@@ -104,7 +104,7 @@ def export_run(db_path: str | Path, run_id: int, output_dir: str | Path | None =
     destination = Path(output_dir) if output_dir else Path("results/exports") / f"run_{run_id}"
     destination.mkdir(parents=True, exist_ok=True)
 
-    with sqlite3.connect(db) as connection:
+    with BenchmarkStore(db).connect() as connection:
         responses = pd.read_sql_query(
             """
             SELECT

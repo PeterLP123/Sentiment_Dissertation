@@ -18,11 +18,22 @@ A reproducible CLI and terminal UI for dissertation experiments on financial sen
 
 ## Quick Start
 
-Install the package in editable mode with development tools:
+Use Python 3.12, then install the package in editable mode with development tools:
 
-```bash
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 ```
+
+On Windows, you can run the setup helper instead:
+
+```powershell
+.\scripts\setup_windows_py312.ps1
+```
+
+The `.venv/` folder is machine-local and ignored by git. Recreate it on each machine with the setup helper; do not copy a virtual environment between machines.
 
 Create a local `.env` file. Use placeholder values until you add your real keys:
 

@@ -11,6 +11,38 @@ This reference explains where benchmark evidence is stored, what gets exported, 
 | `Data/news/tavily_news_*/` | `fetch-news` or TUI News tab | Unlabeled Tavily article corpora. | Ignored except `.gitkeep`. |
 | `experiments/manifest.toml` | Manual curation | Formal dissertation experiment registry. | Source-controlled. |
 
+## Optional Turso/libSQL Cloud Database
+
+By default, the project uses local SQLite. To share one run history across machines without syncing a live SQLite file, configure Turso through the native `libsql` Python package. The project targets Python 3.12 for this backend because native `libsql` wheels may not be available for newer Python versions.
+
+```text
+SENTIMENT_BENCH_DB_BACKEND=libsql
+TURSO_DATABASE_URL=libsql://your-database-your-org.turso.io
+TURSO_AUTH_TOKEN=your-database-token
+TURSO_REPLICA_PATH=results/turso_replica.db
+```
+
+This creates an embedded local replica at `TURSO_REPLICA_PATH`, syncs from Turso when connections open, and syncs writes back to Turso after commits. Each machine should recreate its own `.venv/`, keep its own `.env`, and use its own local replica path while sharing the same Turso database URL and token.
+
+Create credentials from Turso:
+
+```bash
+turso db create sentiment-dissertation-results
+turso db show --url sentiment-dissertation-results
+turso db tokens create sentiment-dissertation-results
+```
+
+If using the Turso dashboard instead of the CLI, copy the database URL and create a database auth token there. Keep `TURSO_AUTH_TOKEN` out of git.
+
+Python 3.12 setup on a new Windows machine:
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+```
+
 ## SQLite Tables
 
 The local database is an execution store, not a source dataset.

@@ -6,7 +6,7 @@ You will install the project, validate the dissertation dataset, run a small mod
 
 ## What You'll Need
 
-- Python 3.11 or newer.
+- Python 3.12.
 - The repository checked out locally.
 - `Data/data.csv` present in the repository.
 - An OpenRouter API key for OpenRouter model runs, or an Ollama server reachable from this machine.
@@ -16,11 +16,22 @@ You will install the project, validate the dissertation dataset, run a small mod
 
 From the repository root:
 
-```bash
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 ```
 
+On Windows, you can run the setup helper instead:
+
+```powershell
+.\scripts\setup_windows_py312.ps1
+```
+
 This installs the `sentiment-bench` command, runtime dependencies, and development tools used by the test suite.
+
+The `.venv/` folder is local to each machine and is intentionally ignored by git. Do not copy it between machines; recreate it on each machine with the setup command above. The repository carries the reproducible setup instructions through `.python-version`, `pyproject.toml`, and `scripts/setup_windows_py312.ps1`.
 
 ## Step 2: Add Local Credentials
 

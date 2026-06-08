@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -16,6 +17,7 @@ from .self_consistency import (
     compute_row_consistency,
     compute_self_consistency,
 )
+from .libsql_backend import LibsqlConnection
 
 
 def utc_now() -> str:
@@ -26,11 +28,17 @@ class BenchmarkStore:
     def __init__(self, db_path: str | Path) -> None:
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self.backend = os.getenv("SENTIMENT_BENCH_DB_BACKEND", "sqlite").strip().lower()
 
     @contextmanager
-    def connect(self) -> Iterator[sqlite3.Connection]:
-        connection = sqlite3.connect(self.db_path)
-        connection.row_factory = sqlite3.Row
+    def connect(self) -> Iterator[Any]:
+        if self.backend in {"libsql", "turso"}:
+            connection = LibsqlConnection.from_env()
+        elif self.backend in {"sqlite", ""}:
+            connection = sqlite3.connect(self.db_path)
+            connection.row_factory = sqlite3.Row
+        else:
+            raise ValueError("SENTIMENT_BENCH_DB_BACKEND must be 'sqlite' or 'libsql'")
         try:
             yield connection
             connection.commit()
