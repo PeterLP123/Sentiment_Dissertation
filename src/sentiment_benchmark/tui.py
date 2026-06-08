@@ -4,6 +4,7 @@ import asyncio
 import importlib.util
 import json
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -87,6 +88,7 @@ _SESSION_PATH = Path("results/tui_session.json")
 _SELECTED_MARK = "[x]"
 _UNSELECTED_MARK = "[ ]"
 _CONFIRM_THRESHOLD = 1000
+_MONITOR_FIELD = re.compile(r"\b(run|model|row|status|label)=([^\s]+)")
 
 # Status keyword -> colour, used to tint table cells so runs can be scanned at a glance.
 _STATUS_COLORS = {
@@ -139,6 +141,36 @@ def _cost_text(value: float | None) -> Text:
     if not isinstance(value, (int, float)):
         return Text("-", style="grey58")
     return Text(f"${value:.4f}", style="cyan")
+
+
+def _monitor_field_style(key: str, value: str) -> str:
+    if key == "model":
+        return "bold cyan"
+    if key in {"run", "row"}:
+        return "cyan"
+    if key == "status":
+        return _STATUS_COLORS.get(value.lower(), "white")
+    if key == "label":
+        return {
+            "positive": "green",
+            "negative": "red",
+            "neutral": "yellow",
+            "-": "grey58",
+        }.get(value.lower(), "white")
+    return "white"
+
+
+def _monitor_text(message: str) -> Text:
+    text = Text()
+    cursor = 0
+    for match in _MONITOR_FIELD.finditer(message):
+        text.append(message[cursor : match.start()])
+        key, value = match.groups()
+        text.append(f"{key}=", style="yellow")
+        text.append(value, style=_monitor_field_style(key, value))
+        cursor = match.end()
+    text.append(message[cursor:])
+    return text
 
 
 class ConfirmScreen(ModalScreen[bool]):
@@ -801,7 +833,7 @@ class SentimentBenchmarkApp(App):
         except Exception:
             return
         should_follow = bool(log.is_vertical_scroll_end)
-        log.write(message, scroll_end=should_follow)
+        log.write(_monitor_text(message), scroll_end=should_follow)
 
     def _set_news_log(self, message: str) -> None:
         self.news_lines.append(message)

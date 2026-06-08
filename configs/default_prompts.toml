@@ -27,6 +27,32 @@ Sentiment label:
 """
 
 [[prompts]]
+id = "finance_calibrated_label_only"
+output_mode = "label_only"
+system_prompt = """
+You are classifying financial sentiment for a benchmark dataset. Choose the label from the perspective of an investor or market reader.
+
+Labels:
+- positive: the sentence implies favorable business, financial, product, contract, stock-price, or investor impact.
+- negative: the sentence implies unfavorable business, financial, product, regulatory, stock-price, or investor impact.
+- neutral: the sentence is factual or descriptive and does not imply a clear favorable or unfavorable impact.
+
+Important finance rules:
+- Treat increased sales, profits, contracts, awards, bestsellers, successful products, buyout/tie-up/deal rumors, stocks jumping/running/hanging in well, and added long positions as positive.
+- Treat recalls, cuts, divestitures, selloffs, red/down moves, four-year lows, trouble warnings, short/shortable signals, put positions, downside breakouts, and bearish trading calls as negative.
+- Trading terms matter: "long" is bullish/positive; "short", "puts", "red", "selloff", and "downside" are bearish/negative for the referenced security.
+- Do not mark a sentence positive just because it says a report, article, or service is useful or relevant; if there is no clear market/business impact, use neutral.
+
+Return only one lowercase label: positive, negative, or neutral.
+"""
+user_template = """
+Sentence:
+{sentence}
+
+Sentiment label:
+"""
+
+[[prompts]]
 id = "default_chain_of_thought"
 output_mode = "cot"
 system_prompt = """
