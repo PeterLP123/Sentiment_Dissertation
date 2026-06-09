@@ -68,7 +68,7 @@ from .news_source import (
     make_news_fetch_config,
     write_news_corpus,
 )
-from .ollama_cloud import cloud_catalog_overridden, fetch_ollama_cloud_models, ollama_cloud_catalog
+from .ollama_cloud import _to_cloud_tag, cloud_catalog_overridden, fetch_ollama_cloud_models, ollama_cloud_catalog
 from .prompts import load_prompts, make_prompt
 from .providers import endpoint_for_provider, make_llm_client, normalize_provider
 from .runner import BenchmarkRunner
@@ -644,12 +644,12 @@ class SentimentBenchmarkApp(App):
                 yield Static("Manual model ID", classes="field-label")
                 yield Static(
                     "Examples: openai/gpt-4o-mini or gemma3. Ollama Cloud models work through a signed-in "
-                    "local daemon — add them by their -cloud tag, e.g. gpt-oss:120b-cloud or deepseek-v3.1:671b-cloud, "
+                    "local daemon — add them by their cloud tag, e.g. gpt-oss:120b-cloud or minimax-m3:cloud, "
                     "or press Cloud Catalog to browse known cloud models without pulling them. "
                     "Repeat Add Model for each model you want in the same benchmark run.",
                     classes="help",
                 )
-                yield Input(placeholder="gpt-oss:120b-cloud or openai/gpt-4o-mini", id="manual-model")
+                yield Input(placeholder="gpt-oss:120b-cloud, minimax-m3:cloud, or openai/gpt-4o-mini", id="manual-model")
                 with Horizontal(classes="toolbar"):
                     yield Button("Add Model", id="add-model", variant="primary")
                     yield Button("Fetch Models", id="fetch-models")
@@ -1497,6 +1497,21 @@ class SentimentBenchmarkApp(App):
             return True
         return False
 
+    def _normalize_selected_ollama_cloud_models(self) -> None:
+        """Migrate old cached cloud IDs to the current runnable Ollama tag."""
+        if self.provider != "ollama":
+            return
+        normalized: list[str] = []
+        for model_id in self.selected_models:
+            next_id = model_id
+            name = self._model_names.get(model_id)
+            if name and self._is_cloud_model(model_id):
+                next_id = _to_cloud_tag(name)
+                self._model_names.setdefault(next_id, name)
+            if next_id not in normalized:
+                normalized.append(next_id)
+        self.selected_models = normalized
+
     def _selected_cloud_count(self) -> int:
         by_id = {model.model_id: model for model in self._all_models}
         return sum(1 for model_id in self.selected_models if self._is_cloud_model(model_id, by_id.get(model_id)))
@@ -1597,6 +1612,7 @@ class SentimentBenchmarkApp(App):
                 self.provider = normalize_provider(provider)
             except ValueError:
                 pass
+        self._normalize_selected_ollama_cloud_models()
         prompt_id = data.get("prompt_id")
         if isinstance(prompt_id, str) and prompt_id in self.prompts:
             self.prompt = self.prompts[prompt_id]

@@ -15,6 +15,9 @@ from sentiment_benchmark.ollama_cloud import (
 def test_to_cloud_tag_appends_suffix_without_doubling() -> None:
     assert _to_cloud_tag("gpt-oss:120b") == "gpt-oss:120b-cloud"
     assert _to_cloud_tag("deepseek-v3.1:671b") == "deepseek-v3.1:671b-cloud"
+    assert _to_cloud_tag("minimax-m3") == "minimax-m3:cloud"
+    assert _to_cloud_tag("deepseek-v4-pro") == "deepseek-v4-pro:cloud"
+    assert _to_cloud_tag("glm-5") == "glm-5:cloud"
     # Already-cloud tags are left alone.
     assert _to_cloud_tag("foo:cloud") == "foo:cloud"
     assert _to_cloud_tag("bar-cloud") == "bar-cloud"
@@ -23,7 +26,7 @@ def test_to_cloud_tag_appends_suffix_without_doubling() -> None:
 def test_parse_cloud_payload_maps_ids_and_dedupes() -> None:
     payload = {"data": [{"id": "gpt-oss:120b"}, {"id": "glm-5"}, {"id": "gpt-oss:120b"}, {"id": ""}, {}]}
     entries = _parse_cloud_payload(payload)
-    assert entries == [("gpt-oss:120b-cloud", "gpt-oss:120b"), ("glm-5-cloud", "glm-5")]
+    assert entries == [("gpt-oss:120b-cloud", "gpt-oss:120b"), ("glm-5:cloud", "glm-5")]
 
 
 def test_builtin_fallback_when_no_env_or_cache(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -41,6 +44,27 @@ def test_env_override_takes_precedence(tmp_path, monkeypatch: pytest.MonkeyPatch
     monkeypatch.setenv("OLLAMA_CLOUD_MODELS", "foo:cloud,  bar:cloud ,")
     assert cloud_catalog_overridden() is True
     assert [m.model_id for m in ollama_cloud_catalog()] == ["foo:cloud", "bar:cloud"]
+
+
+def test_cached_catalog_normalizes_old_dash_cloud_for_untagged_models(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cache = tmp_path / "cache.json"
+    cache.write_text(
+        """
+        {
+          "models": [
+            {"id": "minimax-m3-cloud", "name": "minimax-m3"},
+            {"id": "gpt-oss:120b-cloud", "name": "gpt-oss:120b"}
+          ]
+        }
+        """,
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("OLLAMA_CLOUD_MODELS", raising=False)
+    monkeypatch.setattr(ollama_cloud, "_CACHE_PATH", cache)
+
+    assert [m.model_id for m in ollama_cloud_catalog()] == ["minimax-m3:cloud", "gpt-oss:120b-cloud"]
 
 
 class _FakeResponse:
@@ -78,7 +102,7 @@ def test_fetch_live_maps_tags_caches_and_offline_reads_cache(tmp_path, monkeypat
 
     models = asyncio.run(fetch_ollama_cloud_models())
     ids = [model.model_id for model in models]
-    assert ids == ["gpt-oss:120b-cloud", "glm-5-cloud", "already:cloud"]
+    assert ids == ["gpt-oss:120b-cloud", "glm-5:cloud", "already:cloud"]
     assert all(model.raw_metadata.get("source") == "live" for model in models)
     assert cache.exists()  # successful fetch is cached
 

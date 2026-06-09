@@ -280,6 +280,31 @@ def test_tui_persists_session_between_launches(tmp_path: Path) -> None:
     asyncio.run(second_launch())
 
 
+def test_tui_load_session_normalizes_old_ollama_cloud_model_ids(tmp_path: Path) -> None:
+    session_path = tmp_path / "tui_session.json"
+    session_path.write_text(
+        json.dumps(
+            {
+                "provider": "ollama",
+                "selected_models": ["minimax-m3-cloud", "deepseek-v4-pro-cloud"],
+                "model_names": {
+                    "minimax-m3-cloud": "minimax-m3",
+                    "deepseek-v4-pro-cloud": "deepseek-v4-pro",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    app = SentimentBenchmarkApp()
+    app._session_path = session_path
+    app._load_session()
+
+    assert app.selected_models == ["minimax-m3:cloud", "deepseek-v4-pro:cloud"]
+    assert app._model_names["minimax-m3:cloud"] == "minimax-m3"
+    assert app._model_names["deepseek-v4-pro:cloud"] == "deepseek-v4-pro"
+
+
 def test_tui_runs_table_loads_metrics_and_per_class(tmp_path: Path) -> None:
     db_path = tmp_path / "bench.sqlite"
     run_id = _seed_run_with_metrics(db_path)
@@ -1500,7 +1525,7 @@ def test_tui_cloud_catalog_lists_live_models(tmp_path: Path, monkeypatch: pytest
     async def fake_fetch() -> list[ModelConfig]:
         return [
             ModelConfig(model_id="gpt-oss:120b-cloud", name="gpt-oss:120b", raw_metadata={"cloud": True}),
-            ModelConfig(model_id="glm-5-cloud", name="glm-5", raw_metadata={"cloud": True}),
+            ModelConfig(model_id="glm-5:cloud", name="glm-5", raw_metadata={"cloud": True}),
         ]
 
     monkeypatch.setattr("sentiment_benchmark.tui.fetch_ollama_cloud_models", fake_fetch)
@@ -1514,7 +1539,7 @@ def test_tui_cloud_catalog_lists_live_models(tmp_path: Path, monkeypatch: pytest
             await app._show_cloud_catalog()
             await pilot.pause()
             cloud_ids = [m.model_id for m in app._all_models if app._is_cloud_model(m.model_id, m)]
-            assert "gpt-oss:120b-cloud" in cloud_ids and "glm-5-cloud" in cloud_ids
+            assert "gpt-oss:120b-cloud" in cloud_ids and "glm-5:cloud" in cloud_ids
             assert app.query_one("#model-search", Input).value == "cloud"
             assert app.query_one("#model-table", DataTable).row_count == len(cloud_ids)
             assert any("ollama.com (live)" in line for line in app.monitor_lines)

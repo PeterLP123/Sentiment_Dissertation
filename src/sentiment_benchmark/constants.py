@@ -36,4 +36,6 @@ REASONING_MODEL_MARKERS = (
     "qwq",
     "gemini-2.5",
     "gemini-3",
+    "minimax-m3",
+    "deepseek-v4",
 )

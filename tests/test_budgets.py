@@ -6,6 +6,8 @@ def test_is_reasoning_model_detects_known_families() -> None:
     assert is_reasoning_model("openai/gpt-5.5")
     assert is_reasoning_model("openai/o3-mini")
     assert is_reasoning_model("google/gemini-3.5-flash")
+    assert is_reasoning_model("minimax-m3:cloud")
+    assert is_reasoning_model("deepseek-v4-pro:cloud")
     assert not is_reasoning_model("openai/gpt-4o-mini")
     assert not is_reasoning_model("anthropic/claude-3.5-sonnet")
 

@@ -115,7 +115,7 @@ For local Ollama on the same Windows machine, use:
 
 ## Use Ollama Cloud Models
 
-Ollama Cloud runs large hosted models (for example `gpt-oss:120b-cloud`, `deepseek-v3.1:671b-cloud`, and `qwen3-coder:480b-cloud`) on Ollama's infrastructure while you talk to them through a **signed-in local daemon**. No separate provider or API key is configured in this repository — the daemon proxies the request, so cloud models use the existing `ollama` provider and the same chat API as local models.
+Ollama Cloud runs large hosted models (for example `gpt-oss:120b-cloud`, `minimax-m3:cloud`, and `deepseek-v4-pro:cloud`) on Ollama's infrastructure while you talk to them through a **signed-in local daemon**. No separate provider or API key is configured in this repository — the daemon proxies the request, so cloud models use the existing `ollama` provider and the same chat API as local models.
 
 Sign in once on the machine running the Ollama daemon:
 
@@ -123,7 +123,7 @@ Sign in once on the machine running the Ollama daemon:
 ollama signin
 ```
 
-Then reference the model by its `-cloud` tag. The daemon pulls the manifest and routes inference to the cloud:
+Then reference the model by its cloud tag. Ollama uses tags such as `gpt-oss:120b-cloud` for explicit variants and `minimax-m3:cloud` for untagged base models. The daemon pulls the manifest and routes inference to the cloud:
 
 ```bash
 sentiment-bench run --provider ollama \
@@ -139,10 +139,10 @@ In the TUI:
 
 Notes specific to cloud models:
 
-- **Cloud Catalog** fetches Ollama's live catalogue from the public `https://ollama.com/v1/models` endpoint (no API key) and maps each base id to its `-cloud` tag, so it stays current as Ollama adds or retires models. The result is cached to `results/ollama_cloud_cache.json`; if the fetch fails (offline), it falls back to that cache and then to a small built-in list. To pin a fixed list instead, set `OLLAMA_CLOUD_MODELS` (comma-separated tags, e.g. `OLLAMA_CLOUD_MODELS=gpt-oss:120b-cloud,deepseek-v3.1:671b-cloud`), which takes precedence over the live fetch. Confirm a tag works against your signed-in daemon before relying on it.
+- **Cloud Catalog** fetches Ollama's live catalogue from the public `https://ollama.com/v1/models` endpoint (no API key) and maps each base id to its runnable cloud tag, so it stays current as Ollama adds or retires models. The result is cached to `results/ollama_cloud_cache.json`; if the fetch fails (offline), it falls back to that cache and then to a small built-in list. To pin a fixed list instead, set `OLLAMA_CLOUD_MODELS` (comma-separated tags, e.g. `OLLAMA_CLOUD_MODELS=gpt-oss:120b-cloud,minimax-m3:cloud`), which takes precedence over the live fetch. Confirm a tag works against your signed-in daemon before relying on it.
 - They run remotely, so the **local GPU/VRAM monitor and `Loaded in Ollama` (`/api/ps`) do not reflect them** — those panels describe only models in your local VRAM.
-- They require internet access and a signed-in daemon; an unauthenticated daemon returns an error for a `-cloud` tag.
-- Record the exact `-cloud` tag (and that the run used cloud routing) for reproducibility, just as you would a local tag.
+- They require internet access and a signed-in daemon; an unauthenticated daemon returns an error for a cloud tag.
+- Record the exact cloud tag (and that the run used cloud routing) for reproducibility, just as you would a local tag.
 - Reasoning-capable cloud models such as `gpt-oss` can spend a short completion budget on thinking; keep `Disable Ollama thinking` enabled for short label-only classification, the same as for local thinking models.
 
 ## Gemma 4 Notes

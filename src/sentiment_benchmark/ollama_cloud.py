@@ -4,7 +4,9 @@ Ollama's local ``/api/tags`` only lists models that are already pulled, so cloud
 models you have not set up never show up. Ollama does, however, publish its live
 cloud catalogue at a public, OpenAI-compatible endpoint
 (``https://ollama.com/v1/models``), so we fetch that and map each base id to the
-``-cloud`` tag the signed-in local daemon routes to cloud.
+cloud tag the signed-in local daemon routes to cloud. Ollama uses
+``gpt-oss:120b-cloud`` style tags for explicit variants, and
+``minimax-m3:cloud`` style tags for untagged base models.
 
 Resolution order:
 
@@ -34,13 +36,15 @@ _CACHE_PATH = Path("results/ollama_cloud_cache.json")
 _ENV_VAR = "OLLAMA_CLOUD_MODELS"
 
 # Final offline fallback if the network, cache, and env override are all absent.
-# Tags already carry the -cloud suffix.
+# Tags already carry the cloud suffix used by Ollama.
 _BUILTIN_CLOUD_MODELS: list[tuple[str, str]] = [
     ("gpt-oss:20b-cloud", "gpt-oss:20b"),
     ("gpt-oss:120b-cloud", "gpt-oss:120b"),
     ("deepseek-v3.1:671b-cloud", "deepseek-v3.1:671b"),
     ("qwen3-coder:480b-cloud", "qwen3-coder:480b"),
     ("kimi-k2:1t-cloud", "kimi-k2:1t"),
+    ("minimax-m3:cloud", "minimax-m3"),
+    ("deepseek-v4-pro:cloud", "deepseek-v4-pro"),
     ("glm-4.6:cloud", "glm-4.6"),
 ]
 
@@ -50,7 +54,9 @@ def _to_cloud_tag(model_id: str) -> str:
     lowered = model_id.lower()
     if lowered.endswith("-cloud") or lowered.endswith(":cloud"):
         return model_id
-    return f"{model_id}-cloud"
+    if ":" in model_id:
+        return f"{model_id}-cloud"
+    return f"{model_id}:cloud"
 
 
 def _models_from(entries: list[tuple[str, str]], source: str) -> list[ModelConfig]:
@@ -117,11 +123,12 @@ def _read_cache_entries() -> list[tuple[str, str]] | None:
     models = data.get("models") if isinstance(data, dict) else None
     if not isinstance(models, list):
         return None
-    entries = [
-        (str(model["id"]), str(model.get("name") or model["id"]))
-        for model in models
-        if isinstance(model, dict) and model.get("id")
-    ]
+    entries = []
+    for model in models:
+        if not isinstance(model, dict) or not model.get("id"):
+            continue
+        name = str(model.get("name") or model["id"])
+        entries.append((_to_cloud_tag(name), name))
     return entries or None
 
 
