@@ -67,6 +67,9 @@ SENTIMENT_BENCH_DB_BACKEND=libsql
 TURSO_DATABASE_URL=libsql://your-database-your-org.turso.io
 TURSO_AUTH_TOKEN=your-database-token
 TURSO_REPLICA_PATH=results/turso_replica.db
+# libSQL uses the local replica by default and syncs to hosted Turso after runs.
+# Optional direct hosted mode for small admin tasks: TURSO_CONNECTION_MODE=hosted
+# Optional tuning: TURSO_TIMEOUT_SECONDS=5, TURSO_SYNC_INTERVAL_SECONDS=60
 ```
 
 Validate the dataset:

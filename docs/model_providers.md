@@ -8,6 +8,7 @@ Use this guide to route benchmark calls to OpenRouter or to an Ollama server run
 - `sentiment-bench --help` works from the repository root.
 - For OpenRouter: `OPENROUTER_API_KEY`.
 - For Ollama: the official `ollama` Python package is installed through project dependencies, and the Ollama server is reachable from this machine.
+- For Ollama Cloud models (`-cloud` tags): the Ollama daemon is signed in (`ollama signin`) and has internet access. See [Use Ollama Cloud Models](#use-ollama-cloud-models).
 
 ## Provider Defaults
 
@@ -112,6 +113,37 @@ For local Ollama on the same Windows machine, use:
   --models gemma4:12b --mode pilot --prompt-id finance_calibrated_label_only
 ```
 
+## Use Ollama Cloud Models
+
+Ollama Cloud runs large hosted models (for example `gpt-oss:120b-cloud`, `deepseek-v3.1:671b-cloud`, and `qwen3-coder:480b-cloud`) on Ollama's infrastructure while you talk to them through a **signed-in local daemon**. No separate provider or API key is configured in this repository — the daemon proxies the request, so cloud models use the existing `ollama` provider and the same chat API as local models.
+
+Sign in once on the machine running the Ollama daemon:
+
+```bash
+ollama signin
+```
+
+Then reference the model by its `-cloud` tag. The daemon pulls the manifest and routes inference to the cloud:
+
+```bash
+sentiment-bench run --provider ollama \
+  --ollama-host http://localhost:11434 \
+  --models gpt-oss:120b-cloud --mode pilot --prompt-id finance_calibrated_label_only
+```
+
+In the TUI:
+
+1. Keep Provider on `Ollama` and the endpoint on your daemon (for example `http://localhost:11434`).
+2. On the Models tab, add the cloud model by id (for example `gpt-oss:120b-cloud`) or fetch models and look for the **Cloud** column, which marks `-cloud` tags. Type `cloud` in the search box to filter to them.
+3. The Selected models summary shows how many of your chosen models are cloud (for example `3 model(s) selected (1 cloud).`).
+
+Notes specific to cloud models:
+
+- They run remotely, so the **local GPU/VRAM monitor and `Loaded in Ollama` (`/api/ps`) do not reflect them** — those panels describe only models in your local VRAM.
+- They require internet access and a signed-in daemon; an unauthenticated daemon returns an error for a `-cloud` tag.
+- Record the exact `-cloud` tag (and that the run used cloud routing) for reproducibility, just as you would a local tag.
+- Reasoning-capable cloud models such as `gpt-oss` can spend a short completion budget on thinking; keep `Disable Ollama thinking` enabled for short label-only classification, the same as for local thinking models.
+
 ## Gemma 4 Notes
 
 Gemma 4 models can spend a short completion budget on internal thinking before emitting a label. In the TUI, keep `Disable Ollama thinking` enabled for `gemma4:*` and other thinking-capable local models. The TUI highlights this recommendation when such a model is selected and stores the setting with the run request metadata.
@@ -174,6 +206,7 @@ A successful check prints a table of model IDs. A failed check usually means cre
 | `OPENROUTER_API_KEY is required` | `.env` missing or key not exported. | Add `OPENROUTER_API_KEY` to `.env` or your shell. |
 | Ollama connection refused | Ollama is not running or only bound to localhost on the model host. | Start Ollama on the host and make `OLLAMA_HOST` reachable from the benchmark machine. |
 | Model not found | The model was not pulled on the Ollama host or the tag differs. | Run `ollama list`, pull the exact tag such as `ollama pull gemma4:12b`, and use that tag in the benchmark. |
+| `-cloud` model fails or asks to sign in | The daemon is not signed in to Ollama Cloud or has no internet access. | Run `ollama signin` on the daemon machine, confirm connectivity, then retry with the exact `-cloud` tag. |
 | Gemma 4 pilot has many invalid outputs | The model spent the short answer budget on thinking or ignored the strict label-only format. | In the TUI, keep `Disable Ollama thinking` enabled and use `finance_calibrated_label_only`. |
 | Very slow local runs | Desktop model inference is slower than API routing, a single request is active, or Ollama scheduling is limiting throughput. | Use pilot mode first, review the TUI resource monitor, then increase TUI/CLI concurrency and `OLLAMA_NUM_PARALLEL` cautiously. |
 | Different results across machines | Local model version, prompt settings, sampling settings, or hardware/runtime environment differ. | Set `SENTIMENT_BENCH_MACHINE_LABEL` per machine and compare model tag, provider route, prompt hash, seed, temperature, git commit, Python version, and export metadata. |

@@ -1,9 +1,11 @@
 import asyncio
 import json
 import sqlite3
+import threading
 from pathlib import Path
 
 import pytest
+from rich.text import Text
 from textual.widgets import Button, Checkbox, DataTable, Input, ProgressBar, Select, Static
 
 from sentiment_benchmark.baseline_runner import BaselineRunSummary
@@ -179,6 +181,51 @@ def test_tui_model_table_toggles_selection(tmp_path: Path) -> None:
     asyncio.run(scenario())
 
 
+def test_tui_ignores_stale_model_table_selection_event(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            app._all_models = [
+                ModelConfig(model_id="provider/a", name="A"),
+                ModelConfig(model_id="provider/b", name="B"),
+            ]
+            app._render_model_table()
+
+            table = app.query_one("#model-table", DataTable)
+            stale_key = next(iter(table.rows))
+            app.query_one("#model-search", Input).value = "provider/b"
+            app._render_model_table()
+
+            app.on_data_table_row_selected(DataTable.RowSelected(table, 0, stale_key))
+
+            assert app.selected_models == []
+
+    asyncio.run(scenario())
+
+
+def test_tui_ignores_stale_selected_table_selection_event(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        app.selected_models = ["provider/model"]
+        app._model_names = {"provider/model": "Readable Name"}
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            app._render_selected_table()
+
+            table = app.query_one("#selected-table", DataTable)
+            stale_key = next(iter(table.rows))
+            app.selected_models = []
+            app._render_selected_table()
+
+            app.on_data_table_row_selected(DataTable.RowSelected(table, 0, stale_key))
+
+            assert app.selected_models == []
+            assert table.row_count == 0
+
+    asyncio.run(scenario())
+
+
 def test_tui_model_search_filters_table(tmp_path: Path) -> None:
     async def scenario() -> None:
         app = _make_app(tmp_path)
@@ -259,6 +306,28 @@ def test_tui_runs_table_loads_metrics_and_per_class(tmp_path: Path) -> None:
 
             perclass = app.query_one("#perclass-table", DataTable)
             assert perclass.row_count == 3
+
+    asyncio.run(scenario())
+
+
+def test_tui_ignores_stale_runs_table_selection_event(tmp_path: Path) -> None:
+    db_path = tmp_path / "bench.sqlite"
+    _seed_run_with_metrics(db_path)
+
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        app.db_path = db_path
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            app._refresh_runs_table()
+
+            runs_table = app.query_one("#runs-table", DataTable)
+            stale_key = next(iter(runs_table.rows))
+            runs_table.clear()
+
+            app.on_data_table_row_selected(DataTable.RowSelected(runs_table, 0, stale_key))
+
+            assert app._active_run_id is None
 
     asyncio.run(scenario())
 
@@ -534,6 +603,11 @@ def test_tui_handles_run_events_into_progress_table(tmp_path: Path) -> None:
             assert bar.total == 4
 
             app._handle_run_event({"type": "model_started", "model_id": "m1", "total_rows": 2})
+            assert progress_table.ordered_columns[-1].width == 9
+            running_status = progress_table.get_row("m1")[4]
+            assert isinstance(running_status, Text)
+            assert running_status.plain == "running"
+            assert str(running_status.style) == "yellow"
             app._handle_run_event({
                 "type": "row_completed",
                 "model_id": "m1",
@@ -553,7 +627,26 @@ def test_tui_handles_run_events_into_progress_table(tmp_path: Path) -> None:
             assert app._progress["m1"]["latency_count"] == 2
 
             app._handle_run_event({"type": "model_completed", "model_id": "m1", "accuracy": 0.5})
-            assert "done" in app._progress["m1"]["status"]
+            assert app._progress["m1"]["status"] == "done"
+            done_status = progress_table.get_row("m1")[4]
+            assert isinstance(done_status, Text)
+            assert done_status.plain == "done"
+            assert str(done_status.style) == "green"
+
+    asyncio.run(scenario())
+
+
+def test_tui_ignores_late_progress_event_after_table_reset(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            app._handle_run_event({"type": "run_started", "run_id": 1, "models": ["m1"], "rows_per_model": 1})
+            app.query_one("#run-progress", DataTable).clear()
+
+            app._handle_run_event({"type": "model_started", "model_id": "m1", "total_rows": 1})
+
+            assert app._progress["m1"]["status"] == "running"
 
     asyncio.run(scenario())
 
@@ -839,6 +932,82 @@ class _FakeRunSummary:
         self.status = status
         self.selected_row_count = 15
         self.model_count = 1
+
+
+class _FakeTuiRunClient:
+    def __init__(self, thread_ids: list[int]) -> None:
+        self.thread_ids = thread_ids
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, traceback) -> None:
+        return None
+
+    async def classify(
+        self,
+        model_id: str,
+        prompt: PromptConfig,
+        example,
+        temperature: float = 0.0,
+        max_completion_tokens: int = 64,
+        retries: int = 3,
+    ) -> LLMResponseRecord:
+        self.thread_ids.append(threading.get_ident())
+        label = example.sentence.split()[0]
+        return LLMResponseRecord(
+            row_number=example.row_number,
+            model_id=model_id,
+            prompt_hash=prompt.prompt_hash,
+            raw_content=label,
+            normalized_label=label,
+            parse_status="valid",
+            status="success",
+            latency_ms=1.0,
+        )
+
+    async def get_generation_metadata(self, generation_id: str, retries: int = 3):
+        return None
+
+
+def test_tui_start_run_executes_benchmark_off_app_thread(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    dataset = tmp_path / "data.csv"
+    dataset.write_text(
+        "\n".join(
+            [
+                "Sentence,Sentiment",
+                "positive example,positive",
+                "negative example,negative",
+                "neutral example,neutral",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    classify_thread_ids: list[int] = []
+    monkeypatch.setattr(
+        "sentiment_benchmark.tui.make_llm_client",
+        lambda *args, **kwargs: _FakeTuiRunClient(classify_thread_ids),
+    )
+
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        app.dataset_path = dataset
+        app.db_path = tmp_path / "bench.sqlite"
+        app.selected_models = ["fake/model"]
+        app_thread_id = threading.get_ident()
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            app.query_one("#sample-per-class", Input).value = "1"
+            await app._start_run()
+            if app._run_task is not None:
+                await app._run_task
+
+            assert classify_thread_ids
+            assert all(thread_id != app_thread_id for thread_id in classify_thread_ids)
+            assert app._run_in_progress is False
+            assert any("Run " in line and "completed" in line for line in app.monitor_lines)
+
+    asyncio.run(scenario())
 
 
 def test_tui_add_to_queue_snapshots_config_and_persists(tmp_path: Path) -> None:
@@ -1430,5 +1599,63 @@ def test_tui_leaderboard_scope_switch(tmp_path: Path) -> None:
             assert "model/a" in primary_models
             assert "model/zonly" in all_models
             assert "model/zonly" not in primary_models
+
+    asyncio.run(scenario())
+
+
+def test_tui_detects_ollama_cloud_models(tmp_path: Path) -> None:
+    app = SentimentBenchmarkApp()
+    assert app._is_cloud_model("gpt-oss:120b-cloud") is True
+    assert app._is_cloud_model("deepseek-v3.1:671b-cloud") is True
+    assert app._is_cloud_model("qwen3:cloud") is True
+    assert app._is_cloud_model("gemma3:12b") is False
+    assert app._is_cloud_model("openai/gpt-4o-mini") is False
+    # Metadata flag also counts.
+    flagged = ModelConfig(model_id="something", raw_metadata={"remote": True})
+    assert app._is_cloud_model("something", flagged) is True
+
+
+def test_tui_model_table_marks_cloud_and_summary_counts(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        app.provider = "ollama"
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            app._all_models = [
+                ModelConfig(model_id="gpt-oss:120b-cloud", name="gpt-oss"),
+                ModelConfig(model_id="gemma3:12b", name="gemma3"),
+            ]
+            app._render_model_table()
+
+            table = app.query_one("#model-table", DataTable)
+            assert len(table.columns) == 5  # Sel, Model ID, Name, Context, Cloud
+            cloud_row = [str(cell) for cell in table.get_row("gpt-oss:120b-cloud")]
+            local_row = [str(cell) for cell in table.get_row("gemma3:12b")]
+            assert "cloud" in cloud_row[4]
+            assert local_row[4].strip() == ""
+
+            # Selecting one cloud + one local model -> summary notes the cloud count.
+            app.selected_models = ["gpt-oss:120b-cloud", "gemma3:12b"]
+            app._render_selected_table()
+            assert "(1 cloud)" in str(app.query_one("#selected-summary", Static).content)
+
+    asyncio.run(scenario())
+
+
+def test_tui_search_filters_to_cloud_models(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            app._all_models = [
+                ModelConfig(model_id="gpt-oss:120b-cloud", name="gpt-oss"),
+                ModelConfig(model_id="gemma3:12b", name="gemma3"),
+            ]
+            app._render_model_table()
+            assert app.query_one("#model-table", DataTable).row_count == 2
+
+            app.query_one("#model-search", Input).value = "cloud"
+            await pilot.pause(0.05)
+            assert app.query_one("#model-table", DataTable).row_count == 1
 
     asyncio.run(scenario())

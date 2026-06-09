@@ -99,9 +99,15 @@ class BenchmarkRunner:
         event_callback: EventCallback | None = None,
         cancel_event: asyncio.Event | None = None,
     ) -> RunSummary:
+        await self._notify(callback, "Preparing run database...")
         self.store.initialize()
+        await self._notify(callback, f"Loading dataset: {config.dataset_path}")
         rows = load_dataset(config.dataset_path)
-        self.store.upsert_dataset(rows, config.dataset_path)
+        if self.store.dataset_snapshot_exists(config.dataset_path, len(rows)):
+            await self._notify(callback, f"Dataset already recorded: {len(rows)} row(s).")
+        else:
+            await self._notify(callback, f"Recording {len(rows)} dataset row(s) in the run database...")
+            self.store.upsert_dataset(rows, config.dataset_path)
 
         config, selected_rows, resume_settings = self._resolve_selected_rows(rows, config, resume_run_id)
         config = self._apply_prompt(config, rows, selected_rows, resume_run_id, resume_settings)
@@ -110,6 +116,7 @@ class BenchmarkRunner:
             run_id = self.store.create_run(config, [row.row_number for row in selected_rows])
         else:
             run_id = resume_run_id
+        await self._notify(callback, f"Created run {run_id}; selected {len(selected_rows)} row(s) per model.")
 
         selected_by_number = {row.row_number: row for row in selected_rows}
         semaphore = asyncio.Semaphore(max(1, config.concurrency))
@@ -242,6 +249,11 @@ class BenchmarkRunner:
             event_callback,
             {"type": "run_completed", "run_id": run_id, "status": final_status},
         )
+        try:
+            if self.store.sync_backend():
+                await self._notify(callback, "Synced run database to hosted libSQL.")
+        except Exception as exc:
+            await self._notify(callback, f"Hosted libSQL sync failed: {exc}")
         return RunSummary(
             run_id=run_id,
             selected_row_count=len(selected_rows),

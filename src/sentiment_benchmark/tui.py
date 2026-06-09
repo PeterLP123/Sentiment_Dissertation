@@ -10,6 +10,7 @@ import subprocess
 import time
 from dataclasses import replace
 from pathlib import Path
+from threading import Event as ThreadEvent
 
 from rich.markup import escape
 from rich.text import Text
@@ -18,6 +19,7 @@ from textual.containers import Container, Horizontal
 from textual.coordinate import Coordinate
 from textual.screen import ModalScreen
 from textual.validation import Integer, Number, ValidationResult
+from textual.worker import WorkerFailed
 from textual.widgets import (
     Button,
     Checkbox,
@@ -497,7 +499,7 @@ class SentimentBenchmarkApp(App):
         self._session_path = _SESSION_PATH
         self._active_run_id: int | None = None
         self._metric_rows: dict[str, dict] = {}
-        self._cancel_event: asyncio.Event | None = None
+        self._cancel_event: ThreadEvent | None = None
         self._run_task: asyncio.Task | None = None
         self._model_fetch_task: asyncio.Task | None = None
         self._run_in_progress: bool = False
@@ -562,10 +564,12 @@ class SentimentBenchmarkApp(App):
                 )
                 yield Static("Manual model ID", classes="field-label")
                 yield Static(
-                    "Examples: openai/gpt-4o-mini or gemma3. Repeat Add Model for each model you want in the same benchmark run.",
+                    "Examples: openai/gpt-4o-mini or gemma3. Ollama Cloud models work through a signed-in "
+                    "local daemon — add them by their -cloud tag, e.g. gpt-oss:120b-cloud or deepseek-v3.1:671b-cloud. "
+                    "Repeat Add Model for each model you want in the same benchmark run.",
                     classes="help",
                 )
-                yield Input(placeholder="openai/gpt-4o-mini or gemma3", id="manual-model")
+                yield Input(placeholder="gpt-oss:120b-cloud or openai/gpt-4o-mini", id="manual-model")
                 yield Button("Add Model", id="add-model")
                 yield Button("Fetch Models", id="fetch-models")
                 yield Button("Loaded in Ollama", id="fetch-loaded")
@@ -579,7 +583,8 @@ class SentimentBenchmarkApp(App):
                 yield DataTable(id="selected-table")
                 yield Static("Fetched provider models", classes="section-title")
                 yield Static(
-                    "Type to filter. Press Enter on a row to toggle selection. [x] = currently selected.",
+                    "Type to filter. Press Enter on a row to toggle selection. [x] = currently selected. "
+                    "The Cloud column marks Ollama Cloud models; type 'cloud' to filter to them.",
                     classes="help",
                 )
                 yield Input(placeholder="Search model id or name...", id="model-search")
@@ -938,7 +943,7 @@ class SentimentBenchmarkApp(App):
 
     def on_mount(self) -> None:
         model_table = self.query_one("#model-table", DataTable)
-        model_table.add_columns("Sel", "Model ID", "Name", "Context")
+        model_table.add_columns("Sel", "Model ID", "Name", "Context", "Cloud")
         model_table.cursor_type = "row"
         selected_table = self.query_one("#selected-table", DataTable)
         selected_table.add_columns("Model ID", "Name")
@@ -960,7 +965,11 @@ class SentimentBenchmarkApp(App):
         misclassified.add_columns("Row", "Model", "Actual", "Predicted", "Status", "Sentence")
         misclassified.cursor_type = "row"
         progress = self.query_one("#run-progress", DataTable)
-        progress.add_columns("Model", "Done/Total", "Errors", "Avg latency", "Status")
+        progress.add_column("Model")
+        progress.add_column("Done/Total", width=10)
+        progress.add_column("Errors", width=6)
+        progress.add_column("Avg latency", width=11)
+        progress.add_column("Status", width=9)
         queue = self.query_one("#queue-table", DataTable)
         queue.add_columns("#", "Provider", "Mode", "Models", "Prompt", "Sample", "Status")
         queue.cursor_type = "row"
@@ -1149,6 +1158,7 @@ class SentimentBenchmarkApp(App):
         stats = compute_stats(rows)
         key_status = "present" if os.getenv("OPENROUTER_API_KEY") else "missing"
         endpoint = self._active_endpoint()
+        storage_label = BenchmarkStore(self.db_path).storage_label()
         self.query_one("#dashboard", Static).update(
             "\n".join(
                 [
@@ -1157,7 +1167,7 @@ class SentimentBenchmarkApp(App):
                     f"Labels: {stats.label_counts}",
                     f"Conflicting duplicate rows excluded from primary metrics: {stats.conflicting_duplicate_rows}",
                     f"Primary scoring rows: {stats.primary_row_count}",
-                    f"Result DB: {self.db_path}",
+                    f"Result DB: {storage_label}",
                     f"Provider: {self._provider_title()}",
                     f"Endpoint: {endpoint}",
                     f"OpenRouter API key: {key_status}",
@@ -1277,7 +1287,9 @@ class SentimentBenchmarkApp(App):
         if count == 0:
             summary.update("No models selected yet.")
         else:
-            summary.update(f"{count} model(s) selected.")
+            cloud = self._selected_cloud_count()
+            cloud_note = f" ({cloud} cloud)" if cloud else ""
+            summary.update(f"{count} model(s) selected{cloud_note}.")
 
     def _render_model_table(self) -> None:
         try:
@@ -1300,11 +1312,15 @@ class SentimentBenchmarkApp(App):
                 if model.model_id in selected
                 else Text(_UNSELECTED_MARK, style="grey58")
             )
+            cloud_cell = (
+                Text("cloud", style="cyan") if self._is_cloud_model(model.model_id, model) else Text("", style="grey58")
+            )
             table.add_row(
                 mark,
                 model.model_id,
                 model.name or "",
                 str(model.context_length or ""),
+                cloud_cell,
                 key=model.model_id,
             )
         self._refresh_ollama_thinking_recommendation()
@@ -1312,6 +1328,25 @@ class SentimentBenchmarkApp(App):
     def _selected_model_configs(self) -> list[ModelConfig]:
         by_id = {model.model_id: model for model in self._all_models}
         return [by_id[model_id] for model_id in self.selected_models if model_id in by_id]
+
+    @staticmethod
+    def _is_cloud_model(model_id: str, model: ModelConfig | None = None) -> bool:
+        """Heuristic for Ollama Cloud models, which carry a ``-cloud``/``:cloud`` tag.
+
+        These run on Ollama's hosted infrastructure (proxied through a signed-in
+        local daemon) rather than local VRAM, so they are flagged for the user.
+        """
+        lowered = (model_id or "").lower()
+        if lowered.endswith("-cloud") or lowered.endswith(":cloud") or "-cloud" in lowered:
+            return True
+        raw = model.raw_metadata if model is not None else {}
+        if isinstance(raw, dict) and (raw.get("remote") or raw.get("cloud")):
+            return True
+        return False
+
+    def _selected_cloud_count(self) -> int:
+        by_id = {model.model_id: model for model in self._all_models}
+        return sum(1 for model_id in self.selected_models if self._is_cloud_model(model_id, by_id.get(model_id)))
 
     @staticmethod
     def _model_recommends_disabled_thinking(model_id: str, model: ModelConfig | None = None) -> bool:
@@ -1702,7 +1737,7 @@ class SentimentBenchmarkApp(App):
             return
         try:
             row_index = table.get_row_index(model_id)
-        except KeyError:
+        except Exception:
             return
         avg = (
             f"{state['latency_total'] / state['latency_count']:.0f} ms"
@@ -1755,10 +1790,7 @@ class SentimentBenchmarkApp(App):
             model_id = str(event.get("model_id", ""))
             state = self._progress.get(model_id)
             if state is not None:
-                accuracy = event.get("accuracy")
-                state["status"] = (
-                    f"done (acc {float(accuracy):.3f})" if isinstance(accuracy, (int, float)) else "done"
-                )
+                state["status"] = "done"
                 self._render_progress_row(model_id)
         elif event_type == "run_completed":
             status = event.get("status", "completed")
@@ -2029,10 +2061,19 @@ class SentimentBenchmarkApp(App):
         message = "; ".join(result.failure_descriptions) if result.failure_descriptions else "Invalid value."
         hint.update(message)
 
+    @staticmethod
+    def _current_event_row(event: DataTable.RowSelected) -> list | None:
+        if event.row_key not in event.data_table.rows:
+            return None
+        return event.data_table.get_row(event.row_key)
+
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+        # Textual can deliver a selection event after a table has been redrawn.
+        if event.row_key not in event.data_table.rows:
+            return
         table_id = event.data_table.id
         if table_id == "model-table":
-            selected_row = event.data_table.get_row(event.row_key)
+            selected_row = self._current_event_row(event)
             if not selected_row:
                 return
             model_id = str(selected_row[1]) if len(selected_row) >= 2 else ""
@@ -2042,7 +2083,7 @@ class SentimentBenchmarkApp(App):
             action = "Removed" if was_selected else "Added"
             self._set_monitor(f"{action} model: {model_id}")
         elif table_id == "selected-table":
-            selected_row = event.data_table.get_row(event.row_key)
+            selected_row = self._current_event_row(event)
             if not selected_row:
                 return
             model_id = str(selected_row[0])
@@ -2211,7 +2252,7 @@ class SentimentBenchmarkApp(App):
         self._begin_run(config)
 
     def _begin_run(self, config: RunConfig) -> None:
-        self._cancel_event = asyncio.Event()
+        self._cancel_event = ThreadEvent()
         self._run_in_progress = True
         try:
             self.query_one("#cancel-run", Button).disabled = False
@@ -2221,21 +2262,45 @@ class SentimentBenchmarkApp(App):
         self._set_monitor("Starting benchmark run...")
         self._run_task = asyncio.create_task(self._run_benchmark(config))
 
-    async def _execute_config(self, config: RunConfig):
-        """Run one RunConfig to completion and return its RunSummary.
+    def _execute_config_in_thread(self, config: RunConfig):
+        return asyncio.run(self._execute_config_async(config))
 
-        Shared by the single Start Run path and the experiment queue. Uses the
-        current ``self._cancel_event`` so a cancel request reaches the runner.
-        """
-        store = BenchmarkStore(self.db_path)
+    async def _execute_config_async(self, config: RunConfig):
+        store = BenchmarkStore(config.db_path)
+
+        def update_monitor(message: str) -> None:
+            self.call_from_thread(self._set_monitor, message)
+
+        def handle_event(event: dict) -> None:
+            self.call_from_thread(self._handle_run_event, event)
+
         async with make_llm_client(config.provider, base_url=config.base_url, ollama_host=config.base_url) as client:
             runner = BenchmarkRunner(client=client, store=store)
             return await runner.run(
                 config,
-                callback=lambda message: self._set_monitor(message),
-                event_callback=self._handle_run_event,
+                callback=update_monitor,
+                event_callback=handle_event,
                 cancel_event=self._cancel_event,
             )
+
+    async def _execute_config(self, config: RunConfig):
+        """Run one RunConfig off the TUI loop and return its RunSummary.
+
+        Shared by the single Start Run path and the experiment queue. Benchmark
+        execution performs synchronous dataset, SQLite, parsing, and metrics work
+        between awaits, so keeping it in a thread worker prevents UI stalls.
+        """
+        worker = self.run_worker(
+            lambda: self._execute_config_in_thread(config),
+            thread=True,
+            group="benchmarks",
+            exclusive=False,
+            exit_on_error=False,
+        )
+        try:
+            return await worker.wait()
+        except WorkerFailed as exc:
+            raise exc.error from exc
 
     async def _run_benchmark(self, config: RunConfig) -> None:
         try:
@@ -2686,7 +2751,7 @@ class SentimentBenchmarkApp(App):
                     f"prompt {config.prompt.prompt_id}, mode {config.mode}."
                 )
                 self._update_queue_progress(position, total, started)
-                self._cancel_event = asyncio.Event()
+                self._cancel_event = ThreadEvent()
                 try:
                     summary = await self._execute_config(config)
                     if summary.status == "completed":

@@ -1,5 +1,7 @@
 import json
 import sqlite3
+import sys
+from types import SimpleNamespace
 
 from sentiment_benchmark.metrics import evaluate_responses
 from sentiment_benchmark.models import DatasetRow, EvaluationResult, LLMResponseRecord, PromptConfig, RunConfig
@@ -97,6 +99,136 @@ def test_initialize_migrates_old_runs_table_for_environment_metadata(tmp_path) -
     with sqlite3.connect(db_path) as connection:
         columns = {row[1] for row in connection.execute("PRAGMA table_info(runs)").fetchall()}
     assert {"machine_id", "machine_label", "environment_json"} <= columns
+
+
+def test_storage_label_describes_active_backend(monkeypatch, tmp_path) -> None:
+    sqlite_store = BenchmarkStore(tmp_path / "test.sqlite")
+    assert sqlite_store.storage_label() == f"SQLite: {tmp_path / 'test.sqlite'}"
+
+    monkeypatch.setenv("SENTIMENT_BENCH_DB_BACKEND", "libsql")
+    monkeypatch.delenv("TURSO_CONNECTION_MODE", raising=False)
+    monkeypatch.setenv("TURSO_REPLICA_PATH", str(tmp_path / "replica.db"))
+    replica_store = BenchmarkStore(tmp_path / "ignored.sqlite")
+    assert replica_store.storage_label() == f"Turso/libSQL replica: {tmp_path / 'replica.db'} (syncs to hosted)"
+
+    monkeypatch.setenv("TURSO_CONNECTION_MODE", "hosted")
+    hosted_store = BenchmarkStore(tmp_path / "ignored.sqlite")
+    assert hosted_store.storage_label() == "Turso/libSQL hosted"
+
+
+def test_upsert_dataset_records_snapshot(tmp_path) -> None:
+    store = BenchmarkStore(tmp_path / "test.sqlite")
+    rows = [
+        DatasetRow(1, "a", "positive", False, False, 1),
+        DatasetRow(2, "b", "negative", False, False, 1),
+    ]
+
+    store.initialize()
+    assert store.dataset_snapshot_exists("Data/data.csv", len(rows)) is False
+
+    store.upsert_dataset(rows, "Data/data.csv")
+
+    assert store.dataset_snapshot_exists("Data/data.csv", len(rows)) is True
+    assert store.dataset_snapshot_exists("Data/data.csv", len(rows) + 1) is False
+
+
+def test_upsert_dataset_batches_inserts_instead_of_one_per_row(tmp_path, monkeypatch) -> None:
+    """Bulk dataset writes must use multi-row INSERTs, not one statement per row.
+
+    The libSQL/Turso backend forwards every statement to the remote primary as
+    its own network round-trip, so a per-row write of a full dataset (~5,800
+    rows) takes ~20 minutes and looks like a frozen run. This guards against a
+    regression back to a per-row ``execute``/``executemany`` by asserting the
+    number of dataset INSERT statements scales by chunk, not by row count.
+    """
+    from contextlib import contextmanager
+
+    store = BenchmarkStore(tmp_path / "test.sqlite")
+    store.initialize()
+
+    insert_statements = 0
+
+    class CountingConnection:
+        def __init__(self, inner) -> None:
+            self._inner = inner
+
+        def execute(self, sql, params=None):
+            nonlocal insert_statements
+            if "INSERT INTO dataset_items" in sql:
+                insert_statements += 1
+            return self._inner.execute(sql) if params is None else self._inner.execute(sql, params)
+
+        def executemany(self, sql, seq):
+            nonlocal insert_statements
+            seq = list(seq)
+            if "INSERT INTO dataset_items" in sql:
+                # executemany against libSQL is a per-row round-trip -- the very
+                # pattern this test exists to forbid -- so count each row.
+                insert_statements += len(seq)
+            return self._inner.executemany(sql, seq)
+
+        def __getattr__(self, name):
+            return getattr(self._inner, name)
+
+    real_connect = store.connect
+
+    @contextmanager
+    def counting_connect():
+        with real_connect() as inner:
+            yield CountingConnection(inner)
+
+    monkeypatch.setattr(store, "connect", counting_connect)
+
+    def make_rows(count: int):
+        return [DatasetRow(i, f"sentence {i}", "positive", False, False, 1) for i in range(1, count + 1)]
+
+    rows = make_rows(500)
+    insert_statements = 0
+    store.upsert_dataset(rows, "Data/data.csv")
+
+    # A per-row write would emit 500 statements; batching keeps it to a handful
+    # (>= 10 rows per statement). The exact chunk size may be tuned, so assert the
+    # property, not a magic number.
+    assert insert_statements <= len(rows) // 10
+    # And the rows must actually be written correctly through the batched path.
+    with sqlite3.connect(tmp_path / "test.sqlite") as connection:
+        written = connection.execute("SELECT COUNT(*) FROM dataset_items").fetchone()[0]
+    assert written == len(rows)
+
+
+def test_sync_backend_syncs_libsql(monkeypatch, tmp_path) -> None:
+    class FakeConnection:
+        def __init__(self) -> None:
+            self.synced = 0
+            self.committed = 0
+            self.closed = False
+
+        def sync(self) -> None:
+            self.synced += 1
+
+        def commit(self) -> None:
+            self.committed += 1
+
+        def close(self) -> None:
+            self.closed = True
+
+    fake_connection = FakeConnection()
+
+    def fake_connect(path, **kwargs):
+        return fake_connection
+
+    monkeypatch.setitem(sys.modules, "libsql", SimpleNamespace(connect=fake_connect))
+    monkeypatch.setenv("SENTIMENT_BENCH_DB_BACKEND", "libsql")
+    monkeypatch.setenv("TURSO_DATABASE_URL", "libsql://example.turso.io")
+    monkeypatch.setenv("TURSO_AUTH_TOKEN", "token")
+    monkeypatch.setenv("TURSO_REPLICA_PATH", str(tmp_path / "replica.db"))
+
+    store = BenchmarkStore(tmp_path / "ignored.sqlite")
+
+    assert store.sync_backend() is True
+    assert fake_connection.synced == 1
+    assert fake_connection.committed == 1
+    assert fake_connection.closed is True
 
 
 def test_metrics_counts_invalid_as_wrong_and_excludes_conflicts() -> None:

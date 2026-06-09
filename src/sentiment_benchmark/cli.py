@@ -456,11 +456,12 @@ def list_runs_command(
     db_path: Annotated[Path, typer.Option("--db-path")] = DEFAULT_DB_PATH,
 ) -> None:
     """List stored benchmark runs (most recent first)."""
-    runs = BenchmarkStore(db_path).list_runs()
+    store = BenchmarkStore(db_path)
+    runs = store.list_runs()
     if not runs:
-        console.print(f"No runs found in {db_path}.")
+        console.print(f"No runs found in {store.storage_label()}.")
         return
-    table = Table(title=f"Benchmark Runs: {db_path}")
+    table = Table(title=f"Benchmark Runs: {store.storage_label()}")
     table.add_column("ID", justify="right")
     table.add_column("Created")
     table.add_column("Mode")

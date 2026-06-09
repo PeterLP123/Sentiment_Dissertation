@@ -23,7 +23,34 @@ TURSO_AUTH_TOKEN=your-database-token
 TURSO_REPLICA_PATH=results/turso_replica.db
 ```
 
-This creates an embedded local replica at `TURSO_REPLICA_PATH`, syncs from Turso when connections open, and syncs writes back to Turso after commits. Each machine should recreate its own `.venv/`, keep its own `.env`, and use its own local replica path while sharing the same Turso database URL and token.
+By default, `SENTIMENT_BENCH_DB_BACKEND=libsql` uses an embedded local replica backed by the hosted Turso database. Benchmark runs write locally for speed and sync to hosted when the run completes. If you want to bypass the replica for small administrative reads/writes, opt in explicitly:
+
+```text
+TURSO_CONNECTION_MODE=hosted
+```
+
+Replica mode writes to `TURSO_REPLICA_PATH` and syncs through Turso. Extra blocking syncs are opt-in:
+
+```text
+TURSO_SYNC_ON_CONNECT=1
+TURSO_SYNC_ON_COMMIT=1
+```
+
+You can also configure native background syncing in replica mode with `TURSO_SYNC_INTERVAL_SECONDS`. Use `TURSO_TIMEOUT_SECONDS` to adjust the hosted or replica connection timeout; it defaults to 5 seconds. Each machine should recreate its own `.venv/`, keep its own `.env`, and use its own local replica path while sharing the same Turso database URL and token.
+
+### Write performance and the "frozen run" symptom
+
+The native `libsql` backend forwards **every executed statement to the hosted Turso primary as its own network round-trip**, even in replica mode. A single round-trip is fast, but thousands of them are not: recording the source dataset row by row (~5,800 rows) would take roughly twenty minutes and looks exactly like a frozen run — the TUI live log stalls right after `Loading dataset:` with no error.
+
+Two design rules keep this in check, and any new code that writes to the store should follow them:
+
+- **Batch bulk writes.** Inserts of many rows (for example `BenchmarkStore.upsert_dataset`) are sent as chunked multi-row `INSERT … VALUES (…),(…),…` statements, capped under SQLite's bound-parameter limit, so a whole dataset is a few dozen round-trips instead of thousands. Never loop a per-row `execute`/`executemany` over a large list against this backend.
+- **Skip writes you do not need.** `upsert_dataset` only runs when `dataset_snapshot_exists` reports the dataset is not already recorded, so unchanged source rows are not re-uploaded on every run.
+
+Two other things that cause an apparent freeze, both avoided by the storage layer but worth knowing:
+
+- **Do not run two TUI instances against the same `TURSO_REPLICA_PATH`.** Two processes (or two threads) holding open connections to one embedded-replica file deadlock on the file lock. All libSQL access inside one process is serialized through a single lock so the benchmark worker thread and the UI refresh thread never collide; a second process bypasses that and will hang. If a run is stuck, check for a stray `sentiment-bench tui` process before anything else.
+- The connection `TURSO_TIMEOUT_SECONDS` covers SQL busy waits only — it does **not** bound a write-through or a replica file-lock wait, so neither of the above will time out on its own.
 
 Each benchmark run stores machine metadata so a shared Turso history can be traced back to the computer that produced it. Set a friendly label per machine in `.env`:
 

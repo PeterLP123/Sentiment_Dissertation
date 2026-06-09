@@ -13,6 +13,30 @@ class LibsqlConfigurationError(RuntimeError):
     """Raised when libSQL/Turso settings are missing or invalid."""
 
 
+def _env_flag(name: str, default: bool) -> bool:
+    value = os.getenv(name, "").strip().lower()
+    if not value:
+        return default
+    if value in {"1", "true", "yes", "on"}:
+        return True
+    if value in {"0", "false", "no", "off"}:
+        return False
+    raise LibsqlConfigurationError(f"{name} must be one of: 1, 0, true, false, yes, no, on, off")
+
+
+def _env_float(name: str, default: float) -> float:
+    value = os.getenv(name, "").strip()
+    if not value:
+        return default
+    try:
+        parsed = float(value)
+    except ValueError as exc:
+        raise LibsqlConfigurationError(f"{name} must be a number") from exc
+    if parsed <= 0:
+        raise LibsqlConfigurationError(f"{name} must be greater than 0")
+    return parsed
+
+
 class ResultRow:
     """Small row wrapper with sqlite3.Row-like name and index access."""
 
@@ -146,12 +170,11 @@ class LibsqlConnection:
             raise LibsqlConfigurationError("TURSO_DATABASE_URL is required when SENTIMENT_BENCH_DB_BACKEND=libsql")
         if not auth_token:
             raise LibsqlConfigurationError("TURSO_AUTH_TOKEN is required when SENTIMENT_BENCH_DB_BACKEND=libsql")
-        replica_path = Path(os.getenv("TURSO_REPLICA_PATH", "results/turso_replica.db"))
-        replica_path.parent.mkdir(parents=True, exist_ok=True)
-        sync_interval_raw = os.getenv("TURSO_SYNC_INTERVAL_SECONDS", "").strip()
-        kwargs: dict[str, Any] = {"sync_url": database_url, "auth_token": auth_token}
-        if sync_interval_raw:
-            kwargs["sync_interval"] = int(sync_interval_raw)
+        timeout = _env_float("TURSO_TIMEOUT_SECONDS", 5.0)
+        mode = os.getenv("TURSO_CONNECTION_MODE", "replica").strip().lower()
+        if mode not in {"hosted", "replica"}:
+            raise LibsqlConfigurationError("TURSO_CONNECTION_MODE must be 'hosted' or 'replica'")
+
         try:
             import libsql
         except ImportError as exc:
@@ -159,11 +182,28 @@ class LibsqlConnection:
                 "The libsql package is required for SENTIMENT_BENCH_DB_BACKEND=libsql. "
                 "Use Python 3.12 and install dependencies with: python -m pip install -e \".[dev]\""
             ) from exc
+
+        if mode == "hosted":
+            connection = libsql.connect(database_url, auth_token=auth_token, timeout=timeout)
+            return cls(connection, sync_on_commit=False)
+
+        replica_path = Path(os.getenv("TURSO_REPLICA_PATH", "results/turso_replica.db"))
+        replica_path.parent.mkdir(parents=True, exist_ok=True)
+        sync_interval_raw = os.getenv("TURSO_SYNC_INTERVAL_SECONDS", "").strip()
+        sync_on_connect = _env_flag("TURSO_SYNC_ON_CONNECT", False)
+        sync_on_commit = _env_flag("TURSO_SYNC_ON_COMMIT", False)
+        kwargs: dict[str, Any] = {
+            "sync_url": database_url,
+            "auth_token": auth_token,
+            "timeout": timeout,
+        }
+        if sync_interval_raw:
+            kwargs["sync_interval"] = int(sync_interval_raw)
         connection = libsql.connect(str(replica_path), **kwargs)
         sync = getattr(connection, "sync", None)
-        if callable(sync):
+        if sync_on_connect and callable(sync):
             sync()
-        return cls(connection, sync_on_commit=True)
+        return cls(connection, sync_on_commit=sync_on_commit)
 
     def execute(self, sql: str, params: Sequence[Any] | None = None) -> LibsqlCursor:
         cursor = self._connection.execute(sql, tuple(params or ()))
@@ -187,9 +227,14 @@ class LibsqlConnection:
     def commit(self) -> None:
         self._connection.commit()
         if self.sync_on_commit:
-            sync = getattr(self._connection, "sync", None)
-            if callable(sync):
-                sync()
+            self.sync()
+
+    def sync(self) -> bool:
+        sync = getattr(self._connection, "sync", None)
+        if callable(sync):
+            sync()
+            return True
+        return False
 
     def close(self) -> None:
         self._connection.close()

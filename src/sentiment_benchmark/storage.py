@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import asdict
@@ -22,8 +23,28 @@ from .self_consistency import (
 )
 
 
+# libSQL/Turso embedded-replica connections cannot be accessed concurrently:
+# two open connections to the same local replica file deadlock on the replica
+# file lock and hang forever (the connect `timeout` only covers SQL busy waits,
+# not this). In the TUI a benchmark worker thread continuously opens connections
+# to write responses while the UI thread opens connections to read the runs
+# table / leaderboard for refreshes -- the two collide and freeze the app. This
+# process-wide lock serializes every libSQL connection so they never overlap.
+# Plain SQLite uses its own busy-timeout file locking and is left unguarded.
+_LIBSQL_LOCK = threading.RLock()
+
+# Cap the number of bound parameters in a single multi-row INSERT so it stays
+# well under SQLite's variable limit (SQLITE_MAX_VARIABLE_NUMBER) across versions.
+_MAX_BULK_PARAMS = 900
+
+
 def utc_now() -> str:
     return datetime.now(UTC).isoformat()
+
+
+def _chunked(seq: list[Any], size: int) -> Iterator[list[Any]]:
+    for index in range(0, len(seq), size):
+        yield seq[index : index + size]
 
 
 def _table_columns(connection: Any, table_name: str) -> set[str]:
@@ -43,20 +64,46 @@ class BenchmarkStore:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.backend = os.getenv("SENTIMENT_BENCH_DB_BACKEND", "sqlite").strip().lower()
 
+    def storage_label(self) -> str:
+        if self.backend in {"libsql", "turso"}:
+            mode = os.getenv("TURSO_CONNECTION_MODE", "replica").strip().lower() or "replica"
+            if mode == "hosted":
+                return "Turso/libSQL hosted"
+            replica_path = os.getenv("TURSO_REPLICA_PATH", "results/turso_replica.db").strip()
+            return f"Turso/libSQL replica: {replica_path} (syncs to hosted)"
+        return f"SQLite: {self.db_path}"
+
     @contextmanager
     def connect(self) -> Iterator[Any]:
-        if self.backend in {"libsql", "turso"}:
-            connection = LibsqlConnection.from_env()
-        elif self.backend in {"sqlite", ""}:
-            connection = sqlite3.connect(self.db_path)
-            connection.row_factory = sqlite3.Row
-        else:
-            raise ValueError("SENTIMENT_BENCH_DB_BACKEND must be 'sqlite' or 'libsql'")
+        use_lock = self.backend in {"libsql", "turso"}
+        if use_lock:
+            _LIBSQL_LOCK.acquire()
         try:
-            yield connection
-            connection.commit()
+            if self.backend in {"libsql", "turso"}:
+                connection = LibsqlConnection.from_env()
+            elif self.backend in {"sqlite", ""}:
+                connection = sqlite3.connect(self.db_path)
+                connection.row_factory = sqlite3.Row
+            else:
+                raise ValueError("SENTIMENT_BENCH_DB_BACKEND must be 'sqlite' or 'libsql'")
+            try:
+                yield connection
+                connection.commit()
+            finally:
+                connection.close()
         finally:
-            connection.close()
+            if use_lock:
+                _LIBSQL_LOCK.release()
+
+    def sync_backend(self) -> bool:
+        if self.backend not in {"libsql", "turso"}:
+            return False
+        with self.connect() as connection:
+            sync = getattr(connection, "sync", None)
+            if not callable(sync):
+                return False
+            synced = sync()
+            return bool(synced) if synced is not None else True
 
     def initialize(self) -> None:
         with self.connect() as connection:
@@ -71,6 +118,12 @@ class BenchmarkStore:
                     duplicate_group_size INTEGER NOT NULL,
                     dataset_path TEXT NOT NULL,
                     loaded_at TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS dataset_snapshots (
+                    dataset_path TEXT PRIMARY KEY,
+                    row_count INTEGER NOT NULL,
+                    recorded_at TEXT NOT NULL
                 );
 
                 CREATE TABLE IF NOT EXISTS prompts (
@@ -220,13 +273,31 @@ class BenchmarkStore:
 
     def upsert_dataset(self, rows: list[DatasetRow], dataset_path: str) -> None:
         loaded_at = utc_now()
-        with self.connect() as connection:
-            connection.executemany(
-                """
-                INSERT INTO dataset_items (
-                    row_number, sentence, hidden_label, is_duplicate, has_conflicting_duplicate,
-                    duplicate_group_size, dataset_path, loaded_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        columns = (
+            "row_number",
+            "sentence",
+            "hidden_label",
+            "is_duplicate",
+            "has_conflicting_duplicate",
+            "duplicate_group_size",
+            "dataset_path",
+            "loaded_at",
+        )
+        records = [
+            (
+                row.row_number,
+                row.sentence,
+                row.hidden_label,
+                int(row.is_duplicate),
+                int(row.has_conflicting_duplicate),
+                row.duplicate_group_size,
+                dataset_path,
+                loaded_at,
+            )
+            for row in rows
+        ]
+        placeholder = "(" + ", ".join(["?"] * len(columns)) + ")"
+        conflict_clause = """
                 ON CONFLICT(row_number) DO UPDATE SET
                     sentence=excluded.sentence,
                     hidden_label=excluded.hidden_label,
@@ -235,21 +306,51 @@ class BenchmarkStore:
                     duplicate_group_size=excluded.duplicate_group_size,
                     dataset_path=excluded.dataset_path,
                     loaded_at=excluded.loaded_at
+        """
+        chunk_size = max(1, _MAX_BULK_PARAMS // len(columns))
+        with self.connect() as connection:
+            # libSQL/Turso embedded replicas forward every statement to the remote
+            # primary, so a per-row executemany of the whole dataset becomes
+            # thousands of network round-trips (minutes -- the run looks frozen).
+            # Batch into multi-row INSERTs so each chunk is a single round-trip.
+            for chunk in _chunked(records, chunk_size):
+                values_sql = ", ".join([placeholder] * len(chunk))
+                connection.execute(
+                    f"INSERT INTO dataset_items ({', '.join(columns)}) VALUES {values_sql}"
+                    + conflict_clause,
+                    [value for record in chunk for value in record],
+                )
+            connection.execute(
+                """
+                INSERT INTO dataset_snapshots (dataset_path, row_count, recorded_at)
+                VALUES (?, ?, ?)
+                ON CONFLICT(dataset_path) DO UPDATE SET
+                    row_count=excluded.row_count,
+                    recorded_at=excluded.recorded_at
                 """,
-                [
-                    (
-                        row.row_number,
-                        row.sentence,
-                        row.hidden_label,
-                        int(row.is_duplicate),
-                        int(row.has_conflicting_duplicate),
-                        row.duplicate_group_size,
-                        dataset_path,
-                        loaded_at,
-                    )
-                    for row in rows
-                ],
+                (dataset_path, len(rows), loaded_at),
             )
+
+    def dataset_snapshot_exists(self, dataset_path: str, row_count: int) -> bool:
+        with self.connect() as connection:
+            try:
+                row = connection.execute(
+                    "SELECT row_count FROM dataset_snapshots WHERE dataset_path = ?",
+                    (dataset_path,),
+                ).fetchone()
+            except Exception:
+                row = None
+            if row is not None and int(row["row_count"]) == row_count:
+                return True
+
+            # Backward-compatible fallback for databases populated before
+            # dataset_snapshots existed. This avoids re-uploading thousands of
+            # unchanged source rows to hosted libSQL on every run.
+            row = connection.execute(
+                "SELECT COUNT(*) AS row_count FROM dataset_items WHERE dataset_path = ?",
+                (dataset_path,),
+            ).fetchone()
+        return row is not None and int(row["row_count"]) == row_count
 
     def save_prompt(self, prompt: PromptConfig) -> None:
         with self.connect() as connection:
