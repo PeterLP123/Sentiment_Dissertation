@@ -709,6 +709,8 @@ def test_tui_view_figures_opens_generated_figures(tmp_path: Path, monkeypatch: p
 
             monkeypatch.setattr(app, "_open_path", fake_open)
             app._view_figures()
+            await app.workers.wait_for_complete()
+            await pilot.pause()
 
             assert opened.get("path") == figures_dir
             assert any(
@@ -731,6 +733,8 @@ def test_tui_view_figures_without_plots_hints_install(tmp_path: Path, monkeypatc
             await pilot.pause(0.1)
             app._active_run_id = 1
             app._view_figures()
+            await app.workers.wait_for_complete()
+            await pilot.pause()
             assert any(
                 severity == "error" and ".[figures]" in message
                 for severity, message in app.notifications
@@ -1435,6 +1439,59 @@ def test_tui_compare_rejects_blank_or_identical_targets(tmp_path: Path) -> None:
             app.notifications.clear()
             app._compare_models_action()
             assert any("two different" in message for _, message in app.notifications)
+
+    asyncio.run(scenario())
+
+
+def test_tui_runs_table_sorts_on_header_click(tmp_path: Path) -> None:
+    db_path = tmp_path / "bench.sqlite"
+    store = BenchmarkStore(db_path)
+    store.initialize()
+    prompt = PromptConfig("p", "sys", "{sentence}", "label_only", "hash123456")
+    store.save_prompt(prompt)
+    # Insert in this order so ids are 1,2,3 with non-monotonic created_at.
+    seeded = [
+        ("2026-06-01T10:00:00+00:00", "full"),  # id 1
+        ("2026-06-03T10:00:00+00:00", "pilot"),  # id 2 (newest)
+        ("2026-06-02T10:00:00+00:00", "pilot"),  # id 3
+    ]
+    with sqlite3.connect(db_path) as connection:
+        for created_at, mode in seeded:
+            connection.execute(
+                "INSERT INTO runs (created_at, mode, prompt_hash, output_mode, models_json, "
+                "selected_rows_json, dataset_path, base_url, request_json, status) "
+                "VALUES (?, ?, ?, 'label_only', '[\"m/a\"]', '[]', 'Data/data.csv', 'x', '{}', 'completed')",
+                (created_at, mode, prompt.prompt_hash),
+            )
+        connection.commit()
+
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        app.db_path = db_path
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            app._refresh_runs_table()
+            await pilot.pause()
+            table = app.query_one("#runs-table", DataTable)
+            column_keys = list(table.columns.keys())
+
+            def ids() -> list[str]:
+                return [str(table.get_row_at(i)[0]) for i in range(table.row_count)]
+
+            assert ids() == ["3", "2", "1"]  # default: most recent id first
+
+            # Click "Created" (index 1): first click sorts descending by date.
+            app.on_data_table_header_selected(DataTable.HeaderSelected(table, column_keys[1], 1, "Created"))
+            await pilot.pause()
+            assert app._runs_sort == (1, False)
+            assert ids() == ["2", "3", "1"]  # 06-03, 06-02, 06-01
+
+            # Clicking the same header toggles to ascending.
+            app.on_data_table_header_selected(DataTable.HeaderSelected(table, column_keys[1], 1, "Created"))
+            await pilot.pause()
+            assert app._runs_sort == (1, True)
+            assert ids() == ["1", "3", "2"]
+            assert "Sorted by Created" in str(app.query_one("#runs-help", Static).render())
 
     asyncio.run(scenario())
 

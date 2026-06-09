@@ -8,6 +8,7 @@ import os
 import re
 import subprocess
 import time
+from contextlib import contextmanager
 from dataclasses import replace
 from pathlib import Path
 from threading import Event as ThreadEvent
@@ -15,7 +16,7 @@ from threading import Event as ThreadEvent
 from rich.markup import escape
 from rich.text import Text
 from textual.app import App, ComposeResult
-from textual.containers import Container, Horizontal
+from textual.containers import Container, Horizontal, Vertical, VerticalScroll
 from textual.coordinate import Coordinate
 from textual.screen import ModalScreen
 from textual.validation import Integer, Number, ValidationResult
@@ -119,6 +120,11 @@ _STATUS_COLORS = {
 }
 
 
+def _num(value: object, style: str | None = None) -> Text:
+    """A right-aligned numeric cell so magnitudes line up down a column."""
+    return Text(str(value), style=style or "", justify="right")
+
+
 def _accuracy_text(value: float, *, bold: bool = False) -> Text:
     """Colour an accuracy/F1 score on a traffic-light scale."""
     if value >= 0.8:
@@ -127,7 +133,7 @@ def _accuracy_text(value: float, *, bold: bool = False) -> Text:
         color = "yellow"
     else:
         color = "red"
-    return Text(f"{value:.4f}", style=f"bold {color}" if bold else color)
+    return Text(f"{value:.4f}", style=f"bold {color}" if bold else color, justify="right")
 
 
 def _status_text(status: str) -> Text:
@@ -138,25 +144,25 @@ def _status_text(status: str) -> Text:
 
 def _count_text(value: int) -> Text:
     """Red when there is something to worry about (errors/invalids), dim otherwise."""
-    return Text(str(value), style="red" if value > 0 else "grey58")
+    return Text(str(value), style="red" if value > 0 else "grey58", justify="right")
 
 
 def _latency_text(value: float | None) -> Text:
     if not isinstance(value, (int, float)):
-        return Text("-", style="grey58")
-    return Text(f"{value:.0f} ms")
+        return Text("-", style="grey58", justify="right")
+    return Text(f"{value:.0f} ms", justify="right")
 
 
 def _tokens_text(value: int | None) -> Text:
     if not isinstance(value, (int, float)) or value == 0:
-        return Text("-", style="grey58")
-    return Text(f"{int(value):,}")
+        return Text("-", style="grey58", justify="right")
+    return Text(f"{int(value):,}", justify="right")
 
 
 def _cost_text(value: float | None) -> Text:
     if not isinstance(value, (int, float)):
-        return Text("-", style="grey58")
-    return Text(f"${value:.4f}", style="cyan")
+        return Text("-", style="grey58", justify="right")
+    return Text(f"${value:.4f}", style="cyan", justify="right")
 
 
 def _monitor_field_style(key: str, value: str) -> str:
@@ -187,6 +193,32 @@ def _monitor_text(message: str) -> Text:
         cursor = match.end()
     text.append(message[cursor:])
     return text
+
+
+# Sort metadata for the clickable Results tables. Each column index maps to
+# (header label, ascending-on-first-click, key extractor). Numeric/date columns
+# default to descending (most recent / highest first); text columns to ascending.
+_RUNS_SORT_COLUMNS: dict[int, tuple] = {
+    0: ("ID", False, lambda run: int(run["id"])),
+    1: ("Created", False, lambda run: run["created_at"] or ""),
+    2: ("Mode", True, lambda run: run["mode"] or ""),
+    3: ("Status", True, lambda run: run["status"] or ""),
+    4: ("Machine", True, lambda run: (run["machine_label"] or run["machine_id"] or "").lower()),
+    5: ("Models", False, lambda run: len(json.loads(run["models_json"]) if run["models_json"] else [])),
+}
+_LEADERBOARD_SORT_COLUMNS: dict[int, tuple] = {
+    0: ("Model", True, "model_id"),
+    1: ("Best Acc", False, "accuracy"),
+    2: ("Macro F1", False, "macro_f1"),
+    3: ("Best run", False, "run_id"),
+    4: ("Runs", False, "runs"),
+    5: ("Rows", False, "row_count"),
+}
+_RUNS_HELP_BASE = "Press Enter on a row to load metrics for that run. Click a column header to sort."
+_LEADERBOARD_HELP_BASE = (
+    "Best accuracy each model has reached across all stored runs at the chosen scope. "
+    "Macro F1, best run id, and run count are for that best run. Click a column header to sort."
+)
 
 
 class ConfirmScreen(ModalScreen[bool]):
@@ -382,9 +414,21 @@ class SentimentBenchmarkApp(App):
         max-height: 10;
         margin-bottom: 1;
     }
-    #monitor {
-        height: 12;
+    #run-monitor {
+        height: 16;
         margin-bottom: 1;
+    }
+    #run-monitor-left {
+        width: 1fr;
+        height: 100%;
+        padding-right: 1;
+    }
+    #run-monitor-right {
+        width: 1fr;
+        height: 100%;
+    }
+    #monitor {
+        height: 1fr;
         border: solid $accent;
     }
     #news-log {
@@ -392,10 +436,26 @@ class SentimentBenchmarkApp(App):
         margin-bottom: 1;
         border: solid $accent;
     }
+    #results-scroll, #run-scroll {
+        height: 1fr;
+    }
+    .card {
+        height: auto;
+        border: round $accent;
+        padding: 0 1 1 1;
+        margin-bottom: 1;
+    }
+    .card > .section-title {
+        margin-top: 0;
+    }
+    .toolbar {
+        height: auto;
+        margin-top: 1;
+    }
     #runs-table {
         height: auto;
         max-height: 10;
-        margin-bottom: 1;
+        margin-bottom: 0;
     }
     #leaderboard-table {
         height: auto;
@@ -465,6 +525,19 @@ class SentimentBenchmarkApp(App):
         ("g", "run_queue", "Run queue"),
         ("b", "run_baselines", "Baselines"),
         ("c", "cancel_run", "Cancel"),
+        ("ctrl+t", "cycle_theme", "Theme"),
+    ]
+
+    # A small curated rotation for the Theme keybinding; the full set is still
+    # reachable through the command palette (ctrl+p).
+    THEME_CYCLE = [
+        "textual-dark",
+        "nord",
+        "gruvbox",
+        "tokyo-night",
+        "catppuccin-mocha",
+        "textual-light",
+        "solarized-light",
     ]
 
     def __init__(self) -> None:
@@ -527,6 +600,10 @@ class SentimentBenchmarkApp(App):
         self._queue_uid_counter: int = 0
         self._queue_running: bool = False
         self._queue_cancel: bool = False
+        self._theme_name = "textual-dark"
+        self._button_labels: dict[str, object] = {}
+        self._runs_sort: tuple[int, bool] | None = None
+        self._leaderboard_sort: tuple[int, bool] | None = None
         self._load_session()
         self._load_queue()
 
@@ -542,7 +619,8 @@ class SentimentBenchmarkApp(App):
                 )
                 yield Static(id="dashboard")
                 yield Static(id="dashboard-resource-monitor")
-                yield Button("Refresh Dashboard", id="refresh-dashboard")
+                with Horizontal(classes="toolbar"):
+                    yield Button("Refresh Dashboard", id="refresh-dashboard")
             with TabPane("Models", id="models-tab"):
                 yield Static(
                     "Step 1: choose the models to test. Fetch models to browse available IDs, "
@@ -570,9 +648,10 @@ class SentimentBenchmarkApp(App):
                     classes="help",
                 )
                 yield Input(placeholder="gpt-oss:120b-cloud or openai/gpt-4o-mini", id="manual-model")
-                yield Button("Add Model", id="add-model")
-                yield Button("Fetch Models", id="fetch-models")
-                yield Button("Loaded in Ollama", id="fetch-loaded")
+                with Horizontal(classes="toolbar"):
+                    yield Button("Add Model", id="add-model", variant="primary")
+                    yield Button("Fetch Models", id="fetch-models")
+                    yield Button("Loaded in Ollama", id="fetch-loaded")
                 yield Static(id="ollama-loaded")
                 yield Static("Selected models", classes="section-title")
                 yield Static(id="selected-summary")
@@ -632,275 +711,285 @@ class SentimentBenchmarkApp(App):
                 yield Button("Save Prompt", id="save-prompt")
                 yield Static(id="prompt-preview")
             with TabPane("Run", id="run-tab"):
-                yield Static(id="run-stepper")
-                yield Static(
-                    "Step 3: run the benchmark. Pilot is the safe default: 30 rows from each class, 90 calls per selected model. "
-                    "Full uses all 5,842 rows per model and may cost more.",
-                    classes="help",
-                )
-                yield Static(id="run-estimate")
-                yield Static("Run mode", classes="field-label")
-                yield Static(
-                    "Pilot is a small stratified test. Full processes every row in Data/data.csv.",
-                    classes="help",
-                )
-                with RadioSet(id="run-mode"):
-                    yield RadioButton("Pilot", value=True, id="mode-pilot")
-                    yield RadioButton("Full", id="mode-full")
-                yield Static("Sample per class", classes="field-label")
-                yield Static(
-                    "Pilot only. 30 means 30 positive, 30 negative, and 30 neutral rows.",
-                    classes="help",
-                )
-                yield Input(
-                    value="30",
-                    placeholder="sample per class",
-                    id="sample-per-class",
-                    type="integer",
-                    validators=[Integer(minimum=1, maximum=10000)],
-                )
-                yield Static(
-                    "Whole number ≥ 1.",
-                    id="hint-sample-per-class",
-                    classes="validation-hint",
-                )
-                with Collapsible(
-                    title="Advanced settings — seed, concurrency, temperature, tokens",
-                    collapsed=True,
-                    id="advanced-settings",
-                ):
-                    yield Static("Random seed", classes="field-label")
+                with VerticalScroll(id="run-scroll"):
+                    yield Static(id="run-stepper")
                     yield Static(
-                        "Controls which rows are selected for pilot runs so experiments are reproducible.",
+                        "Step 3: run the benchmark. Pilot is the safe default: 30 rows from each class, 90 calls per selected model. "
+                        "Full uses all 5,842 rows per model and may cost more.",
+                        classes="help",
+                    )
+                    yield Static(id="run-estimate")
+                    yield Static("Run mode", classes="field-label")
+                    yield Static(
+                        "Pilot is a small stratified test. Full processes every row in Data/data.csv.",
+                        classes="help",
+                    )
+                    with RadioSet(id="run-mode"):
+                        yield RadioButton("Pilot", value=True, id="mode-pilot")
+                        yield RadioButton("Full", id="mode-full")
+                    yield Static("Sample per class", classes="field-label")
+                    yield Static(
+                        "Pilot only. 30 means 30 positive, 30 negative, and 30 neutral rows.",
                         classes="help",
                     )
                     yield Input(
-                        value="42",
-                        placeholder="seed",
-                        id="seed",
+                        value="30",
+                        placeholder="sample per class",
+                        id="sample-per-class",
                         type="integer",
-                        validators=[Integer(minimum=0)],
+                        validators=[Integer(minimum=1, maximum=10000)],
                     )
                     yield Static(
-                        "Non-negative whole number.",
-                        id="hint-seed",
+                        "Whole number ≥ 1.",
+                        id="hint-sample-per-class",
                         classes="validation-hint",
                     )
-                    yield Static("Concurrency", classes="field-label")
-                    yield Static(
-                        "Number of simultaneous API calls. Keep this at 1 unless you are comfortable with rate limits.",
-                        classes="help",
-                    )
-                    yield Input(
-                        value="1",
-                        placeholder="concurrency",
-                        id="concurrency",
-                        type="integer",
-                        validators=[Integer(minimum=1, maximum=64)],
-                    )
-                    yield Static(
-                        "Whole number between 1 and 64.",
-                        id="hint-concurrency",
-                        classes="validation-hint",
-                    )
-                    yield Static("Temperature", classes="field-label")
-                    yield Static("0 is recommended for deterministic classification.", classes="help")
-                    yield Input(
-                        value="0",
-                        placeholder="temperature",
-                        id="temperature",
-                        type="number",
-                        validators=[Number(minimum=0.0, maximum=2.0)],
-                    )
-                    yield Static(
-                        "Number between 0.0 and 2.0.",
-                        id="hint-temperature",
-                        classes="validation-hint",
-                    )
-                    yield Static("Max completion tokens", classes="field-label")
-                    yield Static(
-                        "64 is recommended. Some reasoning-capable models reject tiny limits or spend them before emitting a label.",
-                        classes="help",
-                    )
-                    yield Input(
-                        value=str(DEFAULT_MAX_COMPLETION_TOKENS),
-                        placeholder="max completion tokens",
-                        id="max-tokens",
-                        type="integer",
-                        validators=[Integer(minimum=16, maximum=8192)],
-                    )
-                    yield Static(
-                        "Whole number between 16 and 8192.",
-                        id="hint-max-tokens",
-                        classes="validation-hint",
-                    )
-                    yield Static("Ollama thinking", classes="field-label")
-                    yield Static(
-                        "Disable thinking for short classification runs so reasoning tokens do not consume the answer budget.",
-                        classes="help",
-                    )
-                    yield Checkbox(
-                        "Disable Ollama thinking",
-                        value=self.disable_ollama_thinking,
-                        id="disable-ollama-thinking",
-                    )
-                    yield Static(
-                        "",
-                        id="ollama-thinking-recommendation",
-                        classes="validation-hint",
-                    )
-                with Collapsible(
-                    title="Baselines \u2014 non-LLM comparators (optional)",
-                    collapsed=True,
-                    id="baselines-section",
-                ):
-                    yield Static(
-                        "Non-LLM comparators evaluated on the same rows (uses the run mode, seed, and sample-per-class above). "
-                        "Fitted baselines are scored out-of-fold; vader and finbert need optional dependencies.",
-                        classes="help",
-                    )
-                    for _name, _spec in BASELINE_SPECS.items():
-                        _available = _baseline_available(_spec)
-                        _label = f"{_name} \u2014 {_spec.description}"
-                        if not _available:
-                            _label += f"  ({_baseline_install_hint(_name)})"
-                        yield Checkbox(
-                            _label,
-                            value=_name in DEFAULT_BASELINES and _available,
-                            id=f"baseline-{_name}",
-                            disabled=not _available,
+                    with Collapsible(
+                        title="Advanced settings — seed, concurrency, temperature, tokens",
+                        collapsed=True,
+                        id="advanced-settings",
+                    ):
+                        yield Static("Random seed", classes="field-label")
+                        yield Static(
+                            "Controls which rows are selected for pilot runs so experiments are reproducible.",
+                            classes="help",
                         )
-                with Horizontal(id="run-controls"):
-                    yield Button("Start Run", id="start-run", variant="primary")
-                    yield Button("Run Baselines", id="run-baselines", variant="success")
-                    yield Button("Cancel Run", id="cancel-run", disabled=True, variant="error")
-                yield Static("Experiment queue", classes="section-title")
-                yield Static(
-                    "Snapshot the current models, prompt, and run settings as a queued experiment, then run several "
-                    "back to back. Each experiment is stored as its own run. The queue is saved to results/tui_queue.json. "
-                    "Press Enter on a row to remove it; Move/Clone act on the highlighted row.",
-                    classes="help",
-                )
-                yield Static(id="queue-summary")
-                with Horizontal(id="queue-controls"):
-                    yield Button("Add to Queue", id="add-to-queue", variant="primary")
-                    yield Button("Run Queue", id="run-queue", variant="success")
-                    yield Button("Clear Queue", id="clear-queue", variant="error")
-                with Horizontal(id="queue-row-controls"):
-                    yield Button("Move Up", id="queue-move-up")
-                    yield Button("Move Down", id="queue-move-down")
-                    yield Button("Clone", id="queue-clone")
-                yield DataTable(id="queue-table")
-                with Collapsible(
-                    title="Sweep builder — queue many experiments at once",
-                    collapsed=True,
-                    id="sweep-builder",
-                ):
+                        yield Input(
+                            value="42",
+                            placeholder="seed",
+                            id="seed",
+                            type="integer",
+                            validators=[Integer(minimum=0)],
+                        )
+                        yield Static(
+                            "Non-negative whole number.",
+                            id="hint-seed",
+                            classes="validation-hint",
+                        )
+                        yield Static("Concurrency", classes="field-label")
+                        yield Static(
+                            "Number of simultaneous API calls. Keep this at 1 unless you are comfortable with rate limits.",
+                            classes="help",
+                        )
+                        yield Input(
+                            value="1",
+                            placeholder="concurrency",
+                            id="concurrency",
+                            type="integer",
+                            validators=[Integer(minimum=1, maximum=64)],
+                        )
+                        yield Static(
+                            "Whole number between 1 and 64.",
+                            id="hint-concurrency",
+                            classes="validation-hint",
+                        )
+                        yield Static("Temperature", classes="field-label")
+                        yield Static("0 is recommended for deterministic classification.", classes="help")
+                        yield Input(
+                            value="0",
+                            placeholder="temperature",
+                            id="temperature",
+                            type="number",
+                            validators=[Number(minimum=0.0, maximum=2.0)],
+                        )
+                        yield Static(
+                            "Number between 0.0 and 2.0.",
+                            id="hint-temperature",
+                            classes="validation-hint",
+                        )
+                        yield Static("Max completion tokens", classes="field-label")
+                        yield Static(
+                            "64 is recommended. Some reasoning-capable models reject tiny limits or spend them before emitting a label.",
+                            classes="help",
+                        )
+                        yield Input(
+                            value=str(DEFAULT_MAX_COMPLETION_TOKENS),
+                            placeholder="max completion tokens",
+                            id="max-tokens",
+                            type="integer",
+                            validators=[Integer(minimum=16, maximum=8192)],
+                        )
+                        yield Static(
+                            "Whole number between 16 and 8192.",
+                            id="hint-max-tokens",
+                            classes="validation-hint",
+                        )
+                        yield Static("Ollama thinking", classes="field-label")
+                        yield Static(
+                            "Disable thinking for short classification runs so reasoning tokens do not consume the answer budget.",
+                            classes="help",
+                        )
+                        yield Checkbox(
+                            "Disable Ollama thinking",
+                            value=self.disable_ollama_thinking,
+                            id="disable-ollama-thinking",
+                        )
+                        yield Static(
+                            "",
+                            id="ollama-thinking-recommendation",
+                            classes="validation-hint",
+                        )
+                    with Collapsible(
+                        title="Baselines \u2014 non-LLM comparators (optional)",
+                        collapsed=True,
+                        id="baselines-section",
+                    ):
+                        yield Static(
+                            "Non-LLM comparators evaluated on the same rows (uses the run mode, seed, and sample-per-class above). "
+                            "Fitted baselines are scored out-of-fold; vader and finbert need optional dependencies.",
+                            classes="help",
+                        )
+                        for _name, _spec in BASELINE_SPECS.items():
+                            _available = _baseline_available(_spec)
+                            _label = f"{_name} \u2014 {_spec.description}"
+                            if not _available:
+                                _label += f"  ({_baseline_install_hint(_name)})"
+                            yield Checkbox(
+                                _label,
+                                value=_name in DEFAULT_BASELINES and _available,
+                                id=f"baseline-{_name}",
+                                disabled=not _available,
+                            )
+                    with Horizontal(id="run-controls"):
+                        yield Button("Start Run", id="start-run", variant="primary")
+                        yield Button("Run Baselines", id="run-baselines", variant="success")
+                        yield Button("Cancel Run", id="cancel-run", disabled=True, variant="error")
+                    yield Static("Experiment queue", classes="section-title")
                     yield Static(
-                        "Expand the current models, prompt, and settings into several queued experiments that "
-                        "vary one axis. Everything else stays fixed.",
+                        "Snapshot the current models, prompt, and run settings as a queued experiment, then run several "
+                        "back to back. Each experiment is stored as its own run. The queue is saved to results/tui_queue.json. "
+                        "Press Enter on a row to remove it; Move/Clone act on the highlighted row.",
                         classes="help",
                     )
-                    yield Static("Axis", classes="field-label")
-                    yield Select(
-                        [
-                            ("Temperatures", "temperature"),
-                            ("Prompt presets", "prompt"),
-                            ("One experiment per model", "model"),
-                        ],
-                        id="sweep-axis",
-                        value="temperature",
-                        allow_blank=False,
-                    )
-                    yield Static("Values", classes="field-label")
-                    yield Static(
-                        "Temperatures: comma list, e.g. 0,0.3,0.7. "
-                        "Prompt presets: comma list of preset ids (blank = every preset). "
-                        "Per model: this box is ignored; each selected model becomes its own experiment.",
-                        classes="help",
-                    )
-                    yield Input(placeholder="0,0.3,0.7", id="sweep-values")
-                    yield Button("Add Sweep to Queue", id="add-sweep", variant="primary")
-                yield Static("Progress", classes="section-title")
-                yield ProgressBar(id="run-progress-bar", total=100, show_percentage=True, show_eta=True)
-                yield DataTable(id="run-progress")
-                yield Static(id="run-resource-monitor")
-                yield Static("Live log", classes="section-title")
-                yield RichLog(id="monitor", highlight=False, markup=False, wrap=True)
+                    yield Static(id="queue-summary")
+                    with Horizontal(id="queue-controls"):
+                        yield Button("Add to Queue", id="add-to-queue", variant="primary")
+                        yield Button("Run Queue", id="run-queue", variant="success")
+                        yield Button("Clear Queue", id="clear-queue", variant="error")
+                    with Horizontal(id="queue-row-controls"):
+                        yield Button("Move Up", id="queue-move-up")
+                        yield Button("Move Down", id="queue-move-down")
+                        yield Button("Clone", id="queue-clone")
+                    yield DataTable(id="queue-table")
+                    with Collapsible(
+                        title="Sweep builder — queue many experiments at once",
+                        collapsed=True,
+                        id="sweep-builder",
+                    ):
+                        yield Static(
+                            "Expand the current models, prompt, and settings into several queued experiments that "
+                            "vary one axis. Everything else stays fixed.",
+                            classes="help",
+                        )
+                        yield Static("Axis", classes="field-label")
+                        yield Select(
+                            [
+                                ("Temperatures", "temperature"),
+                                ("Prompt presets", "prompt"),
+                                ("One experiment per model", "model"),
+                            ],
+                            id="sweep-axis",
+                            value="temperature",
+                            allow_blank=False,
+                        )
+                        yield Static("Values", classes="field-label")
+                        yield Static(
+                            "Temperatures: comma list, e.g. 0,0.3,0.7. "
+                            "Prompt presets: comma list of preset ids (blank = every preset). "
+                            "Per model: this box is ignored; each selected model becomes its own experiment.",
+                            classes="help",
+                        )
+                        yield Input(placeholder="0,0.3,0.7", id="sweep-values")
+                        yield Button("Add Sweep to Queue", id="add-sweep", variant="primary")
+                    yield Static("Live monitor", classes="section-title")
+                    with Horizontal(id="run-monitor"):
+                        with Vertical(id="run-monitor-left"):
+                            yield Static("Progress", classes="field-label")
+                            yield ProgressBar(id="run-progress-bar", total=100, show_percentage=True, show_eta=True)
+                            yield DataTable(id="run-progress")
+                            yield Static(id="run-resource-monitor")
+                        with Vertical(id="run-monitor-right"):
+                            yield Static("Live log", classes="field-label")
+                            yield RichLog(id="monitor", highlight=False, markup=False, wrap=True)
             with TabPane("Results", id="results-tab"):
-                yield Static(
-                    "Step 4: review completed runs. Pick a run from the list to load its metrics.",
-                    classes="help",
-                )
-                yield Static(id="results-help")
-                yield Static("Recent runs", classes="section-title")
-                yield Static(
-                    "Press Enter on a row to load metrics for that run.",
-                    classes="help",
-                )
-                yield DataTable(id="runs-table")
-                yield Button("Refresh Runs", id="refresh-runs")
-                yield Button("Export Selected Run", id="export-run")
-                yield Button("View Figures", id="view-figures", variant="primary")
-                yield Button("Open Exports Folder", id="open-exports")
-                yield Static("Leaderboard — best run per model", classes="section-title")
-                yield Static(
-                    "Best accuracy each model has reached across all stored runs at the chosen scope. "
-                    "Macro F1, best run id, and run count are for that best run.",
-                    classes="help",
-                )
-                with Horizontal(id="leaderboard-controls"):
-                    yield Select(
-                        [("Primary (excludes conflicting duplicates)", "primary"), ("All scored rows", "all")],
-                        id="leaderboard-scope",
-                        value="primary",
-                        allow_blank=False,
+                with VerticalScroll(id="results-scroll"):
+                    yield Static(
+                        "Step 4: review completed runs. Pick a run from the list to load its metrics.",
+                        classes="help",
                     )
-                    yield Button("Refresh Leaderboard", id="refresh-leaderboard")
-                yield DataTable(id="leaderboard-table")
-                yield Static("Metrics", classes="section-title")
-                yield Static(
-                    "Press Enter on a metric row to see its per-class precision, recall, F1, and support.",
-                    classes="help",
-                )
-                yield DataTable(id="metrics-table")
-                yield Static("Per-class breakdown", classes="section-title")
-                yield DataTable(id="perclass-table")
-                yield Static("Confusion matrix", classes="section-title")
-                yield Static(
-                    "Rows = actual label, columns = predicted (incl. invalid/error). Select a metric row above to populate.",
-                    classes="help",
-                )
-                yield DataTable(id="confusion-table")
-                yield Static("Misclassified and failed rows", classes="section-title")
-                yield Static(
-                    "Load a run to see mismatches. Select a metric row to filter by model/scope; press Enter on a row for details.",
-                    classes="help",
-                )
-                yield DataTable(id="misclassified-table")
-                yield Static(
-                    "Select a misclassified row to inspect the sentence and raw model output.",
-                    id="misclassified-detail",
-                )
-                yield Static("Compare two runs", classes="section-title")
-                yield Static(
-                    "Pick two run/model targets to test whether their accuracy differs on the rows they share "
-                    "(paired McNemar test + bootstrap confidence intervals).",
-                    classes="help",
-                )
-                yield Static("Target A", classes="field-label")
-                yield Select([], id="compare-a", prompt="Pick run · model")
-                yield Static("Target B", classes="field-label")
-                yield Select([], id="compare-b", prompt="Pick run · model")
-                yield Static("Scope", classes="field-label")
-                yield Select(
-                    [("Primary (excludes conflicting duplicates)", "primary"), ("All scored rows", "all")],
-                    id="compare-scope",
-                    value="primary",
-                    allow_blank=False,
-                )
-                yield Button("Compare", id="compare-run", variant="primary")
-                yield Static("Pick two targets and press Compare.", id="compare-result")
+                    yield Static(id="results-help")
+
+                    with Container(classes="card"):
+                        yield Static("Recent runs", classes="section-title")
+                        yield Static(_RUNS_HELP_BASE, id="runs-help", classes="help")
+                        yield DataTable(id="runs-table")
+                        with Horizontal(classes="toolbar"):
+                            yield Button("Refresh Runs", id="refresh-runs")
+                            yield Button("Export Selected Run", id="export-run")
+                            yield Button("View Figures", id="view-figures", variant="primary")
+                            yield Button("Open Exports Folder", id="open-exports")
+
+                    with Container(classes="card"):
+                        yield Static("Metrics", classes="section-title")
+                        yield Static(
+                            "Press Enter on a run above to load its metrics, then on a metric row "
+                            "to drill into per-class scores and the confusion matrix.",
+                            classes="help",
+                        )
+                        yield DataTable(id="metrics-table")
+                        with Collapsible(title="Per-class breakdown", collapsed=True, id="perclass-section"):
+                            yield DataTable(id="perclass-table")
+                        with Collapsible(title="Confusion matrix", collapsed=True, id="confusion-section"):
+                            yield Static(
+                                "Rows = actual label, columns = predicted (incl. invalid/error). "
+                                "Select a metric row above to populate.",
+                                classes="help",
+                            )
+                            yield DataTable(id="confusion-table")
+
+                    with Collapsible(title="Misclassified and failed rows", collapsed=True, id="misclassified-section"):
+                        yield Static(
+                            "Load a run to see mismatches. Select a metric row to filter by model/scope; "
+                            "press Enter on a row for details.",
+                            classes="help",
+                        )
+                        yield DataTable(id="misclassified-table")
+                        yield Static(
+                            "Select a misclassified row to inspect the sentence and raw model output.",
+                            id="misclassified-detail",
+                        )
+
+                    with Collapsible(title="Leaderboard — best run per model", collapsed=True):
+                        yield Static(_LEADERBOARD_HELP_BASE, id="leaderboard-help", classes="help")
+                        with Horizontal(id="leaderboard-controls"):
+                            yield Select(
+                                [("Primary (excludes conflicting duplicates)", "primary"), ("All scored rows", "all")],
+                                id="leaderboard-scope",
+                                value="primary",
+                                allow_blank=False,
+                            )
+                            yield Button("Refresh Leaderboard", id="refresh-leaderboard")
+                        yield DataTable(id="leaderboard-table")
+
+                    with Collapsible(title="Compare two runs", collapsed=True):
+                        yield Static(
+                            "Pick two run/model targets to test whether their accuracy differs on the rows they share "
+                            "(paired McNemar test + bootstrap confidence intervals).",
+                            classes="help",
+                        )
+                        yield Static("Target A", classes="field-label")
+                        yield Select([], id="compare-a", prompt="Pick run · model")
+                        yield Static("Target B", classes="field-label")
+                        yield Select([], id="compare-b", prompt="Pick run · model")
+                        yield Static("Scope", classes="field-label")
+                        yield Select(
+                            [("Primary (excludes conflicting duplicates)", "primary"), ("All scored rows", "all")],
+                            id="compare-scope",
+                            value="primary",
+                            allow_blank=False,
+                        )
+                        yield Button("Compare", id="compare-run", variant="primary")
+                        yield Static("Pick two targets and press Compare.", id="compare-result")
             with TabPane("News", id="news-tab"):
                 yield Static(
                     "Source unlabeled news articles from Tavily into derived files. This does not modify Data/data.csv.",
@@ -942,6 +1031,8 @@ class SentimentBenchmarkApp(App):
         yield Footer()
 
     def on_mount(self) -> None:
+        if self._theme_name in self.available_themes:
+            self.theme = self._theme_name
         model_table = self.query_one("#model-table", DataTable)
         model_table.add_columns("Sel", "Model ID", "Name", "Context", "Cloud")
         model_table.cursor_type = "row"
@@ -973,6 +1064,20 @@ class SentimentBenchmarkApp(App):
         queue = self.query_one("#queue-table", DataTable)
         queue.add_columns("#", "Provider", "Mode", "Models", "Prompt", "Sample", "Status")
         queue.cursor_type = "row"
+
+        # Zebra striping makes wide multi-column tables far easier to read across.
+        for table in (
+            model_table,
+            metrics,
+            runs,
+            leaderboard,
+            perclass,
+            confusion,
+            misclassified,
+            progress,
+            queue,
+        ):
+            table.zebra_stripes = True
 
         # Label the free-standing bordered panels so they read as titled cards.
         for panel_id, title in (
@@ -1135,6 +1240,17 @@ class SentimentBenchmarkApp(App):
     def action_cancel_run(self) -> None:
         self._cancel_run()
 
+    def action_cycle_theme(self) -> None:
+        """Rotate through the curated theme list and remember the choice."""
+        try:
+            index = self.THEME_CYCLE.index(self.theme)
+        except ValueError:
+            index = -1
+        self._theme_name = self.THEME_CYCLE[(index + 1) % len(self.THEME_CYCLE)]
+        self.theme = self._theme_name
+        self._notify_info(f"Theme: {self._theme_name}  (ctrl+t to cycle, ctrl+p for all)", title="Theme")
+        self._save_session()
+
     def _refresh_status_bar(self) -> None:
         try:
             bar = self.query_one("#status-bar", Static)
@@ -1147,11 +1263,45 @@ class SentimentBenchmarkApp(App):
         )
         queue_pending = sum(1 for item in self._experiment_queue if not self._queue_item_done(item))
         queue_status = f"queue: {queue_pending} pending" if self._experiment_queue else "queue: empty"
-        bar.update(
+        base = (
             f" {provider_status}  |  models: {len(self.selected_models)}  |  "
             f"prompt: {self.prompt.prompt_id}  |  mode: {self.run_mode}  |  {queue_status} "
         )
+        run_segment = self._run_status_segment()
+        if run_segment is None:
+            bar.update(base)
+        else:
+            text = Text(base)
+            text.append(" |  ")
+            text.append_text(run_segment)
+            bar.update(text)
         self._refresh_stepper()
+
+    def _run_status_segment(self) -> Text | None:
+        """A live 'run in progress' indicator for the global status bar, or None when idle."""
+        if self._baseline_in_progress and not self._run_in_progress:
+            return Text("● running baselines", style="bold yellow")
+        if not self._run_in_progress or not self._progress:
+            return None
+        states = list(self._progress.values())
+        total_models = len(states)
+        done_models = sum(1 for state in states if state["status"] == "done")
+        running = [model_id for model_id, state in self._progress.items() if state["status"] == "running"]
+        rows_per_model = self._rows_per_model or 0
+        rows_done = sum(state["done"] for state in states)
+        rows_total = rows_per_model * total_models
+        errors = sum(state["errors"] for state in states)
+        current_index = min(total_models, done_models + (1 if running else 0))
+        parts = [f"● running · model {current_index}/{total_models}"]
+        if running:
+            current = running[0]
+            short_name = current.split("/")[-1]
+            parts.append(f"{short_name} {self._progress[current]['done']}/{rows_per_model}")
+        if rows_total:
+            parts.append(f"{rows_done}/{rows_total} rows")
+        if errors:
+            parts.append(f"{errors} err")
+        return Text(" · ".join(parts), style="bold red" if errors else "bold green")
 
     def _refresh_dashboard(self) -> None:
         rows = load_dataset(self.dataset_path)
@@ -1475,6 +1625,9 @@ class SentimentBenchmarkApp(App):
         news_output_dir = data.get("news_output_dir")
         if isinstance(news_output_dir, str) and news_output_dir:
             self.news_output_dir = Path(news_output_dir)
+        theme = data.get("theme")
+        if isinstance(theme, str) and theme in self.available_themes:
+            self._theme_name = theme
         run_mode = data.get("run_mode")
         if run_mode in {"pilot", "full"}:
             self._run_settings["run_mode"] = run_mode
@@ -1530,6 +1683,7 @@ class SentimentBenchmarkApp(App):
             "news_extract": self.news_extract,
             "disable_ollama_thinking": self.disable_ollama_thinking,
             "news_output_dir": str(self.news_output_dir),
+            "theme": self.theme,
             **self._run_settings,
         }
         try:
@@ -1758,6 +1912,11 @@ class SentimentBenchmarkApp(App):
                 pass
 
     def _handle_run_event(self, event: dict) -> None:
+        self._handle_run_event_inner(event)
+        # Keep the global status-bar run indicator live from any tab.
+        self._refresh_status_bar()
+
+    def _handle_run_event_inner(self, event: dict) -> None:
         event_type = event.get("type")
         if event_type == "run_started":
             self._reset_progress(list(event.get("models", [])), int(event.get("rows_per_model", 0)))
@@ -2067,6 +2226,82 @@ class SentimentBenchmarkApp(App):
             return None
         return event.data_table.get_row(event.row_key)
 
+    def _set_busy(self, button_id: str | None, busy: bool, *, label: str | None = None, spinner_widget: str | None = None) -> None:
+        """Toggle transient busy feedback: disable+relabel a button and spin a widget."""
+        if button_id is not None:
+            try:
+                button = self.query_one(f"#{button_id}", Button)
+                button.disabled = busy
+                if label is not None:
+                    if busy:
+                        self._button_labels.setdefault(button_id, button.label)
+                        button.label = label
+                    else:
+                        button.label = self._button_labels.pop(button_id, button.label)
+            except Exception:
+                pass
+        if spinner_widget is not None:
+            try:
+                self.query_one(f"#{spinner_widget}").loading = busy
+            except Exception:
+                pass
+
+    @contextmanager
+    def _busy(self, button_id: str | None = None, *, label: str | None = None, spinner_widget: str | None = None):
+        """Show busy feedback for the duration of a block (for awaited/async work)."""
+        self._set_busy(button_id, True, label=label, spinner_widget=spinner_widget)
+        try:
+            yield
+        finally:
+            self._set_busy(button_id, False, label=label, spinner_widget=spinner_widget)
+
+    def _expand_sections(self, *section_ids: str) -> None:
+        """Open the given Collapsible sections, ignoring any not currently mounted."""
+        for section_id in section_ids:
+            try:
+                self.query_one(f"#{section_id}", Collapsible).collapsed = False
+            except Exception:
+                pass
+
+    @staticmethod
+    def _cycle_sort(current: tuple[int, bool] | None, index: int, ascending_first: bool) -> tuple[int, bool]:
+        """Pick the next sort state: toggle direction on the same column, else start fresh."""
+        if current is not None and current[0] == index:
+            return (index, not current[1])
+        return (index, ascending_first)
+
+    def _update_sort_help(self, help_id: str, base_text: str, sort_state: tuple[int, bool] | None, columns: dict) -> None:
+        try:
+            widget = self.query_one(f"#{help_id}", Static)
+        except Exception:
+            return
+        if sort_state is None:
+            widget.update(base_text)
+            return
+        index, ascending = sort_state
+        meta = columns.get(index)
+        if meta is None:
+            widget.update(base_text)
+            return
+        arrow = "▲" if ascending else "▼"
+        widget.update(f"{base_text}  ·  Sorted by {meta[0]} {arrow}")
+
+    def on_data_table_header_selected(self, event: DataTable.HeaderSelected) -> None:
+        table_id = event.data_table.id
+        index = event.column_index
+        if table_id == "runs-table":
+            meta = _RUNS_SORT_COLUMNS.get(index)
+            if meta is None:
+                return
+            self._runs_sort = self._cycle_sort(self._runs_sort, index, meta[1])
+            self._refresh_runs_table()
+        elif table_id == "leaderboard-table":
+            meta = _LEADERBOARD_SORT_COLUMNS.get(index)
+            if meta is None:
+                return
+            self._leaderboard_sort = self._cycle_sort(self._leaderboard_sort, index, meta[1])
+            self._refresh_leaderboard()
+
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         # Textual can deliver a selection event after a table has been redrawn.
         if event.row_key not in event.data_table.rows:
@@ -2108,6 +2343,8 @@ class SentimentBenchmarkApp(App):
                 self._active_metric_model = str(metric.get("model_id") or "") or None
                 self._active_metric_scope = str(metric.get("scope") or "all")
                 self._refresh_misclassifications()
+                # Reveal the drill-downs the selected metric row just populated.
+                self._expand_sections("perclass-section", "confusion-section", "misclassified-section")
         elif table_id == "misclassified-table":
             key = event.row_key.value
             if key is None:
@@ -2127,21 +2364,22 @@ class SentimentBenchmarkApp(App):
                 self._set_monitor(f"Loaded best run {run_id} for {key} from the leaderboard.")
 
     async def _fetch_models(self) -> None:
-        try:
-            async with make_llm_client(self.provider, base_url=self.base_url, ollama_host=self.ollama_host) as client:
-                models = await client.list_models()
-        except Exception as exc:
-            self._notify_error(f"Could not fetch models: {exc}", title="Fetch failed")
-            return
-        self._all_models = list(models[:200])
-        for model in self._all_models:
-            if model.name:
-                self._model_names[model.model_id] = model.name
-        self._render_model_table()
-        self._render_selected_table()
-        self._set_monitor(
-            f"Fetched {len(models)} {self._provider_title()} models. Type in the search box to filter, press Enter on a row to toggle."
-        )
+        with self._busy("fetch-models", label="Fetching…", spinner_widget="model-table"):
+            try:
+                async with make_llm_client(self.provider, base_url=self.base_url, ollama_host=self.ollama_host) as client:
+                    models = await client.list_models()
+            except Exception as exc:
+                self._notify_error(f"Could not fetch models: {exc}", title="Fetch failed")
+                return
+            self._all_models = list(models[:200])
+            for model in self._all_models:
+                if model.name:
+                    self._model_names[model.model_id] = model.name
+            self._render_model_table()
+            self._render_selected_table()
+            self._set_monitor(
+                f"Fetched {len(models)} {self._provider_title()} models. Type in the search box to filter, press Enter on a row to toggle."
+            )
         if self.provider == "ollama":
             await self._fetch_loaded_models()
 
@@ -2168,20 +2406,21 @@ class SentimentBenchmarkApp(App):
         if self.provider != "ollama":
             self._set_ollama_loaded("Ollama only — switch the provider to Ollama to see models loaded in VRAM.")
             return
-        try:
-            async with make_llm_client("ollama", base_url=self.base_url, ollama_host=self.ollama_host) as client:
-                loaded = await client.list_loaded_models()
-        except Exception as exc:
-            self._set_ollama_loaded(f"Could not query Ollama /api/ps: {exc}")
-            return
-        if not loaded:
-            self._set_ollama_loaded("No models are currently loaded in Ollama.")
-            return
-        lines = []
-        for entry in loaded:
-            vram = self._format_vram(entry.get("size_vram") or entry.get("size"))
-            lines.append(f"{entry['model']} | VRAM {vram}")
-        self._set_ollama_loaded("\n".join(lines))
+        with self._busy("fetch-loaded", label="Querying…", spinner_widget="ollama-loaded"):
+            try:
+                async with make_llm_client("ollama", base_url=self.base_url, ollama_host=self.ollama_host) as client:
+                    loaded = await client.list_loaded_models()
+            except Exception as exc:
+                self._set_ollama_loaded(f"Could not query Ollama /api/ps: {exc}")
+                return
+            if not loaded:
+                self._set_ollama_loaded("No models are currently loaded in Ollama.")
+                return
+            lines = []
+            for entry in loaded:
+                vram = self._format_vram(entry.get("size_vram") or entry.get("size"))
+                lines.append(f"{entry['model']} | VRAM {vram}")
+            self._set_ollama_loaded("\n".join(lines))
 
     def _save_prompt_from_ui(self) -> None:
         try:
@@ -2319,6 +2558,7 @@ class SentimentBenchmarkApp(App):
             except Exception:
                 pass
             self._refresh_stepper()
+            self._refresh_status_bar()
             self._refresh_results_help()
             self._refresh_runs_table()
 
@@ -2824,6 +3064,7 @@ class SentimentBenchmarkApp(App):
             return
         self._baseline_in_progress = True
         self._refresh_stepper()
+        self._refresh_status_bar()
         self._set_monitor(f"Starting baselines: {', '.join(names)}")
         self.run_worker(
             lambda: self._run_baselines_blocking(names, mode, sample_per_class, seed),
@@ -2852,6 +3093,7 @@ class SentimentBenchmarkApp(App):
         finally:
             self._baseline_in_progress = False
             self.call_from_thread(self._refresh_stepper)
+            self.call_from_thread(self._refresh_status_bar)
             self.call_from_thread(self._refresh_runs_table)
             self.call_from_thread(self._refresh_results_help)
 
@@ -2862,9 +3104,18 @@ class SentimentBenchmarkApp(App):
             return
         table.clear()
         try:
-            runs = BenchmarkStore(self.db_path).list_runs()
+            runs = list(BenchmarkStore(self.db_path).list_runs())
         except Exception:
             runs = []
+        if self._runs_sort is not None:
+            index, ascending = self._runs_sort
+            meta = _RUNS_SORT_COLUMNS.get(index)
+            if meta is not None:
+                try:
+                    runs.sort(key=meta[2], reverse=not ascending)
+                except Exception:
+                    pass
+        self._update_sort_help("runs-help", _RUNS_HELP_BASE, self._runs_sort, _RUNS_SORT_COLUMNS)
         for run in runs:
             models = json.loads(run["models_json"]) if run["models_json"] else []
             preview = ", ".join(models[:3])
@@ -2880,6 +3131,12 @@ class SentimentBenchmarkApp(App):
                 machine,
                 preview,
                 key=str(run["id"]),
+            )
+        if not runs:
+            table.add_row(
+                Text("No runs yet — configure and start one on the Run tab (press 4).", style="grey58"),
+                "", "", "", "", "",
+                key="__placeholder__",
             )
         self._refresh_compare_targets(runs)
         self._refresh_leaderboard()
@@ -2929,8 +3186,18 @@ class SentimentBenchmarkApp(App):
             scope = "primary"
         table.clear()
         self._leaderboard_best_run = {}
-        rows = self._leaderboard_rows(scope)
-        best_accuracy = rows[0]["accuracy"] if rows else None
+        rows = list(self._leaderboard_rows(scope))
+        # Best accuracy drives the bold highlight; compute it before any re-sort.
+        best_accuracy = max((data["accuracy"] for data in rows), default=None)
+        if self._leaderboard_sort is not None:
+            index, ascending = self._leaderboard_sort
+            meta = _LEADERBOARD_SORT_COLUMNS.get(index)
+            if meta is not None:
+                try:
+                    rows.sort(key=lambda data, field=meta[2]: data[field], reverse=not ascending)
+                except Exception:
+                    pass
+        self._update_sort_help("leaderboard-help", _LEADERBOARD_HELP_BASE, self._leaderboard_sort, _LEADERBOARD_SORT_COLUMNS)
         for data in rows:
             self._leaderboard_best_run[data["model_id"]] = data["run_id"]
             is_best = best_accuracy is not None and data["accuracy"] >= best_accuracy
@@ -2938,10 +3205,16 @@ class SentimentBenchmarkApp(App):
                 Text(data["model_id"], style="bold") if is_best else data["model_id"],
                 _accuracy_text(data["accuracy"], bold=is_best),
                 _accuracy_text(data["macro_f1"]),
-                str(data["run_id"]),
-                str(data["runs"]),
-                str(data["row_count"]),
+                _num(data["run_id"]),
+                _num(data["runs"]),
+                _num(data["row_count"]),
                 key=data["model_id"],
+            )
+        if not rows:
+            table.add_row(
+                Text("No scored runs yet — metrics appear here once a run completes.", style="grey58"),
+                "", "", "", "", "",
+                key="__placeholder__",
             )
 
     def _compare_targets_from_runs(self, runs) -> list[tuple[str, str]]:
@@ -3001,6 +3274,7 @@ class SentimentBenchmarkApp(App):
         target_a = self._parse_compare_target(str(a_value))
         target_b = self._parse_compare_target(str(b_value))
         self._set_compare_status("Comparing... (bootstrapping confidence intervals)")
+        self._set_busy("compare-run", True, label="Comparing…")
         self.run_worker(
             lambda: self._run_comparison_blocking(target_a, target_b, scope),
             thread=True,
@@ -3015,10 +3289,12 @@ class SentimentBenchmarkApp(App):
         except Exception as exc:
             self.call_from_thread(self._notify_error, f"Comparison failed: {exc}", title="Compare failed")
             self.call_from_thread(self._set_compare_status, f"Comparison failed: {exc}")
+            self.call_from_thread(self._set_busy, "compare-run", False, label="Comparing…")
             return
         self.call_from_thread(self._render_comparison, result)
 
     def _render_comparison(self, result: ComparisonResult) -> None:
+        self._set_busy("compare-run", False, label="Comparing…")
         if result.n_paired == 0:
             self._set_compare_status(
                 "No shared rows between these targets — they were evaluated on different rows, so they cannot be paired."
@@ -3081,7 +3357,7 @@ class SentimentBenchmarkApp(App):
             metrics_table.add_row(
                 Text(model_id, style="bold") if is_best else model_id,
                 scope,
-                str(metric["row_count"]),
+                _num(metric["row_count"]),
                 _accuracy_text(metric["accuracy"], bold=is_best),
                 _accuracy_text(metric["macro_f1"]),
                 _latency_text(metric.get("mean_latency_ms")),
@@ -3092,6 +3368,11 @@ class SentimentBenchmarkApp(App):
                 key=row_key,
             )
         if not parsed:
+            metrics_table.add_row(
+                Text("No metrics for this run — it may still be running or failed before scoring.", style="grey58"),
+                "", "", "", "", "", "", "", "", "",
+                key="__placeholder__",
+            )
             self._set_monitor(
                 f"No metrics found for run {run_id}. The run may still be running or may have failed before metrics were saved."
             )
@@ -3106,10 +3387,10 @@ class SentimentBenchmarkApp(App):
         for label, scores in per_class.items():
             table.add_row(
                 str(label),
-                f"{float(scores.get('precision', 0.0)):.4f}",
-                f"{float(scores.get('recall', 0.0)):.4f}",
-                f"{float(scores.get('f1', 0.0)):.4f}",
-                str(int(float(scores.get('support', 0.0)))),
+                _num(f"{float(scores.get('precision', 0.0)):.4f}"),
+                _num(f"{float(scores.get('recall', 0.0)):.4f}"),
+                _num(f"{float(scores.get('f1', 0.0)):.4f}"),
+                _num(int(float(scores.get('support', 0.0)))),
             )
 
     def _show_confusion(self, metric: dict) -> None:
@@ -3131,7 +3412,7 @@ class SentimentBenchmarkApp(App):
                     style = "red"
                 else:
                     style = "grey58"
-                cells.append(Text(str(count), style=style))
+                cells.append(Text(str(count), style=style, justify="right"))
             table.add_row(*cells)
 
     def _refresh_misclassifications(self) -> None:
@@ -3205,16 +3486,56 @@ class SentimentBenchmarkApp(App):
         if self._active_run_id is None:
             self._notify_error("Select a run in the table above before exporting.", title="No run selected")
             return
-        paths = export_run(self.db_path, self._active_run_id)
+        self._start_export_worker(self._active_run_id, open_figures=False, button_id="export-run", label="Exporting…")
+
+    def _start_export_worker(self, run_id: int, *, open_figures: bool, button_id: str, label: str) -> None:
+        # Export (and especially matplotlib figure rendering) is slow enough to
+        # freeze the UI, so run it off the event loop with a busy button.
+        self._set_busy(button_id, True, label=label)
+        self.run_worker(
+            lambda: self._export_blocking(run_id, open_figures, button_id, label),
+            thread=True,
+            group="export",
+            exclusive=True,
+        )
+
+    def _export_blocking(self, run_id: int, open_figures: bool, button_id: str, label: str) -> None:
+        try:
+            paths = list(export_run(self.db_path, run_id))
+        except Exception as exc:
+            self.call_from_thread(self._finish_export_error, exc, run_id, button_id, label)
+            return
+        self.call_from_thread(self._finish_export, paths, run_id, open_figures, button_id, label)
+
+    def _finish_export_error(self, exc: Exception, run_id: int, button_id: str, label: str) -> None:
+        self._set_busy(button_id, False, label=label)
+        self._notify_error(f"Could not export run {run_id}: {exc}", title="Export failed")
+
+    def _finish_export(self, paths: list[Path], run_id: int, open_figures: bool, button_id: str, label: str) -> None:
+        self._set_busy(button_id, False, label=label)
+        if open_figures:
+            figures = [path for path in paths if path.suffix == ".png"]
+            if not figures:
+                self._notify_error(
+                    "No figures were generated. Install plotting support with: pip install '.[figures]'",
+                    title="No figures",
+                )
+                return
+            figures_dir = figures[0].parent
+            self._set_monitor(f"Generated {len(figures)} figure(s) for run {run_id} in {figures_dir}")
+            if self._open_path(figures_dir):
+                self._notify_info(
+                    f"Opened {len(figures)} figure(s) for run {run_id} in your viewer.",
+                    title="Figures",
+                )
+            return
         figure_count = sum(1 for path in paths if path.suffix == ".png")
         figure_note = f", incl. {figure_count} figure(s)" if figure_count else " (install '.[figures]' for plots)"
         self._notify_info(
-            f"Exported run {self._active_run_id} ({len(paths)} files{figure_note}).",
+            f"Exported run {run_id} ({len(paths)} files{figure_note}).",
             title="Export complete",
         )
-        self._set_monitor(
-            f"Exported run {self._active_run_id}:\n" + "\n".join(str(path) for path in paths)
-        )
+        self._set_monitor(f"Exported run {run_id}:\n" + "\n".join(str(path) for path in paths))
 
     def _open_path(self, path: Path) -> bool:
         """Open a file or folder in the OS file manager / viewer. Returns success."""
@@ -3242,25 +3563,7 @@ class SentimentBenchmarkApp(App):
         if self._active_run_id is None:
             self._notify_error("Select a run in the table above before viewing figures.", title="No run selected")
             return
-        try:
-            paths = export_run(self.db_path, self._active_run_id)
-        except Exception as exc:
-            self._notify_error(f"Could not export run {self._active_run_id}: {exc}", title="Export failed")
-            return
-        figures = [path for path in paths if path.suffix == ".png"]
-        if not figures:
-            self._notify_error(
-                "No figures were generated. Install plotting support with: pip install '.[figures]'",
-                title="No figures",
-            )
-            return
-        figures_dir = figures[0].parent
-        self._set_monitor(f"Generated {len(figures)} figure(s) for run {self._active_run_id} in {figures_dir}")
-        if self._open_path(figures_dir):
-            self._notify_info(
-                f"Opened {len(figures)} figure(s) for run {self._active_run_id} in your viewer.",
-                title="Figures",
-            )
+        self._start_export_worker(self._active_run_id, open_figures=True, button_id="view-figures", label="Generating…")
 
     def _open_exports(self) -> None:
         folder = Path("results/exports")
