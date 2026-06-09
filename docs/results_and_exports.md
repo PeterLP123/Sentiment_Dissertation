@@ -9,6 +9,7 @@ This reference explains where benchmark evidence is stored, what gets exported, 
 | `results/sentiment_benchmark.sqlite` | `run`, `run-baselines`, `run-self-consistency`, TUI workflows | Local SQLite database for runs, responses, metrics, and self-consistency samples. | Ignored. |
 | `results/turso_replica.db` | Native `libsql` backend | Embedded local replica that syncs with Turso when `SENTIMENT_BENCH_DB_BACKEND=libsql`. | Ignored. |
 | `results/exports/run_<id>/` | `export` or TUI Export Run | Reproducible run evidence for analysis and dissertation writing. | Ignored. |
+| `results/ollama_cloud_cache.json` | TUI **Cloud Catalog** button | Last successful fetch of Ollama's live cloud model list, used as an offline fallback. | Ignored. |
 | `Data/news/tavily_news_*/` | `fetch-news` or TUI News tab | Unlabeled Tavily article corpora. | Ignored except `.gitkeep`. |
 | `experiments/manifest.toml` | Manual curation | Formal dissertation experiment registry. | Source-controlled. |
 

@@ -134,11 +134,12 @@ sentiment-bench run --provider ollama \
 In the TUI:
 
 1. Keep Provider on `Ollama` and the endpoint on your daemon (for example `http://localhost:11434`).
-2. On the Models tab, add the cloud model by id (for example `gpt-oss:120b-cloud`) or fetch models and look for the **Cloud** column, which marks `-cloud` tags. Type `cloud` in the search box to filter to them.
+2. On the Models tab, press **Cloud Catalog** to list cloud models even if you have not pulled or set any up — they appear in the table marked in the **Cloud** column and filtered to `cloud`. You can also add a cloud model by id, or fetch models and look for the **Cloud** column. Press Enter on a row to select.
 3. The Selected models summary shows how many of your chosen models are cloud (for example `3 model(s) selected (1 cloud).`).
 
 Notes specific to cloud models:
 
+- **Cloud Catalog** fetches Ollama's live catalogue from the public `https://ollama.com/v1/models` endpoint (no API key) and maps each base id to its `-cloud` tag, so it stays current as Ollama adds or retires models. The result is cached to `results/ollama_cloud_cache.json`; if the fetch fails (offline), it falls back to that cache and then to a small built-in list. To pin a fixed list instead, set `OLLAMA_CLOUD_MODELS` (comma-separated tags, e.g. `OLLAMA_CLOUD_MODELS=gpt-oss:120b-cloud,deepseek-v3.1:671b-cloud`), which takes precedence over the live fetch. Confirm a tag works against your signed-in daemon before relying on it.
 - They run remotely, so the **local GPU/VRAM monitor and `Loaded in Ollama` (`/api/ps`) do not reflect them** — those panels describe only models in your local VRAM.
 - They require internet access and a signed-in daemon; an unauthenticated daemon returns an error for a `-cloud` tag.
 - Record the exact `-cloud` tag (and that the run used cloud routing) for reproducibility, just as you would a local tag.

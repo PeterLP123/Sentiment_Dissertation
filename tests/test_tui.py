@@ -1496,6 +1496,75 @@ def test_tui_runs_table_sorts_on_header_click(tmp_path: Path) -> None:
     asyncio.run(scenario())
 
 
+def test_tui_cloud_catalog_lists_live_models(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def fake_fetch() -> list[ModelConfig]:
+        return [
+            ModelConfig(model_id="gpt-oss:120b-cloud", name="gpt-oss:120b", raw_metadata={"cloud": True}),
+            ModelConfig(model_id="glm-5-cloud", name="glm-5", raw_metadata={"cloud": True}),
+        ]
+
+    monkeypatch.setattr("sentiment_benchmark.tui.fetch_ollama_cloud_models", fake_fetch)
+
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        app.provider = "ollama"
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            assert not app._all_models
+            await app._show_cloud_catalog()
+            await pilot.pause()
+            cloud_ids = [m.model_id for m in app._all_models if app._is_cloud_model(m.model_id, m)]
+            assert "gpt-oss:120b-cloud" in cloud_ids and "glm-5-cloud" in cloud_ids
+            assert app.query_one("#model-search", Input).value == "cloud"
+            assert app.query_one("#model-table", DataTable).row_count == len(cloud_ids)
+            assert any("ollama.com (live)" in line for line in app.monitor_lines)
+            # A catalog model can be selected like any other model.
+            app._toggle_model("gpt-oss:120b-cloud", "gpt-oss:120b")
+            assert "gpt-oss:120b-cloud" in app.selected_models
+            assert app._selected_cloud_count() == 1
+
+    asyncio.run(scenario())
+
+
+def test_tui_cloud_catalog_falls_back_when_fetch_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def boom() -> list[ModelConfig]:
+        raise RuntimeError("network down")
+
+    monkeypatch.setattr("sentiment_benchmark.tui.fetch_ollama_cloud_models", boom)
+    monkeypatch.setattr(
+        "sentiment_benchmark.tui.ollama_cloud_catalog",
+        lambda: [ModelConfig(model_id="fallback:thing-cloud", name="fallback", raw_metadata={"cloud": True})],
+    )
+
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        app.provider = "ollama"
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            await app._show_cloud_catalog()
+            await pilot.pause()
+            assert any(m.model_id == "fallback:thing-cloud" for m in app._all_models)
+            assert any("offline fallback" in ln for ln in app.monitor_lines)
+
+    asyncio.run(scenario())
+
+
+def test_tui_cloud_catalog_requires_ollama_provider(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        app.provider = "openrouter"
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            await app._show_cloud_catalog()
+            assert not app._all_models
+            assert any(
+                severity == "error" and "Ollama provider" in message
+                for severity, message in app.notifications
+            )
+
+    asyncio.run(scenario())
+
+
 def test_tui_status_bar_shows_queue_depth(tmp_path: Path) -> None:
     async def scenario() -> None:
         app = _make_app(tmp_path)

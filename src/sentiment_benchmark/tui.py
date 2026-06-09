@@ -20,7 +20,6 @@ from textual.containers import Container, Horizontal, Vertical, VerticalScroll
 from textual.coordinate import Coordinate
 from textual.screen import ModalScreen
 from textual.validation import Integer, Number, ValidationResult
-from textual.worker import WorkerFailed
 from textual.widgets import (
     Button,
     Checkbox,
@@ -39,6 +38,7 @@ from textual.widgets import (
     TabPane,
     TextArea,
 )
+from textual.worker import WorkerFailed
 
 from .baseline_runner import run_baselines
 from .baselines import BASELINE_SPECS, DEFAULT_BASELINES, BaselineSpec
@@ -68,6 +68,7 @@ from .news_source import (
     make_news_fetch_config,
     write_news_corpus,
 )
+from .ollama_cloud import cloud_catalog_overridden, fetch_ollama_cloud_models, ollama_cloud_catalog
 from .prompts import load_prompts, make_prompt
 from .providers import endpoint_for_provider, make_llm_client, normalize_provider
 from .runner import BenchmarkRunner
@@ -643,7 +644,8 @@ class SentimentBenchmarkApp(App):
                 yield Static("Manual model ID", classes="field-label")
                 yield Static(
                     "Examples: openai/gpt-4o-mini or gemma3. Ollama Cloud models work through a signed-in "
-                    "local daemon — add them by their -cloud tag, e.g. gpt-oss:120b-cloud or deepseek-v3.1:671b-cloud. "
+                    "local daemon — add them by their -cloud tag, e.g. gpt-oss:120b-cloud or deepseek-v3.1:671b-cloud, "
+                    "or press Cloud Catalog to browse known cloud models without pulling them. "
                     "Repeat Add Model for each model you want in the same benchmark run.",
                     classes="help",
                 )
@@ -651,6 +653,7 @@ class SentimentBenchmarkApp(App):
                 with Horizontal(classes="toolbar"):
                     yield Button("Add Model", id="add-model", variant="primary")
                     yield Button("Fetch Models", id="fetch-models")
+                    yield Button("Cloud Catalog", id="show-cloud-catalog")
                     yield Button("Loaded in Ollama", id="fetch-loaded")
                 yield Static(id="ollama-loaded")
                 yield Static("Selected models", classes="section-title")
@@ -1976,6 +1979,8 @@ class SentimentBenchmarkApp(App):
                 manual.value = ""
         elif button_id == "fetch-models":
             await self._fetch_models()
+        elif button_id == "show-cloud-catalog":
+            await self._show_cloud_catalog()
         elif button_id == "fetch-loaded":
             await self._fetch_loaded_models()
         elif button_id == "save-prompt":
@@ -2382,6 +2387,50 @@ class SentimentBenchmarkApp(App):
             )
         if self.provider == "ollama":
             await self._fetch_loaded_models()
+
+    async def _show_cloud_catalog(self) -> None:
+        """List Ollama Cloud models so they can be browsed and selected even when
+        none are pulled locally. Fetches the live catalogue from ollama.com and
+        falls back to the env override / cache / built-in list when offline."""
+        if self.provider != "ollama":
+            self._notify_error(
+                "Ollama Cloud models run through the Ollama provider. Switch Provider to Ollama first.",
+                title="Cloud catalog",
+            )
+            return
+        with self._busy("show-cloud-catalog", label="Loading…", spinner_widget="model-table"):
+            if cloud_catalog_overridden():
+                catalog = ollama_cloud_catalog()
+                source = "OLLAMA_CLOUD_MODELS override"
+            else:
+                try:
+                    catalog = await fetch_ollama_cloud_models()
+                    source = "ollama.com (live)"
+                except Exception as exc:
+                    catalog = ollama_cloud_catalog()
+                    source = f"offline fallback — fetch failed: {exc}"
+
+            existing = {model.model_id for model in self._all_models}
+            added = 0
+            for model in catalog:
+                if model.model_id not in existing:
+                    self._all_models.append(model)
+                    existing.add(model.model_id)
+                    added += 1
+                if model.name:
+                    self._model_names.setdefault(model.model_id, model.name)
+            # Filter the table to the cloud entries so they are visible immediately.
+            try:
+                self.query_one("#model-search", Input).value = "cloud"
+            except Exception:
+                pass
+            self._render_model_table()
+            self._render_selected_table()
+        self._set_monitor(
+            f"Loaded {len(catalog)} Ollama Cloud model(s) from {source} ({added} new). These route through a "
+            "signed-in daemon (run 'ollama signin'); no local pull needed. Press Enter on a row to select. "
+            "Set OLLAMA_CLOUD_MODELS to pin a custom list."
+        )
 
     def _set_ollama_loaded(self, text: str) -> None:
         try:
