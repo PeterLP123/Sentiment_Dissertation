@@ -49,6 +49,8 @@ This repository contains code, data, experiments, and supporting artifacts for a
 - Keep comments useful and specific. Avoid comments that merely restate the code.
 - Prefer structured parsing and data APIs over ad hoc string manipulation.
 - Add focused tests for reusable data processing, model evaluation, or metric code.
+- Preserve LF line endings for repository files. The `.gitattributes` file sets
+  this convention; do not introduce CRLF-only changes.
 
 ## Dissertation Context
 
