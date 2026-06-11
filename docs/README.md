@@ -12,6 +12,8 @@ This documentation is organized by reader task. Use the tutorial when you are ne
 | Use Gemma or another local model running on a desktop PC. | [Model providers](model_providers.md) |
 | Share run history across machines with Turso/libSQL. | [Results and exports](results_and_exports.md) |
 | Fetch articles from Tavily into `Data/news`. | [Tavily news sourcing](news_sourcing.md) |
+| Batch-fetch and package a shareable Tavily source dataset. | [Tavily news sourcing](news_sourcing.md) |
+| Plan a shareable Tavily-derived source dataset. | [Tavily dataset strategy](tavily_dataset_plan.html) |
 | Work through the terminal UI. | [TUI guide](tui_guide.md) |
 | Look up a command, option, or default. | [CLI reference](cli_reference.md) |
 | Understand exported files and metrics. | [Results and exports](results_and_exports.md) |

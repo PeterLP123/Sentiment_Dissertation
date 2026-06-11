@@ -8,6 +8,7 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
+from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.table import Table
 
 from .baseline_runner import run_baselines
@@ -35,6 +36,16 @@ from .env import load_env_file
 from .exporter import export_run
 from .latex_tables import sensitivity_table_latex
 from .models import PromptConfig, RunConfig
+from .news_batch import NewsBatchError, build_news_batch_plan
+from .news_package import (
+    DEFAULT_NEWS_PACKAGE_ID,
+    DEFAULT_NEWS_PACKAGE_OUTPUT_DIR,
+    DEFAULT_QUERY_MATRIX_PATH,
+    NEWS_TEXT_POLICIES,
+    NewsPackageError,
+    package_news_sources,
+    sanitize_package_id,
+)
 from .news_source import (
     DEFAULT_NEWS_MAX_RESULTS,
     DEFAULT_NEWS_OUTPUT_DIR,
@@ -270,6 +281,222 @@ def fetch_news(
         table.add_row("JSONL", str(paths.articles_jsonl))
         table.add_row("CSV", str(paths.articles_csv))
         table.add_row("Manifest", str(paths.manifest_json))
+        console.print(table)
+
+    asyncio.run(main())
+
+
+@app.command("package-news")
+def package_news(
+    source: Annotated[
+        list[Path] | None,
+        typer.Option("--source", help="Existing Tavily corpus directory. Repeat for multiple corpora."),
+    ] = None,
+    package_id: Annotated[
+        str,
+        typer.Option("--package-id", help="Share package id. Spaces are converted to hyphens."),
+    ] = DEFAULT_NEWS_PACKAGE_ID,
+    output_dir: Annotated[
+        Path,
+        typer.Option("--output-dir", help="Root directory where the share package directory is written."),
+    ] = DEFAULT_NEWS_PACKAGE_OUTPUT_DIR,
+    query_matrix: Annotated[
+        Path,
+        typer.Option("--query-matrix", help="Optional TOML query matrix used to enrich package provenance."),
+    ] = DEFAULT_QUERY_MATRIX_PATH,
+    text_policy: Annotated[
+        str,
+        typer.Option("--text-policy", help=f"Text sharing policy: {', '.join(NEWS_TEXT_POLICIES)}."),
+    ] = "metadata",
+) -> None:
+    """Package existing Tavily corpora into a colleague-shareable source dataset."""
+    if not source:
+        raise typer.BadParameter("--source is required")
+    try:
+        result = package_news_sources(
+            list(source),
+            package_id=package_id,
+            output_root=output_dir,
+            query_matrix_path=query_matrix,
+            text_policy=text_policy,
+        )
+    except NewsPackageError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+    table = Table(title="Tavily News Package")
+    table.add_column("Metric")
+    table.add_column("Value", justify="right")
+    table.add_row("Package ID", result.package_id)
+    table.add_row("Text policy", result.text_policy)
+    table.add_row("Input records", str(result.input_record_count))
+    table.add_row("Unique sources", str(result.unique_source_count))
+    table.add_row("Duplicate URLs", str(result.duplicate_url_count))
+    table.add_row("Output directory", str(result.paths.output_dir))
+    table.add_row("Sources CSV", str(result.paths.sources_csv))
+    table.add_row("Screening CSV", str(result.paths.screening_index_csv))
+    table.add_row("Manifest", str(result.paths.package_manifest_json))
+    table.add_row("README", str(result.paths.readme_md))
+    if result.paths.extracts_jsonl is not None:
+        table.add_row("Extracts JSONL", str(result.paths.extracts_jsonl))
+    console.print(table)
+
+
+@app.command("fetch-news-batch")
+def fetch_news_batch(
+    date_window: Annotated[
+        list[str] | None,
+        typer.Option("--date-window", help="Date window as YYYY-MM-DD:YYYY-MM-DD. Repeat for multiple windows."),
+    ] = None,
+    query_matrix: Annotated[
+        Path,
+        typer.Option("--query-matrix", help="TOML query matrix defining reusable Tavily queries."),
+    ] = DEFAULT_QUERY_MATRIX_PATH,
+    query_id: Annotated[
+        list[str] | None,
+        typer.Option("--query-id", help="Query id from the matrix to include. Repeat to select a subset."),
+    ] = None,
+    extract: Annotated[
+        bool,
+        typer.Option("--extract/--no-extract", help="Run Tavily Extract for full article text."),
+    ] = True,
+    output_dir: Annotated[
+        Path,
+        typer.Option("--output-dir", help="Directory where timestamped Tavily article exports are written."),
+    ] = DEFAULT_NEWS_OUTPUT_DIR,
+    package: Annotated[
+        bool,
+        typer.Option("--package/--no-package", help="Package fetched corpora after the batch completes."),
+    ] = True,
+    package_id: Annotated[
+        str,
+        typer.Option("--package-id", help="Share package id used when --package is enabled."),
+    ] = DEFAULT_NEWS_PACKAGE_ID,
+    package_output_dir: Annotated[
+        Path,
+        typer.Option("--package-output-dir", help="Root directory where the share package directory is written."),
+    ] = DEFAULT_NEWS_PACKAGE_OUTPUT_DIR,
+    text_policy: Annotated[
+        str,
+        typer.Option("--text-policy", help=f"Text sharing policy for the optional package: {', '.join(NEWS_TEXT_POLICIES)}."),
+    ] = "metadata",
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Print planned fetches without calling Tavily or writing files."),
+    ] = False,
+) -> None:
+    """Fetch a query matrix across repeated date windows and optionally package the results."""
+    try:
+        plans = build_news_batch_plan(
+            query_matrix_path=query_matrix,
+            date_windows=list(date_window or []),
+            query_ids=query_id,
+            extract=extract,
+        )
+    except NewsBatchError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+    if dry_run:
+        table = Table(title="Tavily News Batch Dry Run")
+        table.add_column("Query ID")
+        table.add_column("Family")
+        table.add_column("Date Window")
+        table.add_column("Max", justify="right")
+        table.add_column("Topic")
+        table.add_column("Search Depth")
+        for plan in plans:
+            table.add_row(
+                plan.query_entry.id,
+                plan.query_entry.family,
+                f"{plan.date_window.start_date}:{plan.date_window.end_date}",
+                str(plan.config.max_results),
+                plan.config.topic,
+                plan.config.search_depth,
+            )
+        console.print(table)
+        console.print(f"Planned fetches: {len(plans)}")
+        return
+
+    if package:
+        try:
+            resolved_package_id = sanitize_package_id(package_id)
+        except NewsPackageError as exc:
+            raise typer.BadParameter(str(exc)) from exc
+        package_target = package_output_dir / resolved_package_id
+        if package_target.exists():
+            raise typer.BadParameter(f"output directory already exists: {package_target}")
+
+    async def main() -> None:
+        output_paths = []
+        total_records = 0
+        total_failed = 0
+        package_result = None
+
+        progress = Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            MofNCompleteColumn(),
+            TimeElapsedColumn(),
+            console=console,
+            transient=False,
+        )
+        with progress:
+            fetch_task = progress.add_task("Fetching Tavily corpora", total=len(plans))
+            async with _make_tavily_news_client() as client:
+                for index, plan in enumerate(plans, start=1):
+                    window = f"{plan.date_window.start_date}:{plan.date_window.end_date}"
+                    progress.update(fetch_task, description=f"[{index}/{len(plans)}] {plan.query_entry.id} | {window}")
+                    result = await client.fetch(plan.config)
+                    paths = write_news_corpus(result, output_dir)
+                    output_paths.append(paths)
+                    failed = sum(1 for record in result.records if record.extraction_status == "failed")
+                    total_records += len(result.records)
+                    total_failed += failed
+                    progress.console.print(
+                        "[green]✓[/green] "
+                        f"{plan.query_entry.id} [dim]{window}[/dim] "
+                        f"-> {len(result.records)} records, {failed} failed extractions "
+                        f"[dim]{paths.output_dir}[/dim]"
+                    )
+                    progress.advance(fetch_task)
+
+            if package:
+                package_task = progress.add_task("Packaging share dataset", total=1)
+                progress.update(
+                    package_task,
+                    description=f"Packaging {len(output_paths)} corpora -> {package_output_dir / resolved_package_id}",
+                )
+                try:
+                    package_result = package_news_sources(
+                        [paths.output_dir for paths in output_paths],
+                        package_id=package_id,
+                        output_root=package_output_dir,
+                        query_matrix_path=query_matrix,
+                        text_policy=text_policy,
+                    )
+                except NewsPackageError as exc:
+                    raise typer.BadParameter(str(exc)) from exc
+                progress.console.print(
+                    "[green]✓[/green] "
+                    f"package {package_result.package_id} "
+                    f"-> {package_result.unique_source_count} unique sources, "
+                    f"{package_result.duplicate_url_count} duplicate URLs removed "
+                    f"[dim]{package_result.paths.output_dir}[/dim]"
+                )
+                progress.advance(package_task)
+
+        table = Table(title="Tavily News Batch")
+        table.add_column("Metric")
+        table.add_column("Value", justify="right")
+        table.add_row("Fetches", str(len(plans)))
+        table.add_row("Corpus directories", str(len(output_paths)))
+        table.add_row("Fetched records", str(total_records))
+        table.add_row("Failed extractions", str(total_failed))
+        table.add_row("Output directory", str(output_dir))
+        if package_result is not None:
+            table.add_row("Package ID", package_result.package_id)
+            table.add_row("Package directory", str(package_result.paths.output_dir))
+            table.add_row("Unique package sources", str(package_result.unique_source_count))
         console.print(table)
 
     asyncio.run(main())

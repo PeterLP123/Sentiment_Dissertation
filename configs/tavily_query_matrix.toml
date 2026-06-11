@@ -1,0 +1,132 @@
+version = 1
+description = "Reusable Tavily query matrix for a balanced initial current-financial-news source dataset."
+
+[[queries]]
+id = "bank_earnings"
+family = "Bank earnings"
+query = "bank earnings profit margins loan losses outlook market reaction"
+topic = "finance"
+time_range = "month"
+max_results = 20
+search_depth = "basic"
+coverage_target = "Bank performance, credit quality, margins, and investor reaction."
+include_domains = []
+exclude_domains = []
+notes = "Useful for clear firm-level financial sentiment and sector-specific language."
+
+[[queries]]
+id = "corporate_earnings_guidance"
+family = "Corporate earnings and guidance"
+query = "company earnings revenue profit guidance outlook shares rise fall"
+topic = "finance"
+time_range = "month"
+max_results = 20
+search_depth = "basic"
+coverage_target = "Broad company earnings, forecast changes, and share-price reaction."
+include_domains = []
+exclude_domains = []
+notes = "Core source pool for later positive, negative, and neutral company-level sentiment labeling."
+
+[[queries]]
+id = "central_bank_policy"
+family = "Central bank policy"
+query = "central bank interest rate decision inflation outlook market reaction"
+topic = "news"
+time_range = "month"
+max_results = 20
+search_depth = "basic"
+coverage_target = "Macroeconomic policy language and market interpretation."
+include_domains = []
+exclude_domains = []
+notes = "Adds policy and macro context where sentiment often depends on market implications."
+
+[[queries]]
+id = "market_rally_selloff"
+family = "Market rally and selloff"
+query = "stock market rally selloff volatility investor sentiment bonds currency"
+topic = "finance"
+time_range = "month"
+max_results = 20
+search_depth = "basic"
+coverage_target = "Market-wide movement, volatility, and risk-on or risk-off reporting."
+include_domains = []
+exclude_domains = []
+notes = "Captures event-driven market tone across equities, bonds, and currencies."
+
+[[queries]]
+id = "credit_debt_risk"
+family = "Credit and debt risk"
+query = "credit rating downgrade debt default bond yields refinancing risk company"
+topic = "finance"
+time_range = "month"
+max_results = 20
+search_depth = "basic"
+coverage_target = "Debt, credit quality, default risk, and refinancing pressure."
+include_domains = []
+exclude_domains = []
+notes = "Improves coverage of negative and risk-oriented financial language."
+
+[[queries]]
+id = "mergers_buybacks_restructuring"
+family = "Mergers, buybacks, and restructuring"
+query = "merger acquisition buyback restructuring layoffs cost cuts stock reaction"
+topic = "finance"
+time_range = "month"
+max_results = 20
+search_depth = "basic"
+coverage_target = "Corporate actions with mixed or context-dependent market interpretation."
+include_domains = []
+exclude_domains = []
+notes = "Useful for ambiguous examples where the same event can be positive or negative depending on context."
+
+[[queries]]
+id = "regulation_enforcement"
+family = "Regulation and enforcement"
+query = "financial regulation enforcement fine investigation approval bank company shares"
+topic = "news"
+time_range = "month"
+max_results = 20
+search_depth = "basic"
+coverage_target = "Regulatory, legal, enforcement, and approval-related financial reporting."
+include_domains = []
+exclude_domains = []
+notes = "Adds factual legal and regulatory text that should not always be labeled purely negative."
+
+[[queries]]
+id = "commodities_energy"
+family = "Commodities and energy"
+query = "oil prices energy stocks commodity prices gold copper market outlook"
+topic = "finance"
+time_range = "month"
+max_results = 20
+search_depth = "basic"
+coverage_target = "Commodity and energy-market news connected to listed companies and macro conditions."
+include_domains = []
+exclude_domains = []
+notes = "Broadens the dataset beyond equities and banks."
+
+[[queries]]
+id = "technology_ai_stocks"
+family = "Technology and AI stocks"
+query = "AI stocks chip demand cloud growth valuation concerns earnings outlook"
+topic = "finance"
+time_range = "month"
+max_results = 20
+search_depth = "basic"
+coverage_target = "Current technology, semiconductor, cloud, and AI-related market themes."
+include_domains = []
+exclude_domains = []
+notes = "Captures current market language that older financial sentiment datasets may underrepresent."
+
+[[queries]]
+id = "consumer_retail_demand"
+family = "Consumer and retail demand"
+query = "retail sales consumer demand inflation earnings outlook shares"
+topic = "finance"
+time_range = "month"
+max_results = 20
+search_depth = "basic"
+coverage_target = "Consumer demand, retail earnings, inflation pressure, and company outlook."
+include_domains = []
+exclude_domains = []
+notes = "Adds consumer-facing financial text and demand-side macro language."

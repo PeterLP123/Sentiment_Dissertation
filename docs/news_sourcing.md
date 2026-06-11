@@ -71,6 +71,53 @@ sentiment-bench fetch-news --query "market volatility" \
   --start-date 2026-06-01 --end-date 2026-06-07
 ```
 
+## Fetch A Medium Corpus Smoothly
+
+Use `fetch-news-batch` when you want the reusable query matrix to run across several date windows. The default matrix in `configs/tavily_query_matrix.toml` contains 10 query families. Five date windows therefore plan up to 50 Tavily searches.
+
+Preview the plan first:
+
+```bash
+sentiment-bench fetch-news-batch \
+  --date-window 2026-05-07:2026-05-14 \
+  --date-window 2026-05-15:2026-05-21 \
+  --date-window 2026-05-22:2026-05-28 \
+  --date-window 2026-05-29:2026-06-04 \
+  --date-window 2026-06-05:2026-06-11 \
+  --dry-run
+```
+
+Run the batch and create a metadata-first colleague package:
+
+```bash
+sentiment-bench fetch-news-batch \
+  --date-window 2026-05-07:2026-05-14 \
+  --date-window 2026-05-15:2026-05-21 \
+  --date-window 2026-05-22:2026-05-28 \
+  --date-window 2026-05-29:2026-06-04 \
+  --date-window 2026-06-05:2026-06-11 \
+  --package-id tavily_shared_v1 \
+  --text-policy metadata
+```
+
+With the default 10 query families and `max_results = 20` in the query matrix, this targets up to 1,000 source records before deduplication and screening:
+
+```text
+10 query families x 5 date windows x 20 results = up to 1,000 source records
+```
+
+During a real run, the CLI shows a Rich progress bar with the current query family, date window, fetch number, records returned, failed extraction count, and output directory for each fetched corpus. After fetching, it shows a packaging progress step and reports unique source count plus duplicate URLs removed.
+
+Restrict a pilot to one or two query families with repeated `--query-id`:
+
+```bash
+sentiment-bench fetch-news-batch \
+  --query-id bank_earnings \
+  --query-id market_volatility \
+  --date-window 2026-06-05:2026-06-11 \
+  --dry-run
+```
+
 ## Output Files
 
 Each fetch writes to a directory like:
@@ -119,6 +166,32 @@ Data/news/      generated article corpora, ignored by git except .gitkeep
 ```
 
 If you later label article snippets or full text for benchmarking, create a separate derived dataset and document the labeling protocol, inclusion rules, label mapping, and random seed.
+
+## Package For Colleagues
+
+After one or more fetches, create a metadata-first share package from existing corpus directories:
+
+```bash
+sentiment-bench package-news \
+  --source Data/news/tavily_news_20260607T120000Z_bank-earnings-sentiment \
+  --package-id tavily_shared_v1 \
+  --output-dir Data/derived \
+  --text-policy metadata
+```
+
+Repeat `--source` to combine multiple fetched corpora. The command reads `articles.jsonl` and `manifest.json`, deduplicates by normalized URL, and writes:
+
+| File | Purpose |
+| --- | --- |
+| `sources.csv` | One row per unique source URL with titles, snippets, source domains, query provenance, request IDs, extraction status, and text hashes. |
+| `screening_index.csv` | Editable colleague review sheet with `pending` screening decisions and blank optional label columns. |
+| `package_manifest.json` | Package ID, source corpora, counts, duplicate count, query matrix path, unmatched queries, file hashes, and sharing notes. |
+| `README.md` | Short handoff note explaining contents, counts, and text policy. |
+| `extracts.jsonl` | Optional full-text file written only with `--text-policy internal-extracts`. |
+
+Default `--text-policy metadata` does not write full article bodies into the share package. Use `--text-policy internal-extracts` only when full-text sharing is appropriate for the audience and source terms.
+
+The optional query matrix at `configs/tavily_query_matrix.toml` records reusable query families for future collection and enriches package metadata when a fetched corpus query matches a matrix entry. It does not trigger any Tavily calls.
 
 ## TUI Workflow
 

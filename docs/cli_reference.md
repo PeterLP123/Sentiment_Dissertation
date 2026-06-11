@@ -57,6 +57,8 @@ sentiment-bench --help
 | `validate-data` | Validate dataset columns, labels, duplicates, and primary scoring scope. |
 | `news-check` | Run a small Tavily search to verify API connectivity. |
 | `fetch-news` | Fetch Tavily-sourced articles into a timestamped derived corpus. |
+| `fetch-news-batch` | Fetch a TOML query matrix across repeated date windows and optionally package the results. |
+| `package-news` | Package existing Tavily corpora into a colleague-shareable source dataset. |
 | `list-models` | List models from OpenRouter or Ollama. |
 | `run` | Run LLM sentiment classification benchmarks. |
 | `run-baselines` | Run non-LLM baseline classifiers. |
@@ -193,6 +195,75 @@ sentiment-bench fetch-news --query "bank earnings sentiment" \
 | `--exclude-domain` | none | Domain exclude filter; repeatable. |
 | `--extract / --no-extract` | `--extract` | Run Tavily Extract for full article text. |
 | `--output-dir` | `Data/news` | Root directory for timestamped corpus outputs. |
+
+## `fetch-news-batch`
+
+```bash
+sentiment-bench fetch-news-batch \
+  --date-window 2026-05-07:2026-05-14 \
+  --date-window 2026-05-15:2026-05-21 \
+  --date-window 2026-05-22:2026-05-28 \
+  --date-window 2026-05-29:2026-06-04 \
+  --date-window 2026-06-05:2026-06-11 \
+  --package-id tavily_shared_v1
+```
+
+Reads `configs/tavily_query_matrix.toml`, runs every query across every date window, writes timestamped corpora under `Data/news`, then packages those newly fetched corpora into `Data/derived/<package-id>` by default.
+
+During execution, the command prints a Rich progress display with the current fetch number, query id, date window, per-fetch record count, failed extraction count, and output directory. Packaging has its own progress step after all fetches finish.
+
+Use dry run first to confirm the number of Tavily calls:
+
+```bash
+sentiment-bench fetch-news-batch \
+  --date-window 2026-05-07:2026-05-14 \
+  --date-window 2026-05-15:2026-05-21 \
+  --dry-run
+```
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `--date-window` | required | Date window as `YYYY-MM-DD:YYYY-MM-DD`; repeat for multiple batches. |
+| `--query-matrix` | `configs/tavily_query_matrix.toml` | TOML query matrix defining reusable Tavily queries. |
+| `--query-id` | all queries | Restrict to one matrix query id; repeat for multiple ids. |
+| `--extract / --no-extract` | `--extract` | Run Tavily Extract for each fetched result. |
+| `--output-dir` | `Data/news` | Root directory for fetched timestamped corpora. |
+| `--package / --no-package` | `--package` | Package newly fetched corpora after the batch completes. |
+| `--package-id` | `tavily_shared_v1` | Share package id used when packaging is enabled. |
+| `--package-output-dir` | `Data/derived` | Root directory for generated share package. |
+| `--text-policy` | `metadata` | Package text policy: `metadata` or `internal-extracts`. |
+| `--dry-run` | off | Print planned fetches without calling Tavily or writing files. |
+
+## `package-news`
+
+```bash
+sentiment-bench package-news \
+  --source Data/news/tavily_news_20260607T120000Z_bank-earnings-sentiment \
+  --package-id tavily_shared_v1 \
+  --output-dir Data/derived \
+  --query-matrix configs/tavily_query_matrix.toml \
+  --text-policy metadata
+```
+
+Packages existing Tavily corpus directories into a versioned source dataset for colleague review. This command does not call Tavily, label examples, run models, or modify `Data/data.csv`.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `--source` | required | Existing Tavily corpus directory; repeat for multiple corpora. |
+| `--package-id` | `tavily_shared_v1` | Output package directory name under `--output-dir`; spaces are converted to hyphens. |
+| `--output-dir` | `Data/derived` | Root directory for generated share packages. |
+| `--query-matrix` | `configs/tavily_query_matrix.toml` | Optional TOML query matrix used to add query IDs and families. |
+| `--text-policy` | `metadata` | `metadata` writes no full article bodies; `internal-extracts` also writes `extracts.jsonl`. |
+
+Output files:
+
+| File | Purpose |
+| --- | --- |
+| `sources.csv` | Metadata-first source table with URLs, titles, snippets, provenance, hashes, and text availability. |
+| `screening_index.csv` | Editable review worksheet with screening fields and blank optional future label columns. |
+| `package_manifest.json` | Package metadata, source corpora, counts, duplicate URL count, file hashes, and sharing notes. |
+| `README.md` | Handoff notes for colleagues. |
+| `extracts.jsonl` | Optional internal full-text bundle, written only with `--text-policy internal-extracts`. |
 
 ## `runs`
 

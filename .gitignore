@@ -13,6 +13,8 @@ results/*
 !results/.gitkeep
 Data/news/*
 !Data/news/.gitkeep
+Data/derived/*
+!Data/derived/.gitkeep
 models/
 checkpoints/
 artifacts/

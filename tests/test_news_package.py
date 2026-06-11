@@ -1,0 +1,299 @@
+import csv
+import json
+from pathlib import Path
+
+import pytest
+
+from sentiment_benchmark.news_package import NewsPackageError, load_query_matrix, package_news_sources
+from sentiment_benchmark.news_source import article_record_id, normalize_url
+
+
+def _write_matrix(path: Path) -> Path:
+    path.write_text(
+        """
+version = 1
+description = "Reusable Tavily query matrix for tests."
+
+[[queries]]
+id = "bank_earnings"
+family = "Bank earnings"
+query = "bank earnings sentiment"
+topic = "news"
+time_range = "month"
+max_results = 20
+search_depth = "basic"
+coverage_target = "Company performance and earnings commentary."
+include_domains = []
+exclude_domains = []
+notes = "Use for source collection; labels are intentionally absent."
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    return path
+
+
+def _record(url: str, *, title: str = "Article", text: str = "Full article text") -> dict:
+    normalized = normalize_url(url)
+    return {
+        "record_id": article_record_id(normalized),
+        "url": url,
+        "normalized_url": normalized,
+        "title": title,
+        "snippet": "Snippet",
+        "article_text": text,
+        "published_date": "2026-06-01",
+        "score": 0.9,
+        "extraction_status": "success" if text else "skipped",
+        "search_rank": 1,
+        "search_request_id": "search-record-1",
+        "extract_request_id": "extract-record-1" if text else None,
+    }
+
+
+def _write_corpus(path: Path, *, query: str = "bank earnings sentiment", records: list[dict] | None = None) -> Path:
+    path.mkdir(parents=True)
+    records = records or [_record("https://example.com/article")]
+    with (path / "articles.jsonl").open("w", encoding="utf-8") as file:
+        for record in records:
+            file.write(json.dumps(record, sort_keys=True) + "\n")
+    (path / "manifest.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "source": "tavily",
+                "fetched_at": "2026-06-07T12:00:00+00:00",
+                "query": query,
+                "record_count": len(records),
+                "search_request_id": "search-manifest-1",
+                "extract_request_id": "extract-manifest-1",
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+def _csv_rows(path: Path) -> list[dict[str, str]]:
+    with path.open(newline="", encoding="utf-8") as file:
+        return list(csv.DictReader(file))
+
+
+def test_package_news_sources_writes_metadata_first_package(tmp_path: Path) -> None:
+    corpus = _write_corpus(tmp_path / "tavily_news_one")
+    matrix = _write_matrix(tmp_path / "matrix.toml")
+
+    result = package_news_sources(
+        [corpus],
+        package_id="tavily_shared_v1",
+        output_root=tmp_path / "derived",
+        query_matrix_path=matrix,
+    )
+
+    assert result.unique_source_count == 1
+    assert result.input_record_count == 1
+    assert result.duplicate_url_count == 0
+    assert result.paths.sources_csv.exists()
+    assert result.paths.screening_index_csv.exists()
+    assert result.paths.package_manifest_json.exists()
+    assert result.paths.readme_md.exists()
+    assert result.paths.extracts_jsonl is None
+
+    sources = _csv_rows(result.paths.sources_csv)
+    assert "article_text" not in sources[0]
+    assert sources[0]["query_ids"] == "bank_earnings"
+    assert sources[0]["query_families"] == "Bank earnings"
+    assert sources[0]["extract_text_available"] == "true"
+    assert sources[0]["text_share_scope"] == "metadata_only"
+
+    screening = _csv_rows(result.paths.screening_index_csv)
+    assert screening[0]["screening_decision"] == "pending"
+    assert screening[0]["optional_sentiment_label"] == ""
+
+    manifest = json.loads(result.paths.package_manifest_json.read_text(encoding="utf-8"))
+    assert manifest["package_id"] == "tavily_shared_v1"
+    assert manifest["text_policy"] == "metadata"
+    assert manifest["unique_source_count"] == 1
+    assert manifest["files"]["sources_csv"]["sha256"]
+    assert manifest["files"]["package_manifest_json"]["sha256"] is None
+
+
+def test_package_news_sources_dedupes_urls_and_aggregates_provenance(tmp_path: Path) -> None:
+    first = _write_corpus(tmp_path / "tavily_news_one", records=[_record("https://example.com/article#section")])
+    second = _write_corpus(
+        tmp_path / "tavily_news_two",
+        query="market volatility",
+        records=[_record("https://example.com/article", title="Duplicate")],
+    )
+
+    result = package_news_sources([first, second], package_id="shared", output_root=tmp_path / "derived", query_matrix_path=None)
+
+    rows = _csv_rows(result.paths.sources_csv)
+    assert result.input_record_count == 2
+    assert result.unique_source_count == 1
+    assert result.duplicate_url_count == 1
+    assert "tavily_news_one" in rows[0]["source_corpora"]
+    assert "tavily_news_two" in rows[0]["source_corpora"]
+    assert rows[0]["queries"] == "bank earnings sentiment; market volatility"
+    manifest = json.loads(result.paths.package_manifest_json.read_text(encoding="utf-8"))
+    assert manifest["duplicate_url_count"] == 1
+    assert manifest["unmatched_queries"] == ["bank earnings sentiment", "market volatility"]
+
+
+def test_package_news_sources_internal_extracts_policy_writes_extracts_jsonl(tmp_path: Path) -> None:
+    corpus = _write_corpus(tmp_path / "tavily_news_one")
+
+    result = package_news_sources(
+        [corpus],
+        package_id="shared",
+        output_root=tmp_path / "derived",
+        query_matrix_path=None,
+        text_policy="internal-extracts",
+    )
+
+    assert result.paths.extracts_jsonl is not None
+    extract_rows = result.paths.extracts_jsonl.read_text(encoding="utf-8").splitlines()
+    payload = json.loads(extract_rows[0])
+    assert payload["article_text"] == "Full article text"
+    assert payload["text_share_scope"] == "internal_review_only"
+    manifest = json.loads(result.paths.package_manifest_json.read_text(encoding="utf-8"))
+    assert manifest["text_policy"] == "internal-extracts"
+    assert manifest["files"]["extracts_jsonl"]["sha256"]
+
+
+def test_package_news_sources_rejects_missing_and_malformed_inputs(tmp_path: Path) -> None:
+    missing_articles = tmp_path / "missing_articles"
+    missing_articles.mkdir()
+    (missing_articles / "manifest.json").write_text("{}", encoding="utf-8")
+    with pytest.raises(NewsPackageError, match="articles.jsonl"):
+        package_news_sources([missing_articles], package_id="shared", output_root=tmp_path / "derived")
+
+    missing_manifest = tmp_path / "missing_manifest"
+    missing_manifest.mkdir()
+    (missing_manifest / "articles.jsonl").write_text("", encoding="utf-8")
+    with pytest.raises(NewsPackageError, match="manifest.json"):
+        package_news_sources([missing_manifest], package_id="shared", output_root=tmp_path / "derived2")
+
+    malformed = tmp_path / "malformed"
+    malformed.mkdir()
+    (malformed / "manifest.json").write_text("{}", encoding="utf-8")
+    (malformed / "articles.jsonl").write_text("{bad json}\n", encoding="utf-8")
+    with pytest.raises(NewsPackageError, match="invalid JSONL"):
+        package_news_sources([malformed], package_id="shared", output_root=tmp_path / "derived3")
+
+
+def test_package_news_sources_rejects_invalid_package_id_and_existing_output(tmp_path: Path) -> None:
+    corpus = _write_corpus(tmp_path / "tavily_news_one")
+
+    with pytest.raises(NewsPackageError, match="package_id"):
+        package_news_sources([corpus], package_id="../bad", output_root=tmp_path / "derived")
+
+    existing = tmp_path / "derived" / "shared"
+    existing.mkdir(parents=True)
+    with pytest.raises(NewsPackageError, match="already exists"):
+        package_news_sources([corpus], package_id="shared", output_root=tmp_path / "derived")
+
+
+@pytest.mark.parametrize(
+    ("body", "message"),
+    [
+        (
+            """
+version = 1
+description = "bad"
+[[queries]]
+id = "same"
+family = "A"
+query = "first"
+topic = "news"
+time_range = "month"
+max_results = 1
+search_depth = "basic"
+[[queries]]
+id = "same"
+family = "B"
+query = "second"
+topic = "news"
+time_range = "month"
+max_results = 1
+search_depth = "basic"
+""",
+            "duplicate query matrix id",
+        ),
+        (
+            """
+version = 1
+description = "bad"
+[[queries]]
+id = "one"
+family = "A"
+query = "same query"
+topic = "news"
+time_range = "month"
+max_results = 1
+search_depth = "basic"
+[[queries]]
+id = "two"
+family = "B"
+query = "same query"
+topic = "news"
+time_range = "month"
+max_results = 1
+search_depth = "basic"
+""",
+            "duplicate query matrix query",
+        ),
+        (
+            """
+version = 1
+description = "bad"
+[[queries]]
+id = "one"
+family = "A"
+query = "first"
+topic = "bogus"
+time_range = "month"
+max_results = 1
+search_depth = "basic"
+""",
+            "invalid topic",
+        ),
+        (
+            """
+version = 1
+description = "bad"
+[[queries]]
+id = "one"
+family = "A"
+query = "first"
+topic = "news"
+time_range = "decade"
+max_results = 1
+search_depth = "basic"
+""",
+            "invalid time_range",
+        ),
+        (
+            """
+version = 1
+description = "bad"
+[[queries]]
+id = "one"
+family = "A"
+query = "first"
+topic = "news"
+time_range = "month"
+max_results = 1
+search_depth = "deep"
+""",
+            "invalid search_depth",
+        ),
+    ],
+)
+def test_load_query_matrix_validates_entries(tmp_path: Path, body: str, message: str) -> None:
+    matrix = tmp_path / "matrix.toml"
+    matrix.write_text(body.strip() + "\n", encoding="utf-8")
+
+    with pytest.raises(NewsPackageError, match=message):
+        load_query_matrix(matrix)

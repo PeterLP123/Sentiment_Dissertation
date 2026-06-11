@@ -1,0 +1,910 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tavily Shared Dataset Plan - Sentiment Dissertation</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172033;
+      --muted: #5d6b82;
+      --soft: #eef3f8;
+      --line: #d9e2ec;
+      --panel: #ffffff;
+      --accent: #0f766e;
+      --accent-strong: #115e59;
+      --blue: #1d4ed8;
+      --amber: #a16207;
+      --rose: #be123c;
+      --green-soft: #e7f5ef;
+      --blue-soft: #e9f0ff;
+      --amber-soft: #fff7df;
+      --rose-soft: #fff1f2;
+      --shadow: 0 18px 45px rgba(23, 32, 51, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: #f7fafc;
+      font: 16px/1.55 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    a {
+      color: var(--blue);
+    }
+
+    .hero {
+      background:
+        linear-gradient(115deg, rgba(15, 118, 110, 0.95), rgba(29, 78, 216, 0.86)),
+        url("assets/research-workflow.svg");
+      background-size: cover;
+      background-position: center;
+      color: white;
+      padding: 56px 24px 42px;
+    }
+
+    .hero-inner,
+    .main {
+      width: min(1180px, calc(100vw - 48px));
+      margin: 0 auto;
+    }
+
+    .eyebrow {
+      margin: 0 0 12px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      opacity: 0.9;
+    }
+
+    h1 {
+      max-width: 850px;
+      margin: 0;
+      font-size: clamp(2.15rem, 5vw, 4.65rem);
+      line-height: 0.98;
+      letter-spacing: 0;
+    }
+
+    .hero p {
+      max-width: 780px;
+      margin: 20px 0 0;
+      font-size: 1.08rem;
+      color: rgba(255, 255, 255, 0.92);
+    }
+
+    .meta-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 28px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 6px 11px;
+      border: 1px solid rgba(255, 255, 255, 0.34);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      color: white;
+      font-size: 0.88rem;
+      font-weight: 650;
+      backdrop-filter: blur(10px);
+    }
+
+    .main {
+      padding: 28px 0 56px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin: -52px 0 26px;
+    }
+
+    .metric-card {
+      min-height: 142px;
+      padding: 18px;
+      border: 1px solid rgba(217, 226, 236, 0.9);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .metric-card strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--accent-strong);
+      font-size: 1.85rem;
+      line-height: 1;
+    }
+
+    .metric-card span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.94rem;
+    }
+
+    section {
+      margin: 28px 0;
+      padding: 26px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: 0 6px 18px rgba(23, 32, 51, 0.04);
+    }
+
+    section.flat {
+      padding: 0;
+      border: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 1.45rem;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 0 0 8px;
+      font-size: 1.03rem;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0 0 14px;
+      color: var(--muted);
+    }
+
+    p:last-child {
+      margin-bottom: 0;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .callout {
+      padding: 16px;
+      border-left: 4px solid var(--accent);
+      border-radius: 6px;
+      background: var(--green-soft);
+    }
+
+    .warning {
+      border-left-color: var(--amber);
+      background: var(--amber-soft);
+    }
+
+    .risk {
+      border-left-color: var(--rose);
+      background: var(--rose-soft);
+    }
+
+    .callout p,
+    .callout li {
+      color: #274237;
+    }
+
+    .warning p,
+    .warning li {
+      color: #5d420c;
+    }
+
+    .risk p,
+    .risk li {
+      color: #6f1d2d;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .flow-step {
+      position: relative;
+      min-height: 150px;
+      padding: 16px 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfdff;
+    }
+
+    .flow-step::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      right: -10px;
+      width: 10px;
+      height: 2px;
+      background: var(--line);
+    }
+
+    .flow-step:last-child::after {
+      display: none;
+    }
+
+    .step-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      margin-bottom: 10px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: white;
+      font-weight: 800;
+      font-size: 0.82rem;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .mini-card {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfdff;
+    }
+
+    .mini-card.blue {
+      background: var(--blue-soft);
+    }
+
+    .mini-card.green {
+      background: var(--green-soft);
+    }
+
+    .mini-card.amber {
+      background: var(--amber-soft);
+    }
+
+    ul,
+    ol {
+      margin: 8px 0 0;
+      padding-left: 20px;
+      color: var(--muted);
+    }
+
+    li {
+      margin: 6px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 14px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+    }
+
+    th,
+    td {
+      padding: 12px 13px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #edf5f4;
+      color: #123733;
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    code {
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: #eef2f7;
+      color: #243042;
+      font-size: 0.92em;
+    }
+
+    .timeline {
+      display: grid;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .timeline-item {
+      display: grid;
+      grid-template-columns: 130px 1fr;
+      gap: 16px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfdff;
+    }
+
+    .timeline-item strong {
+      color: var(--accent-strong);
+    }
+
+    .footer {
+      margin-top: 28px;
+      color: var(--muted);
+      font-size: 0.93rem;
+    }
+
+    @media (max-width: 980px) {
+      .summary-grid,
+      .grid-3 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .flow {
+        grid-template-columns: 1fr;
+      }
+
+      .flow-step::after {
+        display: none;
+      }
+
+      .two-col {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .hero {
+        padding: 42px 18px 38px;
+      }
+
+      .hero-inner,
+      .main {
+        width: min(100vw - 28px, 1180px);
+      }
+
+      .summary-grid {
+        grid-template-columns: 1fr;
+        margin-top: -38px;
+      }
+
+      section {
+        padding: 18px;
+      }
+
+      .timeline-item {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <p class="eyebrow">Sentiment Dissertation Planning Artifact</p>
+      <h1>Tavily Shared Dataset Plan For Later Sentiment Research</h1>
+      <p>
+        A plan for using Tavily to collect recent financial news source material,
+        turn it into a traceable dataset package, and share it with colleagues
+        before any modeling or labeling decisions are made.
+      </p>
+      <div class="meta-strip" aria-label="Plan metadata">
+        <span class="pill">Prepared: 2026-06-11</span>
+        <span class="pill">Repository: Sentiment_Dissertation</span>
+        <span class="pill">Scope: Plan only, no data generated</span>
+        <span class="pill">Audience: research colleagues</span>
+        <span class="pill">Primary path: Data/news</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="summary-grid" aria-label="Plan summary">
+      <div class="metric-card">
+        <strong>1</strong>
+        <span>Keep the Tavily corpus separate from the existing labeled benchmark.</span>
+      </div>
+      <div class="metric-card">
+        <strong>2</strong>
+        <span>Use Tavily Search and Extract to build up-to-date article corpora.</span>
+      </div>
+      <div class="metric-card">
+        <strong>3</strong>
+        <span>Package source text with query, source, date, and screening metadata.</span>
+      </div>
+      <div class="metric-card">
+        <strong>4</strong>
+        <span>Share a reviewable dataset pack colleagues can label or reuse later.</span>
+      </div>
+    </div>
+
+    <section>
+      <h2>Recommendation</h2>
+      <div class="two-col">
+        <div>
+          <p>
+            Use Tavily as a reproducible acquisition layer for current financial
+            text, not as the source of sentiment labels and not as an immediate
+            model-evaluation step. The best first output is a
+            <strong>shared current financial news corpus</strong>: recent
+            articles gathered by fixed query families, stored with source
+            metadata, deduplicated by URL, screened for relevance, and packaged
+            so colleagues can inspect the provenance before using it.
+          </p>
+          <p>
+            The immediate value is a clean dataset bundle that can be reviewed,
+            extended, cited, and labeled later. That keeps the data-creation work
+            useful even before the team agrees on a specific experiment.
+          </p>
+        </div>
+        <div class="callout">
+          <h3>Core rule</h3>
+          <p>
+            Build provenance first. Labels, model runs, and analysis claims
+            should come later, after the shared corpus has been screened and its
+            reuse rights are understood.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Why Tavily Fits This Repository</h2>
+      <div class="grid-3">
+        <div class="mini-card green">
+          <h3>Current web coverage</h3>
+          <p>
+            Tavily Search supports <code>news</code> and <code>finance</code>
+            topics, date filters, domain filters, and up to 20 results per
+            request, which matches the need for small controlled corpus builds.
+          </p>
+        </div>
+        <div class="mini-card blue">
+          <h3>Article extraction</h3>
+          <p>
+            Tavily Extract can turn returned URLs into plain text or markdown.
+            This is useful for storing article text separately from the current
+            labeled benchmark and screening it before sharing.
+          </p>
+        </div>
+        <div class="mini-card amber">
+          <h3>Traceability</h3>
+          <p>
+            Tavily responses can include request IDs and usage information, and
+            this repository already records manifests for generated news corpora.
+          </p>
+        </div>
+      </div>
+      <p class="footer">
+        Official references checked on 2026-06-11:
+        <a href="https://docs.tavily.com/documentation/api-reference/endpoint/search">Search</a>,
+        <a href="https://docs.tavily.com/documentation/api-reference/endpoint/extract">Extract</a>,
+        <a href="https://docs.tavily.com/documentation/api-reference/introduction">API introduction and project tracking</a>,
+        <a href="https://docs.tavily.com/documentation/api-reference/endpoint/crawl">Crawl</a>,
+        and <a href="https://docs.tavily.com/documentation/api-reference/endpoint/research">Research</a>.
+      </p>
+    </section>
+
+    <section>
+      <h2>Dataset Package To Build First</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Layer</th>
+            <th>Purpose</th>
+            <th>Suggested Location</th>
+            <th>Git Policy</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Raw Tavily article corpus</td>
+            <td>Timestamped, provenance-rich article records from Search and Extract.</td>
+            <td><code>Data/news/tavily_news_YYYYMMDDTHHMMSSZ_*/</code></td>
+            <td>Generated; normally ignored except curated metadata.</td>
+          </tr>
+          <tr>
+            <td>Screening index</td>
+            <td>One row per source with relevance, extraction quality, duplicate status, and share decision.</td>
+            <td><code>Data/derived/tavily_shared_v1/screening_index.csv</code></td>
+            <td>Derived; safe to share if it avoids restricted full text.</td>
+          </tr>
+          <tr>
+            <td>Shareable metadata table</td>
+            <td>URLs, titles, snippets, dates, source domains, query IDs, and Tavily request metadata.</td>
+            <td><code>Data/derived/tavily_shared_v1/sources.csv</code></td>
+            <td>Best first artifact for colleagues because it is compact and auditable.</td>
+          </tr>
+          <tr>
+            <td>Optional text bundle</td>
+            <td>Extracted article text for internal review when source terms allow it.</td>
+            <td><code>Data/derived/tavily_shared_v1/extracts.jsonl</code></td>
+            <td>Share only after license and redistribution review.</td>
+          </tr>
+          <tr>
+            <td>Dataset README</td>
+            <td>Collection purpose, query matrix, source policy, known gaps, and reuse notes.</td>
+            <td><code>Data/derived/tavily_shared_v1/README.md</code></td>
+            <td>Required for a colleague handoff.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Workflow</h2>
+      <div class="flow" aria-label="Tavily dataset workflow">
+        <div class="flow-step">
+          <span class="step-number">1</span>
+          <h3>Design Queries</h3>
+          <p>Define event types, date windows, domains, regions, and target source counts before fetching.</p>
+        </div>
+        <div class="flow-step">
+          <span class="step-number">2</span>
+          <h3>Fetch Sources</h3>
+          <p>Use the existing <code>fetch-news</code> path to store articles, manifests, request IDs, and usage.</p>
+        </div>
+        <div class="flow-step">
+          <span class="step-number">3</span>
+          <h3>Screen Records</h3>
+          <p>Remove duplicates, irrelevant pages, non-English text if out of scope, blocked extracts, and syndicated repeats.</p>
+        </div>
+        <div class="flow-step">
+          <span class="step-number">4</span>
+          <h3>Build Package</h3>
+          <p>Create a compact source table, screening index, README, and optional internal text bundle.</p>
+        </div>
+        <div class="flow-step">
+          <span class="step-number">5</span>
+          <h3>Share For Review</h3>
+          <p>Hand colleagues a versioned package with provenance, caveats, and clear rules for later use.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Query Matrix</h2>
+      <p>
+        Start with a matrix rather than ad hoc searches. Each row should become
+        a named query batch in the manifest so the final dataset can be audited.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Query Family</th>
+            <th>Example Intent</th>
+            <th>Coverage Target</th>
+            <th>Why It Helps</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Bank earnings</td>
+            <td>Recent bank earnings, profits, margin pressure, loan losses.</td>
+            <td>Company performance and earnings commentary.</td>
+            <td>Creates a useful slice of finance-specific text with clear source events.</td>
+          </tr>
+          <tr>
+            <td>Central bank policy</td>
+            <td>Rate decisions, inflation outlook, forward guidance.</td>
+            <td>Macroeconomic and policy language.</td>
+            <td>Adds current macro context that colleagues may want for later labeling or analysis.</td>
+          </tr>
+          <tr>
+            <td>Market volatility</td>
+            <td>Equity selloffs, rallies, bond moves, currency pressure.</td>
+            <td>Market movement and event-driven reporting.</td>
+            <td>Captures fast-moving topics where collection date and source provenance matter.</td>
+          </tr>
+          <tr>
+            <td>Corporate actions</td>
+            <td>Mergers, buybacks, layoffs, restructurings, guidance changes.</td>
+            <td>Firm-level strategic events.</td>
+            <td>Broadens the corpus beyond earnings and market-price language.</td>
+          </tr>
+          <tr>
+            <td>Regulation and enforcement</td>
+            <td>Fines, investigations, regulatory approvals, antitrust actions.</td>
+            <td>Legal, regulatory, and compliance reporting.</td>
+            <td>Gives colleagues material where source context and event type are important.</td>
+          </tr>
+          <tr>
+            <td>Technology and AI stocks</td>
+            <td>AI spending, chip demand, cloud growth, valuation concerns.</td>
+            <td>Current high-attention market themes.</td>
+            <td>Captures current market themes that older datasets may underrepresent.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Shareable Dataset Schema</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Field</th>
+            <th>Reason</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>source_id</code>, <code>record_id</code>, <code>url</code>, <code>normalized_url</code></td>
+            <td>Stable identity and a direct provenance trail back to each collected source.</td>
+          </tr>
+          <tr>
+            <td><code>title</code>, <code>snippet</code>, <code>source_domain</code>, <code>published_date</code></td>
+            <td>Compact review fields that colleagues can inspect without opening every source page.</td>
+          </tr>
+          <tr>
+            <td><code>query_id</code>, <code>query_family</code>, <code>topic</code>, <code>time_range</code></td>
+            <td>Shows why the source was collected and which part of the query matrix produced it.</td>
+          </tr>
+          <tr>
+            <td><code>fetched_at</code>, <code>tavily_request_id</code>, <code>search_rank</code>, <code>score</code></td>
+            <td>Preserves Tavily collection metadata for reproducibility and later troubleshooting.</td>
+          </tr>
+          <tr>
+            <td><code>extraction_status</code>, <code>extract_text_available</code>, <code>text_share_scope</code></td>
+            <td>Separates source discovery from full-text redistribution decisions.</td>
+          </tr>
+          <tr>
+            <td><code>screening_decision</code>, <code>screening_reason</code>, <code>reviewer_notes</code></td>
+            <td>Lets colleagues see what was kept, removed, or left for later review.</td>
+          </tr>
+          <tr>
+            <td><code>optional_sentiment_label</code>, <code>optional_labeler</code>, <code>optional_label_notes</code></td>
+            <td>Reserved for future labeling work without requiring labels in the first shared release.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Labeling Later</h2>
+      <div class="grid-3">
+        <div class="mini-card">
+          <h3>Keep v1 unlabeled</h3>
+          <p>
+            The first shared release should be a source dataset: URLs, metadata,
+            snippets, screening notes, and optional extracted text. That makes it
+            useful before the team agrees on label definitions.
+          </p>
+        </div>
+        <div class="mini-card">
+          <h3>Prepare label hooks</h3>
+          <p>
+            Reserve optional columns for future sentiment labels, labeler IDs,
+            confidence, ambiguity notes, and adjudication status. Leave them
+            blank in the initial package.
+          </p>
+        </div>
+        <div class="mini-card">
+          <h3>Agree before labeling</h3>
+          <p>
+            When the team is ready, define whether labels apply to the headline,
+            lead paragraph, whole article, company, asset, or market implication.
+            That decision should be written before anyone labels examples.
+          </p>
+        </div>
+      </div>
+      <div class="callout warning" style="margin-top: 16px;">
+        <h3>Important boundary</h3>
+        <p>
+          Do not merge Tavily-derived rows into <code>Data/data.csv</code>. Keep
+          them as a separate derived dataset so the team can decide later whether
+          it is a source corpus, an annotation project, or a benchmark extension.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Best Uses For Colleagues Later</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Future Use</th>
+            <th>What Colleagues Can Do</th>
+            <th>Dataset Feature Needed</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Manual annotation project</td>
+            <td>Assign sentiment labels after agreeing on the unit of analysis and label guide.</td>
+            <td>Stable source IDs, snippets, optional full text, and blank label columns.</td>
+          </tr>
+          <tr>
+            <td>Current-news reading set</td>
+            <td>Review recent financial news examples without repeating the collection work.</td>
+            <td>Query families, dates, domains, and screening notes.</td>
+          </tr>
+          <tr>
+            <td>Source coverage audit</td>
+            <td>Check whether the corpus overrepresents specific outlets, regions, or event types.</td>
+            <td>Domain, region, event family, query ID, and deduplication fields.</td>
+          </tr>
+          <tr>
+            <td>Later benchmark extension</td>
+            <td>Create a smaller labeled subset if the team later wants current-domain evaluation.</td>
+            <td>Documented inclusion rules and reproducible source manifests.</td>
+          </tr>
+          <tr>
+            <td>Literature or methods appendix</td>
+            <td>Describe how current source material was found, screened, and shared.</td>
+            <td>Dataset README, query matrix, collection timestamp, and limitations.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Initial Pilot</h2>
+      <div class="timeline">
+        <div class="timeline-item">
+          <strong>Day 1</strong>
+          <div>
+            <h3>Design and fetch</h3>
+            <p>
+              Select the configured query families, request 10 to 20 results per family for
+              the last week or month, and keep extraction enabled. Target roughly
+              60 to 120 sources before screening.
+            </p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <strong>Day 2</strong>
+          <div>
+            <h3>Screen and index</h3>
+            <p>
+              Deduplicate URLs, remove irrelevant or low-content pages, flag
+              extraction failures, and record whether each source is suitable for
+              colleague review.
+            </p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <strong>Day 3</strong>
+          <div>
+            <h3>Package v1</h3>
+            <p>
+              Create a compact source table, screening index, dataset README,
+              manifest copy, and optional extracts file if full-text sharing is
+              acceptable.
+            </p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <strong>Day 4</strong>
+          <div>
+            <h3>Colleague handoff</h3>
+            <p>
+              Share the package with colleagues, collect feedback on coverage and
+              usability, then decide whether a v2 collection or a labeling pass is
+              worth doing.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Quality Gates</h2>
+      <div class="grid-3">
+        <div class="mini-card">
+          <h3>Before fetching</h3>
+          <ul>
+            <li>Query families are named and versioned.</li>
+            <li>Date range and domain policy are fixed.</li>
+            <li>Target sample size is written down.</li>
+          </ul>
+        </div>
+        <div class="mini-card">
+          <h3>Before packaging</h3>
+          <ul>
+            <li>Duplicates and extraction failures are marked.</li>
+            <li>Inclusion and exclusion rules are documented.</li>
+            <li>Raw article bodies are separated from compact metadata.</li>
+          </ul>
+        </div>
+        <div class="mini-card">
+          <h3>Before sharing</h3>
+          <ul>
+            <li>Dataset README is complete.</li>
+            <li>License and redistribution risk are checked.</li>
+            <li>Full text is shared only when rights and audience allow it.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="callout risk" style="margin-top: 16px;">
+        <h3>Main risks</h3>
+        <p>
+          The biggest risks are licensing restrictions, duplicated syndicated
+          articles, broad queries that collect irrelevant pages, and sharing more
+          article text than source terms allow. The plan controls these by
+          separating compact metadata, optional extracts, screening notes, and
+          later labeling decisions.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Implementation Scope Later</h2>
+      <p>
+        The repository already has a useful foundation through
+        <code>sentiment-bench fetch-news</code>, <code>news-check</code>, and
+        the <code>Data/news</code> output convention. The implementation should
+        add <code>sentiment-bench package-news</code> to turn existing corpora
+        into <code>Data/derived/&lt;package_id&gt;</code> share packages without
+        making new Tavily calls.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Future Artifact</th>
+            <th>Purpose</th>
+            <th>Priority</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Query matrix file</td>
+            <td>Versioned search plan with query IDs, topic, date range, and domains.</td>
+            <td>High</td>
+          </tr>
+          <tr>
+            <td>Dataset README template</td>
+            <td>Explains collection purpose, package contents, reuse limits, and known gaps.</td>
+            <td>High</td>
+          </tr>
+          <tr>
+            <td>Screening worksheet</td>
+            <td>Review table for article relevance, extraction quality, and inclusion.</td>
+            <td>Medium</td>
+          </tr>
+          <tr>
+            <td>Share package manifest</td>
+            <td>Records package version, source batches, file hashes, and audience restrictions.</td>
+            <td>High</td>
+          </tr>
+          <tr>
+            <td>Optional annotation guide</td>
+            <td>Defines sentiment labels only if the team later chooses to label the corpus.</td>
+            <td>Medium</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="flat footer">
+      <p>
+        This file is a planning document. It does not call Tavily, create a
+        dataset, modify <code>Data/data.csv</code>, label examples, or run
+        experiments.
+      </p>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -148,6 +149,75 @@ def _news_result(query: str = "market news") -> NewsFetchResult:
     )
 
 
+def _write_package_source(path: Path, *, query: str = "bank earnings sentiment", url: str = "https://example.com/article") -> Path:
+    path.mkdir(parents=True)
+    normalized = normalize_url(url)
+    record = {
+        "record_id": article_record_id(normalized),
+        "url": url,
+        "normalized_url": normalized,
+        "title": "Market article",
+        "snippet": "Snippet",
+        "article_text": "Full article text",
+        "extraction_status": "success",
+    }
+    (path / "articles.jsonl").write_text(json.dumps(record, sort_keys=True) + "\n", encoding="utf-8")
+    (path / "manifest.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "source": "tavily",
+                "fetched_at": "2026-06-07T12:00:00+00:00",
+                "query": query,
+                "record_count": 1,
+                "search_request_id": "search-1",
+                "extract_request_id": "extract-1",
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+def _write_batch_matrix(path: Path) -> Path:
+    path.write_text(
+        """
+version = 1
+description = "Reusable Tavily query matrix for CLI tests."
+
+[[queries]]
+id = "bank_earnings"
+family = "Bank earnings"
+query = "bank earnings sentiment"
+topic = "news"
+time_range = "month"
+max_results = 1
+search_depth = "basic"
+coverage_target = "Company performance and earnings commentary."
+include_domains = []
+exclude_domains = []
+notes = "Use for source collection; labels are intentionally absent."
+
+[[queries]]
+id = "market_volatility"
+family = "Market volatility"
+query = "market volatility stocks bonds currency"
+topic = "news"
+time_range = "month"
+max_results = 1
+search_depth = "basic"
+coverage_target = "Market movement and event-driven reporting."
+include_domains = []
+exclude_domains = []
+notes = "Use for source collection; labels are intentionally absent."
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    return path
+
+
 class FakeNewsClient:
     def __init__(self) -> None:
         self.configs = []
@@ -212,3 +282,153 @@ def test_cli_fetch_news_rejects_invalid_topic(tmp_path: Path) -> None:
 
     assert result.exit_code != 0
     assert "topic must be one of" in result.output
+
+
+def test_cli_package_news_writes_share_package(tmp_path: Path) -> None:
+    source = _write_package_source(tmp_path / "tavily_news_one")
+    output_dir = tmp_path / "derived"
+
+    result = runner.invoke(
+        app,
+        [
+            "package-news",
+            "--source", str(source),
+            "--package-id", "shared",
+            "--output-dir", str(output_dir),
+            "--query-matrix", str(tmp_path / "missing.toml"),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Tavily News Package" in result.output
+    package_dir = output_dir / "shared"
+    assert (package_dir / "sources.csv").exists()
+    assert (package_dir / "screening_index.csv").exists()
+    assert (package_dir / "package_manifest.json").exists()
+    assert (package_dir / "README.md").exists()
+    assert not (package_dir / "extracts.jsonl").exists()
+
+
+def test_cli_package_news_accepts_repeated_sources(tmp_path: Path) -> None:
+    first = _write_package_source(tmp_path / "tavily_news_one", url="https://example.com/a")
+    second = _write_package_source(tmp_path / "tavily_news_two", query="market volatility", url="https://example.com/b")
+
+    result = runner.invoke(
+        app,
+        [
+            "package-news",
+            "--source", str(first),
+            "--source", str(second),
+            "--package-id", "shared",
+            "--output-dir", str(tmp_path / "derived"),
+            "--query-matrix", str(tmp_path / "missing.toml"),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Unique sources" in result.output
+    manifest = json.loads((tmp_path / "derived" / "shared" / "package_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["input_record_count"] == 2
+    assert manifest["unique_source_count"] == 2
+
+
+def test_cli_package_news_rejects_existing_output(tmp_path: Path) -> None:
+    source = _write_package_source(tmp_path / "tavily_news_one")
+    existing = tmp_path / "derived" / "shared"
+    existing.mkdir(parents=True)
+
+    result = runner.invoke(
+        app,
+        [
+            "package-news",
+            "--source", str(source),
+            "--package-id", "shared",
+            "--output-dir", str(tmp_path / "derived"),
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "already exists" in result.output
+
+
+def test_cli_package_news_rejects_invalid_text_policy_and_source(tmp_path: Path) -> None:
+    source = _write_package_source(tmp_path / "tavily_news_one")
+    bad_policy = runner.invoke(
+        app,
+        [
+            "package-news",
+            "--source", str(source),
+            "--package-id", "shared",
+            "--output-dir", str(tmp_path / "derived"),
+            "--text-policy", "full",
+        ],
+    )
+    assert bad_policy.exit_code != 0
+    assert "text_policy must be one of" in bad_policy.output
+
+    bad_source = runner.invoke(
+        app,
+        [
+            "package-news",
+            "--source", str(tmp_path / "missing"),
+            "--package-id", "shared",
+            "--output-dir", str(tmp_path / "derived2"),
+        ],
+    )
+    assert bad_source.exit_code != 0
+    assert "source corpus directory does not exist" in bad_source.output
+
+
+def test_cli_fetch_news_batch_dry_run_prints_matrix_plan(tmp_path: Path) -> None:
+    matrix = _write_batch_matrix(tmp_path / "matrix.toml")
+
+    result = runner.invoke(
+        app,
+        [
+            "fetch-news-batch",
+            "--query-matrix", str(matrix),
+            "--date-window", "2026-05-01:2026-05-07",
+            "--date-window", "2026-05-08:2026-05-14",
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Tavily News Batch Dry Run" in result.output
+    assert "Planned fetches: 4" in result.output
+    assert "bank_earnings" in result.output
+
+
+def test_cli_fetch_news_batch_executes_and_packages(tmp_path: Path, monkeypatch) -> None:
+    fake = FakeNewsClient()
+    monkeypatch.setattr("sentiment_benchmark.cli._make_tavily_news_client", lambda: fake)
+    matrix = _write_batch_matrix(tmp_path / "matrix.toml")
+
+    result = runner.invoke(
+        app,
+        [
+            "fetch-news-batch",
+            "--query-matrix", str(matrix),
+            "--query-id", "bank_earnings",
+            "--date-window", "2026-05-01:2026-05-07",
+            "--date-window", "2026-05-08:2026-05-14",
+            "--output-dir", str(tmp_path / "news"),
+            "--package-id", "batch_shared",
+            "--package-output-dir", str(tmp_path / "derived"),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Tavily News Batch" in result.output
+    assert "Fetched records" in result.output
+    assert "Failed extractions" in result.output
+    assert len(fake.configs) == 2
+    assert fake.configs[0].query == "bank earnings sentiment"
+    assert fake.configs[0].start_date == "2026-05-01"
+    assert fake.configs[0].end_date == "2026-05-07"
+    assert fake.configs[1].start_date == "2026-05-08"
+    exported = list((tmp_path / "news").glob("tavily_news_*"))
+    assert len(exported) == 2
+    assert (tmp_path / "derived" / "batch_shared" / "sources.csv").exists()
+    manifest = json.loads((tmp_path / "derived" / "batch_shared" / "package_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["input_record_count"] == 2
