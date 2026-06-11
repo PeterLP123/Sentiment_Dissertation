@@ -245,6 +245,8 @@ sentiment-bench export --run-id 1
 | `--db-path` | `results/sentiment_benchmark.sqlite` | Local SQLite storage path; when `SENTIMENT_BENCH_DB_BACKEND=libsql`, Turso env vars select the synced replica. |
 | `--output-dir` | `results/exports/run_<id>` | Optional export destination override. |
 
+Exports include `tables/` with dissertation-ready booktabs LaTeX tables and, when matplotlib is installed, `figures/` with publication figures (see [Results and exports](results_and_exports.md)).
+
 ## Prompt Robustness Commands
 
 Run perturbation variants:
@@ -260,6 +262,8 @@ Summarize metric variation:
 sentiment-bench prompt-sensitivity --run-id 3 --run-id 4 --run-id 5 \
   --model openai/gpt-4o-mini --metric accuracy
 ```
+
+Add `--latex-output results/exports/prompt_sensitivity.tex` to also write the variant table as a dissertation-ready booktabs LaTeX table.
 
 Common options include `--provider`, `--base-url`, `--ollama-host`, `--mode`, `--dataset-path`, `--db-path`, `--prompts-path`, `--sample-per-class`, `--seed`, `--temperature`, `--max-completion-tokens`, `--reasoning-max-tokens`, `--concurrency`, and `--retries`.
 

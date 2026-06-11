@@ -11,6 +11,8 @@ Figures produced (when the underlying data is present):
 * ``per_class_f1_<model>.png`` — per-model precision/recall/F1 bars by class.
 * ``accuracy_ci_forest.png`` — accuracy point + bootstrap CI across models.
 * ``leaderboard.png`` — models ranked by accuracy and macro-F1.
+* ``pareto_quality_cost.png`` — macro-F1 vs provider cost with the Pareto frontier.
+* ``pareto_quality_latency.png`` — macro-F1 vs p95 latency with the Pareto frontier.
 """
 
 from __future__ import annotations
@@ -136,6 +138,100 @@ def _plot_accuracy_ci_forest(plt: Any, statistics: dict[str, Any], output_dir: P
     return path
 
 
+def pareto_frontier(points: list[tuple[float, float]]) -> list[int]:
+    """Indices of the points on the (minimize x, maximize y) Pareto frontier.
+
+    Returned in ascending-x order. A point is on the frontier when no other point
+    has both lower-or-equal x and strictly higher y.
+    """
+    order = sorted(range(len(points)), key=lambda index: (points[index][0], -points[index][1]))
+    frontier: list[int] = []
+    best_y = float("-inf")
+    for index in order:
+        if points[index][1] > best_y:
+            frontier.append(index)
+            best_y = points[index][1]
+    return frontier
+
+
+def _operational_items(
+    scope_records: list[dict[str, Any]],
+    operational: dict[str, Any],
+    x_keys: tuple[str, str],
+) -> list[tuple[str, float, float]]:
+    """Join per-model macro-F1 with one operational quantity as (model, x, macro_f1)."""
+    section, key = x_keys
+    items: list[tuple[str, float, float]] = []
+    for record in scope_records:
+        model_id = str(record["model_id"])
+        value = ((operational.get(model_id) or {}).get(section) or {}).get(key)
+        if isinstance(value, (int, float)):
+            items.append((model_id, float(value), float(record.get("macro_f1", 0.0))))
+    return items
+
+
+def _plot_pareto(
+    plt: Any,
+    items: list[tuple[str, float, float]],
+    x_label: str,
+    title: str,
+    filename: str,
+    output_dir: Path,
+) -> Path | None:
+    """Quality-vs-resource scatter with the Pareto frontier highlighted.
+
+    Skipped with fewer than two models because a single point has no frontier
+    worth publishing.
+    """
+    if len(items) < 2:
+        return None
+    points = [(x, y) for _, x, y in items]
+    frontier = pareto_frontier(points)
+    frontier_set = set(frontier)
+
+    fig, ax = plt.subplots(figsize=(7.5, 5.0))
+    xs = [x for _, x, _ in items]
+    for index, (model_id, x, y) in enumerate(items):
+        on_frontier = index in frontier_set
+        ax.scatter(
+            x,
+            y,
+            s=70 if on_frontier else 45,
+            color="#d62728" if on_frontier else "#1f77b4",
+            zorder=3,
+            label=None,
+        )
+        ax.annotate(
+            model_id,
+            (x, y),
+            xytext=(5, 5),
+            textcoords="offset points",
+            fontsize=8,
+        )
+    frontier_xs = [points[index][0] for index in frontier]
+    frontier_ys = [points[index][1] for index in frontier]
+    ax.step(frontier_xs, frontier_ys, where="post", color="#d62728", linestyle="--", alpha=0.7, zorder=2,
+            label="Pareto frontier (red points)")
+
+    # Costs commonly span orders of magnitude; switch to log when linear would
+    # squash the cheap models into the axis.
+    if min(xs) > 0 and max(xs) / min(xs) > 25:
+        ax.set_xscale("log")
+        x_label = f"{x_label} (log scale)"
+    ax.margins(x=0.15)  # keep model-name annotations inside the axes
+    ax.set_xlabel(x_label)
+    ax.set_ylabel("Macro-F1")
+    ax.set_ylim(0.0, 1.0)
+    ax.grid(linestyle=":", alpha=0.5)
+    ax.set_title(title)
+    ax.legend(loc="lower right", fontsize=8)
+    fig.tight_layout()
+    path = output_dir / filename
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+    return path
+
+
 def _plot_leaderboard(plt: Any, scope_records: list[dict[str, Any]], scope: str, output_dir: Path) -> Path | None:
     if not scope_records:
         return None
@@ -193,6 +289,33 @@ def generate_figures(
     forest = _plot_accuracy_ci_forest(plt, statistics, destination)
     if forest is not None:
         paths.append(forest)
+
+    operational = (statistics.get("operational") or {}).get("per_model") or {}
+    if operational:
+        cost_items = _operational_items(scope_records, operational, ("cost", "usd_per_1k_rows"))
+        cost_items = [(model, x, y) for model, x, y in cost_items if x > 0]
+        cost_plot = _plot_pareto(
+            plt,
+            cost_items,
+            "Provider cost (USD per 1,000 rows)",
+            f"Macro-F1 vs cost — Pareto frontier ({scope} scope)",
+            "pareto_quality_cost.png",
+            destination,
+        )
+        if cost_plot is not None:
+            paths.append(cost_plot)
+
+        latency_items = _operational_items(scope_records, operational, ("latency_ms", "p95"))
+        latency_plot = _plot_pareto(
+            plt,
+            latency_items,
+            "Latency p95 (ms)",
+            f"Macro-F1 vs latency — Pareto frontier ({scope} scope)",
+            "pareto_quality_latency.png",
+            destination,
+        )
+        if latency_plot is not None:
+            paths.append(latency_plot)
 
     for record in scope_records:
         confusion = _plot_confusion(plt, record, destination)

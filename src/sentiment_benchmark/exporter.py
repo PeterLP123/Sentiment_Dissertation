@@ -13,6 +13,7 @@ import pandas as pd
 from . import __version__
 from .agreement import compute_agreement
 from .constants import is_valid_label
+from .latex_tables import generate_latex_tables
 from .metrics import _response_prediction, bootstrap_metric_ci, load_metric_json, mcnemar_test
 from .plotting import generate_figures
 from .storage import BenchmarkStore
@@ -86,6 +87,53 @@ def _compute_statistics(responses: pd.DataFrame, seed: int) -> dict[str, Any]:
     if len(predictions_by_model) >= 2:
         payload["agreement"] = asdict(compute_agreement(predictions_by_model))
     return payload
+
+
+def _compute_operational(responses: pd.DataFrame) -> dict[str, dict[str, Any]]:
+    """Per-model operational statistics over every attempted row in the run.
+
+    Unlike the classification metrics these are scope-independent: cost, latency,
+    token usage, and failure rates describe API behavior, not label quality, so
+    conflicting-duplicate rows are included. Cost depends on provider-reported
+    generation metadata and is reported as None when no row has it (baselines,
+    local models, or providers without cost data).
+    """
+    per_model: dict[str, dict[str, Any]] = {}
+    if responses.empty:
+        return per_model
+    for model_id, group in responses.groupby("model_id"):
+        n_rows = len(group)
+        latencies = pd.to_numeric(group["latency_ms"], errors="coerce").dropna()
+        costs = pd.to_numeric(group["total_cost"], errors="coerce").dropna()
+        prompt_tokens = pd.to_numeric(group["prompt_tokens"], errors="coerce").dropna()
+        completion_tokens = pd.to_numeric(group["completion_tokens"], errors="coerce").dropna()
+        total_tokens = pd.to_numeric(group["total_tokens"], errors="coerce").dropna()
+        invalid_count = int((group["parse_status"] == "invalid").sum())
+        api_error_count = int((group["status"] != "success").sum())
+        per_model[str(model_id)] = {
+            "n_rows": n_rows,
+            "latency_ms": {
+                "n": int(latencies.size),
+                "mean": float(latencies.mean()) if latencies.size else None,
+                "p50": float(latencies.quantile(0.5)) if latencies.size else None,
+                "p95": float(latencies.quantile(0.95)) if latencies.size else None,
+            },
+            "cost": {
+                "n_rows_with_cost": int(costs.size),
+                "total_usd": float(costs.sum()) if costs.size else None,
+                "usd_per_1k_rows": float(costs.sum() / costs.size * 1000.0) if costs.size else None,
+            },
+            "tokens": {
+                "total_prompt": int(prompt_tokens.sum()),
+                "total_completion": int(completion_tokens.sum()),
+                "mean_total_per_row": float(total_tokens.mean()) if total_tokens.size else None,
+            },
+            "invalid_count": invalid_count,
+            "invalid_rate": invalid_count / n_rows,
+            "api_error_count": api_error_count,
+            "api_error_rate": api_error_count / n_rows,
+        }
+    return per_model
 
 
 def dataset_sha256(path: str | Path) -> str | None:
@@ -234,6 +282,10 @@ def export_run(db_path: str | Path, run_id: int, output_dir: str | Path | None =
     seed_setting = request_settings.get("seed")
     seed = seed_setting if isinstance(seed_setting, int) else 42
     statistics = _compute_statistics(responses, seed)
+    statistics["operational"] = {
+        "note": "Computed over every attempted row in the run (both scopes); rates are per attempted row.",
+        "per_model": _compute_operational(responses),
+    }
     statistics_path = destination / "statistics.json"
     statistics_path.write_text(json.dumps(statistics, indent=2), encoding="utf-8")
     paths.append(statistics_path)
@@ -298,6 +350,37 @@ def export_run(db_path: str | Path, run_id: int, output_dir: str | Path | None =
                     f"(n_discordant = {pair['n_discordant']}, {pair['method']})"
                 )
             lines.append("")
+    operational_models = statistics["operational"]["per_model"]
+    if operational_models:
+        def _cell(value: Any, decimals: int = 0) -> str:
+            return f"{float(value):.{decimals}f}" if isinstance(value, (int, float)) else "-"
+
+        def _cost_cell(value: Any) -> str:
+            return f"{float(value):.4f}" if isinstance(value, (int, float)) else "-"
+
+        lines.extend(
+            [
+                "## Operational metrics (RQ4)",
+                "",
+                "Computed over every attempted row in the run (both scopes). "
+                "Cost requires provider-reported generation metadata and is `-` for baselines and local models.",
+                "",
+                "| Model | Rows | Cost (USD) | USD/1k rows | Latency p50 (ms) | Latency p95 (ms) | Tokens/row | Invalid | API errors |",
+                "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+            ]
+        )
+        for model_id in sorted(operational_models):
+            entry = operational_models[model_id]
+            latency = entry["latency_ms"]
+            cost = entry["cost"]
+            lines.append(
+                f"| {model_id} | {entry['n_rows']} | {_cost_cell(cost['total_usd'])} "
+                f"| {_cost_cell(cost['usd_per_1k_rows'])} | {_cell(latency['p50'])} | {_cell(latency['p95'])} "
+                f"| {_cell(entry['tokens']['mean_total_per_row'], 1)} "
+                f"| {entry['invalid_count']} ({entry['invalid_rate'] * 100:.1f}%) "
+                f"| {entry['api_error_count']} ({entry['api_error_rate'] * 100:.1f}%) |"
+            )
+        lines.append("")
     agreement = statistics.get("agreement")
     if agreement:
         def _fmt(value: float | None) -> str:
@@ -321,6 +404,12 @@ def export_run(db_path: str | Path, run_id: int, output_dir: str | Path | None =
         lines.append("")
     summary_path.write_text("\n".join(lines), encoding="utf-8")
     paths.append(summary_path)
+
+    # Dissertation-ready booktabs tables (pure text; no optional dependencies).
+    table_paths = generate_latex_tables(
+        metric_records, statistics, run_payload["metadata"], run_id, destination / "tables"
+    )
+    paths.extend(table_paths)
 
     # Publication-ready figures (no-op if matplotlib is not installed).
     figure_paths = generate_figures(metric_records, statistics, destination / "figures")
