@@ -208,6 +208,33 @@ def test_package_news_sources_flags_legacy_junk_text_as_unusable(tmp_path: Path)
     assert manifest["text_quality_counts"] == {"error_page": 1, "ok": 1, "too_short": 1}
 
 
+def test_package_news_sources_reflags_listing_pages_despite_stored_ok(tmp_path: Path) -> None:
+    good = "Bank earnings rose sharply this quarter. " * 30
+    corpus = _write_corpus(
+        tmp_path / "tavily_news_one",
+        records=[
+            _record("https://example.com/category/markets/page/2", text=good, text_quality="ok"),
+            _record("https://example.com/real-article", text=good, text_quality="ok"),
+        ],
+    )
+
+    result = package_news_sources(
+        [corpus],
+        package_id="shared",
+        output_root=tmp_path / "derived",
+        query_matrix_path=None,
+        text_policy="internal-extracts",
+    )
+
+    rows = {row["url"]: row for row in _csv_rows(result.paths.sources_csv)}
+    assert rows["https://example.com/category/markets/page/2"]["text_quality"] == "non_article"
+    assert rows["https://example.com/category/markets/page/2"]["extract_text_available"] == "false"
+    assert rows["https://example.com/real-article"]["text_quality"] == "ok"
+    assert result.paths.extracts_jsonl is not None
+    extract_urls = [json.loads(line)["url"] for line in result.paths.extracts_jsonl.read_text(encoding="utf-8").splitlines()]
+    assert extract_urls == ["https://example.com/real-article"]
+
+
 def test_package_news_sources_rejects_missing_and_malformed_inputs(tmp_path: Path) -> None:
     missing_articles = tmp_path / "missing_articles"
     missing_articles.mkdir()

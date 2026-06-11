@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+import json
+from dataclasses import asdict, dataclass
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
@@ -49,6 +50,56 @@ def parse_date_window(value: str) -> DateWindow:
     if config.start_date > config.end_date:
         raise NewsBatchError("date window start_date must be before or equal to end_date")
     return DateWindow(start_date=config.start_date, end_date=config.end_date)
+
+
+@dataclass(frozen=True)
+class FetchedCorpus:
+    path: Path
+    parameters: dict[str, Any]
+    record_count: int = 0
+
+
+def config_parameters(config: NewsFetchConfig) -> dict[str, Any]:
+    """Round-trip the config through JSON so it compares equal to manifest parameters."""
+    return json.loads(json.dumps(asdict(config), sort_keys=True))
+
+
+def load_fetched_corpora(output_dir: str | Path) -> list[FetchedCorpus]:
+    root = Path(output_dir)
+    if not root.exists() or not root.is_dir():
+        return []
+    corpora: list[FetchedCorpus] = []
+    for manifest_path in sorted(root.glob("*/manifest.json")):
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        parameters = manifest.get("parameters") if isinstance(manifest, dict) else None
+        if isinstance(parameters, dict):
+            record_count = manifest.get("record_count")
+            corpora.append(
+                FetchedCorpus(
+                    path=manifest_path.parent,
+                    parameters=parameters,
+                    record_count=record_count if isinstance(record_count, int) else 0,
+                )
+            )
+    return corpora
+
+
+def find_fetched_corpus(plan: NewsBatchFetchPlan, corpora: list[FetchedCorpus]) -> Path | None:
+    """Return an existing corpus directory fetched with exactly this plan's parameters, if any.
+
+    Any parameter difference (date window, extract depth, domain filters, quality
+    floor, ...) means no match, so reruns after settings changes refetch as expected.
+    Zero-record corpora never match: re-checking an empty search costs one credit,
+    while wrongly locking in a transient empty result loses a whole query window.
+    """
+    parameters = config_parameters(plan.config)
+    for corpus in corpora:
+        if corpus.record_count > 0 and corpus.parameters == parameters:
+            return corpus.path
+    return None
 
 
 def build_weekly_date_windows(weeks: int, *, end_date: str | None = None) -> list[str]:

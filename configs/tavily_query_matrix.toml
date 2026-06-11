@@ -6,6 +6,11 @@ description = "Reusable Tavily query matrix for a balanced initial current-finan
 # run, and Yahoo Finance is excluded because its pages consistently serve an
 # "Oops, something went wrong" error page to the extractor (its content is
 # mostly syndicated and available at the original source).
+#
+# Topic choice (2026-06-11): with Yahoo excluded, topic = "finance" has thin
+# inventory for some themes — credit risk, market rally/selloff, mergers, and
+# commodities returned 0-40 records across five weekly windows while the same
+# queries with topic = "news" returned full pages, so those four use "news".
 
 [[queries]]
 id = "bank_earnings"
@@ -52,8 +57,8 @@ notes = "Adds policy and macro context where sentiment often depends on market i
 [[queries]]
 id = "market_rally_selloff"
 family = "Market rally and selloff"
-query = "stock market rally selloff volatility investor sentiment bonds currency"
-topic = "finance"
+query = "stock market rally selloff volatility investors"
+topic = "news"
 time_range = "month"
 max_results = 20
 search_depth = "basic"
@@ -61,13 +66,13 @@ extract_depth = "advanced"
 coverage_target = "Market-wide movement, volatility, and risk-on or risk-off reporting."
 include_domains = []
 exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
-notes = "Captures event-driven market tone across equities, bonds, and currencies."
+notes = "Captures event-driven market tone across equities, bonds, and currencies. Shortened on 2026-06-11 after the original query under-delivered (22 records across five windows)."
 
 [[queries]]
 id = "credit_debt_risk"
 family = "Credit and debt risk"
-query = "credit rating downgrade debt default bond yields refinancing risk company"
-topic = "finance"
+query = "credit rating downgrade debt default bond yields"
+topic = "news"
 time_range = "month"
 max_results = 20
 search_depth = "basic"
@@ -75,13 +80,13 @@ extract_depth = "advanced"
 coverage_target = "Debt, credit quality, default risk, and refinancing pressure."
 include_domains = []
 exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
-notes = "Improves coverage of negative and risk-oriented financial language."
+notes = "Improves coverage of negative and risk-oriented financial language. Shortened on 2026-06-11 after the original query under-delivered (38 records across five windows)."
 
 [[queries]]
 id = "mergers_buybacks_restructuring"
 family = "Mergers, buybacks, and restructuring"
-query = "merger acquisition buyback restructuring layoffs cost cuts stock reaction"
-topic = "finance"
+query = "merger acquisition restructuring layoffs shares"
+topic = "news"
 time_range = "month"
 max_results = 20
 search_depth = "basic"
@@ -89,7 +94,7 @@ extract_depth = "advanced"
 coverage_target = "Corporate actions with mixed or context-dependent market interpretation."
 include_domains = []
 exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
-notes = "Useful for ambiguous examples where the same event can be positive or negative depending on context."
+notes = "Useful for ambiguous examples where the same event can be positive or negative depending on context. Shortened on 2026-06-11 after the original eight-term query returned zero records in every window of the first run."
 
 [[queries]]
 id = "regulation_enforcement"
@@ -109,7 +114,7 @@ notes = "Adds factual legal and regulatory text that should not always be labele
 id = "commodities_energy"
 family = "Commodities and energy"
 query = "oil prices energy stocks commodity prices gold copper market outlook"
-topic = "finance"
+topic = "news"
 time_range = "month"
 max_results = 20
 search_depth = "basic"

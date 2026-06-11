@@ -12,6 +12,7 @@ from sentiment_benchmark.news_source import (
     article_record_id,
     assess_article_text,
     infer_published_date,
+    is_listing_url,
     make_news_fetch_config,
     normalize_url,
     write_news_corpus,
@@ -97,7 +98,10 @@ def test_tavily_news_fetch_merges_search_and_extract_and_dedupes() -> None:
         assert record.search_request_id == "search-1"
         assert record.extract_request_id == "extract-1"
         assert fake.search_calls[0]["topic"] == "news"
+        assert fake.search_calls[0]["timeout"] == 90.0
         assert fake.extract_calls[0]["format"] == "text"
+        # The Tavily SDK rejects timeouts above 120 seconds.
+        assert 1 <= fake.extract_calls[0]["timeout"] <= 120
 
     run(scenario())
 
@@ -202,6 +206,46 @@ def test_tavily_news_short_extraction_is_quality_gated_unless_disabled() -> None
         assert ungated.records[0].extraction_status == "success"
         assert ungated.records[0].text_quality == "ok"
         assert ungated.records[0].article_text == "Tiny body."
+
+    run(scenario())
+
+
+def test_is_listing_url_flags_index_pages_not_articles() -> None:
+    assert is_listing_url("https://www.bloomberg.com/professional/insights/category/markets/page/4?pg=53")
+    assert is_listing_url("https://www.wsj.com/topics/place/portugal")
+    assert is_listing_url("https://www.bloomberg.com/professional/products/indices/quote/LF98TRUU:IND")
+    assert is_listing_url("https://www.cnbc.com/video/2026/06/08/rbi-hiking-cycle.html")
+    assert is_listing_url("https://example.com/tag/banking/")
+    assert not is_listing_url("https://www.cnbc.com/2026/06/05/jobs-report-may-2026.html")
+    assert not is_listing_url("https://www.reuters.com/markets/rates-bonds/some-story-2026-06-05/")
+    # Words like "page" or "tags" inside slugs are not listing markers.
+    assert not is_listing_url("https://example.com/news/front-page-news-roundup")
+    assert not is_listing_url("https://example.com/news/price-tags-rise")
+
+
+def test_tavily_news_listing_page_is_quality_gated() -> None:
+    async def scenario() -> None:
+        url = "https://example.com/category/markets/page/2"
+        fake = FakeTavilyClient(
+            search_payload={
+                "request_id": "search-1",
+                "results": [{"title": "Markets | Page 2", "url": url, "content": "Snippet"}],
+            },
+            extract_payload={
+                "request_id": "extract-1",
+                "results": [{"url": url, "raw_content": LONG_ARTICLE_TEXT}],
+                "failed_results": [],
+            },
+        )
+        config = make_news_fetch_config(query="market news", max_results=1)
+
+        result = await TavilyNewsClient(client=fake).fetch(config)
+
+        record = result.records[0]
+        assert record.text_quality == "non_article"
+        assert record.extraction_status == "failed"
+        assert record.article_text is None
+        assert "listing" in record.extract_error
 
     run(scenario())
 

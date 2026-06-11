@@ -240,7 +240,10 @@ sentiment-bench fetch-news-batch --weeks 5 --dry-run
 | `--package-id` | `tavily_shared_v1` | Share package id used when packaging is enabled. |
 | `--package-output-dir` | `Data/derived` | Root directory for generated share package. |
 | `--text-policy` | `metadata` | Package text policy: `metadata` or `internal-extracts`. |
-| `--dry-run` | off | Print planned fetches without calling Tavily or writing files. |
+| `--skip-existing / --refetch` | `--skip-existing` | Skip fetches whose exact parameters already produced a corpus under `--output-dir`; skipped corpora still join the package, so interrupted batches resume without paying for completed fetches again. Any parameter change (window, depth, domains, quality floor) triggers a refetch. |
+| `--dry-run` | off | Print planned fetches without calling Tavily or writing files, including how many would be skipped. |
+
+Each fetch is attempted up to 3 times with a short backoff before being recorded as failed, and the batch continues past persistent failures instead of aborting. When any fetch fails, packaging is skipped and the command exits non-zero — re-run the same command to retry only the failed fetches and build the package. Search and extract calls use 90s/120s timeouts — the SDK defaults are too tight for advanced extraction over 20 URLs, and 120s is the maximum the Tavily SDK accepts. Corpora whose search returned zero records are refetched on the next run rather than treated as complete.
 
 ## `package-news`
 
@@ -282,6 +285,8 @@ sentiment-bench news-quality
 ```
 
 Summarizes text quality across fetched Tavily corpora without making any API calls. Prints an overview table (records, unique URLs, usable unique URLs, `text_quality` breakdown, publication-date provenance), per-query-family counts, and the top source domains with usable shares. Query families whose corpora returned zero records remain visible as coverage gaps. Corpora that predate the quality gate are re-assessed on the fly.
+
+The domain table includes a `Shared prefix` column: the longest identical opening shared by at least two distinct usable articles from that domain. A large value (highlighted at 200+) means the extraction is carrying site boilerplate into article bodies or the domain published near-duplicate articles — both worth reviewing before labeling.
 
 | Option | Default | Meaning |
 | --- | --- | --- |

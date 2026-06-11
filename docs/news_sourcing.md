@@ -106,6 +106,8 @@ sentiment-bench fetch-news-batch --weeks 5 --dry-run
 sentiment-bench fetch-news-batch --weeks 5 --package-id tavily_shared_v3
 ```
 
+Batches are resumable: fetches whose exact parameters already produced a corpus under `Data/news` are skipped by default and the existing corpora still flow into the package, so rerunning after an interruption (or adding more weeks later) never pays Tavily credits twice. Changing any parameter — date window, extract depth, domain filters, quality floor — triggers a real refetch; pass `--refetch` to force one with identical parameters.
+
 Pass `--end-date` to anchor the windows somewhere other than today, or spell out explicit windows with repeated `--date-window` when the weeks are not contiguous:
 
 ```bash
@@ -149,6 +151,10 @@ domains with their usable share. Query families that returned zero records stay 
 
 Use `--source` to inspect specific corpus directories, `--news-dir` to scan a different root, and `--top-domains` to widen
 the domain table. Corpora fetched before the quality gate existed are re-assessed on the fly.
+
+The domain table's `Shared prefix` column reports the longest identical opening shared by two or more distinct usable
+articles from a domain. A large value means site boilerplate is leaking into extracted bodies (or the domain publishes
+near-duplicate articles) — review those texts before labeling, and prefer `extract_depth = "advanced"` when refetching.
 
 ## Output Files
 
@@ -274,4 +280,5 @@ python -m json.tool Data/news/tavily_news_*/manifest.json | head -80
 | Extracted text is empty | Source blocks extraction or Tavily returned no content. | Review `extraction_status`, `extract_error`, and `raw_extract_result`. |
 | Many records have `text_quality = error_page` | The source serves an error or bot wall to the extractor (common for Yahoo Finance). | Exclude the domain in the query matrix or rely on the gate; raw output stays in `raw_extract_result`. |
 | Real articles gated as `too_short` | Legitimately brief items fall under the 500-character floor. | Lower `--min-text-chars` or pass `0` to disable the floor. |
+| Batch reports failed fetches | Tavily timeout or network error persisted through 3 attempts. | Re-run the same command; completed fetches are skipped and only the failures retry. Keep the same `--end-date` (or explicit windows) so the windows match. |
 | Too much generated data | Repeated broad fetches. | Use narrower queries, domain filters, date filters, and keep `Data/news` ignored unless a specific corpus is curated. |

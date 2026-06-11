@@ -36,7 +36,13 @@ from .env import load_env_file
 from .exporter import export_run
 from .latex_tables import sensitivity_table_latex
 from .models import PromptConfig, RunConfig
-from .news_batch import NewsBatchError, build_news_batch_plan, build_weekly_date_windows
+from .news_batch import (
+    NewsBatchError,
+    build_news_batch_plan,
+    build_weekly_date_windows,
+    find_fetched_corpus,
+    load_fetched_corpora,
+)
 from .news_package import (
     DEFAULT_NEWS_PACKAGE_ID,
     DEFAULT_NEWS_PACKAGE_OUTPUT_DIR,
@@ -77,6 +83,11 @@ from .storage import BenchmarkStore
 console = Console()
 app = typer.Typer(help="Benchmark OpenRouter and Ollama LLMs on dissertation sentiment data.")
 load_env_file()
+
+# Tavily batch fetches retry transient failures (timeouts, dropped connections)
+# before recording a fetch as failed and moving on.
+FETCH_ATTEMPTS = 3
+FETCH_RETRY_BASE_DELAY_SECONDS = 5.0
 
 
 def _make_tavily_news_client() -> TavilyNewsClient:
@@ -409,9 +420,19 @@ def news_quality(
     domains.add_column("Domain")
     domains.add_column("Records", justify="right")
     domains.add_column("Usable", justify="right")
+    domains.add_column("Shared prefix", justify="right")
     for domain in report.domains[:top_domains]:
-        domains.add_row(domain.domain, str(domain.record_count), str(domain.usable_count))
+        prefix = str(domain.shared_prefix_chars) if domain.shared_prefix_chars else "-"
+        if domain.shared_prefix_chars >= 200:
+            prefix = f"[yellow]{prefix}[/yellow]"
+        domains.add_row(domain.domain, str(domain.record_count), str(domain.usable_count), prefix)
     console.print(domains)
+    if any(domain.shared_prefix_chars >= 200 for domain in report.domains[:top_domains]):
+        console.print(
+            "[dim]A large shared prefix means at least two distinct usable articles from that domain open with the "
+            "same text — site boilerplate in the extraction or duplicated coverage. Consider refetching with "
+            "--extract-depth advanced and reviewing those articles before labeling.[/dim]"
+        )
 
 
 @app.command("fetch-news-batch")
@@ -467,6 +488,13 @@ def fetch_news_batch(
         str,
         typer.Option("--text-policy", help=f"Text sharing policy for the optional package: {', '.join(NEWS_TEXT_POLICIES)}."),
     ] = "metadata",
+    skip_existing: Annotated[
+        bool,
+        typer.Option(
+            "--skip-existing/--refetch",
+            help="Skip fetches whose exact parameters already exist under --output-dir; existing corpora still join the package.",
+        ),
+    ] = True,
     dry_run: Annotated[
         bool,
         typer.Option("--dry-run", help="Print planned fetches without calling Tavily or writing files."),
@@ -508,6 +536,10 @@ def fetch_news_batch(
             )
         console.print(table)
         console.print(f"Planned fetches: {len(plans)}")
+        if skip_existing:
+            fetched = load_fetched_corpora(output_dir)
+            already = sum(1 for plan in plans if find_fetched_corpus(plan, fetched) is not None)
+            console.print(f"Already fetched (will be skipped): {already}")
         return
 
     if package:
@@ -520,11 +552,15 @@ def fetch_news_batch(
             raise typer.BadParameter(f"output directory already exists: {package_target}")
 
     async def main() -> None:
-        output_paths = []
+        corpus_dirs: list[Path] = []
+        fetch_count = 0
+        skipped_count = 0
+        failed_fetch_count = 0
         total_records = 0
         total_failed = 0
         total_usable = 0
         package_result = None
+        fetched_corpora = load_fetched_corpora(output_dir) if skip_existing else []
 
         progress = Progress(
             SpinnerColumn(),
@@ -541,9 +577,44 @@ def fetch_news_batch(
                 for index, plan in enumerate(plans, start=1):
                     window = f"{plan.date_window.start_date}:{plan.date_window.end_date}"
                     progress.update(fetch_task, description=f"[{index}/{len(plans)}] {plan.query_entry.id} | {window}")
-                    result = await client.fetch(plan.config)
+                    existing_dir = find_fetched_corpus(plan, fetched_corpora) if skip_existing else None
+                    if existing_dir is not None:
+                        corpus_dirs.append(existing_dir)
+                        skipped_count += 1
+                        progress.console.print(
+                            "[yellow]↷[/yellow] "
+                            f"{plan.query_entry.id} [dim]{window}[/dim] "
+                            f"-> already fetched, skipped [dim]{existing_dir}[/dim]"
+                        )
+                        progress.advance(fetch_task)
+                        continue
+                    result = None
+                    for attempt in range(1, FETCH_ATTEMPTS + 1):
+                        try:
+                            result = await client.fetch(plan.config)
+                            break
+                        except Exception as exc:
+                            if attempt == FETCH_ATTEMPTS:
+                                failed_fetch_count += 1
+                                progress.console.print(
+                                    "[red]✗[/red] "
+                                    f"{plan.query_entry.id} [dim]{window}[/dim] "
+                                    f"-> failed after {FETCH_ATTEMPTS} attempts: {exc}"
+                                )
+                            else:
+                                delay = FETCH_RETRY_BASE_DELAY_SECONDS * attempt
+                                progress.console.print(
+                                    "[yellow]![/yellow] "
+                                    f"{plan.query_entry.id} [dim]{window}[/dim] "
+                                    f"-> attempt {attempt} failed ({exc}); retrying in {delay:.0f}s"
+                                )
+                                await asyncio.sleep(delay)
+                    if result is None:
+                        progress.advance(fetch_task)
+                        continue
                     paths = write_news_corpus(result, output_dir)
-                    output_paths.append(paths)
+                    corpus_dirs.append(paths.output_dir)
+                    fetch_count += 1
                     failed = sum(1 for record in result.records if record.extraction_status == "failed")
                     usable = sum(1 for record in result.records if record.text_quality == TEXT_QUALITY_OK)
                     total_records += len(result.records)
@@ -557,15 +628,22 @@ def fetch_news_batch(
                     )
                     progress.advance(fetch_task)
 
-            if package:
+            if package and failed_fetch_count:
+                progress.console.print(
+                    "[yellow]![/yellow] "
+                    f"Skipping packaging because {failed_fetch_count} fetch(es) failed. "
+                    "Re-run the same command to retry only the failed fetches and build the package."
+                )
+            if package and not failed_fetch_count:
+                package_dirs = list(dict.fromkeys(corpus_dirs))
                 package_task = progress.add_task("Packaging share dataset", total=1)
                 progress.update(
                     package_task,
-                    description=f"Packaging {len(output_paths)} corpora -> {package_output_dir / resolved_package_id}",
+                    description=f"Packaging {len(package_dirs)} corpora -> {package_output_dir / resolved_package_id}",
                 )
                 try:
                     package_result = package_news_sources(
-                        [paths.output_dir for paths in output_paths],
+                        package_dirs,
                         package_id=package_id,
                         output_root=package_output_dir,
                         query_matrix_path=query_matrix,
@@ -585,8 +663,11 @@ def fetch_news_batch(
         table = Table(title="Tavily News Batch")
         table.add_column("Metric")
         table.add_column("Value", justify="right")
-        table.add_row("Fetches", str(len(plans)))
-        table.add_row("Corpus directories", str(len(output_paths)))
+        table.add_row("Planned fetches", str(len(plans)))
+        table.add_row("Fetched", str(fetch_count))
+        table.add_row("Skipped (already fetched)", str(skipped_count))
+        table.add_row("Failed fetches", str(failed_fetch_count))
+        table.add_row("Corpus directories", str(len(dict.fromkeys(corpus_dirs))))
         table.add_row("Fetched records", str(total_records))
         table.add_row("Usable articles", str(total_usable))
         table.add_row("Failed extractions", str(total_failed))
@@ -596,6 +677,11 @@ def fetch_news_batch(
             table.add_row("Package directory", str(package_result.paths.output_dir))
             table.add_row("Unique package sources", str(package_result.unique_source_count))
         console.print(table)
+        if failed_fetch_count:
+            console.print(
+                f"[red]{failed_fetch_count} fetch(es) failed.[/red] Re-run the same command: completed fetches are skipped automatically."
+            )
+            raise typer.Exit(1)
 
     asyncio.run(main())
 

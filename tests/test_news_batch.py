@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -6,6 +7,9 @@ from sentiment_benchmark.news_batch import (
     NewsBatchError,
     build_news_batch_plan,
     build_weekly_date_windows,
+    config_parameters,
+    find_fetched_corpus,
+    load_fetched_corpora,
     parse_date_window,
 )
 
@@ -111,6 +115,59 @@ def test_build_news_batch_plan_extract_depth_override(tmp_path: Path) -> None:
     )
 
     assert all(plan.config.extract_depth == "advanced" for plan in plans)
+
+
+def test_find_fetched_corpus_matches_exact_parameters_only(tmp_path: Path) -> None:
+    matrix = _write_matrix(tmp_path / "matrix.toml")
+    plans = build_news_batch_plan(
+        query_matrix_path=matrix,
+        date_windows=["2026-05-01:2026-05-07"],
+        query_ids=["bank_earnings"],
+    )
+    plan = plans[0]
+
+    corpus_dir = tmp_path / "news" / "tavily_news_existing"
+    corpus_dir.mkdir(parents=True)
+    (corpus_dir / "manifest.json").write_text(
+        json.dumps({"query": plan.config.query, "record_count": 20, "parameters": config_parameters(plan.config)}),
+        encoding="utf-8",
+    )
+    # Manifests without parameters and broken JSON are ignored, not fatal.
+    other_dir = tmp_path / "news" / "tavily_news_other"
+    other_dir.mkdir()
+    (other_dir / "manifest.json").write_text("{not json", encoding="utf-8")
+
+    fetched = load_fetched_corpora(tmp_path / "news")
+    assert [corpus.path for corpus in fetched] == [corpus_dir]
+    assert find_fetched_corpus(plan, fetched) == corpus_dir
+
+    # Zero-record corpora are re-fetched rather than treated as done.
+    (corpus_dir / "manifest.json").write_text(
+        json.dumps({"query": plan.config.query, "record_count": 0, "parameters": config_parameters(plan.config)}),
+        encoding="utf-8",
+    )
+    assert find_fetched_corpus(plan, load_fetched_corpora(tmp_path / "news")) is None
+    (corpus_dir / "manifest.json").write_text(
+        json.dumps({"query": plan.config.query, "record_count": 20, "parameters": config_parameters(plan.config)}),
+        encoding="utf-8",
+    )
+
+    different_window = build_news_batch_plan(
+        query_matrix_path=matrix,
+        date_windows=["2026-05-08:2026-05-14"],
+        query_ids=["bank_earnings"],
+    )[0]
+    assert find_fetched_corpus(different_window, fetched) is None
+
+    different_depth = build_news_batch_plan(
+        query_matrix_path=matrix,
+        date_windows=["2026-05-01:2026-05-07"],
+        query_ids=["bank_earnings"],
+        extract_depth="advanced",
+    )[0]
+    assert find_fetched_corpus(different_depth, fetched) is None
+
+    assert load_fetched_corpora(tmp_path / "missing") == []
 
 
 def test_build_news_batch_plan_can_select_query_ids(tmp_path: Path) -> None:
