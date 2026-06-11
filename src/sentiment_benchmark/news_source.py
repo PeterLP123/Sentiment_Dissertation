@@ -5,8 +5,9 @@ import hashlib
 import json
 import os
 import re
+from collections import Counter
 from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import ParseResult, urlparse, urlunparse
@@ -22,6 +23,30 @@ DEFAULT_NEWS_EXTRACT_DEPTH = "basic"
 DEFAULT_NEWS_EXTRACT_FORMAT = "text"
 DEFAULT_NEWS_MAX_RESULTS = 10
 MAX_TAVILY_RESULTS = 20
+DEFAULT_MIN_ARTICLE_TEXT_CHARS = 500
+
+# High-confidence openings of pages where the extractor was served an error,
+# bot wall, or consent page instead of the article body.
+ERROR_PAGE_SIGNATURES: tuple[str, ...] = (
+    "oops, something went wrong",
+    "are you a robot",
+    "verify you are human",
+    "access to this page has been denied",
+    "access denied",
+    "page not found",
+    "404 not found",
+    "please enable cookies",
+    "please enable js",
+    "enable javascript and cookies to continue",
+    "javascript is disabled",
+    "your browser is out of date",
+)
+ERROR_PAGE_SCAN_CHARS = 400
+
+TEXT_QUALITY_OK = "ok"
+TEXT_QUALITY_ERROR_PAGE = "error_page"
+TEXT_QUALITY_TOO_SHORT = "too_short"
+TEXT_QUALITY_MISSING = "missing"
 
 NewsTopic = Literal["news", "finance", "general"]
 NewsTimeRange = Literal["day", "week", "month", "year"]
@@ -62,6 +87,7 @@ class NewsFetchConfig:
     end_date: str | None = None
     include_domains: tuple[str, ...] = ()
     exclude_domains: tuple[str, ...] = ()
+    min_text_chars: int = DEFAULT_MIN_ARTICLE_TEXT_CHARS
 
 
 @dataclass(frozen=True)
@@ -73,9 +99,11 @@ class NewsArticleRecord:
     snippet: str | None = None
     article_text: str | None = None
     published_date: str | None = None
+    published_date_source: str = ""
     score: float | None = None
     favicon: str | None = None
     extraction_status: str = "skipped"
+    text_quality: str = TEXT_QUALITY_MISSING
     extract_error: str | None = None
     search_rank: int | None = None
     search_request_id: str | None = None
@@ -198,12 +226,15 @@ def make_news_fetch_config(
     end_date: str | None = None,
     include_domains: list[str] | tuple[str, ...] | None = None,
     exclude_domains: list[str] | tuple[str, ...] | None = None,
+    min_text_chars: int = DEFAULT_MIN_ARTICLE_TEXT_CHARS,
 ) -> NewsFetchConfig:
     query = query.strip()
     if not query:
         raise ValueError("query is required")
     if max_results < 1 or max_results > MAX_TAVILY_RESULTS:
         raise ValueError(f"max_results must be between 1 and {MAX_TAVILY_RESULTS}")
+    if min_text_chars < 0:
+        raise ValueError("min_text_chars must be 0 or greater")
     resolved_topic = _validate_literal(topic, NEWS_TOPICS, name="topic")
     resolved_time_range = None
     if time_range is not None and time_range.strip():
@@ -224,7 +255,92 @@ def make_news_fetch_config(
         end_date=_validate_date(end_date, name="end_date"),
         include_domains=_normalize_domains(include_domains),
         exclude_domains=_normalize_domains(exclude_domains),
+        min_text_chars=min_text_chars,
     )
+
+
+def assess_article_text(
+    article_text: str | None,
+    *,
+    min_chars: int = DEFAULT_MIN_ARTICLE_TEXT_CHARS,
+) -> tuple[str, str | None]:
+    """Classify extracted text quality; returns (quality, detail)."""
+    if not article_text or not article_text.strip():
+        return TEXT_QUALITY_MISSING, None
+    head = re.sub(r"\s+", " ", article_text[:ERROR_PAGE_SCAN_CHARS]).strip().lower()
+    for signature in ERROR_PAGE_SIGNATURES:
+        if signature in head:
+            return TEXT_QUALITY_ERROR_PAGE, f'extracted text matches error-page signature: "{signature}"'
+    stripped_length = len(article_text.strip())
+    if min_chars and stripped_length < min_chars:
+        return TEXT_QUALITY_TOO_SHORT, f"extracted text has {stripped_length} characters (minimum {min_chars})"
+    return TEXT_QUALITY_OK, None
+
+
+_MONTH_NAME_PATTERN = (
+    r"jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?"
+    r"|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?"
+)
+_URL_DATE_PATTERNS = (
+    re.compile(r"/(20\d{2})/(\d{1,2})/(\d{1,2})(?:/|$)"),
+    re.compile(r"(?:^|[/_-])(20\d{2})-(\d{1,2})-(\d{1,2})(?:[/_.-]|$)"),
+)
+_TEXT_DATE_ISO = re.compile(r"\b(20\d{2})-(\d{2})-(\d{2})\b")
+_TEXT_DATE_MDY = re.compile(rf"\b({_MONTH_NAME_PATTERN})\.?\s+(\d{{1,2}}),?\s+(20\d{{2}})\b", re.IGNORECASE)
+_TEXT_DATE_DMY = re.compile(rf"\b(\d{{1,2}})\s+({_MONTH_NAME_PATTERN})\.?,?\s+(20\d{{2}})\b", re.IGNORECASE)
+_MONTH_NUMBERS = {
+    "jan": 1,
+    "feb": 2,
+    "mar": 3,
+    "apr": 4,
+    "may": 5,
+    "jun": 6,
+    "jul": 7,
+    "aug": 8,
+    "sep": 9,
+    "oct": 10,
+    "nov": 11,
+    "dec": 12,
+}
+PUBLISHED_DATE_TEXT_SCAN_CHARS = 2000
+
+
+def _iso_date_or_none(year: int, month: int, day: int) -> str | None:
+    try:
+        return date(year, month, day).isoformat()
+    except ValueError:
+        return None
+
+
+def infer_published_date(url: str, article_text: str | None) -> tuple[str | None, str]:
+    """Best-effort publication date recovery; returns (ISO date, source) where source is 'url' or 'text'."""
+    path = urlparse(url).path
+    for pattern in _URL_DATE_PATTERNS:
+        match = pattern.search(path)
+        if match:
+            inferred = _iso_date_or_none(int(match.group(1)), int(match.group(2)), int(match.group(3)))
+            if inferred:
+                return inferred, "url"
+    if article_text:
+        head = article_text[:PUBLISHED_DATE_TEXT_SCAN_CHARS]
+        match = _TEXT_DATE_ISO.search(head)
+        if match:
+            inferred = _iso_date_or_none(int(match.group(1)), int(match.group(2)), int(match.group(3)))
+            if inferred:
+                return inferred, "text"
+        match = _TEXT_DATE_MDY.search(head)
+        if match:
+            month = _MONTH_NUMBERS[match.group(1)[:3].lower()]
+            inferred = _iso_date_or_none(int(match.group(3)), month, int(match.group(2)))
+            if inferred:
+                return inferred, "text"
+        match = _TEXT_DATE_DMY.search(head)
+        if match:
+            month = _MONTH_NUMBERS[match.group(2)[:3].lower()]
+            inferred = _iso_date_or_none(int(match.group(3)), month, int(match.group(1)))
+            if inferred:
+                return inferred, "text"
+    return None, ""
 
 
 def normalize_url(url: str) -> str:
@@ -250,7 +366,7 @@ def article_record_id(normalized_url: str) -> str:
 
 def _slugify(value: str, limit: int = 48) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
-    return (slug[:limit].strip("-") or "news")
+    return slug[:limit].strip("-") or "news"
 
 
 def _preview(value: str | None, limit: int = 500) -> str:
@@ -400,15 +516,31 @@ class TavilyNewsClient:
             extracted = extract_results.get(normalized, {})
             failed = extract_failures.get(normalized, {})
             article_text = extracted.get("raw_content") if isinstance(extracted.get("raw_content"), str) else None
-            if article_text:
+            text_quality, quality_detail = assess_article_text(article_text, min_chars=config.min_text_chars)
+            if article_text and text_quality == TEXT_QUALITY_OK:
                 extraction_status = "success"
                 extract_error = None
+            elif article_text:
+                # The extractor returned content, but it is an error page or
+                # too short to be an article body; keep it only in
+                # raw_extract_result so it never looks like usable text.
+                extraction_status = "failed"
+                extract_error = quality_detail
+                article_text = None
             elif failed:
                 extraction_status = "failed"
                 extract_error = str(failed.get("error") or "Extraction failed")
             else:
                 extraction_status = "skipped" if not config.extract else "failed"
                 extract_error = "No extracted content returned" if config.extract else None
+
+            published_date = _get_field(item, "published_date") or _get_field(item, "publishedDate")
+            published_date_source = "search" if published_date else ""
+            if not published_date:
+                inferred_date, inferred_source = infer_published_date(url, article_text)
+                if inferred_date:
+                    published_date = inferred_date
+                    published_date_source = inferred_source
             records.append(
                 NewsArticleRecord(
                     record_id=article_record_id(normalized),
@@ -417,10 +549,12 @@ class TavilyNewsClient:
                     title=_get_field(item, "title"),
                     snippet=_get_field(item, "content"),
                     article_text=article_text,
-                    published_date=_get_field(item, "published_date") or _get_field(item, "publishedDate"),
+                    published_date=published_date,
+                    published_date_source=published_date_source,
                     score=_as_optional_float(_get_field(item, "score")),
                     favicon=_get_field(item, "favicon") or extracted.get("favicon"),
                     extraction_status=extraction_status,
+                    text_quality=text_quality,
                     extract_error=extract_error,
                     search_rank=rank,
                     search_request_id=search_request_id if isinstance(search_request_id, str) else None,
@@ -471,8 +605,10 @@ def write_news_corpus(result: NewsFetchResult, output_root: str | Path = DEFAULT
             "title",
             "url",
             "published_date",
+            "published_date_source",
             "score",
             "extraction_status",
+            "text_quality",
             "extract_error",
             "snippet_preview",
             "article_text_preview",
@@ -486,8 +622,10 @@ def write_news_corpus(result: NewsFetchResult, output_root: str | Path = DEFAULT
                     "title": record.title or "",
                     "url": record.url,
                     "published_date": record.published_date or "",
+                    "published_date_source": record.published_date_source,
                     "score": record.score if record.score is not None else "",
                     "extraction_status": record.extraction_status,
+                    "text_quality": record.text_quality,
                     "extract_error": record.extract_error or "",
                     "snippet_preview": _preview(record.snippet),
                     "article_text_preview": _preview(record.article_text),
@@ -495,6 +633,7 @@ def write_news_corpus(result: NewsFetchResult, output_root: str | Path = DEFAULT
             )
 
     failed_count = sum(1 for record in result.records if record.extraction_status == "failed")
+    text_quality_counts = dict(sorted(Counter(record.text_quality for record in result.records).items()))
     manifest = {
         "schema_version": NEWS_SCHEMA_VERSION,
         "source": "tavily",
@@ -502,6 +641,8 @@ def write_news_corpus(result: NewsFetchResult, output_root: str | Path = DEFAULT
         "query": result.config.query,
         "parameters": asdict(result.config),
         "record_count": len(result.records),
+        "usable_record_count": text_quality_counts.get(TEXT_QUALITY_OK, 0),
+        "text_quality_counts": text_quality_counts,
         "failed_extraction_count": failed_count,
         "search_request_id": result.search_request_id,
         "extract_request_id": result.extract_request_id,

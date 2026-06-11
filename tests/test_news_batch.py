@@ -2,7 +2,12 @@ from pathlib import Path
 
 import pytest
 
-from sentiment_benchmark.news_batch import NewsBatchError, build_news_batch_plan, parse_date_window
+from sentiment_benchmark.news_batch import (
+    NewsBatchError,
+    build_news_batch_plan,
+    build_weekly_date_windows,
+    parse_date_window,
+)
 
 
 def _write_matrix(path: Path) -> Path:
@@ -32,6 +37,7 @@ topic = "news"
 time_range = "month"
 max_results = 10
 search_depth = "basic"
+extract_depth = "advanced"
 coverage_target = "Market movement and event-driven reporting."
 include_domains = ["reuters.com"]
 exclude_domains = ["example.com"]
@@ -54,6 +60,26 @@ def test_parse_date_window_validates_format_and_order() -> None:
         parse_date_window("2026-05-07:2026-05-01")
 
 
+def test_build_weekly_date_windows_generates_contiguous_weeks() -> None:
+    windows = build_weekly_date_windows(3, end_date="2026-06-11")
+    assert windows == [
+        "2026-05-22:2026-05-28",
+        "2026-05-29:2026-06-04",
+        "2026-06-05:2026-06-11",
+    ]
+
+    # Defaults to ending today and stays parseable.
+    for window in build_weekly_date_windows(2):
+        parse_date_window(window)
+
+    with pytest.raises(NewsBatchError, match="weeks must be 1 or greater"):
+        build_weekly_date_windows(0)
+    with pytest.raises(NewsBatchError, match="at most"):
+        build_weekly_date_windows(53)
+    with pytest.raises(NewsBatchError, match="YYYY-MM-DD"):
+        build_weekly_date_windows(2, end_date="June 11")
+
+
 def test_build_news_batch_plan_uses_all_queries_and_date_windows(tmp_path: Path) -> None:
     matrix = _write_matrix(tmp_path / "matrix.toml")
 
@@ -68,9 +94,23 @@ def test_build_news_batch_plan_uses_all_queries_and_date_windows(tmp_path: Path)
     assert plans[0].config.time_range is None
     assert plans[0].config.start_date == "2026-05-01"
     assert plans[1].date_window.start_date == "2026-05-08"
+    assert plans[0].config.extract_depth == "basic"
     assert plans[2].query_entry.id == "market_volatility"
     assert plans[2].config.include_domains == ("reuters.com",)
     assert plans[2].config.exclude_domains == ("example.com",)
+    assert plans[2].config.extract_depth == "advanced"
+
+
+def test_build_news_batch_plan_extract_depth_override(tmp_path: Path) -> None:
+    matrix = _write_matrix(tmp_path / "matrix.toml")
+
+    plans = build_news_batch_plan(
+        query_matrix_path=matrix,
+        date_windows=["2026-05-01:2026-05-07"],
+        extract_depth="advanced",
+    )
+
+    assert all(plan.config.extract_depth == "advanced" for plan in plans)
 
 
 def test_build_news_batch_plan_can_select_query_ids(tmp_path: Path) -> None:

@@ -12,11 +12,16 @@ from typing import Any, Literal
 from urllib.parse import urlparse
 
 from .news_source import (
+    DEFAULT_NEWS_EXTRACT_DEPTH,
     MAX_TAVILY_RESULTS,
+    NEWS_EXTRACT_DEPTHS,
     NEWS_SEARCH_DEPTHS,
     NEWS_TIME_RANGES,
     NEWS_TOPICS,
+    TEXT_QUALITY_MISSING,
+    TEXT_QUALITY_OK,
     article_record_id,
+    assess_article_text,
     normalize_url,
 )
 
@@ -47,6 +52,7 @@ SOURCES_FIELDNAMES = [
     "search_rank_first",
     "score_first",
     "extraction_status",
+    "text_quality",
     "extract_text_available",
     "article_text_chars",
     "article_text_sha256",
@@ -61,6 +67,7 @@ SCREENING_FIELDNAMES = [
     "query_families",
     "published_date",
     "extraction_status",
+    "text_quality",
     "extract_text_available",
     "screening_decision",
     "screening_reason",
@@ -84,6 +91,7 @@ class QueryMatrixEntry:
     time_range: str | None
     max_results: int
     search_depth: str
+    extract_depth: str
     coverage_target: str
     include_domains: tuple[str, ...]
     exclude_domains: tuple[str, ...]
@@ -251,6 +259,9 @@ def load_query_matrix(path: str | Path | None = DEFAULT_QUERY_MATRIX_PATH) -> Qu
         search_depth = _clean_string(raw_entry.get("search_depth") or "basic").lower()
         if search_depth not in NEWS_SEARCH_DEPTHS:
             raise NewsPackageError(f"query matrix entry {query_id} has invalid search_depth: {search_depth}")
+        extract_depth = _clean_string(raw_entry.get("extract_depth") or DEFAULT_NEWS_EXTRACT_DEPTH).lower()
+        if extract_depth not in NEWS_EXTRACT_DEPTHS:
+            raise NewsPackageError(f"query matrix entry {query_id} has invalid extract_depth: {extract_depth}")
         max_results = _optional_int(raw_entry.get("max_results"))
         if max_results is None or max_results < 1 or max_results > MAX_TAVILY_RESULTS:
             raise NewsPackageError(f"query matrix entry {query_id} max_results must be between 1 and {MAX_TAVILY_RESULTS}")
@@ -263,6 +274,7 @@ def load_query_matrix(path: str | Path | None = DEFAULT_QUERY_MATRIX_PATH) -> Qu
             time_range=time_range,
             max_results=max_results,
             search_depth=search_depth,
+            extract_depth=extract_depth,
             coverage_target=_optional_string(raw_entry.get("coverage_target")),
             include_domains=_optional_string_list(raw_entry.get("include_domains", []), name=f"{query_id}.include_domains"),
             exclude_domains=_optional_string_list(raw_entry.get("exclude_domains", []), name=f"{query_id}.exclude_domains"),
@@ -317,7 +329,11 @@ def package_news_sources(
         if extracts_jsonl is not None:
             _write_extracts_jsonl(extracts_jsonl, aggregates)
 
-        readme_md.write_text(_readme_text(resolved_package_id, resolved_policy, len(aggregates), len(contexts)), encoding="utf-8")
+        usable_count = sum(1 for aggregate in aggregates if aggregate.text_context is not None)
+        readme_md.write_text(
+            _readme_text(resolved_package_id, resolved_policy, len(aggregates), len(contexts), usable_count),
+            encoding="utf-8",
+        )
         manifest = _manifest(
             package_id=resolved_package_id,
             text_policy=resolved_policy,
@@ -431,7 +447,7 @@ def _aggregate_records(contexts: list[_RecordContext]) -> list[_Aggregate]:
     aggregates_by_url: dict[str, _Aggregate] = {}
     for context in contexts:
         aggregate = aggregates_by_url.get(context.normalized_url)
-        has_text = bool(_article_text(context))
+        has_text = bool(_usable_article_text(context))
         if aggregate is None:
             aggregates_by_url[context.normalized_url] = _Aggregate(
                 canonical=context,
@@ -449,7 +465,7 @@ def _source_row(aggregate: _Aggregate, text_policy: NewsTextPolicy) -> dict[str,
     canonical = aggregate.canonical
     record = canonical.record
     text_context = aggregate.text_context
-    article_text = _article_text(text_context) if text_context else ""
+    article_text = _usable_article_text(text_context) if text_context else ""
     text_hash = _sha256_text(article_text) if article_text else ""
     normalized_url = canonical.normalized_url
     row = {
@@ -471,6 +487,7 @@ def _source_row(aggregate: _Aggregate, text_policy: NewsTextPolicy) -> dict[str,
         "search_rank_first": record.get("search_rank") if record.get("search_rank") is not None else "",
         "score_first": record.get("score") if record.get("score") is not None else "",
         "extraction_status": _aggregate_extraction_status(aggregate.records),
+        "text_quality": _aggregate_text_quality(aggregate.records),
         "extract_text_available": _bool_text(bool(article_text)),
         "article_text_chars": len(article_text) if article_text else 0,
         "article_text_sha256": text_hash,
@@ -488,6 +505,7 @@ def _screening_row(source_row: dict[str, Any]) -> dict[str, Any]:
         "query_families": source_row["query_families"],
         "published_date": source_row["published_date"],
         "extraction_status": source_row["extraction_status"],
+        "text_quality": source_row["text_quality"],
         "extract_text_available": source_row["extract_text_available"],
         "screening_decision": "pending",
         "screening_reason": "",
@@ -512,7 +530,7 @@ def _write_extracts_jsonl(path: Path, aggregates: list[_Aggregate]) -> None:
             context = aggregate.text_context
             if context is None:
                 continue
-            article_text = _article_text(context)
+            article_text = _usable_article_text(context)
             if not article_text:
                 continue
             payload = {
@@ -559,9 +577,7 @@ def _manifest(
             }
         )
     seen_queries = {
-        _query_key(_clean_string(corpus.manifest.get("query")))
-        for corpus in corpora
-        if _clean_string(corpus.manifest.get("query"))
+        _query_key(_clean_string(corpus.manifest.get("query"))) for corpus in corpora if _clean_string(corpus.manifest.get("query"))
     }
     matched_queries = set(query_matrix.entries_by_query) if query_matrix else set()
     unmatched = sorted(
@@ -576,6 +592,8 @@ def _manifest(
         "text_policy": text_policy,
         "source_corpora": corpus_entries,
         "unique_source_count": len(aggregates),
+        "usable_source_count": sum(1 for aggregate in aggregates if aggregate.text_context is not None),
+        "text_quality_counts": _text_quality_counts(aggregates),
         "input_record_count": len(contexts),
         "duplicate_url_count": len(contexts) - len(aggregates),
         "query_matrix_path": str(query_matrix.path) if query_matrix else (str(query_matrix_path) if query_matrix_path else None),
@@ -606,7 +624,15 @@ def _manifest_file_key(path: Path) -> str:
     }.get(path.name, path.stem)
 
 
-def _readme_text(package_id: str, text_policy: NewsTextPolicy, unique_count: int, input_count: int) -> str:
+def _text_quality_counts(aggregates: list[_Aggregate]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for aggregate in aggregates:
+        quality = _aggregate_text_quality(aggregate.records)
+        counts[quality] = counts.get(quality, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def _readme_text(package_id: str, text_policy: NewsTextPolicy, unique_count: int, input_count: int, usable_count: int) -> str:
     full_text_note = (
         "This package includes `extracts.jsonl` for internal review only. Check source terms before redistributing full article text."
         if text_policy == "internal-extracts"
@@ -627,7 +653,11 @@ Generated from existing Tavily news corpora for colleague review.
 
 - Input records: {input_count}
 - Unique sources: {unique_count}
+- Usable full-text sources (text quality `ok`): {usable_count}
 - Text policy: `{text_policy}`
+
+The `text_quality` column flags sources whose extracted text is an error page (`error_page`), a stub (`too_short`), or absent
+(`missing`). Screen from rows with `text_quality = ok` first.
 
 ## Sharing Note
 
@@ -659,6 +689,35 @@ def _article_text(context: _RecordContext | None) -> str:
         return ""
     text = context.record.get("article_text")
     return text if isinstance(text, str) and text else ""
+
+
+def _record_text_quality(record: dict[str, Any]) -> str:
+    stored = record.get("text_quality")
+    if isinstance(stored, str) and stored.strip():
+        return stored.strip()
+    # Older corpora predate the stored quality field; assess their text so
+    # error pages and stubs are not packaged as usable articles.
+    text = record.get("article_text")
+    quality, _ = assess_article_text(text if isinstance(text, str) else None)
+    return quality
+
+
+def _usable_article_text(context: _RecordContext | None) -> str:
+    if context is None:
+        return ""
+    if _record_text_quality(context.record) != TEXT_QUALITY_OK:
+        return ""
+    return _article_text(context)
+
+
+def _aggregate_text_quality(contexts: list[_RecordContext]) -> str:
+    qualities = [_record_text_quality(context.record) for context in contexts]
+    if TEXT_QUALITY_OK in qualities:
+        return TEXT_QUALITY_OK
+    for quality in qualities:
+        if quality != TEXT_QUALITY_MISSING:
+            return quality
+    return TEXT_QUALITY_MISSING
 
 
 def _sha256_text(value: str) -> str:

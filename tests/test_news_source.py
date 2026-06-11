@@ -10,6 +10,8 @@ from sentiment_benchmark.news_source import (
     TavilyNewsClient,
     TavilyNewsConfigurationError,
     article_record_id,
+    assess_article_text,
+    infer_published_date,
     make_news_fetch_config,
     normalize_url,
     write_news_corpus,
@@ -18,6 +20,9 @@ from sentiment_benchmark.news_source import (
 
 def run(coro):
     return asyncio.run(coro)
+
+
+LONG_ARTICLE_TEXT = "Bank earnings rose sharply this quarter on stronger lending margins. " * 20
 
 
 class FakeTavilyClient:
@@ -69,7 +74,7 @@ def test_tavily_news_fetch_merges_search_and_extract_and_dedupes() -> None:
             "results": [
                 {
                     "url": "https://example.com/article",
-                    "raw_content": "Full article text",
+                    "raw_content": LONG_ARTICLE_TEXT,
                     "favicon": "https://example.com/favicon.ico",
                 }
             ],
@@ -84,8 +89,11 @@ def test_tavily_news_fetch_merges_search_and_extract_and_dedupes() -> None:
         record = result.records[0]
         assert record.record_id == article_record_id(normalize_url("https://example.com/article"))
         assert record.title == "Bank earnings rise"
-        assert record.article_text == "Full article text"
+        assert record.article_text == LONG_ARTICLE_TEXT
         assert record.extraction_status == "success"
+        assert record.text_quality == "ok"
+        assert record.published_date == "2026-06-01"
+        assert record.published_date_source == "search"
         assert record.search_request_id == "search-1"
         assert record.extract_request_id == "extract-1"
         assert fake.search_calls[0]["topic"] == "news"
@@ -126,6 +134,113 @@ def test_tavily_news_failed_extraction_is_preserved() -> None:
     run(scenario())
 
 
+def test_assess_article_text_classifies_quality() -> None:
+    assert assess_article_text(None) == ("missing", None)
+    assert assess_article_text("   ") == ("missing", None)
+
+    quality, detail = assess_article_text("Oops, something went wrong\nSkip to navigation" + "x" * 600)
+    assert quality == "error_page"
+    assert "error-page signature" in detail
+
+    quality, detail = assess_article_text("Short stub.")
+    assert quality == "too_short"
+    assert "minimum 500" in detail
+
+    assert assess_article_text("Short stub.", min_chars=0) == ("ok", None)
+    assert assess_article_text(LONG_ARTICLE_TEXT) == ("ok", None)
+
+
+def test_tavily_news_error_page_extraction_is_quality_gated() -> None:
+    async def scenario() -> None:
+        error_page = "Oops, something went wrong\nSkip to navigation\n" + ("Menu item\n" * 100)
+        fake = FakeTavilyClient(
+            search_payload={
+                "request_id": "search-1",
+                "results": [{"title": "Article", "url": "https://example.com/a", "content": "Snippet"}],
+            },
+            extract_payload={
+                "request_id": "extract-1",
+                "results": [{"url": "https://example.com/a", "raw_content": error_page}],
+                "failed_results": [],
+            },
+        )
+        config = make_news_fetch_config(query="market news", max_results=1)
+
+        result = await TavilyNewsClient(client=fake).fetch(config)
+
+        record = result.records[0]
+        assert record.extraction_status == "failed"
+        assert record.text_quality == "error_page"
+        assert record.article_text is None
+        assert "error-page signature" in record.extract_error
+        # Raw extractor output is preserved for auditing.
+        assert record.raw_extract_result["raw_content"] == error_page
+
+    run(scenario())
+
+
+def test_tavily_news_short_extraction_is_quality_gated_unless_disabled() -> None:
+    async def scenario() -> None:
+        search_payload = {
+            "request_id": "search-1",
+            "results": [{"title": "Article", "url": "https://example.com/a", "content": "Snippet"}],
+        }
+        extract_payload = {
+            "request_id": "extract-1",
+            "results": [{"url": "https://example.com/a", "raw_content": "Tiny body."}],
+            "failed_results": [],
+        }
+
+        fake = FakeTavilyClient(search_payload=search_payload, extract_payload=extract_payload)
+        gated = await TavilyNewsClient(client=fake).fetch(make_news_fetch_config(query="market news", max_results=1))
+        assert gated.records[0].extraction_status == "failed"
+        assert gated.records[0].text_quality == "too_short"
+        assert gated.records[0].article_text is None
+
+        fake = FakeTavilyClient(search_payload=search_payload, extract_payload=extract_payload)
+        ungated = await TavilyNewsClient(client=fake).fetch(make_news_fetch_config(query="market news", max_results=1, min_text_chars=0))
+        assert ungated.records[0].extraction_status == "success"
+        assert ungated.records[0].text_quality == "ok"
+        assert ungated.records[0].article_text == "Tiny body."
+
+    run(scenario())
+
+
+def test_infer_published_date_from_url_and_text() -> None:
+    assert infer_published_date("https://example.com/2026/05/27/banks-rally", None) == ("2026-05-27", "url")
+    assert infer_published_date("https://example.com/news/2026-06-03-markets", None) == ("2026-06-03", "url")
+    assert infer_published_date("https://example.com/article", "Published May 27, 2026 6:39 am ET") == ("2026-05-27", "text")
+    assert infer_published_date("https://example.com/article", "Updated 3 June 2026") == ("2026-06-03", "text")
+    assert infer_published_date("https://example.com/article", "By Jane Doe, 2026-05-22") == ("2026-05-22", "text")
+    assert infer_published_date("https://example.com/article", "No date anywhere here") == (None, "")
+    # Invalid calendar dates are rejected rather than guessed.
+    assert infer_published_date("https://example.com/2026/13/40/story", None) == (None, "")
+
+
+def test_tavily_news_backfills_published_date_from_url() -> None:
+    async def scenario() -> None:
+        fake = FakeTavilyClient(
+            search_payload={
+                "request_id": "search-1",
+                "results": [{"title": "Article", "url": "https://example.com/2026/05/27/banks", "content": "Snippet"}],
+            },
+            extract_payload={
+                "request_id": "extract-1",
+                "results": [{"url": "https://example.com/2026/05/27/banks", "raw_content": LONG_ARTICLE_TEXT}],
+                "failed_results": [],
+            },
+        )
+        config = make_news_fetch_config(query="bank earnings", max_results=1)
+
+        result = await TavilyNewsClient(client=fake).fetch(config)
+
+        record = result.records[0]
+        assert record.published_date == "2026-05-27"
+        assert record.published_date_source == "url"
+
+    run(scenario())
+
+
 def test_tavily_news_snippet_only_skips_extract() -> None:
     async def scenario() -> None:
         fake = FakeTavilyClient(
@@ -160,6 +275,7 @@ def test_write_news_corpus_writes_jsonl_csv_and_manifest(tmp_path: Path) -> None
                 snippet="Snippet",
                 article_text="Full text",
                 extraction_status="success",
+                text_quality="ok",
             )
         ],
         search_request_id="search-1",
@@ -175,3 +291,5 @@ def test_write_news_corpus_writes_jsonl_csv_and_manifest(tmp_path: Path) -> None
     manifest = json.loads(paths.manifest_json.read_text(encoding="utf-8"))
     assert manifest["record_count"] == 1
     assert manifest["failed_extraction_count"] == 0
+    assert manifest["usable_record_count"] == 1
+    assert manifest["text_quality_counts"] == {"ok": 1}

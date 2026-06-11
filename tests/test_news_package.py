@@ -33,9 +33,9 @@ notes = "Use for source collection; labels are intentionally absent."
     return path
 
 
-def _record(url: str, *, title: str = "Article", text: str = "Full article text") -> dict:
+def _record(url: str, *, title: str = "Article", text: str = "Full article text", text_quality: str | None = None) -> dict:
     normalized = normalize_url(url)
-    return {
+    record = {
         "record_id": article_record_id(normalized),
         "url": url,
         "normalized_url": normalized,
@@ -49,6 +49,10 @@ def _record(url: str, *, title: str = "Article", text: str = "Full article text"
         "search_request_id": "search-record-1",
         "extract_request_id": "extract-record-1" if text else None,
     }
+    if text_quality is None:
+        text_quality = "ok" if text else "missing"
+    record["text_quality"] = text_quality
+    return record
 
 
 def _write_corpus(path: Path, *, query: str = "bank earnings sentiment", records: list[dict] | None = None) -> Path:
@@ -104,6 +108,7 @@ def test_package_news_sources_writes_metadata_first_package(tmp_path: Path) -> N
     assert "article_text" not in sources[0]
     assert sources[0]["query_ids"] == "bank_earnings"
     assert sources[0]["query_families"] == "Bank earnings"
+    assert sources[0]["text_quality"] == "ok"
     assert sources[0]["extract_text_available"] == "true"
     assert sources[0]["text_share_scope"] == "metadata_only"
 
@@ -160,6 +165,47 @@ def test_package_news_sources_internal_extracts_policy_writes_extracts_jsonl(tmp
     manifest = json.loads(result.paths.package_manifest_json.read_text(encoding="utf-8"))
     assert manifest["text_policy"] == "internal-extracts"
     assert manifest["files"]["extracts_jsonl"]["sha256"]
+
+
+def test_package_news_sources_flags_legacy_junk_text_as_unusable(tmp_path: Path) -> None:
+    error_page = "Oops, something went wrong\nSkip to navigation\n" + ("Menu item\n" * 200)
+    stub = "Short stub body."
+    good = "Bank earnings rose sharply this quarter. " * 30
+    corpus = _write_corpus(
+        tmp_path / "tavily_news_legacy",
+        records=[
+            _record("https://example.com/error", text=error_page, text_quality=""),
+            _record("https://example.com/stub", text=stub, text_quality=""),
+            _record("https://example.com/good", text=good, text_quality=""),
+        ],
+    )
+
+    result = package_news_sources(
+        [corpus],
+        package_id="shared",
+        output_root=tmp_path / "derived",
+        query_matrix_path=None,
+        text_policy="internal-extracts",
+    )
+
+    rows = {row["url"]: row for row in _csv_rows(result.paths.sources_csv)}
+    assert rows["https://example.com/error"]["text_quality"] == "error_page"
+    assert rows["https://example.com/error"]["extract_text_available"] == "false"
+    assert rows["https://example.com/stub"]["text_quality"] == "too_short"
+    assert rows["https://example.com/stub"]["extract_text_available"] == "false"
+    assert rows["https://example.com/good"]["text_quality"] == "ok"
+    assert rows["https://example.com/good"]["extract_text_available"] == "true"
+
+    screening = {row["url"]: row for row in _csv_rows(result.paths.screening_index_csv)}
+    assert screening["https://example.com/error"]["text_quality"] == "error_page"
+
+    assert result.paths.extracts_jsonl is not None
+    extract_urls = [json.loads(line)["url"] for line in result.paths.extracts_jsonl.read_text(encoding="utf-8").splitlines()]
+    assert extract_urls == ["https://example.com/good"]
+
+    manifest = json.loads(result.paths.package_manifest_json.read_text(encoding="utf-8"))
+    assert manifest["usable_source_count"] == 1
+    assert manifest["text_quality_counts"] == {"error_page": 1, "ok": 1, "too_short": 1}
 
 
 def test_package_news_sources_rejects_missing_and_malformed_inputs(tmp_path: Path) -> None:
@@ -288,6 +334,22 @@ max_results = 1
 search_depth = "deep"
 """,
             "invalid search_depth",
+        ),
+        (
+            """
+version = 1
+description = "bad"
+[[queries]]
+id = "one"
+family = "A"
+query = "first"
+topic = "news"
+time_range = "month"
+max_results = 1
+search_depth = "basic"
+extract_depth = "deepest"
+""",
+            "invalid extract_depth",
         ),
     ],
 )

@@ -46,8 +46,32 @@ Defaults:
 | `--time-range` | `week` | Allowed: `day`, `week`, `month`, `year`. |
 | `--search-depth` | `basic` | Allowed: `basic`, `advanced`, `fast`, `ultra-fast`. |
 | `--extract` | enabled | Runs Tavily Extract on returned URLs. |
+| `--extract-depth` | `basic` | Allowed: `basic`, `advanced`. `advanced` returns cleaner article bodies with less navigation boilerplate. |
+| `--min-text-chars` | `500` | Quality-gate floor for extracted text; `0` disables it. |
 | `--max-results` | `10` | Valid range: `1` to `20`. |
 | `--output-dir` | `Data/news` | Timestamped subdirectory is created per fetch. |
+
+## Extraction Quality Gate
+
+Extraction can technically succeed while returning junk: some sites (notably Yahoo Finance) serve an "Oops, something went
+wrong" error page to the extractor, and others return only a cookie wall or a short stub. Every extracted body therefore passes
+a quality gate before it counts as usable:
+
+- Text whose opening matches a known error-page signature is classified `error_page`.
+- Text shorter than `--min-text-chars` (default 500) is classified `too_short`.
+- Anything else is classified `ok`; records without text are `missing`.
+
+Gated records are downgraded to `extraction_status = failed` with the reason in `extract_error`, and `article_text` is cleared
+so junk never looks like an article. The raw extractor output stays available in `raw_extract_result` for auditing. The
+classification is stored per record in `text_quality`, and the manifest reports `usable_record_count` plus a
+`text_quality_counts` breakdown.
+
+When Tavily does not return a publication date, the fetch attempts to recover one from the URL path (for example
+`/2026/05/27/story`) or from a date near the start of the extracted text. `published_date_source` records where the date came
+from: `search`, `url`, `text`, or empty when unknown. Treat `url` and `text` dates as best-effort.
+
+The default query matrix sets `extract_depth = "advanced"` and excludes `finance.yahoo.com`, because the first collection run
+showed basic extraction returning navigation boilerplate and Yahoo serving error pages for more than half of all records.
 
 Use snippet-only mode when you want a quick provenance list without full extraction:
 
@@ -75,28 +99,21 @@ sentiment-bench fetch-news --query "market volatility" \
 
 Use `fetch-news-batch` when you want the reusable query matrix to run across several date windows. The default matrix in `configs/tavily_query_matrix.toml` contains 10 query families. Five date windows therefore plan up to 50 Tavily searches.
 
-Preview the plan first:
+The easiest form uses `--weeks`, which generates contiguous 7-day windows ending today. Preview the plan first, then run it:
 
 ```bash
-sentiment-bench fetch-news-batch \
-  --date-window 2026-05-07:2026-05-14 \
-  --date-window 2026-05-15:2026-05-21 \
-  --date-window 2026-05-22:2026-05-28 \
-  --date-window 2026-05-29:2026-06-04 \
-  --date-window 2026-06-05:2026-06-11 \
-  --dry-run
+sentiment-bench fetch-news-batch --weeks 5 --dry-run
+sentiment-bench fetch-news-batch --weeks 5 --package-id tavily_shared_v3
 ```
 
-Run the batch and create a metadata-first colleague package:
+Pass `--end-date` to anchor the windows somewhere other than today, or spell out explicit windows with repeated `--date-window` when the weeks are not contiguous:
 
 ```bash
+sentiment-bench fetch-news-batch --weeks 5 --end-date 2026-06-11 --dry-run
 sentiment-bench fetch-news-batch \
   --date-window 2026-05-07:2026-05-14 \
-  --date-window 2026-05-15:2026-05-21 \
-  --date-window 2026-05-22:2026-05-28 \
-  --date-window 2026-05-29:2026-06-04 \
   --date-window 2026-06-05:2026-06-11 \
-  --package-id tavily_shared_v1 \
+  --package-id tavily_shared_v3 \
   --text-policy metadata
 ```
 
@@ -117,6 +134,21 @@ sentiment-bench fetch-news-batch \
   --date-window 2026-06-05:2026-06-11 \
   --dry-run
 ```
+
+## Check Corpus Quality
+
+After any fetch, summarize what you actually collected without calling Tavily:
+
+```bash
+sentiment-bench news-quality
+```
+
+By default this scans every corpus under `Data/news` and prints three tables: an overview (records, unique URLs, usable
+unique URLs, `text_quality` breakdown, and where publication dates came from), per-query-family counts, and the top source
+domains with their usable share. Query families that returned zero records stay visible so coverage gaps are obvious.
+
+Use `--source` to inspect specific corpus directories, `--news-dir` to scan a different root, and `--top-domains` to widen
+the domain table. Corpora fetched before the quality gate existed are re-assessed on the fly.
 
 ## Output Files
 
@@ -143,12 +175,14 @@ Data/news/tavily_news_20260607T120000Z_bank-earnings-sentiment/
 | `normalized_url` | Lower-cased host, stripped fragment, normalized trailing path. |
 | `title` | Article title when available. |
 | `snippet` | Search result snippet. |
-| `article_text` | Extracted full text when extraction succeeds. |
-| `published_date` | Tavily-provided publication date when available. |
+| `article_text` | Extracted full text when extraction succeeds and passes the quality gate. |
+| `published_date` | Tavily-provided publication date, or a best-effort date recovered from the URL or text. |
+| `published_date_source` | `search`, `url`, `text`, or empty when no date is known. |
 | `score` | Tavily relevance score when available. |
 | `favicon` | Tavily-provided favicon URL when available. |
-| `extraction_status` | `success`, `failed`, or `skipped`. |
-| `extract_error` | Failure message when extraction fails. |
+| `extraction_status` | `success`, `failed`, or `skipped`. Quality-gated junk counts as `failed`. |
+| `text_quality` | `ok`, `error_page`, `too_short`, or `missing`. |
+| `extract_error` | Failure message when extraction fails or is quality-gated. |
 | `search_request_id` | Tavily search request ID when returned. |
 | `extract_request_id` | Tavily extract request ID when returned. |
 | `raw_search_result` | JSON-safe fragment of the original Tavily search result. |
@@ -179,12 +213,12 @@ sentiment-bench package-news \
   --text-policy metadata
 ```
 
-Repeat `--source` to combine multiple fetched corpora. The command reads `articles.jsonl` and `manifest.json`, deduplicates by normalized URL, and writes:
+Repeat `--source` to combine multiple fetched corpora. The command reads `articles.jsonl` and `manifest.json`, deduplicates by normalized URL, and writes the files below. Corpora fetched before the quality gate existed are re-assessed during packaging, so older error pages and stubs are flagged in `text_quality` and excluded from `extract_text_available` and `extracts.jsonl` — re-packaging an old collection is enough to get an honest screening index without refetching.
 
 | File | Purpose |
 | --- | --- |
-| `sources.csv` | One row per unique source URL with titles, snippets, source domains, query provenance, request IDs, extraction status, and text hashes. |
-| `screening_index.csv` | Editable colleague review sheet with `pending` screening decisions and blank optional label columns. |
+| `sources.csv` | One row per unique source URL with titles, snippets, source domains, query provenance, request IDs, extraction status, `text_quality`, and text hashes. |
+| `screening_index.csv` | Editable colleague review sheet with a `text_quality` column, `pending` screening decisions, and blank optional label columns. |
 | `package_manifest.json` | Package ID, source corpora, counts, duplicate count, query matrix path, unmatched queries, file hashes, and sharing notes. |
 | `README.md` | Short handoff note explaining contents, counts, and text policy. |
 | `extracts.jsonl` | Optional full-text file written only with `--text-policy internal-extracts`. |
@@ -238,4 +272,6 @@ python -m json.tool Data/news/tavily_news_*/manifest.json | head -80
 | `max_results must be between 1 and 20` | Out-of-range input. | Choose a value from `1` to `20`. |
 | `topic must be one of...` | Unsupported topic. | Use `news`, `finance`, or `general`. |
 | Extracted text is empty | Source blocks extraction or Tavily returned no content. | Review `extraction_status`, `extract_error`, and `raw_extract_result`. |
+| Many records have `text_quality = error_page` | The source serves an error or bot wall to the extractor (common for Yahoo Finance). | Exclude the domain in the query matrix or rely on the gate; raw output stays in `raw_extract_result`. |
+| Real articles gated as `too_short` | Legitimately brief items fall under the 500-character floor. | Lower `--min-text-chars` or pass `0` to disable the floor. |
 | Too much generated data | Repeated broad fetches. | Use narrower queries, domain filters, date filters, and keep `Data/news` ignored unless a specific corpus is curated. |

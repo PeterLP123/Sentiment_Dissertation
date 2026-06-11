@@ -36,7 +36,7 @@ from .env import load_env_file
 from .exporter import export_run
 from .latex_tables import sensitivity_table_latex
 from .models import PromptConfig, RunConfig
-from .news_batch import NewsBatchError, build_news_batch_plan
+from .news_batch import NewsBatchError, build_news_batch_plan, build_weekly_date_windows
 from .news_package import (
     DEFAULT_NEWS_PACKAGE_ID,
     DEFAULT_NEWS_PACKAGE_OUTPUT_DIR,
@@ -46,15 +46,20 @@ from .news_package import (
     package_news_sources,
     sanitize_package_id,
 )
+from .news_quality import NewsQualityError, discover_news_corpora, summarize_news_quality
 from .news_source import (
+    DEFAULT_MIN_ARTICLE_TEXT_CHARS,
+    DEFAULT_NEWS_EXTRACT_DEPTH,
     DEFAULT_NEWS_MAX_RESULTS,
     DEFAULT_NEWS_OUTPUT_DIR,
     DEFAULT_NEWS_SEARCH_DEPTH,
     DEFAULT_NEWS_TIME_RANGE,
     DEFAULT_NEWS_TOPIC,
+    NEWS_EXTRACT_DEPTHS,
     NEWS_SEARCH_DEPTHS,
     NEWS_TIME_RANGES,
     NEWS_TOPICS,
+    TEXT_QUALITY_OK,
     TavilyNewsClient,
     make_news_fetch_config,
     write_news_corpus,
@@ -245,6 +250,14 @@ def fetch_news(
         bool,
         typer.Option("--extract/--no-extract", help="Run Tavily Extract for full article text."),
     ] = True,
+    extract_depth: Annotated[
+        str,
+        typer.Option("--extract-depth", help=f"Tavily extract depth: {', '.join(NEWS_EXTRACT_DEPTHS)}."),
+    ] = DEFAULT_NEWS_EXTRACT_DEPTH,
+    min_text_chars: Annotated[
+        int,
+        typer.Option("--min-text-chars", help="Minimum extracted characters before text counts as usable (0 disables)."),
+    ] = DEFAULT_MIN_ARTICLE_TEXT_CHARS,
     output_dir: Annotated[
         Path,
         typer.Option("--output-dir", help="Directory where timestamped Tavily article exports are written."),
@@ -259,10 +272,12 @@ def fetch_news(
             time_range=time_range,
             search_depth=search_depth,
             extract=extract,
+            extract_depth=extract_depth,
             start_date=start_date,
             end_date=end_date,
             include_domains=include_domain,
             exclude_domains=exclude_domain,
+            min_text_chars=min_text_chars,
         )
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from exc
@@ -272,10 +287,12 @@ def fetch_news(
             result = await client.fetch(config)
         paths = write_news_corpus(result, output_dir)
         failed = sum(1 for record in result.records if record.extraction_status == "failed")
+        usable = sum(1 for record in result.records if record.text_quality == TEXT_QUALITY_OK)
         table = Table(title="Tavily News Fetch")
         table.add_column("Metric")
         table.add_column("Value", justify="right")
         table.add_row("Records", str(len(result.records)))
+        table.add_row("Usable articles", str(usable))
         table.add_row("Failed extractions", str(failed))
         table.add_row("Output directory", str(paths.output_dir))
         table.add_row("JSONL", str(paths.articles_jsonl))
@@ -341,11 +358,75 @@ def package_news(
     console.print(table)
 
 
+@app.command("news-quality")
+def news_quality(
+    source: Annotated[
+        list[Path] | None,
+        typer.Option("--source", help="Tavily corpus directory to inspect. Repeat for multiple; defaults to all under --news-dir."),
+    ] = None,
+    news_dir: Annotated[
+        Path,
+        typer.Option("--news-dir", help="Root directory scanned for Tavily corpora when --source is not given."),
+    ] = DEFAULT_NEWS_OUTPUT_DIR,
+    query_matrix: Annotated[
+        Path,
+        typer.Option("--query-matrix", help="Optional TOML query matrix used to group corpora by query family."),
+    ] = DEFAULT_QUERY_MATRIX_PATH,
+    top_domains: Annotated[
+        int,
+        typer.Option("--top-domains", help="Number of source domains to list."),
+    ] = 10,
+) -> None:
+    """Summarize text quality across fetched Tavily corpora without calling Tavily."""
+    sources = [Path(item) for item in source] if source else discover_news_corpora(news_dir)
+    try:
+        report = summarize_news_quality(sources, query_matrix_path=query_matrix)
+    except NewsQualityError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+    overview = Table(title="Tavily News Quality")
+    overview.add_column("Metric")
+    overview.add_column("Value", justify="right")
+    overview.add_row("Corpus directories", str(report.corpus_count))
+    overview.add_row("Records", str(report.record_count))
+    overview.add_row("Unique URLs", str(report.unique_url_count))
+    overview.add_row("Usable unique URLs", str(report.usable_unique_url_count))
+    for quality, count in report.quality_counts.items():
+        overview.add_row(f"Text quality: {quality}", str(count))
+    for source_name, count in report.published_date_counts.items():
+        overview.add_row(f"Published date from {source_name}", str(count))
+    console.print(overview)
+
+    families = Table(title="By Query Family")
+    families.add_column("Family")
+    families.add_column("Records", justify="right")
+    families.add_column("Usable", justify="right")
+    for family in report.families:
+        families.add_row(family.family, str(family.record_count), str(family.usable_count))
+    console.print(families)
+
+    domains = Table(title=f"Top {top_domains} Source Domains")
+    domains.add_column("Domain")
+    domains.add_column("Records", justify="right")
+    domains.add_column("Usable", justify="right")
+    for domain in report.domains[:top_domains]:
+        domains.add_row(domain.domain, str(domain.record_count), str(domain.usable_count))
+    console.print(domains)
+
+
 @app.command("fetch-news-batch")
 def fetch_news_batch(
     date_window: Annotated[
         list[str] | None,
         typer.Option("--date-window", help="Date window as YYYY-MM-DD:YYYY-MM-DD. Repeat for multiple windows."),
+    ] = None,
+    weeks: Annotated[
+        int | None,
+        typer.Option("--weeks", help="Generate this many contiguous 7-day windows ending at --end-date (default today)."),
+    ] = None,
+    end_date: Annotated[
+        str | None,
+        typer.Option("--end-date", help="Last day covered by --weeks as YYYY-MM-DD; defaults to today."),
     ] = None,
     query_matrix: Annotated[
         Path,
@@ -359,6 +440,13 @@ def fetch_news_batch(
         bool,
         typer.Option("--extract/--no-extract", help="Run Tavily Extract for full article text."),
     ] = True,
+    extract_depth: Annotated[
+        str | None,
+        typer.Option(
+            "--extract-depth",
+            help=f"Override matrix extract depth for every query: {', '.join(NEWS_EXTRACT_DEPTHS)}.",
+        ),
+    ] = None,
     output_dir: Annotated[
         Path,
         typer.Option("--output-dir", help="Directory where timestamped Tavily article exports are written."),
@@ -385,12 +473,18 @@ def fetch_news_batch(
     ] = False,
 ) -> None:
     """Fetch a query matrix across repeated date windows and optionally package the results."""
+    if end_date is not None and weeks is None:
+        raise typer.BadParameter("--end-date requires --weeks")
     try:
+        windows = list(date_window or [])
+        if weeks is not None:
+            windows.extend(build_weekly_date_windows(weeks, end_date=end_date))
         plans = build_news_batch_plan(
             query_matrix_path=query_matrix,
-            date_windows=list(date_window or []),
+            date_windows=windows,
             query_ids=query_id,
             extract=extract,
+            extract_depth=extract_depth,
         )
     except NewsBatchError as exc:
         raise typer.BadParameter(str(exc)) from exc
@@ -402,7 +496,7 @@ def fetch_news_batch(
         table.add_column("Date Window")
         table.add_column("Max", justify="right")
         table.add_column("Topic")
-        table.add_column("Search Depth")
+        table.add_column("Depth (search/extract)")
         for plan in plans:
             table.add_row(
                 plan.query_entry.id,
@@ -410,7 +504,7 @@ def fetch_news_batch(
                 f"{plan.date_window.start_date}:{plan.date_window.end_date}",
                 str(plan.config.max_results),
                 plan.config.topic,
-                plan.config.search_depth,
+                f"{plan.config.search_depth}/{plan.config.extract_depth}",
             )
         console.print(table)
         console.print(f"Planned fetches: {len(plans)}")
@@ -429,6 +523,7 @@ def fetch_news_batch(
         output_paths = []
         total_records = 0
         total_failed = 0
+        total_usable = 0
         package_result = None
 
         progress = Progress(
@@ -450,12 +545,14 @@ def fetch_news_batch(
                     paths = write_news_corpus(result, output_dir)
                     output_paths.append(paths)
                     failed = sum(1 for record in result.records if record.extraction_status == "failed")
+                    usable = sum(1 for record in result.records if record.text_quality == TEXT_QUALITY_OK)
                     total_records += len(result.records)
                     total_failed += failed
+                    total_usable += usable
                     progress.console.print(
                         "[green]✓[/green] "
                         f"{plan.query_entry.id} [dim]{window}[/dim] "
-                        f"-> {len(result.records)} records, {failed} failed extractions "
+                        f"-> {len(result.records)} records, {usable} usable, {failed} failed extractions "
                         f"[dim]{paths.output_dir}[/dim]"
                     )
                     progress.advance(fetch_task)
@@ -491,6 +588,7 @@ def fetch_news_batch(
         table.add_row("Fetches", str(len(plans)))
         table.add_row("Corpus directories", str(len(output_paths)))
         table.add_row("Fetched records", str(total_records))
+        table.add_row("Usable articles", str(total_usable))
         table.add_row("Failed extractions", str(total_failed))
         table.add_row("Output directory", str(output_dir))
         if package_result is not None:
@@ -677,9 +775,7 @@ def run_baselines_command(
         match_run_id=match_run_id,
         callback=lambda message: console.print(message),
     )
-    console.print(
-        f"Baseline run {summary.run_id} complete: {summary.baseline_count} baseline(s), {summary.selected_row_count} row(s)"
-    )
+    console.print(f"Baseline run {summary.run_id} complete: {summary.baseline_count} baseline(s), {summary.selected_row_count} row(s)")
 
 
 @app.command("export")
@@ -981,9 +1077,7 @@ def agreement_command(
         raise typer.BadParameter("scope must be primary or all")
     result = run_agreement(BenchmarkStore(db_path), run_id, scope)
     if result is None:
-        console.print(
-            f"Need at least two models with valid {scope}-scope predictions in run {run_id} to measure agreement."
-        )
+        console.print(f"Need at least two models with valid {scope}-scope predictions in run {run_id} to measure agreement.")
         raise typer.Exit(code=1)
 
     def _fmt(value: float | None) -> str:
@@ -1025,15 +1119,9 @@ def tui() -> None:
 
 @app.command("run-self-consistency")
 def run_self_consistency(
-    model: Annotated[
-        str, typer.Option("--model", "-m", help="Model id to sample.")
-    ],
-    mode: Annotated[
-        str, typer.Option("--mode", help="pilot or full.")
-    ] = "pilot",
-    prompt_id: Annotated[
-        str, typer.Option("--prompt-id", help="Prompt id from configs/default_prompts.toml.")
-    ] = "default_label_only",
+    model: Annotated[str, typer.Option("--model", "-m", help="Model id to sample.")],
+    mode: Annotated[str, typer.Option("--mode", help="pilot or full.")] = "pilot",
+    prompt_id: Annotated[str, typer.Option("--prompt-id", help="Prompt id from configs/default_prompts.toml.")] = "default_label_only",
     dataset_path: Annotated[Path, typer.Option("--dataset-path")] = DEFAULT_DATASET_PATH,
     db_path: Annotated[Path, typer.Option("--db-path")] = DEFAULT_DB_PATH,
     prompts_path: Annotated[Path, typer.Option("--prompts-path")] = DEFAULT_PROMPTS_PATH,
@@ -1041,16 +1129,12 @@ def run_self_consistency(
         str,
         typer.Option("--provider", help="Model provider: openrouter or ollama."),
     ] = os.getenv("SENTIMENT_BENCH_PROVIDER", DEFAULT_PROVIDER),
-    base_url: Annotated[
-        str, typer.Option("--base-url")
-    ] = os.getenv("OPENROUTER_BASE_URL", DEFAULT_BASE_URL),
+    base_url: Annotated[str, typer.Option("--base-url")] = os.getenv("OPENROUTER_BASE_URL", DEFAULT_BASE_URL),
     ollama_host: Annotated[
         str,
         typer.Option("--ollama-host", help="Ollama host URL, e.g. http://desktop-pc:11434."),
     ] = os.getenv("OLLAMA_HOST", DEFAULT_OLLAMA_HOST),
-    sample_per_class: Annotated[
-        int, typer.Option("--sample-per-class")
-    ] = DEFAULT_PILOT_PER_CLASS,
+    sample_per_class: Annotated[int, typer.Option("--sample-per-class")] = DEFAULT_PILOT_PER_CLASS,
     seed: Annotated[int, typer.Option("--seed")] = DEFAULT_SEED,
     temperature: Annotated[
         float,
@@ -1060,9 +1144,7 @@ def run_self_consistency(
         int,
         typer.Option("--num-samples", "-n", help="Number of repeated samples per row."),
     ] = 5,
-    max_completion_tokens: Annotated[
-        int, typer.Option("--max-completion-tokens")
-    ] = DEFAULT_MAX_COMPLETION_TOKENS,
+    max_completion_tokens: Annotated[int, typer.Option("--max-completion-tokens")] = DEFAULT_MAX_COMPLETION_TOKENS,
     concurrency: Annotated[int, typer.Option("--concurrency")] = DEFAULT_CONCURRENCY,
     retries: Annotated[int, typer.Option("--retries")] = DEFAULT_RETRIES,
 ) -> None:
@@ -1139,9 +1221,7 @@ def _print_sc_result(result: SelfConsistencyResult) -> None:
 
 @app.command("self-consistency")
 def self_consistency_command(
-    sc_run_id: Annotated[
-        int, typer.Option("--sc-run-id", help="Self-consistency run id.")
-    ],
+    sc_run_id: Annotated[int, typer.Option("--sc-run-id", help="Self-consistency run id.")],
     db_path: Annotated[Path, typer.Option("--db-path")] = DEFAULT_DB_PATH,
     top_rows: Annotated[
         int | None,
@@ -1181,9 +1261,7 @@ def self_consistency_command(
         top_table.add_column("Distribution", justify="right")
         top_table.add_column("Valid", justify="right")
         for r in top:
-            dist = ", ".join(
-                f"{k}={v}" for k, v in sorted(r.label_counts.items(), key=lambda x: -x[1])
-            )
+            dist = ", ".join(f"{k}={v}" for k, v in sorted(r.label_counts.items(), key=lambda x: -x[1]))
             top_table.add_row(
                 str(r.row_number),
                 r.sentence[:60],
@@ -1231,9 +1309,7 @@ def self_consistency_list_command(
 
 @app.command("sc-compare-by-conflict")
 def sc_compare_by_conflict_command(
-    sc_run_id: Annotated[
-        int, typer.Option("--sc-run-id", help="Self-consistency run id.")
-    ],
+    sc_run_id: Annotated[int, typer.Option("--sc-run-id", help="Self-consistency run id.")],
     db_path: Annotated[Path, typer.Option("--db-path")] = DEFAULT_DB_PATH,
 ) -> None:
     """Test the dissertation hypothesis: do conflicting-duplicate rows have higher entropy?
@@ -1298,19 +1374,10 @@ def sc_compare_by_conflict_command(
         console.print(f"\nMann-Whitney U test could not be computed: {exc}")
     else:
         verdict = "SUPPORTS hypothesis" if p_value < 0.05 else "does NOT support hypothesis"
-        console.print(
-            f"\nMann-Whitney U test (conflicting > non-conflicting): "
-            f"U={stat:.1f}, p={p_value:.4f} → {verdict} at α=0.05"
-        )
+        console.print(f"\nMann-Whitney U test (conflicting > non-conflicting): U={stat:.1f}, p={p_value:.4f} → {verdict} at α=0.05")
 
-    gap_direction = (
-        "Conflicting rows have HIGHER entropy"
-        if gap < 0
-        else "Non-conflicting rows have higher entropy"
-    )
-    console.print(
-        f"\nEntropy gap (non-conflicting - conflicting) = {gap:.4f}\n({gap_direction})"
-    )
+    gap_direction = "Conflicting rows have HIGHER entropy" if gap < 0 else "Non-conflicting rows have higher entropy"
+    console.print(f"\nEntropy gap (non-conflicting - conflicting) = {gap:.4f}\n({gap_direction})")
 
 
 if __name__ == "__main__":

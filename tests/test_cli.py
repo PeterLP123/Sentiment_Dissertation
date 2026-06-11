@@ -96,11 +96,16 @@ def test_cli_compare_reports_mcnemar_and_cis(tmp_path: Path) -> None:
         app,
         [
             "compare",
-            "--run-a", str(run_id),
-            "--model-a", "model-a",
-            "--model-b", "model-b",
-            "--db-path", str(db_path),
-            "--n-resamples", "200",
+            "--run-a",
+            str(run_id),
+            "--model-a",
+            "model-a",
+            "--model-b",
+            "model-b",
+            "--db-path",
+            str(db_path),
+            "--n-resamples",
+            "200",
         ],
     )
     assert result.exit_code == 0
@@ -122,8 +127,7 @@ def test_cli_compare_rejects_bad_metric(tmp_path: Path) -> None:
     db_path, run_id = _seed(tmp_path)
     result = runner.invoke(
         app,
-        ["compare", "--run-a", str(run_id), "--model-a", "model-a", "--model-b", "model-b",
-         "--metric", "bogus", "--db-path", str(db_path)],
+        ["compare", "--run-a", str(run_id), "--model-a", "model-a", "--model-b", "model-b", "--metric", "bogus", "--db-path", str(db_path)],
     )
     assert result.exit_code != 0
 
@@ -254,9 +258,12 @@ def test_cli_fetch_news_writes_outputs(tmp_path: Path, monkeypatch) -> None:
         app,
         [
             "fetch-news",
-            "--query", "bank earnings sentiment",
-            "--max-results", "1",
-            "--output-dir", str(output_dir),
+            "--query",
+            "bank earnings sentiment",
+            "--max-results",
+            "1",
+            "--output-dir",
+            str(output_dir),
         ],
     )
 
@@ -274,9 +281,12 @@ def test_cli_fetch_news_rejects_invalid_topic(tmp_path: Path) -> None:
         app,
         [
             "fetch-news",
-            "--query", "bank earnings sentiment",
-            "--topic", "bogus",
-            "--output-dir", str(tmp_path / "news"),
+            "--query",
+            "bank earnings sentiment",
+            "--topic",
+            "bogus",
+            "--output-dir",
+            str(tmp_path / "news"),
         ],
     )
 
@@ -292,10 +302,14 @@ def test_cli_package_news_writes_share_package(tmp_path: Path) -> None:
         app,
         [
             "package-news",
-            "--source", str(source),
-            "--package-id", "shared",
-            "--output-dir", str(output_dir),
-            "--query-matrix", str(tmp_path / "missing.toml"),
+            "--source",
+            str(source),
+            "--package-id",
+            "shared",
+            "--output-dir",
+            str(output_dir),
+            "--query-matrix",
+            str(tmp_path / "missing.toml"),
         ],
     )
 
@@ -317,11 +331,16 @@ def test_cli_package_news_accepts_repeated_sources(tmp_path: Path) -> None:
         app,
         [
             "package-news",
-            "--source", str(first),
-            "--source", str(second),
-            "--package-id", "shared",
-            "--output-dir", str(tmp_path / "derived"),
-            "--query-matrix", str(tmp_path / "missing.toml"),
+            "--source",
+            str(first),
+            "--source",
+            str(second),
+            "--package-id",
+            "shared",
+            "--output-dir",
+            str(tmp_path / "derived"),
+            "--query-matrix",
+            str(tmp_path / "missing.toml"),
         ],
     )
 
@@ -341,9 +360,12 @@ def test_cli_package_news_rejects_existing_output(tmp_path: Path) -> None:
         app,
         [
             "package-news",
-            "--source", str(source),
-            "--package-id", "shared",
-            "--output-dir", str(tmp_path / "derived"),
+            "--source",
+            str(source),
+            "--package-id",
+            "shared",
+            "--output-dir",
+            str(tmp_path / "derived"),
         ],
     )
 
@@ -357,10 +379,14 @@ def test_cli_package_news_rejects_invalid_text_policy_and_source(tmp_path: Path)
         app,
         [
             "package-news",
-            "--source", str(source),
-            "--package-id", "shared",
-            "--output-dir", str(tmp_path / "derived"),
-            "--text-policy", "full",
+            "--source",
+            str(source),
+            "--package-id",
+            "shared",
+            "--output-dir",
+            str(tmp_path / "derived"),
+            "--text-policy",
+            "full",
         ],
     )
     assert bad_policy.exit_code != 0
@@ -370,9 +396,12 @@ def test_cli_package_news_rejects_invalid_text_policy_and_source(tmp_path: Path)
         app,
         [
             "package-news",
-            "--source", str(tmp_path / "missing"),
-            "--package-id", "shared",
-            "--output-dir", str(tmp_path / "derived2"),
+            "--source",
+            str(tmp_path / "missing"),
+            "--package-id",
+            "shared",
+            "--output-dir",
+            str(tmp_path / "derived2"),
         ],
     )
     assert bad_source.exit_code != 0
@@ -386,9 +415,12 @@ def test_cli_fetch_news_batch_dry_run_prints_matrix_plan(tmp_path: Path) -> None
         app,
         [
             "fetch-news-batch",
-            "--query-matrix", str(matrix),
-            "--date-window", "2026-05-01:2026-05-07",
-            "--date-window", "2026-05-08:2026-05-14",
+            "--query-matrix",
+            str(matrix),
+            "--date-window",
+            "2026-05-01:2026-05-07",
+            "--date-window",
+            "2026-05-08:2026-05-14",
             "--dry-run",
         ],
     )
@@ -397,6 +429,50 @@ def test_cli_fetch_news_batch_dry_run_prints_matrix_plan(tmp_path: Path) -> None
     assert "Tavily News Batch Dry Run" in result.output
     assert "Planned fetches: 4" in result.output
     assert "bank_earnings" in result.output
+
+
+def test_cli_fetch_news_batch_weeks_generates_windows(tmp_path: Path) -> None:
+    matrix = _write_batch_matrix(tmp_path / "matrix.toml")
+
+    result = runner.invoke(
+        app,
+        [
+            "fetch-news-batch",
+            "--query-matrix",
+            str(matrix),
+            "--weeks",
+            "3",
+            "--end-date",
+            "2026-06-11",
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Planned fetches: 6" in result.output
+
+    missing_weeks = runner.invoke(
+        app,
+        ["fetch-news-batch", "--query-matrix", str(matrix), "--end-date", "2026-06-11", "--dry-run"],
+    )
+    assert missing_weeks.exit_code != 0
+    assert "--end-date requires --weeks" in missing_weeks.output
+
+
+def test_cli_news_quality_reports_corpora(tmp_path: Path) -> None:
+    news_dir = tmp_path / "news"
+    _write_package_source(news_dir / "tavily_news_one")
+
+    result = runner.invoke(app, ["news-quality", "--news-dir", str(news_dir)])
+
+    assert result.exit_code == 0
+    assert "Tavily News Quality" in result.output
+    assert "Usable unique URLs" in result.output
+    assert "Top 10 Source Domains" in result.output
+
+    empty = runner.invoke(app, ["news-quality", "--news-dir", str(tmp_path / "missing")])
+    assert empty.exit_code != 0
+    assert "no Tavily corpus directories" in empty.output
 
 
 def test_cli_fetch_news_batch_executes_and_packages(tmp_path: Path, monkeypatch) -> None:
@@ -408,13 +484,20 @@ def test_cli_fetch_news_batch_executes_and_packages(tmp_path: Path, monkeypatch)
         app,
         [
             "fetch-news-batch",
-            "--query-matrix", str(matrix),
-            "--query-id", "bank_earnings",
-            "--date-window", "2026-05-01:2026-05-07",
-            "--date-window", "2026-05-08:2026-05-14",
-            "--output-dir", str(tmp_path / "news"),
-            "--package-id", "batch_shared",
-            "--package-output-dir", str(tmp_path / "derived"),
+            "--query-matrix",
+            str(matrix),
+            "--query-id",
+            "bank_earnings",
+            "--date-window",
+            "2026-05-01:2026-05-07",
+            "--date-window",
+            "2026-05-08:2026-05-14",
+            "--output-dir",
+            str(tmp_path / "news"),
+            "--package-id",
+            "batch_shared",
+            "--package-output-dir",
+            str(tmp_path / "derived"),
         ],
     )
 

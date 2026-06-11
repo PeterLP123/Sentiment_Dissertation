@@ -1,6 +1,12 @@
 version = 1
 description = "Reusable Tavily query matrix for a balanced initial current-financial-news source dataset."
 
+# Quality settings shared by every entry: extract_depth = "advanced" because
+# basic extraction returned navigation boilerplate and error pages in the first
+# run, and Yahoo Finance is excluded because its pages consistently serve an
+# "Oops, something went wrong" error page to the extractor (its content is
+# mostly syndicated and available at the original source).
+
 [[queries]]
 id = "bank_earnings"
 family = "Bank earnings"
@@ -9,9 +15,10 @@ topic = "finance"
 time_range = "month"
 max_results = 20
 search_depth = "basic"
+extract_depth = "advanced"
 coverage_target = "Bank performance, credit quality, margins, and investor reaction."
 include_domains = []
-exclude_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
 notes = "Useful for clear firm-level financial sentiment and sector-specific language."
 
 [[queries]]
@@ -22,9 +29,10 @@ topic = "finance"
 time_range = "month"
 max_results = 20
 search_depth = "basic"
+extract_depth = "advanced"
 coverage_target = "Broad company earnings, forecast changes, and share-price reaction."
 include_domains = []
-exclude_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
 notes = "Core source pool for later positive, negative, and neutral company-level sentiment labeling."
 
 [[queries]]
@@ -35,9 +43,10 @@ topic = "news"
 time_range = "month"
 max_results = 20
 search_depth = "basic"
+extract_depth = "advanced"
 coverage_target = "Macroeconomic policy language and market interpretation."
 include_domains = []
-exclude_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
 notes = "Adds policy and macro context where sentiment often depends on market implications."
 
 [[queries]]
@@ -48,9 +57,10 @@ topic = "finance"
 time_range = "month"
 max_results = 20
 search_depth = "basic"
+extract_depth = "advanced"
 coverage_target = "Market-wide movement, volatility, and risk-on or risk-off reporting."
 include_domains = []
-exclude_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
 notes = "Captures event-driven market tone across equities, bonds, and currencies."
 
 [[queries]]
@@ -61,9 +71,10 @@ topic = "finance"
 time_range = "month"
 max_results = 20
 search_depth = "basic"
+extract_depth = "advanced"
 coverage_target = "Debt, credit quality, default risk, and refinancing pressure."
 include_domains = []
-exclude_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
 notes = "Improves coverage of negative and risk-oriented financial language."
 
 [[queries]]
@@ -74,9 +85,10 @@ topic = "finance"
 time_range = "month"
 max_results = 20
 search_depth = "basic"
+extract_depth = "advanced"
 coverage_target = "Corporate actions with mixed or context-dependent market interpretation."
 include_domains = []
-exclude_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
 notes = "Useful for ambiguous examples where the same event can be positive or negative depending on context."
 
 [[queries]]
@@ -87,9 +99,10 @@ topic = "news"
 time_range = "month"
 max_results = 20
 search_depth = "basic"
+extract_depth = "advanced"
 coverage_target = "Regulatory, legal, enforcement, and approval-related financial reporting."
 include_domains = []
-exclude_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
 notes = "Adds factual legal and regulatory text that should not always be labeled purely negative."
 
 [[queries]]
@@ -100,9 +113,10 @@ topic = "finance"
 time_range = "month"
 max_results = 20
 search_depth = "basic"
+extract_depth = "advanced"
 coverage_target = "Commodity and energy-market news connected to listed companies and macro conditions."
 include_domains = []
-exclude_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
 notes = "Broadens the dataset beyond equities and banks."
 
 [[queries]]
@@ -113,9 +127,10 @@ topic = "finance"
 time_range = "month"
 max_results = 20
 search_depth = "basic"
+extract_depth = "advanced"
 coverage_target = "Current technology, semiconductor, cloud, and AI-related market themes."
 include_domains = []
-exclude_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
 notes = "Captures current market language that older financial sentiment datasets may underrepresent."
 
 [[queries]]
@@ -126,7 +141,8 @@ topic = "finance"
 time_range = "month"
 max_results = 20
 search_depth = "basic"
+extract_depth = "advanced"
 coverage_target = "Consumer demand, retail earnings, inflation pressure, and company outlook."
 include_domains = []
-exclude_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
 notes = "Adds consumer-facing financial text and demand-side macro language."
