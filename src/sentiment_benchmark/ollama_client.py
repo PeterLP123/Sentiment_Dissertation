@@ -241,6 +241,24 @@ class OllamaClient:
                     error="Ollama response did not contain message.content",
                 )
 
+            if not raw_content.strip():
+                return LLMResponseRecord(
+                    row_number=example.row_number,
+                    model_id=model_id,
+                    prompt_hash=prompt.prompt_hash,
+                    raw_content=raw_content,
+                    normalized_label=None,
+                    parse_status="error",
+                    status="malformed_response",
+                    raw_response_json=raw_json if isinstance(raw_json, dict) else {"raw": raw_json},
+                    latency_ms=latency_ms,
+                    error=(
+                        "Ollama returned an empty completion. A thinking model may have spent "
+                        "the whole completion budget on hidden thinking; disable thinking or "
+                        "raise max_completion_tokens."
+                    ),
+                )
+
             parsed = parse_model_response(raw_content, prompt.output_mode)
             prompt_tokens = _as_int(_get_field(response, "prompt_eval_count"))
             completion_tokens = _as_int(_get_field(response, "eval_count"))

@@ -22,7 +22,6 @@ from .self_consistency import (
     compute_self_consistency,
 )
 
-
 # libSQL/Turso embedded-replica connections cannot be accessed concurrently:
 # two open connections to the same local replica file deadlock on the replica
 # file lock and hang forever (the connect `timeout` only covers SQL busy waits,
@@ -428,7 +427,7 @@ class BenchmarkStore:
         return [int(value) for value in json.loads(row["selected_rows_json"])]
 
     def get_run_resume_settings(self, run_id: int) -> RunResumeSettings:
-        """Stored prompt hash and few-shot settings required to resume a run safely."""
+        """Stored prompt hash and request settings required to resume a run safely."""
         with self.connect() as connection:
             row = connection.execute(
                 "SELECT prompt_hash, request_json FROM runs WHERE id = ?",
@@ -442,6 +441,7 @@ class BenchmarkStore:
             prompt_hash=str(row["prompt_hash"]),
             few_shot_k=int(request.get("few_shot_k", 0)),
             few_shot_seed=int(few_shot_seed) if few_shot_seed is not None else None,
+            request=request if isinstance(request, dict) else {},
         )
 
     def run_prompt_id(self, run_id: int) -> str | None:
@@ -464,6 +464,26 @@ class BenchmarkStore:
                 "UPDATE runs SET status = ?, completed_at = ? WHERE id = ?",
                 (status, utc_now(), run_id),
             )
+
+    def reconcile_orphaned_runs(self) -> list[int]:
+        """Mark runs still flagged 'running' as 'interrupted' and return their ids.
+
+        Only call at application startup, before any new run begins: a run in
+        'running' state at that point belongs to a process that died without
+        finalizing. Interrupted runs keep their responses and can be finished
+        with --resume-run-id.
+        """
+        with self.connect() as connection:
+            table = connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'runs'"
+            ).fetchone()
+            if table is None:
+                return []
+            rows = connection.execute("SELECT id FROM runs WHERE status = 'running'").fetchall()
+            ids = [int(row["id"]) for row in rows]
+            if ids:
+                connection.execute("UPDATE runs SET status = 'interrupted' WHERE status = 'running'")
+        return ids
 
     def upsert_run_model(self, run_id: int, model_id: str, status: str) -> None:
         now = utc_now()

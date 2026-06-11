@@ -381,3 +381,29 @@ def test_run_cost_by_model_sums_recorded_generation_cost(tmp_path) -> None:
     assert costs["b/model"] == 0.005
     assert store.run_cost_by_model(99) == {}
 
+
+
+def test_reconcile_orphaned_runs_marks_running_as_interrupted(tmp_path) -> None:
+    store = BenchmarkStore(tmp_path / "test.sqlite")
+    store.initialize()
+    config = RunConfig(
+        models=["gemma4:12b"],
+        prompt=_prompt(),
+        mode="pilot",
+        dataset_path="Data/data.csv",
+        db_path=str(tmp_path / "test.sqlite"),
+        base_url="http://localhost:11434",
+        provider="ollama",
+    )
+    orphan_id = store.create_run(config, [1, 2, 3])
+    done_id = store.create_run(config, [1])
+    store.mark_run_complete(done_id)
+
+    assert store.reconcile_orphaned_runs() == [orphan_id]
+
+    with sqlite3.connect(tmp_path / "test.sqlite") as connection:
+        statuses = dict(connection.execute("SELECT id, status FROM runs").fetchall())
+    assert statuses[orphan_id] == "interrupted"
+    assert statuses[done_id] == "completed"
+    # Idempotent: a second pass finds nothing left to reconcile.
+    assert store.reconcile_orphaned_runs() == []

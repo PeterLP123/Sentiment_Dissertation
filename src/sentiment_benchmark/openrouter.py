@@ -164,6 +164,27 @@ class OpenRouterClient:
                     error=error,
                     generation_id=raw_json.get("id"),
                 )
+            if not raw_content.strip():
+                finish_reason = choice.get("finish_reason")
+                native_finish_reason = choice.get("native_finish_reason")
+                error = "Model returned an empty completion"
+                if finish_reason or native_finish_reason:
+                    error += f" (finish_reason={finish_reason}, native_finish_reason={native_finish_reason})"
+                if finish_reason == "length" or native_finish_reason == "MAX_TOKENS":
+                    error += "; increase max_completion_tokens"
+                return LLMResponseRecord(
+                    row_number=example.row_number,
+                    model_id=model_id,
+                    prompt_hash=prompt.prompt_hash,
+                    raw_content=raw_content,
+                    normalized_label=None,
+                    parse_status="error",
+                    status="malformed_response",
+                    raw_response_json=raw_json,
+                    latency_ms=latency_ms,
+                    error=error,
+                    generation_id=raw_json.get("id"),
+                )
             parsed = parse_model_response(raw_content, prompt.output_mode)
             usage = raw_json.get("usage") or {}
             return LLMResponseRecord(

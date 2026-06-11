@@ -100,6 +100,7 @@ def _make_run_config(
     model_max_completion_tokens: dict[str, int] | None = None,
     few_shot_k: int = 0,
     few_shot_seed: int | None = None,
+    ollama_think: bool | None = None,
 ) -> RunConfig:
     return RunConfig(
         models=models,
@@ -119,6 +120,7 @@ def _make_run_config(
         retries=retries,
         few_shot_k=few_shot_k,
         few_shot_seed=few_shot_seed,
+        ollama_think=ollama_think,
     )
 
 
@@ -350,13 +352,24 @@ def run_benchmark(
         int | None,
         typer.Option("--few-shot-seed", help="Seed for demonstration sampling (defaults to --seed)."),
     ] = None,
+    ollama_think: Annotated[
+        bool | None,
+        typer.Option(
+            "--ollama-think/--no-ollama-think",
+            help=(
+                "Enable or disable Ollama model thinking. Default: provider default. "
+                "Thinking models given a small completion budget can return empty output unless disabled."
+            ),
+        ),
+    ] = None,
     resume_run_id: Annotated[
         int | None,
         typer.Option(
             "--resume-run-id",
             help=(
-                "Resume an existing run without duplicating completed responses. Few-shot settings are loaded from the "
-                "stored run (CLI few-shot flags are ignored)."
+                "Resume an existing run without duplicating completed responses. Few-shot and generation settings "
+                "(temperature, token budgets, Ollama thinking) are restored from the stored run; the matching CLI "
+                "flags are ignored."
             ),
         ),
     ] = None,
@@ -389,6 +402,7 @@ def run_benchmark(
         retries=retries,
         few_shot_k=few_shot_k,
         few_shot_seed=few_shot_seed,
+        ollama_think=ollama_think,
     )
 
     async def main() -> None:

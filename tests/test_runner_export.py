@@ -434,3 +434,135 @@ def test_runner_cancels_during_model_without_scheduling_remaining_rows(tmp_path:
         ).fetchone()
     assert run_row[0] == "cancelled"
     assert model_row[0] == "cancelled"
+
+
+class CrashingClient(FakeClient):
+    """Raises instead of returning a record, like a client-side bug would."""
+
+    async def classify(self, *args, **kwargs) -> LLMResponseRecord:
+        raise RuntimeError("boom")
+
+
+class OllamaFailingClient(FakeClient):
+    """Ollama-style failing client (accepts the ollama_think kwarg)."""
+
+    async def classify(
+        self,
+        model_id: str,
+        prompt,
+        example: BlindExample,
+        temperature: float = 0.0,
+        max_completion_tokens: int = 8,
+        retries: int = 3,
+        ollama_think: bool | None = None,
+    ) -> LLMResponseRecord:
+        return LLMResponseRecord(
+            row_number=example.row_number,
+            model_id=model_id,
+            prompt_hash=prompt.prompt_hash,
+            raw_content=None,
+            normalized_label=None,
+            parse_status="error",
+            status="api_error",
+            error="HTTP 503",
+            latency_ms=5,
+        )
+
+
+class OllamaCapturingClient(FakeClient):
+    """Records the generation settings passed for each row."""
+
+    def __init__(self) -> None:
+        self.think_values: list[bool | None] = []
+        self.temperatures: list[float] = []
+        self.budgets: list[int] = []
+
+    async def classify(
+        self,
+        model_id: str,
+        prompt,
+        example: BlindExample,
+        temperature: float = 0.0,
+        max_completion_tokens: int = 8,
+        retries: int = 3,
+        ollama_think: bool | None = None,
+    ) -> LLMResponseRecord:
+        self.think_values.append(ollama_think)
+        self.temperatures.append(temperature)
+        self.budgets.append(max_completion_tokens)
+        return await super().classify(model_id, prompt, example, temperature, max_completion_tokens, retries)
+
+
+def test_row_failure_is_recorded_and_run_finalized(tmp_path: Path) -> None:
+    dataset = _write_dataset(tmp_path)
+    prompt = make_prompt("test", "Return a label.", "Sentence:\n{sentence}\n\nSentiment label:", "label_only")
+    db_path = tmp_path / "row-failure.sqlite"
+    config = RunConfig(
+        models=["fake/model"],
+        prompt=prompt,
+        mode="pilot",
+        dataset_path=str(dataset),
+        db_path=str(db_path),
+        base_url="https://openrouter.test/api/v1",
+        sample_per_class=1,
+    )
+    store = BenchmarkStore(db_path)
+
+    summary = asyncio.run(BenchmarkRunner(client=CrashingClient(), store=store).run(config))
+
+    # Every row failure is recorded instead of aborting the run.
+    responses = store.fetch_responses(summary.run_id, "fake/model")
+    assert len(responses) == 3
+    assert all(dict(row)["status"] == "client_error" for row in responses)
+    assert all("boom" in dict(row)["error"] for row in responses)
+
+    with sqlite3.connect(db_path) as connection:
+        run_row = connection.execute("SELECT status FROM runs WHERE id = ?", (summary.run_id,)).fetchone()
+        metrics_count = connection.execute(
+            "SELECT COUNT(*) FROM metrics WHERE run_id = ?", (summary.run_id,)
+        ).fetchone()[0]
+    assert run_row[0] == "completed"
+    assert metrics_count == 2  # primary + all scopes
+
+
+def test_resume_restores_generation_settings(tmp_path: Path) -> None:
+    dataset = _write_dataset(tmp_path)
+    prompt = make_prompt("test", "Return a label.", "Sentence:\n{sentence}\n\nSentiment label:", "label_only")
+    db_path = tmp_path / "resume-settings.sqlite"
+    config = RunConfig(
+        models=["gemma/fake"],
+        prompt=prompt,
+        mode="pilot",
+        dataset_path=str(dataset),
+        db_path=str(db_path),
+        base_url="http://localhost:11434",
+        provider="ollama",
+        sample_per_class=1,
+        temperature=0.7,
+        max_completion_tokens=99,
+        ollama_think=False,
+    )
+    store = BenchmarkStore(db_path)
+
+    first = asyncio.run(BenchmarkRunner(client=OllamaFailingClient(), store=store).run(config))
+
+    # Resume with CLI-default generation settings; the stored settings must win.
+    resume_config = RunConfig(
+        models=["gemma/fake"],
+        prompt=prompt,
+        mode="pilot",
+        dataset_path=str(dataset),
+        db_path=str(db_path),
+        base_url="http://localhost:11434",
+        provider="ollama",
+        sample_per_class=1,
+        temperature=0.0,
+        max_completion_tokens=8,
+        ollama_think=None,
+    )
+    capturing = OllamaCapturingClient()
+    asyncio.run(BenchmarkRunner(client=capturing, store=store).run(resume_config, resume_run_id=first.run_id))
+
+    assert capturing.think_values == [False, False, False]
+    assert capturing.temperatures == [0.7, 0.7, 0.7]
+    assert capturing.budgets == [99, 99, 99]

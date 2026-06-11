@@ -9,7 +9,7 @@ OutputMode = Literal["label_only", "explanation", "cot"]
 RunMode = Literal["pilot", "full"]
 Provider = Literal["openrouter", "ollama"]
 ParseStatus = Literal["valid", "invalid", "error"]
-ResponseStatus = Literal["success", "api_error", "transport_error", "malformed_response", "skipped"]
+ResponseStatus = Literal["success", "api_error", "transport_error", "malformed_response", "skipped", "client_error"]
 
 
 @dataclass(frozen=True)
@@ -59,6 +59,9 @@ class RunResumeSettings:
     prompt_hash: str
     few_shot_k: int
     few_shot_seed: int | None
+    # The run's stored request settings (request_json), so a resume reproduces
+    # the original generation behavior regardless of the flags passed this time.
+    request: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

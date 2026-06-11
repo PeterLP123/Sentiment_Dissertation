@@ -2,14 +2,17 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import faulthandler
 import importlib.util
 import json
+import logging
 import os
 import re
 import subprocess
 import time
 from contextlib import contextmanager
 from dataclasses import replace
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from threading import Event as ThreadEvent
 
@@ -103,6 +106,10 @@ _RUN_SETTING_FIELDS = (
 )
 _SESSION_PATH = Path("results/tui_session.json")
 _QUEUE_PATH = Path("results/tui_queue.json")
+_LOG_PATH = Path("results/tui.log")
+_CRASH_LOG_PATH = Path("results/tui_crash.log")
+
+logger = logging.getLogger(__name__)
 _SELECTED_MARK = "[x]"
 _UNSELECTED_MARK = "[ ]"
 _CONFIRM_THRESHOLD = 1000
@@ -118,6 +125,7 @@ _STATUS_COLORS = {
     "cancelled": "red",
     "failed": "red",
     "error": "red",
+    "interrupted": "orange1",
 }
 
 
@@ -541,11 +549,17 @@ class SentimentBenchmarkApp(App):
         "solarized-light",
     ]
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        session_path: Path | None = None,
+        queue_path: Path | None = None,
+        db_path: Path | None = None,
+    ) -> None:
         super().__init__()
         load_env_file()
         self.dataset_path = DEFAULT_DATASET_PATH
-        self.db_path = DEFAULT_DB_PATH
+        self.db_path = db_path if db_path is not None else DEFAULT_DB_PATH
         try:
             self.provider = normalize_provider(os.getenv("SENTIMENT_BENCH_PROVIDER", DEFAULT_PROVIDER))
         except ValueError:
@@ -570,7 +584,7 @@ class SentimentBenchmarkApp(App):
         self.news_lines: list[str] = []
         self._all_models: list[ModelConfig] = []
         self._model_names: dict[str, str] = {}
-        self._session_path = _SESSION_PATH
+        self._session_path = session_path if session_path is not None else _SESSION_PATH
         self._active_run_id: int | None = None
         self._metric_rows: dict[str, dict] = {}
         self._cancel_event: ThreadEvent | None = None
@@ -597,7 +611,7 @@ class SentimentBenchmarkApp(App):
             "max_completion_tokens": DEFAULT_MAX_COMPLETION_TOKENS,
         }
         self._experiment_queue: list[dict] = []
-        self._queue_path = _QUEUE_PATH
+        self._queue_path = queue_path if queue_path is not None else _QUEUE_PATH
         self._queue_uid_counter: int = 0
         self._queue_running: bool = False
         self._queue_cancel: bool = False
@@ -1098,6 +1112,7 @@ class SentimentBenchmarkApp(App):
             except Exception:
                 pass
 
+        self._reconcile_orphaned_runs()
         self._apply_loaded_run_settings()
         self._refresh_dashboard()
         self._render_selected_table()
@@ -1117,6 +1132,23 @@ class SentimentBenchmarkApp(App):
         self.set_interval(2.0, self._refresh_gpu_lines)
         self._schedule_auto_fetch_models()
         self._maybe_prompt_queue_resume()
+
+    def _reconcile_orphaned_runs(self) -> None:
+        """Flip runs stranded in 'running' by a dead session to 'interrupted'."""
+        try:
+            orphaned = BenchmarkStore(self.db_path).reconcile_orphaned_runs()
+        except Exception:
+            logger.exception("Could not reconcile orphaned runs")
+            return
+        if not orphaned:
+            return
+        ids = ", ".join(str(run_id) for run_id in orphaned)
+        logger.warning("Marked %d orphaned run(s) as interrupted: %s", len(orphaned), ids)
+        self._notify_info(
+            f"Marked {len(orphaned)} unfinished run(s) from a previous session as interrupted: {ids}. "
+            "Finish them with: sentiment-bench run --resume-run-id <id> ...",
+            title="Recovered runs",
+        )
 
     def _maybe_prompt_queue_resume(self) -> None:
         pending = sum(1 for item in self._experiment_queue if not self._queue_item_done(item))
@@ -3044,6 +3076,8 @@ class SentimentBenchmarkApp(App):
                     config = self._config_from_queue_item(item)
                 except Exception as exc:
                     item["status"] = "failed"
+                    item["error"] = f"setup failed: {exc}"
+                    logger.exception("Queue experiment %d/%d setup failed", position, total)
                     self._notify_error(f"Experiment {position} setup failed: {exc}", title="Queue")
                     self._render_queue_table()
                     self._save_queue()
@@ -3065,8 +3099,12 @@ class SentimentBenchmarkApp(App):
                     else:
                         item["status"] = f"{summary.status} (run {summary.run_id})"
                         cancelled = cancelled or summary.status == "cancelled"
+                        if summary.status == "failed":
+                            logger.warning("Queue experiment %d/%d failed (run %d)", position, total, summary.run_id)
                 except Exception as exc:
                     item["status"] = "failed"
+                    item["error"] = str(exc)
+                    logger.exception("Queue experiment %d/%d failed", position, total)
                     self._notify_error(f"Experiment {position} failed: {exc}", title="Queue")
                 finally:
                     self._cancel_event = None
@@ -3637,5 +3675,28 @@ class SentimentBenchmarkApp(App):
             self._notify_info(f"Opened {folder} in your file manager.")
 
 
+def _setup_crash_logging() -> None:
+    """Leave a trace on disk when the TUI dies overnight: a rotating app log for
+    handled failures plus faulthandler output for hard crashes."""
+    _LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    handler = RotatingFileHandler(_LOG_PATH, maxBytes=2_000_000, backupCount=2, encoding="utf-8")
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    root = logging.getLogger()
+    root.addHandler(handler)
+    if root.level in (logging.NOTSET, logging.WARNING):
+        root.setLevel(logging.WARNING)
+    logging.getLogger("sentiment_benchmark").setLevel(logging.INFO)
+    # Kept open for the process lifetime so faulthandler can write during a crash.
+    crash_file = open(_CRASH_LOG_PATH, "a", encoding="utf-8")  # noqa: SIM115
+    faulthandler.enable(file=crash_file)
+
+
 def main() -> None:
-    SentimentBenchmarkApp().run()
+    _setup_crash_logging()
+    logger.info("TUI starting")
+    try:
+        SentimentBenchmarkApp().run()
+    except Exception:
+        logger.exception("TUI exited with an unhandled exception")
+        raise
+    logger.info("TUI exited normally")

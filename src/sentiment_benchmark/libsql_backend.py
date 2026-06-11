@@ -114,6 +114,11 @@ class LibsqlCursor:
         value = getattr(self._cursor, "lastrowid", None)
         return int(value) if value is not None else None
 
+    @property
+    def rowcount(self) -> int:
+        value = getattr(self._cursor, "rowcount", None)
+        return int(value) if value is not None else -1
+
     def fetchone(self) -> Any:
         columns = _columns_from_description(self.description)
         return _wrap_row(columns, self._cursor.fetchone())
@@ -140,6 +145,10 @@ class LibsqlConnectionCursor:
     @property
     def lastrowid(self) -> int | None:
         return self._cursor.lastrowid if self._cursor is not None else None
+
+    @property
+    def rowcount(self) -> int:
+        return self._cursor.rowcount if self._cursor is not None else -1
 
     def execute(self, sql: str, params: Sequence[Any] | None = None) -> LibsqlConnectionCursor:
         self._cursor = self._connection.execute(sql, params)

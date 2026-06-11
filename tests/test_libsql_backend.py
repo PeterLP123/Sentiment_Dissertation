@@ -176,3 +176,19 @@ def test_libsql_connection_sync_can_be_enabled(monkeypatch: pytest.MonkeyPatch, 
     )
     assert fake_connection.synced == 2
     assert fake_connection.committed == 1
+
+
+def test_libsql_cursor_exposes_rowcount() -> None:
+    from sentiment_benchmark.libsql_backend import LibsqlCursor
+
+    class RawWithRowcount:
+        description = []
+        lastrowid = None
+        rowcount = 5
+
+    class RawWithoutRowcount:
+        description = []
+        lastrowid = None
+
+    assert LibsqlCursor(RawWithRowcount()).rowcount == 5
+    assert LibsqlCursor(RawWithoutRowcount()).rowcount == -1

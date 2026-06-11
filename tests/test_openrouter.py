@@ -139,3 +139,26 @@ def test_openrouter_close_closes_owned_client() -> None:
         assert client._client is None
 
     run(scenario())
+
+
+def test_openrouter_empty_completion_is_malformed() -> None:
+    async def scenario():
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "id": "gen-empty",
+                    "choices": [{"message": {"content": ""}, "finish_reason": "length"}],
+                },
+            )
+
+        client = make_client(handler)
+        prompt = make_prompt("test", "Return a label.", "Sentence:\n{sentence}\n\nSentiment label:", "label_only")
+        record = await client.classify("test/model", prompt, BlindExample(3, "sentence"))
+
+        assert record.status == "malformed_response"
+        assert record.parse_status == "error"
+        assert "empty completion" in (record.error or "")
+        assert "max_completion_tokens" in (record.error or "")
+
+    run(scenario())

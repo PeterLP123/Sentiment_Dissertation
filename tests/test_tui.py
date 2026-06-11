@@ -16,10 +16,13 @@ from sentiment_benchmark.tui import ConfirmScreen, SentimentBenchmarkApp
 
 
 def _make_app(tmp_path: Path) -> SentimentBenchmarkApp:
-    app = SentimentBenchmarkApp()
-    app._session_path = tmp_path / "tui_session.json"
-    app._queue_path = tmp_path / "tui_queue.json"
-    app._experiment_queue = []
+    # Isolated paths keep tests independent of the developer's real session,
+    # queue, and results database.
+    app = SentimentBenchmarkApp(
+        session_path=tmp_path / "tui_session.json",
+        queue_path=tmp_path / "tui_queue.json",
+        db_path=tmp_path / "benchmark.sqlite",
+    )
     app.provider = "openrouter"
     app.selected_models = []
     app._model_names = {}

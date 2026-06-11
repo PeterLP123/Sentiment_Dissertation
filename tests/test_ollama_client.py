@@ -147,3 +147,23 @@ def test_provider_helpers_resolve_ollama_endpoint() -> None:
     assert normalize_provider("OLLAMA") == "ollama"
     assert endpoint_for_provider("ollama", base_url="https://openrouter.test", ollama_host="http://pc:11434/") == "http://pc:11434"
     assert endpoint_for_provider("openrouter", base_url="https://openrouter.test/", ollama_host="http://pc:11434") == "https://openrouter.test"
+
+
+def test_ollama_empty_completion_is_malformed() -> None:
+    class EmptyResponseClient(FakeOllamaAsyncClient):
+        async def chat(self, **kwargs):
+            return {
+                "model": kwargs["model"],
+                "message": {"role": "assistant", "content": ""},
+                "prompt_eval_count": 12,
+                "eval_count": 0,
+            }
+
+    prompt = make_prompt("test", "Return a label.", "{sentence}", "label_only")
+    record = run(OllamaClient(client=EmptyResponseClient()).classify("gemma4:12b", prompt, BlindExample(1, "Flat.")))
+
+    # An empty completion must not count as success: resumes would otherwise
+    # treat the row as permanently complete.
+    assert record.status == "malformed_response"
+    assert record.parse_status == "error"
+    assert "empty completion" in (record.error or "")
