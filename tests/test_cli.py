@@ -132,10 +132,10 @@ def test_cli_compare_rejects_bad_metric(tmp_path: Path) -> None:
     assert result.exit_code != 0
 
 
-def _news_result(query: str = "market news") -> NewsFetchResult:
+def _news_result(query: str = "market news", config=None) -> NewsFetchResult:
     normalized = normalize_url("https://example.com/article")
     return NewsFetchResult(
-        config=make_news_fetch_config(query=query, max_results=1),
+        config=config or make_news_fetch_config(query=query, max_results=1),
         fetched_at="2026-06-07T12:00:00+00:00",
         records=[
             NewsArticleRecord(
@@ -234,7 +234,7 @@ class FakeNewsClient:
 
     async def fetch(self, config):
         self.configs.append(config)
-        return _news_result(config.query)
+        return _news_result(config.query, config=config)
 
 
 def test_cli_news_check_uses_tavily_client(monkeypatch) -> None:
@@ -457,6 +457,117 @@ def test_cli_fetch_news_batch_weeks_generates_windows(tmp_path: Path) -> None:
     )
     assert missing_weeks.exit_code != 0
     assert "--end-date requires --weeks" in missing_weeks.output
+
+
+class FlakyNewsClient(FakeNewsClient):
+    def __init__(self, fail_times: int, fail_query: str | None = None) -> None:
+        super().__init__()
+        self.fail_times = fail_times
+        self.fail_query = fail_query
+        self.failures = 0
+
+    async def fetch(self, config):
+        if (self.fail_query is None or config.query == self.fail_query) and self.failures < self.fail_times:
+            self.failures += 1
+            raise TimeoutError("Request timed out after 30 seconds.")
+        return await super().fetch(config)
+
+
+def test_cli_fetch_news_batch_retries_transient_failures(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr("sentiment_benchmark.cli.FETCH_RETRY_BASE_DELAY_SECONDS", 0.0)
+    fake = FlakyNewsClient(fail_times=1)
+    monkeypatch.setattr("sentiment_benchmark.cli._make_tavily_news_client", lambda: fake)
+    matrix = _write_batch_matrix(tmp_path / "matrix.toml")
+
+    result = runner.invoke(
+        app,
+        [
+            "fetch-news-batch",
+            "--query-matrix",
+            str(matrix),
+            "--date-window",
+            "2026-05-01:2026-05-07",
+            "--output-dir",
+            str(tmp_path / "news"),
+            "--package-id",
+            "retried",
+            "--package-output-dir",
+            str(tmp_path / "derived"),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "retrying" in result.output
+    assert (tmp_path / "derived" / "retried" / "sources.csv").exists()
+
+
+def test_cli_fetch_news_batch_continues_past_persistent_failures(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr("sentiment_benchmark.cli.FETCH_RETRY_BASE_DELAY_SECONDS", 0.0)
+    fake = FlakyNewsClient(fail_times=99, fail_query="bank earnings sentiment")
+    monkeypatch.setattr("sentiment_benchmark.cli._make_tavily_news_client", lambda: fake)
+    matrix = _write_batch_matrix(tmp_path / "matrix.toml")
+
+    result = runner.invoke(
+        app,
+        [
+            "fetch-news-batch",
+            "--query-matrix",
+            str(matrix),
+            "--date-window",
+            "2026-05-01:2026-05-07",
+            "--output-dir",
+            str(tmp_path / "news"),
+            "--package-id",
+            "partial",
+            "--package-output-dir",
+            str(tmp_path / "derived"),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "failed after 3 attempts" in result.output
+    assert "Skipping packaging" in result.output
+    assert not (tmp_path / "derived" / "partial").exists()
+    # The healthy query still produced a corpus that a re-run will reuse.
+    exported = list((tmp_path / "news").glob("tavily_news_*"))
+    assert len(exported) == 1
+
+
+def test_cli_fetch_news_batch_skips_already_fetched(tmp_path: Path, monkeypatch) -> None:
+    matrix = _write_batch_matrix(tmp_path / "matrix.toml")
+    base_args = [
+        "fetch-news-batch",
+        "--query-matrix",
+        str(matrix),
+        "--date-window",
+        "2026-05-01:2026-05-07",
+        "--output-dir",
+        str(tmp_path / "news"),
+        "--package-output-dir",
+        str(tmp_path / "derived"),
+    ]
+
+    first = FakeNewsClient()
+    monkeypatch.setattr("sentiment_benchmark.cli._make_tavily_news_client", lambda: first)
+    result = runner.invoke(app, [*base_args, "--package-id", "first"])
+    assert result.exit_code == 0
+    assert len(first.configs) == 2
+
+    second = FakeNewsClient()
+    monkeypatch.setattr("sentiment_benchmark.cli._make_tavily_news_client", lambda: second)
+    result = runner.invoke(app, [*base_args, "--package-id", "second"])
+    assert result.exit_code == 0
+    assert second.configs == []
+    assert "already fetched, skipped" in result.output
+    # The skipped corpora still flow into the new package.
+    manifest = json.loads((tmp_path / "derived" / "second" / "package_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["input_record_count"] == 2
+
+    third = FakeNewsClient()
+    monkeypatch.setattr("sentiment_benchmark.cli._make_tavily_news_client", lambda: third)
+    result = runner.invoke(app, [*base_args, "--package-id", "third", "--refetch"])
+    assert result.exit_code == 0
+    assert len(third.configs) == 2
 
 
 def test_cli_news_quality_reports_corpora(tmp_path: Path) -> None:

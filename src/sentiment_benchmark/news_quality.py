@@ -1,13 +1,25 @@
 from __future__ import annotations
 
 import json
-from collections import Counter
+import os
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlparse
 
 from .news_package import QueryMatrix, _query_key, load_query_matrix
-from .news_source import DEFAULT_NEWS_OUTPUT_DIR, TEXT_QUALITY_OK, assess_article_text, normalize_url
+from .news_source import (
+    DEFAULT_NEWS_OUTPUT_DIR,
+    TEXT_QUALITY_NON_ARTICLE,
+    TEXT_QUALITY_OK,
+    assess_article_text,
+    is_listing_url,
+    normalize_url,
+)
+
+# Only the opening of each article matters for shared-prefix detection, and the
+# common prefix can never exceed the shortest sample.
+_PREFIX_SAMPLE_CHARS = 4000
 
 
 class NewsQualityError(RuntimeError):
@@ -19,6 +31,9 @@ class DomainQuality:
     domain: str
     record_count: int
     usable_count: int
+    # Length of the identical opening shared by every usable article from this
+    # domain; a large value means extracted text starts with site boilerplate.
+    shared_prefix_chars: int = 0
 
 
 @dataclass(frozen=True)
@@ -52,7 +67,25 @@ def discover_news_corpora(root: str | Path = DEFAULT_NEWS_OUTPUT_DIR) -> list[Pa
     return corpora
 
 
+def _shared_prefix_chars(text_heads: list[str]) -> int:
+    """Longest opening shared by at least two articles from the domain.
+
+    After sorting, the maximal pairwise common prefix always occurs between
+    neighbours, so one linear pass finds template boilerplate even when only a
+    subset of the domain's articles carries it.
+    """
+    if len(text_heads) < 2:
+        return 0
+    ordered = sorted(text_heads)
+    return max(len(os.path.commonprefix([first, second])) for first, second in zip(ordered, ordered[1:], strict=False))
+
+
 def _record_quality(record: dict) -> str:
+    # URL check first: corpora fetched before the listing-page filter existed
+    # store "ok" for category/index pages.
+    url = record.get("normalized_url") or record.get("url")
+    if isinstance(url, str) and url.strip() and is_listing_url(url):
+        return TEXT_QUALITY_NON_ARTICLE
     stored = record.get("text_quality")
     if isinstance(stored, str) and stored.strip():
         return stored.strip()
@@ -82,6 +115,8 @@ def summarize_news_quality(
     date_counts: Counter[str] = Counter()
     domain_records: Counter[str] = Counter()
     domain_usable: Counter[str] = Counter()
+    domain_text_heads: defaultdict[str, list[str]] = defaultdict(list)
+    text_head_urls: set[str] = set()
     family_records: Counter[str] = Counter()
     family_usable: Counter[str] = Counter()
     unique_urls: set[str] = set()
@@ -136,9 +171,20 @@ def summarize_news_quality(
                     family_usable[family] += 1
                     if normalized:
                         usable_urls.add(normalized)
+                    text = record.get("article_text")
+                    # One head per unique URL, so refetches of the same article
+                    # do not masquerade as a domain-wide template.
+                    if isinstance(text, str) and text and normalized not in text_head_urls:
+                        text_head_urls.add(normalized)
+                        domain_text_heads[domain].append(text[:_PREFIX_SAMPLE_CHARS])
 
     domains = [
-        DomainQuality(domain=domain, record_count=count, usable_count=domain_usable.get(domain, 0))
+        DomainQuality(
+            domain=domain,
+            record_count=count,
+            usable_count=domain_usable.get(domain, 0),
+            shared_prefix_chars=_shared_prefix_chars(domain_text_heads.get(domain, [])),
+        )
         for domain, count in domain_records.most_common()
     ]
     families = [

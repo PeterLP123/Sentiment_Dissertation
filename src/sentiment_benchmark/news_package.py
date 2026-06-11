@@ -19,9 +19,11 @@ from .news_source import (
     NEWS_TIME_RANGES,
     NEWS_TOPICS,
     TEXT_QUALITY_MISSING,
+    TEXT_QUALITY_NON_ARTICLE,
     TEXT_QUALITY_OK,
     article_record_id,
     assess_article_text,
+    is_listing_url,
     normalize_url,
 )
 
@@ -692,6 +694,11 @@ def _article_text(context: _RecordContext | None) -> str:
 
 
 def _record_text_quality(record: dict[str, Any]) -> str:
+    # The URL check overrides stored quality: corpora fetched before the
+    # listing-page filter existed store "ok" for category/index pages.
+    url = record.get("normalized_url") or record.get("url")
+    if isinstance(url, str) and url.strip() and is_listing_url(url):
+        return TEXT_QUALITY_NON_ARTICLE
     stored = record.get("text_quality")
     if isinstance(stored, str) and stored.strip():
         return stored.strip()

@@ -25,6 +25,12 @@ DEFAULT_NEWS_MAX_RESULTS = 10
 MAX_TAVILY_RESULTS = 20
 DEFAULT_MIN_ARTICLE_TEXT_CHARS = 500
 
+# The SDK defaults (search 60s, extract 30s) are too tight for advanced
+# extraction over up to 20 URLs, which routinely exceeds 30 seconds. The SDK
+# rejects values outside 1-120 seconds, so 120 is the usable maximum.
+SEARCH_TIMEOUT_SECONDS = 90.0
+EXTRACT_TIMEOUT_SECONDS = 120.0
+
 # High-confidence openings of pages where the extractor was served an error,
 # bot wall, or consent page instead of the article body.
 ERROR_PAGE_SIGNATURES: tuple[str, ...] = (
@@ -46,7 +52,15 @@ ERROR_PAGE_SCAN_CHARS = 400
 TEXT_QUALITY_OK = "ok"
 TEXT_QUALITY_ERROR_PAGE = "error_page"
 TEXT_QUALITY_TOO_SHORT = "too_short"
+TEXT_QUALITY_NON_ARTICLE = "non_article"
 TEXT_QUALITY_MISSING = "missing"
+
+# URL shapes that identify listing, index, and other non-article pages, which
+# can be long and clean enough to pass the text gate.
+NON_ARTICLE_URL_PATTERN = re.compile(
+    r"/(?:category|tag|topics?|author|search|video|quote)/|/page/\d+(?:[/?]|$)|[?&]pg=\d+",
+    re.IGNORECASE,
+)
 
 NewsTopic = Literal["news", "finance", "general"]
 NewsTimeRange = Literal["day", "week", "month", "year"]
@@ -277,6 +291,13 @@ def assess_article_text(
     return TEXT_QUALITY_OK, None
 
 
+def is_listing_url(url: str) -> bool:
+    """True when the URL identifies a listing/index/non-article page."""
+    parsed = urlparse(url.strip())
+    target = parsed.path + (f"?{parsed.query}" if parsed.query else "")
+    return bool(NON_ARTICLE_URL_PATTERN.search(target))
+
+
 _MONTH_NAME_PATTERN = (
     r"jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?"
     r"|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?"
@@ -462,6 +483,7 @@ class TavilyNewsClient:
             "include_answer": False,
             "include_raw_content": False,
             "include_favicon": True,
+            "timeout": SEARCH_TIMEOUT_SECONDS,
         }
         if config.time_range:
             search_kwargs["time_range"] = config.time_range
@@ -505,6 +527,7 @@ class TavilyNewsClient:
                 format=config.extract_format,
                 include_favicon=True,
                 include_usage=True,
+                timeout=EXTRACT_TIMEOUT_SECONDS,
             )
             extract_request_id = _get_field(extract_payload, "request_id")
             extract_usage = _get_field(extract_payload, "usage", {}) or {}
@@ -517,6 +540,9 @@ class TavilyNewsClient:
             failed = extract_failures.get(normalized, {})
             article_text = extracted.get("raw_content") if isinstance(extracted.get("raw_content"), str) else None
             text_quality, quality_detail = assess_article_text(article_text, min_chars=config.min_text_chars)
+            if text_quality == TEXT_QUALITY_OK and is_listing_url(url):
+                text_quality = TEXT_QUALITY_NON_ARTICLE
+                quality_detail = "URL pattern indicates a listing or non-article page"
             if article_text and text_quality == TEXT_QUALITY_OK:
                 extraction_status = "success"
                 extract_error = None

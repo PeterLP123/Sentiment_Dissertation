@@ -90,6 +90,30 @@ def test_summarize_news_quality_counts_quality_domains_and_dates(tmp_path: Path)
     assert domains["other.com"].usable_count == 0
 
 
+def test_summarize_news_quality_detects_shared_boilerplate_prefix(tmp_path: Path) -> None:
+    chrome = "Site Chrome Navigation Menu Markets Watchlist Subscribe " * 10
+    corpus = _write_corpus(
+        tmp_path / "news" / "tavily_news_one",
+        query="bank earnings sentiment",
+        records=[
+            _record("https://templated.com/a", text=chrome + GOOD_TEXT, text_quality="ok"),
+            _record("https://templated.com/b", text=chrome + "Totally different article body. " * 30, text_quality="ok"),
+            _record("https://clean.com/a", text="Alpha " + GOOD_TEXT, text_quality="ok"),
+            _record("https://clean.com/b", text="Beta " + GOOD_TEXT, text_quality="ok"),
+            # The same URL refetched with identical text must not register as a template.
+            _record("https://single.com/a", text=GOOD_TEXT, text_quality="ok"),
+            _record("https://single.com/a", text=GOOD_TEXT, text_quality="ok"),
+        ],
+    )
+
+    report = summarize_news_quality([corpus])
+
+    domains = {item.domain: item for item in report.domains}
+    assert domains["templated.com"].shared_prefix_chars >= len(chrome)
+    assert domains["clean.com"].shared_prefix_chars < 10
+    assert domains["single.com"].shared_prefix_chars == 0
+
+
 def test_discover_news_corpora_skips_non_corpus_entries(tmp_path: Path) -> None:
     root = tmp_path / "news"
     corpus = _write_corpus(root / "tavily_news_one", query="bank earnings sentiment", records=[])
