@@ -33,6 +33,7 @@ from .constants import (
 from .dataset import compute_stats, load_dataset
 from .env import load_env_file
 from .exporter import export_run
+from .latex_tables import sensitivity_table_latex
 from .models import PromptConfig, RunConfig
 from .news_source import (
     DEFAULT_NEWS_MAX_RESULTS,
@@ -694,6 +695,10 @@ def prompt_sensitivity_command(
     scope: Annotated[str, typer.Option("--scope", help="primary or all.")] = "primary",
     metric: Annotated[str, typer.Option("--metric", help=f"One of: {', '.join(SENSITIVITY_METRICS)}.")] = "accuracy",
     db_path: Annotated[Path, typer.Option("--db-path")] = DEFAULT_DB_PATH,
+    latex_output: Annotated[
+        Path | None,
+        typer.Option("--latex-output", help="Also write a dissertation-ready booktabs LaTeX table to this path."),
+    ] = None,
 ) -> None:
     """Quantify how a model's metric varies across a family of prompt variants."""
     if scope not in {"primary", "all"}:
@@ -718,6 +723,10 @@ def prompt_sensitivity_command(
         f"mean={result.mean:.4f}  std={result.std:.4f}  min={result.minimum:.4f}  "
         f"max={result.maximum:.4f}  spread={result.spread:.4f}  cv={result.cv:.4f}"
     )
+    if latex_output is not None:
+        latex_output.parent.mkdir(parents=True, exist_ok=True)
+        latex_output.write_text(sensitivity_table_latex(result), encoding="utf-8")
+        console.print(f"LaTeX table written to {latex_output}")
 
 
 @app.command("agreement")

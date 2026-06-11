@@ -22,7 +22,6 @@ from .self_consistency import (
     compute_self_consistency,
 )
 
-
 # libSQL/Turso embedded-replica connections cannot be accessed concurrently:
 # two open connections to the same local replica file deadlock on the replica
 # file lock and hang forever (the connect `timeout` only covers SQL busy waits,

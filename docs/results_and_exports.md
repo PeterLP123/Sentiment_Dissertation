@@ -132,9 +132,25 @@ results/exports/run_1/
 | `responses.json` | JSON version of response records. |
 | `metrics.json` | Per-model metrics and per-class scores for each scope. |
 | `run.json` | Run metadata, prompt metadata, package version, export timestamp, dataset SHA-256, prompt hash, provider, base URL, machine metadata, environment snapshot, and request settings. |
-| `statistics.json` | Bootstrap confidence intervals, paired McNemar tests, and agreement statistics where applicable. |
-| `summary.md` | Human-readable run summary for notes and dissertation drafting. |
+| `statistics.json` | Bootstrap confidence intervals, paired McNemar tests, agreement statistics, and per-model operational metrics (cost, latency percentiles, token usage, failure rates). |
+| `summary.md` | Human-readable run summary for notes and dissertation drafting, including an operational-metrics table for RQ4. |
+| `tables/` | Dissertation-ready booktabs LaTeX tables (see below). |
 | `figures/` | Optional PNG figures when installed with `python -m pip install -e ".[figures]"`. |
+
+## LaTeX Tables
+
+Every export writes booktabs LaTeX tables to `tables/`. Each `.tex` file is a standalone `table` environment with a caption, a `\label`, and a provenance comment header (run id, dataset SHA-256 prefix, prompt hash, export timestamp), so a table can be `\input{}` into the dissertation and traced back to the exact run that produced it. The only required package is `booktabs`.
+
+| File | Contents |
+| --- | --- |
+| `leaderboard.tex` | Models sorted by macro-F1 with bootstrap CIs; the best value per metric column is bold. |
+| `per_class.tex` | Per-model precision, recall, F1, and support by class. |
+| `mcnemar.tex` | Pairwise McNemar tests with significance markers (noted as uncorrected for multiple comparisons). |
+| `agreement.tex` | Fleiss' kappa, Krippendorff's alpha, and pairwise Cohen's kappa. |
+| `operational.tex` | Cost, USD per 1k rows, latency p50/p95, tokens per row, invalid and error rates. |
+| `tables.tex` | Master file that `\input`s every table written. |
+
+`prompt-sensitivity --latex-output <path>` writes the equivalent table for a prompt-variant family.
 
 ## Optional Figures
 
@@ -144,6 +160,7 @@ With the `figures` extra installed, exports include:
 - Accuracy bootstrap-CI forest plot.
 - Confusion-matrix heatmaps.
 - Per-class score bars.
+- Quality-vs-cost and quality-vs-latency Pareto frontier plots (when at least two models have cost or latency data; dominated models are visually distinguished from the frontier).
 
 In the TUI, the Results tab can export a selected run and open the `figures/` folder.
 
@@ -160,6 +177,8 @@ In the TUI, the Results tab can export a selected run and open the `figures/` fo
 | Per-class recall | Of true rows for a label, how many were found. |
 | Invalid-output count | Model produced output that could not be parsed into a valid label. |
 | API-error count | Provider request failed after retry handling. |
+| Latency p50/p95 | Median and 95th-percentile per-request latency, computed over every attempted row in the run. More robust than the mean for skewed API response times. |
+| Cost per 1k rows | Provider-reported generation cost normalized per 1,000 classified rows (only rows with cost metadata count toward the denominator). |
 | Bootstrap CI | Resampled uncertainty interval for accuracy or macro-F1. |
 | McNemar test | Paired test for whether two models differ on shared rows. |
 | Cohen's kappa | Pairwise inter-model agreement beyond chance. |

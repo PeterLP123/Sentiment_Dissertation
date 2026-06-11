@@ -3,6 +3,8 @@ import json
 import sqlite3
 from pathlib import Path
 
+import pytest
+
 from sentiment_benchmark.exporter import dataset_sha256, export_run
 from sentiment_benchmark.models import BlindExample, LLMResponseRecord, RunConfig
 from sentiment_benchmark.prompts import make_prompt
@@ -145,8 +147,30 @@ def test_runner_creates_metrics_and_exports(tmp_path) -> None:
     exported_names = {Path(path).name for path in paths}
     core_files = {"responses.csv", "responses.json", "metrics.json", "run.json", "summary.md", "statistics.json"}
     assert core_files <= exported_names
-    # Any non-core artifacts are publication figures (only when matplotlib is installed).
-    assert all(name.endswith(".png") for name in exported_names - core_files)
+    # Non-core artifacts are LaTeX tables plus publication figures (figures only
+    # when matplotlib is installed).
+    assert all(name.endswith((".png", ".tex")) for name in exported_names - core_files)
+
+    tables_dir = tmp_path / "exports" / "tables"
+    assert (tables_dir / "leaderboard.tex").exists()
+    assert (tables_dir / "tables.tex").exists()
+    leaderboard = (tables_dir / "leaderboard.tex").read_text(encoding="utf-8")
+    assert "\\toprule" in leaderboard
+    assert "fake/model" in leaderboard
+    assert f"Run {summary.run_id}" in leaderboard
+
+    statistics = json.loads((tmp_path / "exports" / "statistics.json").read_text(encoding="utf-8"))
+    operational = statistics["operational"]["per_model"]["fake/model"]
+    assert operational["n_rows"] == 3
+    assert operational["latency_ms"]["p50"] == 10.0
+    assert operational["latency_ms"]["p95"] == 10.0
+    assert operational["cost"]["total_usd"] == pytest.approx(0.0003)
+    assert operational["invalid_count"] == 0
+    assert operational["api_error_count"] == 0
+
+    summary_md = (tmp_path / "exports" / "summary.md").read_text(encoding="utf-8")
+    assert "## Operational metrics (RQ4)" in summary_md
+
     run_payload = json.loads((tmp_path / "exports" / "run.json").read_text(encoding="utf-8"))
     metadata = run_payload["metadata"]
     assert metadata["package_version"] == "0.1.0"

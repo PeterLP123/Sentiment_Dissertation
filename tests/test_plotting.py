@@ -34,6 +34,23 @@ def _metric_record(model_id: str, accuracy: float) -> dict:
     }
 
 
+def _operational_entry(p95: float | None, usd_per_1k: float | None) -> dict:
+    return {
+        "n_rows": 3,
+        "latency_ms": {"n": 3 if p95 is not None else 0, "mean": p95, "p50": p95, "p95": p95},
+        "cost": {
+            "n_rows_with_cost": 3 if usd_per_1k is not None else 0,
+            "total_usd": usd_per_1k,
+            "usd_per_1k_rows": usd_per_1k,
+        },
+        "tokens": {"total_prompt": 9, "total_completion": 3, "mean_total_per_row": 4.0},
+        "invalid_count": 0,
+        "invalid_rate": 0.0,
+        "api_error_count": 0,
+        "api_error_rate": 0.0,
+    }
+
+
 def _statistics() -> dict:
     return {
         "scope": "primary",
@@ -51,6 +68,13 @@ def _statistics() -> dict:
             },
         },
         "pairwise_mcnemar": [],
+        "operational": {
+            "note": "test",
+            "per_model": {
+                "model/a": _operational_entry(p95=900.0, usd_per_1k=0.5),
+                "model/b": _operational_entry(p95=120.0, usd_per_1k=0.1),
+            },
+        },
     }
 
 
@@ -65,7 +89,36 @@ def test_generate_figures_writes_expected_pngs(tmp_path: Path) -> None:
     assert "accuracy_ci_forest.png" in names
     assert "confusion_model_a.png" in names
     assert "per_class_f1_model_b.png" in names
+    assert "pareto_quality_cost.png" in names
+    assert "pareto_quality_latency.png" in names
     assert all(path.exists() and path.stat().st_size > 0 for path in paths)
+
+
+def test_pareto_frontier_keeps_only_undominated_points() -> None:
+    from sentiment_benchmark.plotting import pareto_frontier
+
+    # (cost, quality): index 1 dominates index 0 (cheaper, better); index 2 is
+    # the cheap/weak end of the frontier; index 3 is expensive but best.
+    points = [(2.0, 0.6), (1.0, 0.7), (0.5, 0.5), (4.0, 0.9)]
+    assert pareto_frontier(points) == [2, 1, 3]
+
+
+def test_pareto_frontier_breaks_ties_toward_higher_quality() -> None:
+    from sentiment_benchmark.plotting import pareto_frontier
+
+    points = [(1.0, 0.5), (1.0, 0.8)]
+    assert pareto_frontier(points) == [1]
+
+
+def test_pareto_plots_skipped_with_single_model(tmp_path: Path) -> None:
+    from sentiment_benchmark.plotting import generate_figures
+
+    statistics = _statistics()
+    statistics["operational"]["per_model"].pop("model/b")
+    paths = generate_figures([_metric_record("model/a", 0.9)], statistics, tmp_path)
+    names = {path.name for path in paths}
+    assert "pareto_quality_cost.png" not in names
+    assert "pareto_quality_latency.png" not in names
 
 
 def test_generate_figures_empty_input_returns_empty(tmp_path: Path) -> None:
