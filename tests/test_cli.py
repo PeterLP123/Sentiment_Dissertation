@@ -373,6 +373,31 @@ def test_cli_package_news_rejects_existing_output(tmp_path: Path) -> None:
     assert "already exists" in result.output
 
 
+def test_cli_package_news_overwrite_package_rebuilds_existing_output(tmp_path: Path) -> None:
+    source = _write_package_source(tmp_path / "tavily_news_one")
+    existing = tmp_path / "derived" / "shared"
+    existing.mkdir(parents=True)
+    (existing / "stale.txt").write_text("leftover", encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        [
+            "package-news",
+            "--source",
+            str(source),
+            "--package-id",
+            "shared",
+            "--output-dir",
+            str(tmp_path / "derived"),
+            "--overwrite-package",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert (existing / "sources.csv").exists()
+    assert not (existing / "stale.txt").exists()
+
+
 def test_cli_package_news_rejects_invalid_text_policy_and_source(tmp_path: Path) -> None:
     source = _write_package_source(tmp_path / "tavily_news_one")
     bad_policy = runner.invoke(
@@ -568,6 +593,47 @@ def test_cli_fetch_news_batch_skips_already_fetched(tmp_path: Path, monkeypatch)
     result = runner.invoke(app, [*base_args, "--package-id", "third", "--refetch"])
     assert result.exit_code == 0
     assert len(third.configs) == 2
+
+
+def test_cli_fetch_news_batch_overwrite_package_allows_recurring_runs(tmp_path: Path, monkeypatch) -> None:
+    matrix = _write_batch_matrix(tmp_path / "matrix.toml")
+    base_args = [
+        "fetch-news-batch",
+        "--query-matrix",
+        str(matrix),
+        "--date-window",
+        "2026-05-01:2026-05-07",
+        "--output-dir",
+        str(tmp_path / "news"),
+        "--package-id",
+        "weekly",
+        "--package-output-dir",
+        str(tmp_path / "derived"),
+    ]
+
+    first = FakeNewsClient()
+    monkeypatch.setattr("sentiment_benchmark.cli._make_tavily_news_client", lambda: first)
+    result = runner.invoke(app, base_args)
+    assert result.exit_code == 0
+    package_dir = tmp_path / "derived" / "weekly"
+    assert (package_dir / "package_manifest.json").exists()
+
+    # Without --overwrite-package the second run refuses before fetching anything.
+    second = FakeNewsClient()
+    monkeypatch.setattr("sentiment_benchmark.cli._make_tavily_news_client", lambda: second)
+    result = runner.invoke(app, base_args)
+    assert result.exit_code != 0
+    assert "already exists" in result.output
+    assert second.configs == []
+
+    third = FakeNewsClient()
+    monkeypatch.setattr("sentiment_benchmark.cli._make_tavily_news_client", lambda: third)
+    result = runner.invoke(app, [*base_args, "--overwrite-package", "--date-window", "2026-05-08:2026-05-14"])
+    assert result.exit_code == 0
+    # Only the new window is fetched; the package is rebuilt from both corpora.
+    assert len(third.configs) == 2
+    manifest = json.loads((package_dir / "package_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["input_record_count"] == 4
 
 
 def test_cli_news_quality_reports_corpora(tmp_path: Path) -> None:

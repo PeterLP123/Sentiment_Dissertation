@@ -4,6 +4,7 @@ import csv
 import hashlib
 import json
 import re
+import shutil
 import tomllib
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -302,12 +303,16 @@ def package_news_sources(
     output_root: str | Path = DEFAULT_NEWS_PACKAGE_OUTPUT_DIR,
     query_matrix_path: str | Path | None = DEFAULT_QUERY_MATRIX_PATH,
     text_policy: str = "metadata",
+    overwrite: bool = False,
 ) -> NewsPackageResult:
     resolved_policy = _validate_text_policy(text_policy)
     resolved_package_id = sanitize_package_id(package_id)
     output_dir = Path(output_root) / resolved_package_id
     if output_dir.exists():
-        raise NewsPackageError(f"output directory already exists: {output_dir}")
+        if not overwrite:
+            raise NewsPackageError(f"output directory already exists: {output_dir}")
+        if not output_dir.is_dir():
+            raise NewsPackageError(f"output path exists and is not a directory: {output_dir}")
     if not sources:
         raise NewsPackageError("at least one source corpus directory is required")
 
@@ -316,6 +321,10 @@ def package_news_sources(
     contexts = _record_contexts(corpora)
     aggregates = _aggregate_records(contexts)
 
+    # Remove the stale package only after the sources have loaded cleanly, so a
+    # failed rebuild does not leave the caller with no package at all.
+    if output_dir.exists():
+        shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True, exist_ok=False)
     try:
         sources_csv = output_dir / "sources.csv"

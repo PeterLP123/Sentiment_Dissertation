@@ -336,6 +336,13 @@ def package_news(
         str,
         typer.Option("--text-policy", help=f"Text sharing policy: {', '.join(NEWS_TEXT_POLICIES)}."),
     ] = "metadata",
+    overwrite_package: Annotated[
+        bool,
+        typer.Option(
+            "--overwrite-package/--no-overwrite-package",
+            help="Remove and rebuild the package directory if it already exists.",
+        ),
+    ] = False,
 ) -> None:
     """Package existing Tavily corpora into a colleague-shareable source dataset."""
     if not source:
@@ -347,6 +354,7 @@ def package_news(
             output_root=output_dir,
             query_matrix_path=query_matrix,
             text_policy=text_policy,
+            overwrite=overwrite_package,
         )
     except NewsPackageError as exc:
         raise typer.BadParameter(str(exc)) from exc
@@ -488,6 +496,13 @@ def fetch_news_batch(
         str,
         typer.Option("--text-policy", help=f"Text sharing policy for the optional package: {', '.join(NEWS_TEXT_POLICIES)}."),
     ] = "metadata",
+    overwrite_package: Annotated[
+        bool,
+        typer.Option(
+            "--overwrite-package/--no-overwrite-package",
+            help="Remove and rebuild the package directory if it already exists; needed for recurring runs with a fixed --package-id.",
+        ),
+    ] = False,
     skip_existing: Annotated[
         bool,
         typer.Option(
@@ -548,8 +563,10 @@ def fetch_news_batch(
         except NewsPackageError as exc:
             raise typer.BadParameter(str(exc)) from exc
         package_target = package_output_dir / resolved_package_id
-        if package_target.exists():
-            raise typer.BadParameter(f"output directory already exists: {package_target}")
+        if package_target.exists() and not overwrite_package:
+            raise typer.BadParameter(
+                f"output directory already exists: {package_target} (pass --overwrite-package to rebuild it)"
+            )
 
     async def main() -> None:
         corpus_dirs: list[Path] = []
@@ -648,6 +665,7 @@ def fetch_news_batch(
                         output_root=package_output_dir,
                         query_matrix_path=query_matrix,
                         text_policy=text_policy,
+                        overwrite=overwrite_package,
                     )
                 except NewsPackageError as exc:
                     raise typer.BadParameter(str(exc)) from exc

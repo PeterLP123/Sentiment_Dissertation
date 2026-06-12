@@ -268,6 +268,31 @@ def test_package_news_sources_rejects_invalid_package_id_and_existing_output(tmp
         package_news_sources([corpus], package_id="shared", output_root=tmp_path / "derived")
 
 
+def test_package_news_sources_overwrite_rebuilds_existing_package(tmp_path: Path) -> None:
+    corpus = _write_corpus(tmp_path / "tavily_news_one")
+
+    first = package_news_sources([corpus], package_id="shared", output_root=tmp_path / "derived", query_matrix_path=None)
+    stale = first.paths.output_dir / "stale.txt"
+    stale.write_text("leftover from previous run", encoding="utf-8")
+
+    with pytest.raises(NewsPackageError, match="already exists"):
+        package_news_sources([corpus], package_id="shared", output_root=tmp_path / "derived", query_matrix_path=None)
+
+    result = package_news_sources(
+        [corpus],
+        package_id="shared",
+        output_root=tmp_path / "derived",
+        query_matrix_path=None,
+        overwrite=True,
+    )
+
+    assert result.paths.output_dir == first.paths.output_dir
+    assert result.unique_source_count == 1
+    assert result.paths.sources_csv.exists()
+    assert result.paths.package_manifest_json.exists()
+    assert not stale.exists()
+
+
 @pytest.mark.parametrize(
     ("body", "message"),
     [
