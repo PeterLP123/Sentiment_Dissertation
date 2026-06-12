@@ -20,7 +20,7 @@ sentiment-bench --help
 
 | Behavior | Details |
 | --- | --- |
-| Dataset default | `Data/data.csv` |
+| Dataset default | `Data/derived/labeled/financial_sentiment_v2.csv` |
 | Database default | `results/sentiment_benchmark.sqlite` |
 | Prompt config default | `configs/default_prompts.toml` |
 | Provider default | `openrouter`, or `SENTIMENT_BENCH_PROVIDER` if set. |
@@ -79,12 +79,12 @@ sentiment-bench --help
 ## `validate-data`
 
 ```bash
-sentiment-bench validate-data --dataset-path Data/data.csv
+sentiment-bench validate-data
 ```
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `--dataset-path` | `Data/data.csv` | CSV containing `Sentence` and `Sentiment`. |
+| `--dataset-path` | `Data/derived/labeled/financial_sentiment_v2.csv` | CSV containing `Sentence` and `Sentiment`. |
 
 ## `list-models`
 
@@ -111,7 +111,7 @@ sentiment-bench run --models openai/gpt-4o-mini --mode pilot
 | `--models`, `-m` | required | Model ID. Repeat for multiple models. |
 | `--mode` | `pilot` | `pilot` or `full`. |
 | `--prompt-id` | `default_label_only` | Prompt ID from `configs/default_prompts.toml`. |
-| `--dataset-path` | `Data/data.csv` | Dataset CSV. |
+| `--dataset-path` | `Data/derived/labeled/financial_sentiment_v2.csv` | Dataset CSV. |
 | `--db-path` | `results/sentiment_benchmark.sqlite` | Local SQLite storage path; when `SENTIMENT_BENCH_DB_BACKEND=libsql`, Turso env vars select the synced replica. |
 | `--prompts-path` | `configs/default_prompts.toml` | Prompt config path. |
 | `--provider` | `openrouter` | `openrouter` or `ollama`. |
@@ -150,7 +150,7 @@ sentiment-bench run-baselines --match-run-id 5 --baselines majority --baselines 
 | --- | --- | --- |
 | `--baselines`, `-b` | `majority`, `tfidf_logreg` | Baseline names. Repeat for multiple. |
 | `--mode` | `pilot` | `pilot` or `full`. |
-| `--dataset-path` | `Data/data.csv` | Dataset CSV. |
+| `--dataset-path` | `Data/derived/labeled/financial_sentiment_v2.csv` | Dataset CSV. |
 | `--db-path` | `results/sentiment_benchmark.sqlite` | Local SQLite storage path; when `SENTIMENT_BENCH_DB_BACKEND=libsql`, Turso env vars select the synced replica. |
 | `--sample-per-class` | `30` | Pilot rows per class. |
 | `--seed` | `42` | Sampling seed. |
@@ -257,7 +257,7 @@ sentiment-bench package-news \
   --text-policy metadata
 ```
 
-Packages existing Tavily corpus directories into a versioned source dataset for colleague review. This command does not call Tavily, label examples, run models, or modify `Data/data.csv`.
+Packages existing Tavily corpus directories into a versioned source dataset for colleague review. This command does not call Tavily, label examples, run models, or modify benchmark datasets.
 
 Records from corpora fetched before the quality gate existed are re-assessed during packaging, so error pages and stub bodies in older corpora are reported with the correct `text_quality` and excluded from `extract_text_available` and `extracts.jsonl`.
 

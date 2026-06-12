@@ -34,7 +34,7 @@ This documentation is organized by reader task. Use the tutorial when you are ne
 ```mermaid
 flowchart TB
     subgraph Source["Source material"]
-        D["Data/data.csv<br/>financial sentiment labels"]
+        D["financial_sentiment_v2.csv<br/>default financial sentiment labels"]
         N["Tavily articles<br/>Data/news/tavily_news_*"]
     end
     subgraph Execution["Execution"]
@@ -67,9 +67,10 @@ Source-controlled files should explain how an experiment was produced. Local gen
 | Source-controlled | Local/generated |
 | --- | --- |
 | Code under `src/` and tests under `tests/`. | SQLite run database and Turso local replica under `results/`. |
-| `Data/data.csv` source dataset. | Export folders under `results/exports/`. |
-| Prompt configs under `configs/`. | Tavily article corpora under `Data/news/`. |
-| Experiment registry under `experiments/manifest.toml`. | Local credentials in `.env`. |
+| `Data/derived/labeled/financial_sentiment_v2.csv` default benchmark dataset. | Export folders under `results/exports/`. |
+| `Data/data.csv` legacy Kaggle source dataset. | Tavily article corpora under `Data/news/`. |
+| Prompt configs under `configs/`. | Local credentials in `.env`. |
+| Experiment registry under `experiments/manifest.toml`. | Temporary or ad hoc derived datasets outside the tracked labeled default. |
 
 ## Recommended Reading Order
 

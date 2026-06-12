@@ -201,8 +201,9 @@ Tavily corpora are unlabeled source material. They are not converted into `Sente
 The source benchmark dataset is not modified:
 
 ```text
-Data/data.csv   source dataset, unchanged
-Data/news/      generated article corpora, ignored by git except .gitkeep
+Data/derived/labeled/financial_sentiment_v2.csv   default benchmark dataset, unchanged
+Data/data.csv                                     legacy source dataset, unchanged
+Data/news/                                        generated article corpora, ignored by git except .gitkeep
 ```
 
 If you later label article snippets or full text for benchmarking, create a separate derived dataset and document the labeling protocol, inclusion rules, label mapping, and random seed.

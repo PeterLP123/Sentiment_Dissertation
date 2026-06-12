@@ -42,7 +42,7 @@
   <rect x="624" y="402" width="434" height="54" rx="6" fill="#0f1720" stroke="#475569"/>
   <text x="646" y="434" font-family="Inter, Arial, sans-serif" font-size="14" fill="#bfdbfe">Selected models: openai/gpt-4o-mini</text>
   <rect x="624" y="478" width="434" height="54" rx="6" fill="#0f1720" stroke="#475569"/>
-  <text x="646" y="510" font-family="Inter, Arial, sans-serif" font-size="14" fill="#fde68a">Dataset: Data/data.csv | primary rows: 4814</text>
+  <text x="646" y="510" font-family="Inter, Arial, sans-serif" font-size="14" fill="#fde68a">Dataset: financial_sentiment_v2.csv | primary rows: 5947</text>
 
   <rect x="72" y="606" width="1036" height="34" rx="5" fill="#111827" stroke="#334155"/>
   <text x="96" y="628" font-family="Menlo, Consolas, monospace" font-size="13" fill="#cbd5e1">Provider: OpenRouter | endpoint: https://openrouter.ai/api/v1 | models: 1 | prompt: default_label_only</text>

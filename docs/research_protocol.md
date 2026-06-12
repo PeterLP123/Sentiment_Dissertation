@@ -111,8 +111,11 @@ by the interpretation limits below.
 
 ### Labeled benchmark set
 
-The source dataset is `Data/data.csv`. Treat it as immutable source material. Do not
-clean, relabel, deduplicate, or overwrite it in place.
+The default labeled benchmark dataset is
+`Data/derived/labeled/financial_sentiment_v2.csv`, rebuilt from original sources by
+`scripts/build_labeled_dataset.py`. Do not manually edit the derived file; rebuild it
+from the script if source handling changes. Treat `Data/data.csv` as immutable legacy
+source material. Do not clean, relabel, deduplicate, or overwrite it in place.
 
 The dataset has two required columns:
 
@@ -127,10 +130,10 @@ not be used as an ambiguity signal. The genuine graded human-disagreement ground
 for the L2 ambiguity proxy (H2c) and the L3 tier check (H3b) is PhraseBank's
 annotator-agreement tier, carried as `pb_agreement_tier` in the provenance-clean
 rebuild `Data/derived/labeled/financial_sentiment_v2.csv`
-(`scripts/build_labeled_dataset.py`). Formal runs should prefer the rebuild — on
-`data.csv` the primary scope contains zero PhraseBank negatives — with the final choice
-frozen at M3-1. License (CC BY-NC-SA) and LLM training-data contamination caveats are
-recorded at ingest and acknowledged in the write-up.
+(`scripts/build_labeled_dataset.py`). Formal runs use the rebuild by default — on
+`data.csv` the primary scope contains zero PhraseBank negatives. License (CC BY-NC-SA)
+and LLM training-data contamination caveats are recorded at ingest and acknowledged in
+the write-up.
 
 Experiments use two scoring scopes:
 
@@ -195,7 +198,7 @@ observations from the recorded run context.
 Unless a formal experiment states otherwise, use these defaults from the benchmark
 package:
 
-- Dataset path: `Data/data.csv`
+- Dataset path: `Data/derived/labeled/financial_sentiment_v2.csv`
 - Labels: `positive`, `negative`, `neutral`
 - Random seed: `42`
 - Pilot sample: `30` rows per class from the primary scope

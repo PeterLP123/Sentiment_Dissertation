@@ -2,13 +2,13 @@
 
 ![Sentiment benchmark workflow](docs/assets/research-workflow.svg)
 
-A reproducible CLI and terminal UI for dissertation experiments on financial sentiment analysis. The project validates an immutable source dataset, runs OpenRouter or Ollama-hosted models, compares them with non-LLM baselines, exports publication-ready evidence, and sources unlabeled news articles through Tavily for later annotation workflows.
+A reproducible CLI and terminal UI for dissertation experiments on financial sentiment analysis. The project validates a provenance-clean default dataset, runs OpenRouter or Ollama-hosted models, compares them with non-LLM baselines, exports publication-ready evidence, and sources unlabeled news articles through Tavily for later annotation workflows.
 
 ## What This Project Does
 
 | Capability | Use it for | Main entry point |
 | --- | --- | --- |
-| Dataset validation | Confirm `Data/data.csv` has the expected columns, labels, duplicates, and conflict metadata. | `sentiment-bench validate-data` |
+| Dataset validation | Confirm the default clean benchmark has the expected columns, labels, provenance, and conflict metadata. | `sentiment-bench validate-data` |
 | LLM benchmarking | Run model sentiment classifications through OpenRouter or a remote/local Ollama server. | `sentiment-bench run` |
 | Shared run storage | Store results locally in SQLite or sync runs across machines with Turso/libSQL. | `.env`, `sentiment-bench runs` |
 | Baselines | Add majority, TF-IDF logistic regression, VADER, or FinBERT comparisons. | `sentiment-bench run-baselines` |
@@ -76,7 +76,7 @@ TURSO_REPLICA_PATH=results/turso_replica.db
 Validate the dataset:
 
 ```bash
-sentiment-bench validate-data --dataset-path Data/data.csv
+sentiment-bench validate-data
 ```
 
 Run a small OpenRouter pilot:
@@ -128,7 +128,7 @@ Start here if you are setting up the project or writing the dissertation methods
 
 ```mermaid
 flowchart LR
-    A["Data/data.csv<br/>immutable source dataset"] --> B["validate-data<br/>duplicate/conflict audit"]
+    A["financial_sentiment_v2.csv<br/>default clean dataset"] --> B["validate-data<br/>duplicate/conflict audit"]
     B --> C["run / run-baselines<br/>benchmark stored in SQLite or Turso/libSQL"]
     C --> D["results / compare / agreement<br/>analysis in CLI and TUI"]
     D --> E["export<br/>responses, metrics, statistics, figures"]
@@ -140,13 +140,14 @@ flowchart LR
 
 ## Data And Output Policy
 
-`Data/data.csv` is treated as source material. Do not edit, clean, deduplicate, or relabel it in place. Create derived files and document their provenance instead.
+`Data/derived/labeled/financial_sentiment_v2.csv` is the default benchmark dataset. It is rebuilt from the original sources by `scripts/build_labeled_dataset.py` and should not be manually edited. `Data/data.csv` is retained as immutable legacy Kaggle source material; do not clean, deduplicate, or relabel it in place.
 
 Generated artifacts are intentionally separated:
 
 | Path | Meaning | Git policy |
 | --- | --- | --- |
-| `Data/data.csv` | Source sentiment benchmark dataset. | Source-controlled. |
+| `Data/derived/labeled/financial_sentiment_v2.csv` | Default provenance-clean benchmark dataset. | Source-controlled derived data. |
+| `Data/data.csv` | Legacy Kaggle source dataset with documented merge corruption. | Source-controlled source material. |
 | `Data/news/` | Tavily article corpora for later review or labeling. | Ignored except `.gitkeep`. |
 | `results/sentiment_benchmark.sqlite` | Local run database when using SQLite. | Ignored. |
 | `results/turso_replica.db` | Local embedded libSQL replica when using Turso. | Ignored. |

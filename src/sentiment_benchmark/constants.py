@@ -8,7 +8,7 @@ CONFUSION_PREDICTION_LABELS = (*ALLOWED_LABELS, *PREDICTION_SENTINELS)
 
 def is_valid_label(label: str) -> bool:
     return label in VALID_LABELS
-DEFAULT_DATASET_PATH = Path("Data/data.csv")
+DEFAULT_DATASET_PATH = Path("Data/derived/labeled/financial_sentiment_v2.csv")
 DEFAULT_DB_PATH = Path("results/sentiment_benchmark.sqlite")
 DEFAULT_PROMPTS_PATH = Path("configs/default_prompts.toml")
 DEFAULT_PROVIDER = "openrouter"

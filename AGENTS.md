@@ -22,6 +22,16 @@ This repository contains code, data, experiments, and supporting artifacts for a
 - Before modifying or cleaning a dataset, create a derived file rather than editing the original in place.
 - Avoid committing large generated outputs, model checkpoints, cache directories, or temporary files unless the user asks.
 - If data contains personal, sensitive, or proprietary text, avoid printing large raw samples in logs or final responses.
+- The default labeled benchmark dataset is `Data/derived/labeled/financial_sentiment_v2.csv`.
+  It is rebuilt by `scripts/build_labeled_dataset.py` from Financial PhraseBank and FiQA
+  sources. Do not manually edit it; rebuild it from the script if provenance logic changes.
+- Treat `Data/data.csv` as legacy Kaggle source material, not the default benchmark.
+  It contains documented merge corruption: 514 negative PhraseBank sentences were duplicated
+  under an incorrect `neutral` label. Do not use those duplicate conflicts as an ambiguity
+  signal or silently switch defaults back to this file.
+- When changing dataset defaults or examples, update the code default, CLI/TUI docs,
+  dataset card, research protocol, tests, and `.gitignore` tracking rules together.
+  Verify with `sentiment-bench validate-data` and focused dataset tests.
 - When creating processed datasets, document:
   - Source file
   - Cleaning steps
@@ -75,4 +85,3 @@ When leaving work in progress, summarize:
 - Key results or failures
 - Files that are generated versus source-controlled
 - Recommended next step
-

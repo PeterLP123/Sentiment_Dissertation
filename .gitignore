@@ -15,6 +15,9 @@ Data/news/*
 !Data/news/.gitkeep
 Data/derived/*
 !Data/derived/.gitkeep
+!Data/derived/labeled/
+!Data/derived/labeled/README.md
+!Data/derived/labeled/financial_sentiment_v2.csv
 models/
 checkpoints/
 artifacts/

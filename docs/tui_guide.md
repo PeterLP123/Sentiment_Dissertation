@@ -7,7 +7,7 @@ The TUI is the interactive front end for the same benchmark, provider, results, 
 ## Prerequisites
 
 - Project installed with `python -m pip install -e ".[dev]"`.
-- `Data/data.csv` available.
+- `Data/derived/labeled/financial_sentiment_v2.csv` available.
 - Provider credentials or Ollama host configured if you plan to run models.
 - `TAVILY_API_KEY` configured if you plan to use the News tab.
 - Optional: `nvidia-smi` on PATH if you want GPU utilization, VRAM, power, and temperature in the local resource monitor.

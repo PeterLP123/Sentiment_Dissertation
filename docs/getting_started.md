@@ -8,7 +8,7 @@ You will install the project, validate the dissertation dataset, run a small mod
 
 - Python 3.12.
 - The repository checked out locally.
-- `Data/data.csv` present in the repository.
+- `Data/derived/labeled/financial_sentiment_v2.csv` present in the repository. If it is missing, run `python scripts/build_labeled_dataset.py`.
 - An OpenRouter API key for OpenRouter model runs, or an Ollama server reachable from this machine.
 - A Tavily API key if you want to source news articles.
 
@@ -87,7 +87,7 @@ Each machine should keep its own `.env`, local `.venv/`, and local replica path.
 Run:
 
 ```bash
-sentiment-bench validate-data --dataset-path Data/data.csv
+sentiment-bench validate-data
 ```
 
 You should see a Rich table summarizing row counts, label counts, duplicates, conflicting duplicate groups, and the primary scoring scope. This step is the fastest proof that the environment and dataset path are correct.
@@ -158,7 +158,7 @@ Each fetch writes:
 - `articles.csv` for spreadsheet review.
 - `manifest.json` for reproducibility metadata.
 
-These articles are unlabeled source material. The command does not modify `Data/data.csv` and does not create benchmark rows automatically.
+These articles are unlabeled source material. The command does not modify benchmark datasets and does not create benchmark rows automatically.
 
 ## Step 8: Open The TUI
 
@@ -176,7 +176,7 @@ When the provider is local Ollama, the TUI can automatically fetch installed mod
 
 You now have a working dissertation benchmark environment with:
 
-- A validated immutable source dataset.
+- A validated provenance-clean default dataset.
 - At least one stored benchmark run.
 - Inspectable metrics and exports.
 - Per-run machine and environment metadata for shared histories.

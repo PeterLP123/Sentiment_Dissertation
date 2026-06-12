@@ -17,7 +17,7 @@
   <text x="594" y="134" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700" fill="#ffffff">News</text>
 
   <text x="72" y="196" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700" fill="#f8fafc">Tavily article sourcing</text>
-  <text x="72" y="224" font-family="Inter, Arial, sans-serif" font-size="14" fill="#cbd5e1">Source unlabeled news articles into derived files. This does not modify Data/data.csv.</text>
+  <text x="72" y="224" font-family="Inter, Arial, sans-serif" font-size="14" fill="#cbd5e1">Source unlabeled news articles into derived files. This does not modify benchmark datasets.</text>
 
   <rect x="72" y="260" width="488" height="310" rx="8" fill="#17212b" stroke="#334155"/>
   <text x="98" y="294" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="700" fill="#f8fafc">Fetch settings</text>

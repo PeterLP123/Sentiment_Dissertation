@@ -11,11 +11,15 @@ Related documentation:
 
 ## Dataset Identity
 
-- Repository path: `Data/data.csv`
-- SHA-256: `3d86ea04e694471479b7473a84c005a5456491ddfdc43ce5340cb2ae1b6c6b05`
-- Planned public source citation: Kaggle Financial Sentiment Analysis, `sbhatti/financial-sentiment-analysis`
-- Source URL: <https://www.kaggle.com/datasets/sbhatti/financial-sentiment-analysis>
-- Current repository role: source dataset for dissertation sentiment benchmark experiments
+- Default repository path: `Data/derived/labeled/financial_sentiment_v2.csv`
+- SHA-256: `514dfc90316ec43617b7d59ac89a29d1063549ed91b08ef21cd11f5a8ac9ea9e`
+- Build script: `scripts/build_labeled_dataset.py`
+- Source citations: Financial PhraseBank v1.0 (Malo et al. 2014) and FiQA 2018 Task 1 (Maia et al. 2018)
+- Current repository role: default dataset for dissertation sentiment benchmark experiments
+- Legacy source path: `Data/data.csv`
+- Legacy SHA-256: `3d86ea04e694471479b7473a84c005a5456491ddfdc43ce5340cb2ae1b6c6b05`
+- Legacy public source citation: Kaggle Financial Sentiment Analysis, `sbhatti/financial-sentiment-analysis`
+- Legacy source URL: <https://www.kaggle.com/datasets/sbhatti/financial-sentiment-analysis>
 
 ## Provenance (verified 2026-06-12, M1-5)
 
@@ -42,47 +46,48 @@ Consequences:
 3. The merge drops PhraseBank's 50-65% agreement tier (627 sentences) — the most
    human-contested items, which are the most valuable for ambiguity analysis.
 
-**Provenance-clean rebuild:** `Data/derived/labeled/financial_sentiment_v2.csv`, built by
+**Default provenance-clean rebuild:** `Data/derived/labeled/financial_sentiment_v2.csv`, built by
 `scripts/build_labeled_dataset.py` directly from the original sources (downloaded into
 `Data/source/`). It has 5,947 unique sentences, zero duplicates/conflicts, 981 genuine
 negatives, a `pb_agreement_tier` column (100/75/66/50 — graded human agreement from 16
 annotators, 5-8 annotations per sentence), and FiQA's continuous scores preserved. See the
-README written next to the file. Formal runs should prefer the rebuild; the choice is
-frozen at M3-1.
+README written next to the file. Formal runs use this rebuild unless an experiment
+explicitly records a different dataset path.
 
 ## Dataset Shape
 
-The current file has:
+The default file has:
 
-- Rows: 5,842
-- Columns: `Sentence`, `Sentiment`
+- Rows: 5,947
+- Columns: `Sentence`, `Sentiment`, `source`, `pb_agreement_tier`, `fiqa_score`,
+  `fiqa_n_annotations`, `fiqa_sign_conflict`, `fiqa_format`
 - Labels: `positive`, `negative`, `neutral`
 
 Label counts:
 
 | Label | Rows |
 | --- | ---: |
-| positive | 1,852 |
-| negative | 860 |
-| neutral | 3,130 |
+| positive | 2,082 |
+| negative | 981 |
+| neutral | 2,884 |
 
 Duplicate and conflict summary:
 
 | Measure | Count |
 | --- | ---: |
-| Duplicate sentence groups | 520 |
-| Extra duplicate rows | 520 |
-| Conflicting duplicate groups | 514 |
-| Rows in conflicting duplicate groups | 1,028 |
-| Primary scoring rows after excluding conflicting duplicates | 4,814 |
+| Duplicate sentence groups | 0 |
+| Extra duplicate rows | 0 |
+| Conflicting duplicate groups | 0 |
+| Rows in conflicting duplicate groups | 0 |
+| Primary scoring rows after excluding conflicting duplicates | 5,947 |
 
 Primary-scope label counts:
 
 | Label | Rows |
 | --- | ---: |
-| positive | 1,852 |
-| negative | 346 |
-| neutral | 2,616 |
+| positive | 2,082 |
+| negative | 981 |
+| neutral | 2,884 |
 
 ## Column Definitions
 
@@ -109,7 +114,9 @@ News article corpora sourced through Tavily are separate derived source material
 
 ## Data Handling Rules
 
-Do not modify `Data/data.csv` in place. Treat it as source material.
+Do not manually edit `Data/derived/labeled/financial_sentiment_v2.csv`; rebuild it from
+`scripts/build_labeled_dataset.py` so provenance and metadata stay synchronized. Do not
+modify `Data/data.csv` in place. Treat it as legacy source material.
 
 If cleaning, filtering, relabeling, or deduplicating is needed, write a derived file and document:
 
@@ -126,11 +133,15 @@ Benchmark tooling uses two scoring scopes:
 - `primary`: excludes rows from duplicate sentence groups with conflicting labels.
 - `all`: includes every selected row and is used as an audit or ambiguity-analysis scope.
 
+For the default v2 dataset these scopes currently contain the same rows because the
+rebuild has zero conflicting duplicate groups. They remain distinct for legacy runs and
+future derived datasets.
+
 ## Known Limitations
 
 The dataset is imbalanced, with `neutral` as the majority class. Accuracy alone can therefore be misleading; macro-F1, balanced accuracy, MCC, and per-class metrics should be reported.
 
-The 514 conflicting duplicate groups are verified merge corruption (see Provenance above): duplicated copies of PhraseBank's negative sentences carrying a wrong `neutral` label. They are not evidence of annotation disagreement and must not be used as an ambiguity signal; PhraseBank's agreement tiers (available in the v2 rebuild) are the genuine human-disagreement ground truth.
+The 514 conflicting duplicate groups in legacy `Data/data.csv` are verified merge corruption (see Provenance above): duplicated copies of PhraseBank's negative sentences carrying a wrong `neutral` label. They are not evidence of annotation disagreement and must not be used as an ambiguity signal; PhraseBank's agreement tiers in the default v2 rebuild are the genuine human-disagreement ground truth.
 
 The dataset is financial-domain text. Results may not generalize to product reviews, political text, general social media, or other sentiment-analysis domains.
 

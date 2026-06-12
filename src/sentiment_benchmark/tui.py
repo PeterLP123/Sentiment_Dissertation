@@ -732,13 +732,13 @@ class SentimentBenchmarkApp(App):
                     yield Static(id="run-stepper")
                     yield Static(
                         "Step 3: run the benchmark. Pilot is the safe default: 30 rows from each class, 90 calls per selected model. "
-                        "Full uses all 5,842 rows per model and may cost more.",
+                        "Full uses every row in the selected dataset and may cost more.",
                         classes="help",
                     )
                     yield Static(id="run-estimate")
                     yield Static("Run mode", classes="field-label")
                     yield Static(
-                        "Pilot is a small stratified test. Full processes every row in Data/data.csv.",
+                        "Pilot is a small stratified test. Full processes every row in the selected dataset.",
                         classes="help",
                     )
                     with RadioSet(id="run-mode"):
@@ -1009,7 +1009,7 @@ class SentimentBenchmarkApp(App):
                         yield Static("Pick two targets and press Compare.", id="compare-result")
             with TabPane("News", id="news-tab"):
                 yield Static(
-                    "Source unlabeled news articles from Tavily into derived files. This does not modify Data/data.csv.",
+                    "Source unlabeled news articles from Tavily into derived files. This does not modify benchmark datasets.",
                     classes="help",
                 )
                 yield Static("Search query", classes="field-label")

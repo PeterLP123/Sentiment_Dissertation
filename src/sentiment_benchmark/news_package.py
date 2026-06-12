@@ -610,7 +610,7 @@ def _manifest(
         },
         "notes": [
             "This is a metadata-first share package built from existing Tavily corpora.",
-            "No Tavily API calls, sentiment labels, model runs, or Data/data.csv changes are performed by package-news.",
+            "No Tavily API calls, sentiment labels, model runs, or benchmark dataset changes are performed by package-news.",
             "Full article text is included only when text_policy is internal-extracts and should be shared only with appropriate rights.",
         ],
     }

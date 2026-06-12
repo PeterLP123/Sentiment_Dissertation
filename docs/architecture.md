@@ -16,7 +16,7 @@ Sentiment benchmark projects can become difficult to defend when they mix raw da
 
 ```mermaid
 flowchart LR
-    D["Immutable source<br/>Data/data.csv"] --> V["Validation<br/>dataset summary"]
+    D["Default clean dataset<br/>financial_sentiment_v2.csv"] --> V["Validation<br/>dataset summary"]
     V --> R["Run config<br/>prompt hash, seed, provider"]
     R --> P["Provider adapter"]
     P --> O["OpenRouter"]
@@ -32,7 +32,8 @@ Core boundaries:
 
 | Boundary | Responsibility |
 | --- | --- |
-| `Data/data.csv` | Immutable labeled benchmark source. |
+| `Data/derived/labeled/financial_sentiment_v2.csv` | Default provenance-clean labeled benchmark dataset. |
+| `Data/data.csv` | Immutable legacy Kaggle source with documented merge corruption. |
 | `src/sentiment_benchmark/dataset.py` | Dataset loading, validation, duplicate/conflict metadata. |
 | `src/sentiment_benchmark/providers.py` | Chooses OpenRouter or Ollama client from provider settings. |
 | `src/sentiment_benchmark/runner.py` | Executes model runs and stores responses. |
@@ -46,14 +47,14 @@ Core boundaries:
 
 ## Why Two Scoring Scopes Exist
 
-The dataset contains duplicate sentence groups with conflicting labels. Removing them entirely would hide a useful ambiguity signal, while including them in headline accuracy would make model comparison sensitive to known annotation conflicts.
+The default v2 dataset has zero conflicting duplicate groups, so `primary` and `all` currently contain the same rows. The two-scope design remains because legacy `Data/data.csv` and future derived datasets can contain conflicting duplicates.
 
 The project therefore stores both:
 
 - `primary`: excludes rows from conflicting duplicate groups and is used for headline comparisons.
 - `all`: includes every selected row and is used for audit and ambiguity analysis.
 
-This gives the dissertation a stable comparison scope without discarding the conflict evidence.
+This gives the dissertation a stable comparison scope without mixing legacy merge corruption into headline accuracy.
 
 ## Why Prompt Hashes Are Stored
 
@@ -79,7 +80,7 @@ The environment snapshot records package version, git commit/branch/dirty state,
 
 ## Why Tavily Outputs Are Separate
 
-Tavily searches and extracts article text from the internet. Those articles are useful source material, but they are not labeled sentiment examples yet. Writing them under `Data/news` prevents accidental mutation of `Data/data.csv` and makes later labeling work explicit.
+Tavily searches and extracts article text from the internet. Those articles are useful source material, but they are not labeled sentiment examples yet. Writing them under `Data/news` prevents accidental mutation of the labeled benchmark datasets and makes later labeling work explicit.
 
 The Tavily corpus writer records:
 

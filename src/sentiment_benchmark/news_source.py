@@ -682,7 +682,7 @@ def write_news_corpus(result: NewsFetchResult, output_root: str | Path = DEFAULT
         },
         "notes": [
             "Records are unlabeled source material and are not benchmark rows.",
-            "Data/data.csv is not modified by this workflow.",
+            "Benchmark datasets are not modified by this workflow.",
         ],
     }
     manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True, ensure_ascii=False), encoding="utf-8")

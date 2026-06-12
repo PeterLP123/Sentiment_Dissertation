@@ -18,10 +18,10 @@
   </defs>
 
   <rect x="72" y="168" width="170" height="110" rx="8" fill="#ecfdf5" stroke="#4f9f75"/>
-  <text x="94" y="200" class="box-title">Data/data.csv</text>
+  <text x="94" y="200" class="box-title">Clean v2 dataset</text>
   <text x="94" y="226" class="box-text">Financial text</text>
   <text x="94" y="246" class="box-text">Sentence + Sentiment</text>
-  <text x="94" y="266" class="tag">immutable source</text>
+  <text x="94" y="266" class="tag">default benchmark</text>
 
   <rect x="300" y="168" width="170" height="110" rx="8" fill="#eef7ff" stroke="#3b82c4"/>
   <text x="322" y="200" class="box-title">Validate</text>
