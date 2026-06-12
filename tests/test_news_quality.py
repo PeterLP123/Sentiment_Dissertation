@@ -90,6 +90,69 @@ def test_summarize_news_quality_counts_quality_domains_and_dates(tmp_path: Path)
     assert domains["other.com"].usable_count == 0
 
 
+def test_summarize_news_quality_screens_ticker_families_for_entity_relevance(tmp_path: Path) -> None:
+    matrix = tmp_path / "matrix.toml"
+    matrix.write_text(
+        """
+version = 1
+description = "Ticker panel test matrix."
+
+[[queries]]
+id = "us_aapl"
+family = "AAPL — Apple"
+query = "apple aapl stock news"
+topic = "news"
+max_results = 5
+search_depth = "basic"
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    on_topic = _record(
+        "https://example.com/apple",
+        text="Apple reported record revenue. Apple shares rose after the iPhone maker raised guidance.",
+        text_quality="ok",
+    )
+    on_topic["title"] = "Apple beats expectations"
+    off_topic = _record(
+        "https://example.com/samsung",
+        text="Samsung unveiled a new chip plant. The Korean group expects semiconductor demand to recover.",
+        text_quality="ok",
+    )
+    off_topic["title"] = "Samsung expands chip output"
+    unusable = _record("https://example.com/missing", text=None)
+    corpus = _write_corpus(
+        tmp_path / "news" / "tavily_news_aapl",
+        query="apple aapl stock news",
+        records=[on_topic, off_topic, unusable],
+    )
+
+    report = summarize_news_quality([corpus], query_matrix_path=matrix)
+
+    assert report.entity_relevance_counts == {"off_topic": 1, "on_topic": 1}
+    families = {item.family: item for item in report.families}
+    family = families["AAPL — Apple"]
+    assert family.usable_count == 2
+    assert family.screened_count == 2  # the unusable record is never scored
+    assert family.on_topic_count == 1
+
+
+def test_summarize_news_quality_leaves_thematic_families_unscreened(tmp_path: Path) -> None:
+    matrix = _write_matrix(tmp_path / "matrix.toml")
+    corpus = _write_corpus(
+        tmp_path / "news" / "tavily_news_one",
+        query="bank earnings sentiment",
+        records=[_record("https://example.com/good", text=GOOD_TEXT, text_quality="ok")],
+    )
+
+    report = summarize_news_quality([corpus], query_matrix_path=matrix)
+
+    assert report.entity_relevance_counts == {}
+    families = {item.family: item for item in report.families}
+    assert families["Bank earnings"].screened_count == 0
+    assert families["Bank earnings"].on_topic_count == 0
+
+
 def test_summarize_news_quality_detects_shared_boilerplate_prefix(tmp_path: Path) -> None:
     chrome = "Site Chrome Navigation Menu Markets Watchlist Subscribe " * 10
     corpus = _write_corpus(

@@ -367,6 +367,8 @@ def package_news(
     table.add_row("Input records", str(result.input_record_count))
     table.add_row("Unique sources", str(result.unique_source_count))
     table.add_row("Duplicate URLs", str(result.duplicate_url_count))
+    for relevance, count in result.entity_relevance_counts.items():
+        table.add_row(f"Entity relevance: {relevance}", str(count))
     table.add_row("Output directory", str(result.paths.output_dir))
     table.add_row("Sources CSV", str(result.paths.sources_csv))
     table.add_row("Screening CSV", str(result.paths.screening_index_csv))
@@ -414,15 +416,31 @@ def news_quality(
         overview.add_row(f"Text quality: {quality}", str(count))
     for source_name, count in report.published_date_counts.items():
         overview.add_row(f"Published date from {source_name}", str(count))
+    for relevance, count in report.entity_relevance_counts.items():
+        overview.add_row(f"Entity relevance: {relevance}", str(count))
     console.print(overview)
 
     families = Table(title="By Query Family")
     families.add_column("Family")
     families.add_column("Records", justify="right")
     families.add_column("Usable", justify="right")
+    families.add_column("On-topic", justify="right")
     for family in report.families:
-        families.add_row(family.family, str(family.record_count), str(family.usable_count))
+        if family.screened_count:
+            share = family.on_topic_count / family.screened_count
+            on_topic = f"{family.on_topic_count}/{family.screened_count} ({share:.0%})"
+            if share < 0.7:
+                on_topic = f"[yellow]{on_topic}[/yellow]"
+        else:
+            on_topic = "-"
+        families.add_row(family.family, str(family.record_count), str(family.usable_count), on_topic)
     console.print(families)
+    if any(family.screened_count for family in report.families):
+        console.print(
+            "[dim]On-topic = usable articles whose extracted text mentions a company alias for the query family in the "
+            "title or lead and clears the body mention-count threshold. Families without a 'TICKER — Company Name' "
+            "family field are not screened ('-').[/dim]"
+        )
 
     domains = Table(title=f"Top {top_domains} Source Domains")
     domains.add_column("Domain")

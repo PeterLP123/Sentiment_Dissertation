@@ -235,6 +235,102 @@ def test_package_news_sources_reflags_listing_pages_despite_stored_ok(tmp_path: 
     assert extract_urls == ["https://example.com/real-article"]
 
 
+def test_package_news_sources_scores_entity_relevance_per_family(tmp_path: Path) -> None:
+    matrix = tmp_path / "matrix.toml"
+    matrix.write_text(
+        """
+version = 1
+description = "Ticker panel test matrix."
+
+[[queries]]
+id = "us_aapl"
+family = "AAPL — Apple"
+query = "apple aapl stock news"
+topic = "news"
+max_results = 5
+search_depth = "basic"
+
+[[queries]]
+id = "uk_shel"
+family = "SHEL — Shell"
+query = "shell plc shares stock"
+topic = "news"
+max_results = 5
+search_depth = "basic"
+
+[[queries]]
+id = "bank_earnings"
+family = "Bank earnings"
+query = "bank earnings sentiment"
+topic = "news"
+max_results = 5
+search_depth = "basic"
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    apple_corpus = _write_corpus(
+        tmp_path / "tavily_news_aapl",
+        query="apple aapl stock news",
+        records=[
+            _record(
+                "https://example.com/apple",
+                title="Apple beats expectations",
+                text="Apple reported record revenue. Apple shares rose after the iPhone maker raised guidance.",
+            ),
+            _record(
+                "https://example.com/samsung",
+                title="Samsung expands chip output",
+                text="Samsung unveiled a new chip plant. The Korean group expects semiconductor demand to recover.",
+            ),
+            _record("https://example.com/missing", title="Apple roundup", text=""),
+        ],
+    )
+    shell_corpus = _write_corpus(
+        tmp_path / "tavily_news_shel",
+        query="shell plc shares stock",
+        records=[
+            _record(
+                "https://example.com/jeff-shell",
+                title="Jeff Shell named CEO of studio venture",
+                text="Jeff Shell, the former NBCUniversal executive, will run the venture through a shell company structure.",
+            ),
+        ],
+    )
+    thematic_corpus = _write_corpus(tmp_path / "tavily_news_banks", records=[_record("https://example.com/banks")])
+
+    result = package_news_sources(
+        [apple_corpus, shell_corpus, thematic_corpus],
+        package_id="shared",
+        output_root=tmp_path / "derived",
+        query_matrix_path=matrix,
+    )
+
+    rows = {row["url"]: row for row in _csv_rows(result.paths.sources_csv)}
+    apple = rows["https://example.com/apple"]
+    assert apple["entity_relevance"] == "on_topic"
+    assert apple["entity_mention_count"] == "2"
+    assert apple["entity_title_match"] == "true"
+    assert "Apple" in apple["entity_matched_aliases"]
+    assert rows["https://example.com/samsung"]["entity_relevance"] == "off_topic"
+    assert rows["https://example.com/missing"]["entity_relevance"] == "no_text"
+    # Bare 'shell' is not an alias, so the person/shell-company piece is off-topic.
+    jeff = rows["https://example.com/jeff-shell"]
+    assert jeff["entity_relevance"] == "off_topic"
+    assert jeff["entity_mention_count"] == "0"
+    assert rows["https://example.com/banks"]["entity_relevance"] == "unscreened"
+
+    screening = {row["url"]: row for row in _csv_rows(result.paths.screening_index_csv)}
+    assert screening["https://example.com/apple"]["entity_relevance"] == "on_topic"
+    assert screening["https://example.com/jeff-shell"]["entity_mention_count"] == "0"
+
+    expected_counts = {"no_text": 1, "off_topic": 2, "on_topic": 1, "unscreened": 1}
+    assert result.entity_relevance_counts == expected_counts
+    manifest = json.loads(result.paths.package_manifest_json.read_text(encoding="utf-8"))
+    assert manifest["entity_relevance_counts"] == expected_counts
+    assert manifest["entity_relevance_params"]["min_body_mentions"] >= 1
+
+
 def test_package_news_sources_rejects_missing_and_malformed_inputs(tmp_path: Path) -> None:
     missing_articles = tmp_path / "missing_articles"
     missing_articles.mkdir()

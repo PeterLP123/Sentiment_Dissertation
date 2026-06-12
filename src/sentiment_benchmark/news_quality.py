@@ -8,6 +8,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from .news_package import QueryMatrix, _query_key, load_query_matrix
+from .news_relevance import RELEVANCE_ON_TOPIC, aliases_for_family, score_entity_relevance
 from .news_source import (
     DEFAULT_NEWS_OUTPUT_DIR,
     TEXT_QUALITY_NON_ARTICLE,
@@ -41,6 +42,10 @@ class FamilyQuality:
     family: str
     record_count: int
     usable_count: int
+    # Usable records scored for entity relevance; zero when the family does
+    # not name a single company ("TICKER — Company Name") and so has no aliases.
+    screened_count: int = 0
+    on_topic_count: int = 0
 
 
 @dataclass(frozen=True)
@@ -51,6 +56,7 @@ class NewsQualityReport:
     usable_unique_url_count: int
     quality_counts: dict[str, int] = field(default_factory=dict)
     published_date_counts: dict[str, int] = field(default_factory=dict)
+    entity_relevance_counts: dict[str, int] = field(default_factory=dict)
     domains: list[DomainQuality] = field(default_factory=list)
     families: list[FamilyQuality] = field(default_factory=list)
 
@@ -119,6 +125,9 @@ def summarize_news_quality(
     text_head_urls: set[str] = set()
     family_records: Counter[str] = Counter()
     family_usable: Counter[str] = Counter()
+    family_screened: Counter[str] = Counter()
+    family_on_topic: Counter[str] = Counter()
+    relevance_counts: Counter[str] = Counter()
     unique_urls: set[str] = set()
     usable_urls: set[str] = set()
 
@@ -141,6 +150,7 @@ def summarize_news_quality(
         # Keep zero-record corpora visible so queries that return nothing
         # show up as a coverage gap instead of disappearing from the report.
         family_records[family] += 0
+        family_aliases = aliases_for_family(family)
 
         with articles_path.open(encoding="utf-8") as file:
             for line_number, line in enumerate(file, start=1):
@@ -172,6 +182,17 @@ def summarize_news_quality(
                     if normalized:
                         usable_urls.add(normalized)
                     text = record.get("article_text")
+                    if family_aliases is not None:
+                        title = record.get("title")
+                        result = score_entity_relevance(
+                            title if isinstance(title, str) else "",
+                            text if isinstance(text, str) else "",
+                            family_aliases,
+                        )
+                        family_screened[family] += 1
+                        relevance_counts[result.relevance] += 1
+                        if result.relevance == RELEVANCE_ON_TOPIC:
+                            family_on_topic[family] += 1
                     # One head per unique URL, so refetches of the same article
                     # do not masquerade as a domain-wide template.
                     if isinstance(text, str) and text and normalized not in text_head_urls:
@@ -188,7 +209,13 @@ def summarize_news_quality(
         for domain, count in domain_records.most_common()
     ]
     families = [
-        FamilyQuality(family=family, record_count=count, usable_count=family_usable.get(family, 0))
+        FamilyQuality(
+            family=family,
+            record_count=count,
+            usable_count=family_usable.get(family, 0),
+            screened_count=family_screened.get(family, 0),
+            on_topic_count=family_on_topic.get(family, 0),
+        )
         for family, count in sorted(family_records.items())
     ]
     return NewsQualityReport(
@@ -198,6 +225,7 @@ def summarize_news_quality(
         usable_unique_url_count=len(usable_urls),
         quality_counts=dict(sorted(quality_counts.items())),
         published_date_counts=dict(sorted(date_counts.items())),
+        entity_relevance_counts=dict(sorted(relevance_counts.items())),
         domains=domains,
         families=families,
     )

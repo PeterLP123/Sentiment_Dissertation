@@ -6,12 +6,18 @@ import json
 import re
 import shutil
 import tomllib
-from dataclasses import dataclass
+from collections import Counter
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import urlparse
 
+from .news_relevance import (
+    DEFAULT_LEAD_WINDOW_CHARS,
+    DEFAULT_MIN_BODY_MENTIONS,
+    score_relevance_for_families,
+)
 from .news_source import (
     DEFAULT_NEWS_EXTRACT_DEPTH,
     MAX_TAVILY_RESULTS,
@@ -59,6 +65,10 @@ SOURCES_FIELDNAMES = [
     "extract_text_available",
     "article_text_chars",
     "article_text_sha256",
+    "entity_relevance",
+    "entity_mention_count",
+    "entity_title_match",
+    "entity_matched_aliases",
     "text_share_scope",
 ]
 
@@ -72,6 +82,8 @@ SCREENING_FIELDNAMES = [
     "extraction_status",
     "text_quality",
     "extract_text_available",
+    "entity_relevance",
+    "entity_mention_count",
     "screening_decision",
     "screening_reason",
     "reviewer_notes",
@@ -129,6 +141,7 @@ class NewsPackageResult:
     unique_source_count: int
     input_record_count: int
     duplicate_url_count: int
+    entity_relevance_counts: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
@@ -335,6 +348,7 @@ def package_news_sources(
 
         source_rows = [_source_row(aggregate, resolved_policy) for aggregate in aggregates]
         screening_rows = [_screening_row(row) for row in source_rows]
+        relevance_counts = dict(sorted(Counter(str(row["entity_relevance"]) for row in source_rows).items()))
         _write_csv(sources_csv, SOURCES_FIELDNAMES, source_rows)
         _write_csv(screening_csv, SCREENING_FIELDNAMES, screening_rows)
         if extracts_jsonl is not None:
@@ -351,6 +365,7 @@ def package_news_sources(
             corpora=corpora,
             contexts=contexts,
             aggregates=aggregates,
+            entity_relevance_counts=relevance_counts,
             query_matrix=query_matrix,
             query_matrix_path=query_matrix_path,
             output_dir=output_dir,
@@ -379,6 +394,7 @@ def package_news_sources(
         unique_source_count=len(aggregates),
         input_record_count=len(contexts),
         duplicate_url_count=duplicate_count,
+        entity_relevance_counts=relevance_counts,
     )
 
 
@@ -479,13 +495,16 @@ def _source_row(aggregate: _Aggregate, text_policy: NewsTextPolicy) -> dict[str,
     article_text = _usable_article_text(text_context) if text_context else ""
     text_hash = _sha256_text(article_text) if article_text else ""
     normalized_url = canonical.normalized_url
+    title = _optional_string(record.get("title"))
+    families = [family for family in dict.fromkeys(_query_family(context) for context in aggregate.records) if family]
+    relevance = score_relevance_for_families(title, article_text, families)
     row = {
         "source_id": _source_id(normalized_url),
         "record_id": canonical.record_id,
         "url": _clean_string(record.get("url")) or normalized_url,
         "normalized_url": normalized_url,
         "source_domain": _source_domain(normalized_url),
-        "title": _optional_string(record.get("title")),
+        "title": title,
         "snippet": _optional_string(record.get("snippet")),
         "published_date": _optional_string(record.get("published_date")),
         "query_ids": _join_unique(_query_id(context) for context in aggregate.records),
@@ -502,6 +521,10 @@ def _source_row(aggregate: _Aggregate, text_policy: NewsTextPolicy) -> dict[str,
         "extract_text_available": _bool_text(bool(article_text)),
         "article_text_chars": len(article_text) if article_text else 0,
         "article_text_sha256": text_hash,
+        "entity_relevance": relevance.relevance,
+        "entity_mention_count": relevance.mention_count,
+        "entity_title_match": _bool_text(relevance.title_match),
+        "entity_matched_aliases": "; ".join(relevance.matched_aliases),
         "text_share_scope": "metadata_only" if text_policy == "metadata" else "internal_review_only",
     }
     return row
@@ -518,6 +541,8 @@ def _screening_row(source_row: dict[str, Any]) -> dict[str, Any]:
         "extraction_status": source_row["extraction_status"],
         "text_quality": source_row["text_quality"],
         "extract_text_available": source_row["extract_text_available"],
+        "entity_relevance": source_row["entity_relevance"],
+        "entity_mention_count": source_row["entity_mention_count"],
         "screening_decision": "pending",
         "screening_reason": "",
         "reviewer_notes": "",
@@ -565,6 +590,7 @@ def _manifest(
     corpora: list[_Corpus],
     contexts: list[_RecordContext],
     aggregates: list[_Aggregate],
+    entity_relevance_counts: dict[str, int],
     query_matrix: QueryMatrix | None,
     query_matrix_path: str | Path | None,
     output_dir: Path,
@@ -605,6 +631,11 @@ def _manifest(
         "unique_source_count": len(aggregates),
         "usable_source_count": sum(1 for aggregate in aggregates if aggregate.text_context is not None),
         "text_quality_counts": _text_quality_counts(aggregates),
+        "entity_relevance_counts": entity_relevance_counts,
+        "entity_relevance_params": {
+            "lead_window_chars": DEFAULT_LEAD_WINDOW_CHARS,
+            "min_body_mentions": DEFAULT_MIN_BODY_MENTIONS,
+        },
         "input_record_count": len(contexts),
         "duplicate_url_count": len(contexts) - len(aggregates),
         "query_matrix_path": str(query_matrix.path) if query_matrix else (str(query_matrix_path) if query_matrix_path else None),
@@ -669,6 +700,10 @@ Generated from existing Tavily news corpora for colleague review.
 
 The `text_quality` column flags sources whose extracted text is an error page (`error_page`), a stub (`too_short`), or absent
 (`missing`). Screen from rows with `text_quality = ok` first.
+
+The `entity_relevance` column scores extracted article text against the query family's company aliases (`on_topic`,
+`off_topic`, `no_text`, or `unscreened` when the family does not name a single company). Search returns sector-adjacent
+off-topic articles for many names, so prefer `entity_relevance = on_topic` rows for per-name event streams.
 
 ## Sharing Note
 

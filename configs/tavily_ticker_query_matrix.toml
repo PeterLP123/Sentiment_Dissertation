@@ -1,0 +1,735 @@
+version = 1
+description = "Per-ticker Tavily query matrix for the prospective single-name news panel (L2 event-study arm)."
+
+# ---------------------------------------------------------------------------
+# Panel design (drafted 2026-06-12)
+#
+# Purpose: contamination-free, per-name, timestamped 2026 news for the L2
+# single-stock event study (and the L1/L2 futures overlay). This matrix is
+# collected ALONGSIDE the thematic matrix (tavily_query_matrix.toml), which
+# remains the labeling corpus.
+#
+# Panel selection criteria:
+#   * Index membership: S&P 100 (US arm) or FTSE 100 (UK arm).
+#   * High news flow: mega-caps and names with dense, regular coverage, so the
+#     event study has power per name.
+#   * Sector spread within each arm (tech, banks, energy, healthcare,
+#     consumer, industrials/defence, miners).
+#   * Search disambiguity: names whose company reference can be anchored with
+#     ticker or "plc"/"Holdings" suffixes (e.g. Shell plc, Rolls-Royce
+#     Holdings, Prudential plc) to avoid off-topic results.
+#
+# FREEZE PROTOCOL: the panel is frozen like the model roster — additions or
+# removals after the first formal collection week mean a survivorship-biased
+# panel.
+#
+# MEMBERSHIP VERIFIED 2026-06-12: all 25 US names confirmed in the S&P 100
+# (Wikipedia constituent list, current through the March 2026 rebalance which
+# added MU/LRCX/AMAT/GEV and deleted PYPL/AIG/MET/TGT — none of ours; the
+# June 2026 rebalance announced 6 Jun has no S&P 100 changes). All 20 UK
+# names confirmed in the FTSE 100 (Wikipedia list updated 20 Mar 2026; the
+# June 2026 annual review effective 22 Jun adds Aberdeen/Computacenter/
+# Investec and drops Berkeley/Mondi/Rightmove — none of ours). Known forward
+# risk: Anglo American–Teck merger (see uk_aal notes).
+#
+# Tiers (encoded in each entry's notes):
+#   * core (24 names) — always fetched; sized to fit free-tier credits with
+#     headroom for the thematic matrix.
+#   * extended (21 names) — fetch when credit budget allows.
+#   Core ids: us_aapl us_msft us_nvda us_googl us_amzn us_meta us_tsla us_jpm
+#             us_gs us_bac us_xom us_ba us_lly us_intc
+#             uk_azn uk_shel uk_hsba uk_bp uk_ulvr uk_rio uk_barc uk_lloy
+#             uk_rr uk_glen
+#
+# Credit sizing (verify against current Tavily plan before the first run):
+#   per entry per weekly window ≈ 1 credit (basic search) + ~4 credits
+#   (advanced extract, 2 per 5 URLs, max_results = 10) ≈ 5 credits.
+#   Core tier: 24 × 5 = ~120/week (~500/month). Full panel: 45 × 5 =
+#   ~225/week (~950/month) — full panel + thematic matrix exceeds a
+#   1,000-credit free tier; budget or subset accordingly.
+#
+# WEEK-1 RELEVANCE CALIBRATION (2026-06-12, three rounds, ~400 credits of
+# tuition). 14 entries (SHEL BATS BA. PRU XOM CVX AZN ULVR TSCO LLOY RIO DGE
+# AAL DIS) ran below 70% on-topic by a title/snippet entity-mention
+# heuristic; two recalibration rounds tested (a) entity/ticker re-anchoring
+# + search_depth="advanced" and (b) '"<Exact Name>" share price news' +
+# topic="finance". Conclusions:
+#   * search_depth = "advanced" makes relevance WORSE for entity queries
+#     (market roundups, SEO listicles). Do not use here.
+#   * topic = "finance" looked better in search-only A/B tests, but the win
+#     came from Yahoo Finance inventory — which this matrix excludes for
+#     extraction reasons. With Yahoo excluded it returns generic market
+#     commentary. Dead end.
+#   * The title/snippet substring heuristic itself over-counts for generic
+#     aliases ('shell' matches any oil-sector piece, 'Jeff Shell' etc.) —
+#     n=10 weekly samples cannot reliably rank query variants. Stop tuning.
+#   * Queries are therefore kept in their ORIGINAL simple form. Exception:
+#     uk_pru's round-2 variant is kept — eyeballed 10/10 genuinely
+#     entity-specific titles vs 0/10 for the original.
+#   * Expected per-name search precision: US ticker-anchored names ~90-100%;
+#     ambiguous/UK names floor at ~10-50% regardless of phrasing. This is a
+#     Tavily limitation, not a query bug.
+# IMPLICATIONS: (1) a post-hoc entity-relevance screen on extracted article
+# TEXT (not search snippets) is REQUIRED before event-study use; (2) for
+# reliable per-name event streams, primary sources (LSE RNS, SEC EDGAR 8-K)
+# beat news search on entity attribution by construction — Tavily supplies
+# the journalism overlay, not the event backbone.
+#
+# Settings rationale (lessons from the thematic runs, 2026-06-11):
+#   * topic = "news" — topic = "finance" had thin inventory with Yahoo
+#     excluded; single-name queries need the wider pool.
+#   * max_results = 10 (not 20) — halves extraction cost; most single names
+#     won't yield 20 distinct usable articles in a 7-day window anyway.
+#   * extract_depth = "advanced" — basic extraction returned nav boilerplate
+#     and error pages.
+#   * Yahoo Finance excluded — serves error pages to the extractor; content
+#     is syndicated and reachable at the original source.
+#   * family = one ticker per entry, so `news-quality` per-family yield IS
+#     the per-name density estimate the W3 power calculation needs.
+#   * time_range = "week" only applies to ad-hoc fetches; fetch-news-batch
+#     passes explicit 7-day windows and ignores it.
+#
+# Usage:
+#   sentiment-bench fetch-news-batch \
+#     --query-matrix configs/tavily_ticker_query_matrix.toml \
+#     --weeks 1 \
+#     --package-id tavily_ticker_panel_v1
+#   (identical-parameter fetches are skipped, so a weekly run is resumable;
+#   validate edits with --dry-run first.)
+# ---------------------------------------------------------------------------
+
+# ----------------------------- US arm (S&P 100) ----------------------------
+
+[[queries]]
+id = "us_aapl"
+family = "AAPL — Apple"
+query = "Apple AAPL stock news"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Apple Inc (NASDAQ: AAPL)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: core. Ticker anchors against fruit/generic uses of 'apple'."
+
+[[queries]]
+id = "us_msft"
+family = "MSFT — Microsoft"
+query = "Microsoft MSFT stock news"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Microsoft Corp (NASDAQ: MSFT)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: core."
+
+[[queries]]
+id = "us_nvda"
+family = "NVDA — Nvidia"
+query = "Nvidia NVDA stock news"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Nvidia Corp (NASDAQ: NVDA)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: core."
+
+[[queries]]
+id = "us_googl"
+family = "GOOGL — Alphabet"
+query = "Alphabet Google GOOGL stock"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Alphabet Inc (NASDAQ: GOOGL)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: core. Both 'Alphabet' and 'Google' included — press uses either."
+
+[[queries]]
+id = "us_amzn"
+family = "AMZN — Amazon"
+query = "Amazon AMZN stock news"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Amazon.com Inc (NASDAQ: AMZN)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: core."
+
+[[queries]]
+id = "us_meta"
+family = "META — Meta Platforms"
+query = "Meta Platforms META stock"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Meta Platforms Inc (NASDAQ: META)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: core. 'Platforms' anchors against generic uses of 'meta'."
+
+[[queries]]
+id = "us_tsla"
+family = "TSLA — Tesla"
+query = "Tesla TSLA stock news"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Tesla Inc (NASDAQ: TSLA)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: core. Among the highest news-flow names; useful density ceiling."
+
+[[queries]]
+id = "us_avgo"
+family = "AVGO — Broadcom"
+query = "Broadcom AVGO stock news"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Broadcom Inc (NASDAQ: AVGO)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: extended."
+
+[[queries]]
+id = "us_intc"
+family = "INTC — Intel"
+query = "Intel INTC stock news"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Intel Corp (NASDAQ: INTC)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: core. High news flow with mixed-sign coverage — good sentiment variance."
+
+[[queries]]
+id = "us_jpm"
+family = "JPM — JPMorgan"
+query = "JPMorgan JPM stock news"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for JPMorgan Chase & Co (NYSE: JPM)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: core."
+
+[[queries]]
+id = "us_gs"
+family = "GS — Goldman Sachs"
+query = "Goldman Sachs GS stock"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Goldman Sachs Group (NYSE: GS)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: core."
+
+[[queries]]
+id = "us_bac"
+family = "BAC — Bank of America"
+query = "Bank of America BAC stock"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Bank of America Corp (NYSE: BAC)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: core."
+
+[[queries]]
+id = "us_ms"
+family = "MS — Morgan Stanley"
+query = "Morgan Stanley MS stock"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Morgan Stanley (NYSE: MS)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: extended."
+
+[[queries]]
+id = "us_c"
+family = "C — Citigroup"
+query = "Citigroup C stock news"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Citigroup Inc (NYSE: C)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: extended."
+
+[[queries]]
+id = "us_wfc"
+family = "WFC — Wells Fargo"
+query = "Wells Fargo WFC stock"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Wells Fargo & Co (NYSE: WFC)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: extended."
+
+[[queries]]
+id = "us_xom"
+family = "XOM — Exxon Mobil"
+query = "Exxon Mobil XOM stock"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Exxon Mobil Corp (NYSE: XOM)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: core."
+
+[[queries]]
+id = "us_cvx"
+family = "CVX — Chevron"
+query = "Chevron CVX stock news"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Chevron Corp (NYSE: CVX)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: extended."
+
+[[queries]]
+id = "us_unh"
+family = "UNH — UnitedHealth"
+query = "UnitedHealth UNH stock news"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for UnitedHealth Group (NYSE: UNH)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: extended."
+
+[[queries]]
+id = "us_jnj"
+family = "JNJ — Johnson & Johnson"
+query = "Johnson & Johnson JNJ stock"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Johnson & Johnson (NYSE: JNJ)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: extended."
+
+[[queries]]
+id = "us_lly"
+family = "LLY — Eli Lilly"
+query = "Eli Lilly LLY stock"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Eli Lilly & Co (NYSE: LLY)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: core."
+
+[[queries]]
+id = "us_pfe"
+family = "PFE — Pfizer"
+query = "Pfizer PFE stock news"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Pfizer Inc (NYSE: PFE)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: extended."
+
+[[queries]]
+id = "us_wmt"
+family = "WMT — Walmart"
+query = "Walmart WMT stock news"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Walmart Inc (NYSE: WMT)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: extended."
+
+[[queries]]
+id = "us_dis"
+family = "DIS — Disney"
+query = "Disney DIS stock news"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Walt Disney Co (NYSE: DIS)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: extended. Watch yield: 'Disney' news skews to entertainment coverage without share-price relevance."
+
+[[queries]]
+id = "us_nflx"
+family = "NFLX — Netflix"
+query = "Netflix NFLX stock news"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Netflix Inc (NASDAQ: NFLX)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: extended. Same caveat as Disney — content coverage may dilute yield."
+
+[[queries]]
+id = "us_ba"
+family = "BA — Boeing"
+query = "Boeing BA stock news"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Boeing Co (NYSE: BA)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: core. Dense, often negative coverage — balances positive-skewed tech names."
+
+# ----------------------------- UK arm (FTSE 100) ----------------------------
+# UK queries use 'shares' (UK financial-press idiom) instead of US ticker
+# anchoring; LSE tickers are rarely used in running text.
+
+[[queries]]
+id = "uk_azn"
+family = "AZN — AstraZeneca"
+query = "AstraZeneca shares stock news"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for AstraZeneca plc (LSE: AZN)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: core. Largest FTSE name by market cap (early 2026)."
+
+[[queries]]
+id = "uk_shel"
+family = "SHEL — Shell"
+query = "Shell plc shares stock"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Shell plc (LSE: SHEL)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: core. 'plc' anchors against generic uses of 'shell'."
+
+[[queries]]
+id = "uk_hsba"
+family = "HSBA — HSBC"
+query = "HSBC shares stock news"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for HSBC Holdings plc (LSE: HSBA)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: core."
+
+[[queries]]
+id = "uk_bp"
+family = "BP — BP"
+query = "BP shares stock news"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for BP plc (LSE: BP)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: core."
+
+[[queries]]
+id = "uk_ulvr"
+family = "ULVR — Unilever"
+query = "Unilever shares stock news"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Unilever plc (LSE: ULVR)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: core."
+
+[[queries]]
+id = "uk_rio"
+family = "RIO — Rio Tinto"
+query = "Rio Tinto shares stock"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Rio Tinto plc (LSE: RIO)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: core."
+
+[[queries]]
+id = "uk_glen"
+family = "GLEN — Glencore"
+query = "Glencore shares stock news"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Glencore plc (LSE: GLEN)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: core."
+
+[[queries]]
+id = "uk_barc"
+family = "BARC — Barclays"
+query = "Barclays shares stock news"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Barclays plc (LSE: BARC)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: core."
+
+[[queries]]
+id = "uk_lloy"
+family = "LLOY — Lloyds"
+query = "Lloyds Banking Group shares"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Lloyds Banking Group plc (LSE: LLOY)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: core. Full name anchors against Lloyd's of London (insurance market)."
+
+[[queries]]
+id = "uk_nwg"
+family = "NWG — NatWest"
+query = "NatWest shares stock news"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for NatWest Group plc (LSE: NWG)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: extended."
+
+[[queries]]
+id = "uk_stan"
+family = "STAN — Standard Chartered"
+query = "Standard Chartered shares stock"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Standard Chartered plc (LSE: STAN)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: extended."
+
+[[queries]]
+id = "uk_rr"
+family = "RR — Rolls-Royce"
+query = "Rolls-Royce Holdings shares"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Rolls-Royce Holdings plc (LSE: RR)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: core. 'Holdings' anchors against Rolls-Royce Motor Cars (BMW-owned)."
+
+[[queries]]
+id = "uk_gsk"
+family = "GSK — GSK"
+query = "GSK shares stock news"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for GSK plc (LSE: GSK)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: extended."
+
+[[queries]]
+id = "uk_vod"
+family = "VOD — Vodafone"
+query = "Vodafone shares stock news"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Vodafone Group plc (LSE: VOD)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: extended."
+
+[[queries]]
+id = "uk_tsco"
+family = "TSCO — Tesco"
+query = "Tesco shares stock news"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Tesco plc (LSE: TSCO)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: extended. Note TSCO also = Tractor Supply (NASDAQ) — UK-idiom query should keep results on Tesco; check first-week yield."
+
+[[queries]]
+id = "uk_dge"
+family = "DGE — Diageo"
+query = "Diageo shares stock news"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Diageo plc (LSE: DGE)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: extended."
+
+[[queries]]
+id = "uk_bats"
+family = "BATS — British American Tobacco"
+query = "British American Tobacco shares"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for British American Tobacco plc (LSE: BATS)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: extended."
+
+[[queries]]
+id = "uk_baes"
+family = "BA. — BAE Systems"
+query = "BAE Systems shares stock"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for BAE Systems plc (LSE: BA.)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: extended. Dense defence-sector flow in 2026; id avoids the dot in 'BA.'."
+
+[[queries]]
+id = "uk_aal"
+family = "AAL — Anglo American"
+query = "Anglo American shares stock"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "basic"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Anglo American plc (LSE: AAL)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: extended. Note AAL also = American Airlines (NASDAQ); 'shares' phrasing plus screening should hold — check first-week yield. Anglo American–Teck merger ('Anglo Teck plc', shareholder+Canada approvals done Dec 2025) expected to complete by 2027 — after the 2026 collection window, but merger coverage will dominate this name's news flow; expect a rename if collection extends."
+
+[[queries]]
+id = "uk_pru"
+family = "PRU — Prudential"
+query = "Prudential plc PRU insurer shares London"
+topic = "news"
+time_range = "week"
+max_results = 10
+search_depth = "advanced"
+extract_depth = "advanced"
+coverage_target = "Company-specific news for Prudential plc (LSE: PRU)."
+include_domains = []
+exclude_domains = ["finance.yahoo.com", "ca.finance.yahoo.com"]
+notes = "Tier: extended. 'plc' anchors against Prudential Financial (NYSE: PRU, unrelated US insurer)."
