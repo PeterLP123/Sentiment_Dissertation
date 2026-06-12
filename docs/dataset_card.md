@@ -1,6 +1,6 @@
 # Dataset Card
 
-Last updated: 2026-06-07
+Last updated: 2026-06-12
 
 Related documentation:
 
@@ -17,7 +17,38 @@ Related documentation:
 - Source URL: <https://www.kaggle.com/datasets/sbhatti/financial-sentiment-analysis>
 - Current repository role: source dataset for dissertation sentiment benchmark experiments
 
-The Kaggle source should be verified against the final dissertation bibliography before submission. If the local file was transformed from the downloaded source, the transformation steps should be added to this card.
+## Provenance (verified 2026-06-12, M1-5)
+
+Every row of `Data/data.csv` was matched against the original sources. The file is:
+
+- **Financial PhraseBank v1.0, `Sentences_66Agree.txt`** (Malo et al. 2014): 4,217 rows,
+  matched exactly after encoding normalization. License CC BY-NC-SA 3.0.
+- **FiQA 2018 Task 1** (Maia et al. 2018): 1,111 unique sentences with continuous
+  target-level scores discretized to labels (18 rows carry mojibake from a UTF-8/Latin-1
+  double-encoding error).
+- **514 corrupt rows:** `Sentences_66Agree.txt` contains exactly 514 negative sentences,
+  and every one of them appears in `data.csv` a second time relabeled `neutral`. These
+  duplicated wrong-label copies are the entirety of the 514 "conflicting duplicate groups."
+
+Consequences:
+
+1. The conflicting duplicates are **merge corruption, not annotation disagreement**.
+   They do not trace to PhraseBank's annotator-agreement tiers: 59% of the affected
+   sentences have 100% human agreement, and the conflict rate is flat across tiers.
+2. The `primary` scope (which excludes conflicting groups) therefore excludes **all**
+   PhraseBank negatives; its 346 negatives come solely from FiQA, which is a different
+   register (microblogs/headlines vs. news sentences). Per-class negative results on the
+   primary scope of `data.csv` measure FiQA only.
+3. The merge drops PhraseBank's 50-65% agreement tier (627 sentences) — the most
+   human-contested items, which are the most valuable for ambiguity analysis.
+
+**Provenance-clean rebuild:** `Data/derived/labeled/financial_sentiment_v2.csv`, built by
+`scripts/build_labeled_dataset.py` directly from the original sources (downloaded into
+`Data/source/`). It has 5,947 unique sentences, zero duplicates/conflicts, 981 genuine
+negatives, a `pb_agreement_tier` column (100/75/66/50 — graded human agreement from 16
+annotators, 5-8 annotations per sentence), and FiQA's continuous scores preserved. See the
+README written next to the file. Formal runs should prefer the rebuild; the choice is
+frozen at M3-1.
 
 ## Dataset Shape
 
@@ -99,7 +130,7 @@ Benchmark tooling uses two scoring scopes:
 
 The dataset is imbalanced, with `neutral` as the majority class. Accuracy alone can therefore be misleading; macro-F1, balanced accuracy, MCC, and per-class metrics should be reported.
 
-Many duplicate sentence groups have conflicting labels. These conflicts may reflect genuine ambiguity, annotation disagreement, source inconsistencies, or preprocessing issues. They should be analyzed explicitly rather than silently removed without documentation.
+The 514 conflicting duplicate groups are verified merge corruption (see Provenance above): duplicated copies of PhraseBank's negative sentences carrying a wrong `neutral` label. They are not evidence of annotation disagreement and must not be used as an ambiguity signal; PhraseBank's agreement tiers (available in the v2 rebuild) are the genuine human-disagreement ground truth.
 
 The dataset is financial-domain text. Results may not generalize to product reviews, political text, general social media, or other sentiment-analysis domains.
 

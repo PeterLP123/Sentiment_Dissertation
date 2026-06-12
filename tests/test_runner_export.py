@@ -169,7 +169,7 @@ def test_runner_creates_metrics_and_exports(tmp_path) -> None:
     assert operational["api_error_count"] == 0
 
     summary_md = (tmp_path / "exports" / "summary.md").read_text(encoding="utf-8")
-    assert "## Operational metrics (RQ4)" in summary_md
+    assert "## Operational metrics (OQ4)" in summary_md
 
     run_payload = json.loads((tmp_path / "exports" / "run.json").read_text(encoding="utf-8"))
     metadata = run_payload["metadata"]

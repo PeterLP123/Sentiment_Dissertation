@@ -171,6 +171,7 @@ class BenchmarkStore:
                     normalized_label TEXT,
                     parse_status TEXT NOT NULL,
                     explanation TEXT,
+                    label_probabilities TEXT,
                     raw_response_json TEXT,
                     latency_ms REAL,
                     status TEXT NOT NULL,
@@ -269,6 +270,7 @@ class BenchmarkStore:
         _ensure_column(connection, "runs", "machine_id", "TEXT")
         _ensure_column(connection, "runs", "machine_label", "TEXT")
         _ensure_column(connection, "runs", "environment_json", "TEXT NOT NULL DEFAULT '{}'")
+        _ensure_column(connection, "responses", "label_probabilities", "TEXT")
 
     def upsert_dataset(self, rows: list[DatasetRow], dataset_path: str) -> None:
         loaded_at = utc_now()
@@ -540,14 +542,15 @@ class BenchmarkStore:
                 """
                 INSERT INTO responses (
                     run_id, row_number, model_id, prompt_hash, raw_content, normalized_label,
-                    parse_status, explanation, raw_response_json, latency_ms, status, error,
+                    parse_status, explanation, label_probabilities, raw_response_json, latency_ms, status, error,
                     prompt_tokens, completion_tokens, total_tokens, generation_id, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(run_id, row_number, model_id, prompt_hash) DO UPDATE SET
                     raw_content=excluded.raw_content,
                     normalized_label=excluded.normalized_label,
                     parse_status=excluded.parse_status,
                     explanation=excluded.explanation,
+                    label_probabilities=excluded.label_probabilities,
                     raw_response_json=excluded.raw_response_json,
                     latency_ms=excluded.latency_ms,
                     status=excluded.status,
@@ -566,6 +569,7 @@ class BenchmarkStore:
                     record.normalized_label,
                     record.parse_status,
                     record.explanation,
+                    json.dumps(record.label_probabilities, sort_keys=True) if record.label_probabilities is not None else None,
                     json.dumps(record.raw_response_json) if record.raw_response_json is not None else None,
                     record.latency_ms,
                     record.status,

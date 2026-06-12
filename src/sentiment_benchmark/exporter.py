@@ -190,6 +190,7 @@ def export_run(db_path: str | Path, run_id: int, output_dir: str | Path | None =
                 r.status,
                 r.raw_content,
                 r.explanation,
+                r.label_probabilities,
                 r.latency_ms,
                 r.prompt_tokens,
                 r.completion_tokens,
@@ -319,9 +320,17 @@ def export_run(db_path: str | Path, run_id: int, output_dir: str | Path | None =
                     f"- Weighted F1: {metric['weighted_f1']:.4f}",
                     f"- Invalid outputs: {metric['invalid_output_count']}",
                     f"- API errors: {metric['api_error_count']}",
-                    "",
                 ]
             )
+            calibration = metric.get("calibration")
+            if isinstance(calibration, dict):
+                lines.extend(
+                    [
+                        f"- Brier score: {calibration['brier_score']:.4f} (soft-label, n={calibration['n_scored']})",
+                        f"- ECE: {calibration['ece']:.4f} ({calibration['n_bins']} bins)",
+                    ]
+                )
+            lines.append("")
     per_model_statistics = statistics["per_model"]
     if per_model_statistics:
         lines.extend(["## Statistics (primary scope)", ""])
@@ -360,7 +369,7 @@ def export_run(db_path: str | Path, run_id: int, output_dir: str | Path | None =
 
         lines.extend(
             [
-                "## Operational metrics (RQ4)",
+                "## Operational metrics (OQ4)",
                 "",
                 "Computed over every attempted row in the run (both scopes). "
                 "Cost requires provider-reported generation metadata and is `-` for baselines and local models.",

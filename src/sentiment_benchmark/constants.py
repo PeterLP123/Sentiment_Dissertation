@@ -19,6 +19,10 @@ DEFAULT_SEED = 42
 DEFAULT_PILOT_PER_CLASS = 30
 DEFAULT_TEMPERATURE = 0.0
 DEFAULT_MAX_COMPLETION_TOKENS = 64
+# Soft-label responses are a JSON object with three float fields; the default
+# 64-token budget truncates that for some tokenizers, producing invalid parses
+# on paid calls. Runs with a soft_label prompt get at least this budget.
+SOFT_LABEL_MIN_COMPLETION_TOKENS = 128
 DEFAULT_CONCURRENCY = 1
 DEFAULT_RETRIES = 3
 # Reasoning-capable models spend completion tokens on hidden reasoning before

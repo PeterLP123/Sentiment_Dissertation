@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 
 from .constants import ALLOWED_LABELS
@@ -52,9 +53,69 @@ def _parse_cot_label(lines: list[str]) -> str | None:
     return None
 
 
+_JSON_OBJECT = re.compile(r"\{[^{}]*\}")
+
+
+def parse_soft_label_probabilities(raw_content: str) -> dict[str, float] | None:
+    """Extract a normalized label-probability distribution from model output.
+
+    Accepts the JSON object anywhere in the response (models often wrap it in
+    code fences or prose). Keys must be allowed labels — an unknown key means
+    the model misunderstood the task, so the whole response is rejected rather
+    than silently dropped. Missing labels count as probability 0. Values must
+    be non-negative finite numbers with a positive sum; the distribution is
+    renormalized to sum to exactly 1 so downstream Brier/ECE math is stable
+    even when the model's numbers sum to 0.99 or 1.01.
+    """
+    for match in _JSON_OBJECT.finditer(raw_content):
+        try:
+            candidate = json.loads(match.group(0))
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(candidate, dict) or not candidate:
+            continue
+        cleaned: dict[str, float] = {}
+        valid = True
+        for key, value in candidate.items():
+            label = str(key).strip().lower()
+            if label not in ALLOWED_LABELS:
+                valid = False
+                break
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                valid = False
+                break
+            number = float(value)
+            if number < 0 or number != number or number == float("inf"):
+                valid = False
+                break
+            cleaned[label] = number
+        if not valid:
+            continue
+        total = sum(cleaned.values())
+        if total <= 0:
+            continue
+        return {label: cleaned.get(label, 0.0) / total for label in ALLOWED_LABELS}
+    return None
+
+
+def _soft_label_argmax(probabilities: dict[str, float]) -> str:
+    # Ties break in ALLOWED_LABELS order so the derived hard label is deterministic.
+    return max(ALLOWED_LABELS, key=lambda label: probabilities[label])
+
+
 def parse_model_response(raw_content: str | None, output_mode: OutputMode) -> ParsedResponse:
     if raw_content is None:
         return ParsedResponse(normalized_label=None, parse_status="invalid")
+
+    if output_mode == "soft_label":
+        probabilities = parse_soft_label_probabilities(raw_content)
+        if probabilities is None:
+            return ParsedResponse(normalized_label=None, parse_status="invalid")
+        return ParsedResponse(
+            normalized_label=_soft_label_argmax(probabilities),
+            parse_status="valid",
+            label_probabilities=probabilities,
+        )
 
     if output_mode == "label_only":
         label = parse_label_candidate(raw_content)

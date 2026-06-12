@@ -13,7 +13,10 @@ title = "Pilot baseline comparison on balanced primary sample"
 status = "completed"
 dissertation_relevance = "Establishes non-LLM baseline performance for the benchmark chapter and provides context before LLM comparisons."
 run_ids = [12]
-commit_sha = "TODO-record-commit-sha-used-for-run-12"
+# Backfilled 2026-06-12 from git history: HEAD at run execution time
+# (run created 2026-06-04T20:42Z; 87dfa66 committed 18:52Z, no commits between).
+# The run_12 export itself records no git SHA, so this is best-effort.
+commit_sha = "87dfa66aed6f825c7de9fe9246c37dc6ab91caf4"
 export_path = "results/exports/run_12"
 created_at = "2026-06-04T20:42:26.785796+00:00"
 completed_at = "2026-06-04T20:42:31.673912+00:00"

@@ -274,6 +274,7 @@ class OllamaClient:
                 parse_status=parsed.parse_status,
                 status="success",
                 explanation=parsed.explanation,
+                label_probabilities=parsed.label_probabilities,
                 raw_response_json=raw_json if isinstance(raw_json, dict) else {"raw": raw_json},
                 latency_ms=latency_ms,
                 prompt_tokens=prompt_tokens,

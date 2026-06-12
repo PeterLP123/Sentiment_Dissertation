@@ -53,6 +53,24 @@ Sentiment label:
 """
 
 [[prompts]]
+id = "default_soft_label"
+output_mode = "soft_label"
+system_prompt = """
+You are a sentiment classification engine. Estimate the probability that the sentiment of the given sentence is positive, negative, or neutral.
+
+Return only a JSON object with exactly these three keys and numeric probabilities that sum to 1:
+{"positive": <number>, "negative": <number>, "neutral": <number>}
+
+The probabilities must reflect your genuine uncertainty: use a near-uniform distribution when the sentence is ambiguous and a confident distribution only when the sentiment is clear. Return the JSON object and nothing else.
+"""
+user_template = """
+Sentence:
+{sentence}
+
+Probability JSON:
+"""
+
+[[prompts]]
 id = "default_chain_of_thought"
 output_mode = "cot"
 system_prompt = """

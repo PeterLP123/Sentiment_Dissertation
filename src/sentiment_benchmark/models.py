@@ -5,7 +5,7 @@ from typing import Any, Literal
 
 from .constants import DEFAULT_REASONING_MAX_COMPLETION_TOKENS
 
-OutputMode = Literal["label_only", "explanation", "cot"]
+OutputMode = Literal["label_only", "explanation", "cot", "soft_label"]
 RunMode = Literal["pilot", "full"]
 Provider = Literal["openrouter", "ollama"]
 ParseStatus = Literal["valid", "invalid", "error"]
@@ -91,6 +91,9 @@ class ParsedResponse:
     normalized_label: str | None
     parse_status: ParseStatus
     explanation: str | None = None
+    # Per-class probabilities from soft_label prompts, normalized to sum to 1
+    # over ALLOWED_LABELS. None for hard-label output modes.
+    label_probabilities: dict[str, float] | None = None
 
 
 @dataclass(frozen=True)
@@ -103,6 +106,7 @@ class LLMResponseRecord:
     parse_status: ParseStatus
     status: ResponseStatus
     explanation: str | None = None
+    label_probabilities: dict[str, float] | None = None
     raw_response_json: dict[str, Any] | None = None
     latency_ms: float | None = None
     error: str | None = None
@@ -130,3 +134,6 @@ class EvaluationResult:
     total_prompt_tokens: int
     total_completion_tokens: int
     total_tokens: int
+    # Brier score and ECE over rows with valid soft-label probabilities.
+    # None when the run produced no probabilities (hard-label output modes).
+    calibration: dict[str, float | int] | None = None

@@ -128,12 +128,12 @@ results/exports/run_1/
 
 | File | Contents |
 | --- | --- |
-| `responses.csv` | Spreadsheet-friendly response table with hidden label, normalized label, parse status, latency, tokens, provider cost, and errors. |
+| `responses.csv` | Spreadsheet-friendly response table with hidden label, normalized label, parse status, label probabilities (soft-label runs), latency, tokens, provider cost, and errors. |
 | `responses.json` | JSON version of response records. |
-| `metrics.json` | Per-model metrics and per-class scores for each scope. |
+| `metrics.json` | Per-model metrics and per-class scores for each scope. Soft-label runs add a `calibration` object (Brier score, ECE, scored-row count, bin count). |
 | `run.json` | Run metadata, prompt metadata, package version, export timestamp, dataset SHA-256, prompt hash, provider, base URL, machine metadata, environment snapshot, and request settings. |
 | `statistics.json` | Bootstrap confidence intervals, paired McNemar tests, agreement statistics, and per-model operational metrics (cost, latency percentiles, token usage, failure rates). |
-| `summary.md` | Human-readable run summary for notes and dissertation drafting, including an operational-metrics table for RQ4. |
+| `summary.md` | Human-readable run summary for notes and dissertation drafting, including an operational-metrics table for OQ4 (operational practicality; see the research protocol). |
 | `tables/` | Dissertation-ready booktabs LaTeX tables (see below). |
 | `figures/` | Optional PNG figures when installed with `python -m pip install -e ".[figures]"`. |
 

@@ -136,6 +136,7 @@ Useful prompt IDs include:
 | `default_label_only` | Strict zero-shot label-only benchmark prompt. |
 | `finance_calibrated_label_only` | Finance-oriented label-only prompt for market/business/trading language; recommended for Gemma 4 pilots. |
 | `default_with_explanation` | Label plus short explanation. |
+| `default_soft_label` | Per-class probability JSON; enables Brier/ECE calibration metrics. Runs get a completion-token floor of 128 so the JSON is never truncated. |
 | `default_chain_of_thought` | Reasoning-style output ending in `Answer: <label>`. |
 
 ## `run-baselines`

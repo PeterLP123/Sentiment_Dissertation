@@ -6,6 +6,7 @@ from dataclasses import dataclass, replace
 from typing import Any
 
 from .budgets import resolve_max_completion_tokens
+from .constants import SOFT_LABEL_MIN_COMPLETION_TOKENS
 from .dataset import load_dataset, select_rows
 from .demonstrations import demonstration_pool, select_demonstrations
 from .metrics import evaluate_responses
@@ -205,6 +206,8 @@ class BenchmarkRunner:
                 config.model_max_completion_tokens,
                 config.reasoning_max_completion_tokens,
             )
+            if config.prompt.output_mode == "soft_label":
+                max_completion_tokens = max(max_completion_tokens, SOFT_LABEL_MIN_COMPLETION_TOKENS)
             async with semaphore:
                 classify_kwargs = {
                     "model_id": model_id,

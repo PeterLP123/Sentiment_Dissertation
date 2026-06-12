@@ -25,6 +25,96 @@ def _response_prediction(response: dict[str, Any]) -> str:
     return str(response["normalized_label"])
 
 
+def _response_probabilities(response: dict[str, Any]) -> dict[str, float] | None:
+    """Label probabilities from a response record, or None when absent/unusable.
+
+    Storage serializes the distribution as JSON text; in-memory records may
+    carry it as a dict already. Anything that does not decode to a full
+    distribution over ALLOWED_LABELS is treated as absent.
+    """
+    if response.get("status") != "success" or response.get("parse_status") != "valid":
+        return None
+    value = response.get("label_probabilities")
+    if value is None:
+        return None
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError:
+            return None
+    if not isinstance(value, dict):
+        return None
+    try:
+        probabilities = {label: float(value[label]) for label in ALLOWED_LABELS}
+    except (KeyError, TypeError, ValueError):
+        return None
+    return probabilities
+
+
+def brier_score_multiclass(y_true: list[str], probabilities: list[dict[str, float]]) -> float:
+    """Mean multiclass Brier score over ALLOWED_LABELS.
+
+    Per item: sum over classes of (p_c - 1[y=c])^2. Range [0, 2]; lower is
+    better; a perfectly confident correct prediction scores 0.
+    """
+    if not y_true:
+        raise ValueError("brier_score_multiclass requires at least one item")
+    total = 0.0
+    for true_label, probs in zip(y_true, probabilities, strict=True):
+        total += sum((probs[label] - (1.0 if label == true_label else 0.0)) ** 2 for label in ALLOWED_LABELS)
+    return total / len(y_true)
+
+
+def expected_calibration_error(
+    y_true: list[str],
+    probabilities: list[dict[str, float]],
+    n_bins: int = 10,
+) -> float:
+    """Expected calibration error with equal-width confidence bins.
+
+    Confidence is the maximum class probability; an item is accurate when the
+    argmax class (ties broken in ALLOWED_LABELS order, matching the parser)
+    equals the true label. ECE is the support-weighted mean absolute gap
+    between per-bin confidence and per-bin accuracy.
+    """
+    if not y_true:
+        raise ValueError("expected_calibration_error requires at least one item")
+    if n_bins < 1:
+        raise ValueError("n_bins must be at least 1")
+    bin_totals = [0] * n_bins
+    bin_confidence = [0.0] * n_bins
+    bin_accuracy = [0.0] * n_bins
+    for true_label, probs in zip(y_true, probabilities, strict=True):
+        predicted = max(ALLOWED_LABELS, key=lambda label: probs[label])
+        confidence = probs[predicted]
+        bin_index = min(int(confidence * n_bins), n_bins - 1)
+        bin_totals[bin_index] += 1
+        bin_confidence[bin_index] += confidence
+        bin_accuracy[bin_index] += 1.0 if predicted == true_label else 0.0
+    n = len(y_true)
+    ece = 0.0
+    for index in range(n_bins):
+        if bin_totals[index] == 0:
+            continue
+        mean_confidence = bin_confidence[index] / bin_totals[index]
+        mean_accuracy = bin_accuracy[index] / bin_totals[index]
+        ece += (bin_totals[index] / n) * abs(mean_confidence - mean_accuracy)
+    return ece
+
+
+def compute_calibration(
+    y_true: list[str],
+    probabilities: list[dict[str, float]],
+    n_bins: int = 10,
+) -> dict[str, float | int]:
+    return {
+        "brier_score": brier_score_multiclass(y_true, probabilities),
+        "ece": expected_calibration_error(y_true, probabilities, n_bins=n_bins),
+        "n_scored": len(y_true),
+        "n_bins": n_bins,
+    }
+
+
 def _prediction_for_multiclass_metrics(true_label: str, prediction: str) -> str:
     """Map invalid/error predictions to a wrong allowed label for MCC and balanced accuracy."""
     if is_valid_label(prediction):
@@ -86,6 +176,8 @@ def evaluate_responses(
 
     y_true: list[str] = []
     y_pred: list[str] = []
+    calibration_true: list[str] = []
+    calibration_probs: list[dict[str, float]] = []
     latencies: list[float] = []
     total_prompt_tokens = 0
     total_completion_tokens = 0
@@ -97,6 +189,10 @@ def evaluate_responses(
             continue
         y_true.append(row.hidden_label)
         y_pred.append(_response_prediction(response))
+        probabilities = _response_probabilities(response)
+        if probabilities is not None:
+            calibration_true.append(row.hidden_label)
+            calibration_probs.append(probabilities)
         if response["latency_ms"] is not None:
             latencies.append(float(response["latency_ms"]))
         total_prompt_tokens += int(response["prompt_tokens"] or 0)
@@ -151,6 +247,7 @@ def evaluate_responses(
         total_prompt_tokens=total_prompt_tokens,
         total_completion_tokens=total_completion_tokens,
         total_tokens=total_tokens,
+        calibration=compute_calibration(calibration_true, calibration_probs) if calibration_true else None,
     )
 
 

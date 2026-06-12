@@ -9,7 +9,7 @@ from pathlib import Path
 from .constants import ALLOWED_LABELS, DEFAULT_PROMPTS_PATH
 from .models import BlindExample, PromptConfig
 
-OUTPUT_MODES = ("label_only", "explanation", "cot")
+OUTPUT_MODES = ("label_only", "explanation", "cot", "soft_label")
 
 
 def prompt_hash(
