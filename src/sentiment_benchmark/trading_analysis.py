@@ -12,6 +12,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from .trading_effectiveness import evaluate_effectiveness, format_effectiveness_markdown
+
 
 class TradingAnalysisError(RuntimeError):
     """Raised when trading-run analysis inputs or outputs are invalid."""
@@ -669,6 +671,7 @@ def analyze_trading_run(
     source_yield = summarize_source_yield(articles)
     agreement_metrics, pairwise = summarize_agreement(scores, signals, llm_scorers)
     leave_one_out = summarize_leave_one_company_out(returns)
+    effectiveness = evaluate_effectiveness(returns, scorer_display=SCORER_DISPLAY)
     comparison: pd.DataFrame | None = None
     if comparison_run_dir is not None:
         comparison_path = Path(comparison_run_dir) / "returns.csv"
@@ -686,6 +689,9 @@ def analyze_trading_run(
         _write_csv(agreement_metrics, output_dir / "agreement_metrics.csv"),
         _write_csv(pairwise, output_dir / "pairwise_label_agreement.csv"),
         _write_csv(leave_one_out, output_dir / "leave_one_company_out.csv"),
+        _write_csv(effectiveness.significance, output_dir / "effectiveness_significance.csv"),
+        _write_csv(effectiveness.benchmarks, output_dir / "effectiveness_benchmarks.csv"),
+        _write_csv(effectiveness.economics, output_dir / "effectiveness_economics.csv"),
     ]
     if comparison is not None:
         generated.append(_write_csv(comparison, output_dir / "pilot_comparison.csv"))
@@ -703,6 +709,8 @@ def analyze_trading_run(
         seed=seed,
         resamples=resamples,
     )
+    with summary_path.open("a", encoding="utf-8") as handle:
+        handle.write("\n" + format_effectiveness_markdown(effectiveness) + "\n")
     generated.append(summary_path)
     source_map = output_dir / "source_map.md"
     source_map.write_text(
@@ -732,6 +740,8 @@ def analyze_trading_run(
         "notes": [
             "Bootstrap intervals treat overlapping events as independent and are descriptive only.",
             "Neutral signals contribute zero to all-event mean returns; traded-only metrics are reported separately.",
+            "Effectiveness p-values assume event independence and are screening diagnostics; Benjamini-Hochberg "
+            "controls the false discovery rate across the scorer-horizon mean-return family only.",
         ],
     }
     analysis_manifest_path.write_text(json.dumps(analysis_manifest, indent=2, sort_keys=True), encoding="utf-8")

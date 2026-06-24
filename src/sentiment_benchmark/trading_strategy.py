@@ -54,6 +54,20 @@ class TradingCompany:
 
 
 @dataclass(frozen=True)
+class IndexFallback:
+    """Trade a broad index on company-days too thin to support an individual stock.
+
+    When a company-day has fewer than ``min_texts`` accepted articles, its (noisy)
+    sentiment signal is executed against ``symbol`` instead of the company's own
+    stock, following the supervisor's "use a US index if you can't get enough
+    texts" guidance. Disabled unless a config supplies ``enabled = true``.
+    """
+
+    symbol: str
+    min_texts: int
+
+
+@dataclass(frozen=True)
 class TradingStrategyConfig:
     run_id: str
     title: str
@@ -77,6 +91,7 @@ class TradingStrategyConfig:
     results_output_root: Path
     experiment_registry: Path
     newsapi_max_pages: int
+    index_fallback: IndexFallback | None
     companies: tuple[TradingCompany, ...]
 
     @property
@@ -171,6 +186,8 @@ class PriceRow:
 @dataclass(frozen=True)
 class ReturnRow:
     symbol: str
+    traded_symbol: str
+    index_fallback: bool
     news_date: str
     scorer_id: str
     mean_score: float
@@ -218,6 +235,7 @@ def load_trading_config(path: str | Path) -> TradingStrategyConfig:
     scoring = raw.get("scoring") or {}
     sources = raw.get("sources") or {}
     outputs = raw.get("outputs") or {}
+    index_fallback_raw = raw.get("index_fallback") or {}
     company_items = raw.get("companies") or []
     try:
         dates = tuple(str(value) for value in _as_tuple(run["dates"], field="run.dates"))
@@ -233,6 +251,14 @@ def load_trading_config(path: str | Path) -> TradingStrategyConfig:
                 aliases=tuple(str(alias).strip() for alias in item["aliases"] if str(alias).strip()),
             )
             for item in company_items
+        )
+        index_fallback = (
+            IndexFallback(
+                symbol=str(index_fallback_raw.get("symbol", "")).strip(),
+                min_texts=int(index_fallback_raw.get("min_texts", 3)),
+            )
+            if index_fallback_raw.get("enabled")
+            else None
         )
         config = TradingStrategyConfig(
             run_id=str(run["id"]).strip(),
@@ -259,6 +285,7 @@ def load_trading_config(path: str | Path) -> TradingStrategyConfig:
             results_output_root=Path(outputs.get("results_output_root", "results/trading")),
             experiment_registry=Path(outputs.get("experiment_registry", "experiments/manifest.toml")),
             newsapi_max_pages=int(sources.get("newsapi_max_pages", 10)),
+            index_fallback=index_fallback,
             companies=companies,
         )
     except (KeyError, TypeError, ValueError) as exc:
@@ -283,6 +310,11 @@ def load_trading_config(path: str | Path) -> TradingStrategyConfig:
         ZoneInfo(config.timezone)
     except Exception as exc:
         raise TradingStrategyError(f"unknown timezone: {config.timezone}") from exc
+    if config.index_fallback is not None:
+        if not config.index_fallback.symbol:
+            raise TradingStrategyError("index_fallback.symbol is required when index_fallback.enabled is true")
+        if config.index_fallback.min_texts < 1:
+            raise TradingStrategyError("index_fallback.min_texts must be 1 or greater")
     return config
 
 
@@ -854,10 +886,13 @@ def fetch_price_rows(config: TradingStrategyConfig) -> list[PriceRow]:
     start = min(config.dates)
     requested_end = max(date.fromisoformat(value) for value in config.dates) + timedelta(days=max(config.horizons) * 3 + 7)
     end = min(requested_end, date.today() + timedelta(days=1)).isoformat()
+    symbols = [company.symbol for company in config.companies]
+    if config.index_fallback is not None and config.index_fallback.symbol not in symbols:
+        symbols.append(config.index_fallback.symbol)
     rows: list[PriceRow] = []
-    for company in config.companies:
+    for symbol in symbols:
         frame = yf.download(
-            company.symbol,
+            symbol,
             start=start,
             end=end,
             interval="1d",
@@ -870,13 +905,13 @@ def fetch_price_rows(config: TradingStrategyConfig) -> list[PriceRow]:
             multi_level_index=False,
         )
         if frame is None or frame.empty:
-            raise TradingStrategyError(f"no Yahoo Finance prices returned for {company.symbol}")
+            raise TradingStrategyError(f"no Yahoo Finance prices returned for {symbol}")
         for index, value in frame.iterrows():
             session_date = index.date().isoformat()
             repaired_value = value.get("Repaired?", False)
             rows.append(
                 PriceRow(
-                    symbol=company.symbol,
+                    symbol=symbol,
                     session_date=session_date,
                     open=float(value["Open"]),
                     high=float(value["High"]),
@@ -895,6 +930,7 @@ def calculate_returns(
     *,
     horizons: tuple[int, ...],
     notional_usd: float,
+    index_fallback: IndexFallback | None = None,
 ) -> list[ReturnRow]:
     prices_by_symbol: dict[str, list[PriceRow]] = defaultdict(list)
     for row in prices:
@@ -903,17 +939,19 @@ def calculate_returns(
     for signal in signals:
         if signal.signal is None or signal.signal_value is None or signal.mean_score is None:
             continue
-        symbol_prices = prices_by_symbol.get(signal.symbol, [])
+        use_fallback = index_fallback is not None and signal.article_count < index_fallback.min_texts
+        traded_symbol = index_fallback.symbol if index_fallback is not None and use_fallback else signal.symbol
+        symbol_prices = prices_by_symbol.get(traded_symbol, [])
         d_price = next((row for row in symbol_prices if row.session_date == signal.news_date), None)
         future = [row for row in symbol_prices if row.session_date > signal.news_date]
         if len(future) < max(horizons):
             raise TradingStrategyError(
-                f"incomplete price horizon for {signal.symbol} on {signal.news_date}: "
+                f"incomplete price horizon for {traded_symbol} on {signal.news_date}: "
                 f"need {max(horizons)} future sessions, found {len(future)}"
             )
         entry = future[0]
         if entry.open <= 0:
-            raise TradingStrategyError(f"invalid entry price for {signal.symbol} on {entry.session_date}")
+            raise TradingStrategyError(f"invalid entry price for {traded_symbol} on {entry.session_date}")
         for horizon in horizons:
             exit_row = future[horizon - 1]
             market_return = exit_row.close / entry.open - 1
@@ -921,6 +959,8 @@ def calculate_returns(
             returns.append(
                 ReturnRow(
                     symbol=signal.symbol,
+                    traded_symbol=traded_symbol,
+                    index_fallback=use_fallback,
                     news_date=signal.news_date,
                     scorer_id=signal.scorer_id,
                     mean_score=signal.mean_score,
@@ -1031,6 +1071,12 @@ def write_summary(
         for news_date in config.dates
         for symbol in (company.symbol for company in config.companies)
     ]
+    fallback_line = (
+        f"\n- Thin-coverage fallback: company-days with fewer than {config.index_fallback.min_texts} accepted texts "
+        f"trade {config.index_fallback.symbol} instead of the company's own stock"
+        if config.index_fallback is not None
+        else ""
+    )
     text = f"""# {config.title}
 
 Generated: {datetime.now(UTC).isoformat()}
@@ -1046,7 +1092,7 @@ reported independently.
 - News assignment timezone: `{config.timezone}`
 - Entry: adjusted open of the first observed trading session after the news date
 - Exit horizons: {", ".join(map(str, config.horizons))} trading sessions
-- Position notional: ${config.notional_usd:,.0f}; transaction costs ignored
+- Position notional: ${config.notional_usd:,.0f}; transaction costs ignored{fallback_line}
 - LLM models: {", ".join(config.models)}
 - Consensus: per-article majority of all three valid LLM labels; three-way split is neutral
 - VADER: conventional compound thresholds at ±0.05
@@ -1181,6 +1227,11 @@ def write_run_outputs(
             "entry_rule": "next_observed_session_adjusted_open",
             "price_source": "Yahoo Finance via yfinance",
             "transaction_costs": 0,
+            "index_fallback": (
+                {"symbol": config.index_fallback.symbol, "min_texts": config.index_fallback.min_texts}
+                if config.index_fallback is not None
+                else None
+            ),
         },
         "counts": {
             "articles_discovered": len(articles),
@@ -1188,6 +1239,7 @@ def write_run_outputs(
             "sentiment_scores": len(scores),
             "daily_signals": len(signals),
             "return_rows": len(returns),
+            "index_fallback_events": len({(row.symbol, row.news_date) for row in returns if row.index_fallback}),
         },
         "environment": collect_run_environment(),
         "files": {str(path): _sha256(path) for path in files if path.exists()},
@@ -1333,7 +1385,13 @@ async def run_trading_strategy(
         tuple(company.symbol for company in config.companies),
     )
     prices = price_loader(config)
-    returns = calculate_returns(signals, prices, horizons=config.horizons, notional_usd=config.notional_usd)
+    returns = calculate_returns(
+        signals,
+        prices,
+        horizons=config.horizons,
+        notional_usd=config.notional_usd,
+        index_fallback=config.index_fallback,
+    )
     source_corpora = sorted(
         {candidate.source_corpus for candidate in tavily_candidates} | set(newsapi_corpora) | set(gap_corpora)
     )
@@ -1362,4 +1420,9 @@ def describe_trading_plan(config: TradingStrategyConfig) -> dict[str, Any]:
         "newsapi_from": from_time,
         "newsapi_to": to_time,
         "entry_rule": "next observed trading-session adjusted open",
+        "index_fallback": (
+            f"{config.index_fallback.symbol} when a company-day has fewer than {config.index_fallback.min_texts} texts"
+            if config.index_fallback is not None
+            else "disabled"
+        ),
     }

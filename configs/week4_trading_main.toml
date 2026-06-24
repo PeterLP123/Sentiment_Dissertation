@@ -1,0 +1,142 @@
+# ============================================================================
+# Week 4+ news-sentiment trading run — MAIN (pre-registered) analysis set
+# ============================================================================
+# Purpose: widen the Week 3 pilot from 3 adjacent days to several non-adjacent,
+# temporally-spread days so the panel approaches the ~60 events/horizon needed
+# to detect the suggestive mid-horizon effect (D+3..D+6) at 80% power.
+#
+# PRE-REGISTRATION (frozen before collection — see docs/week4_preregistration.md):
+#   - Primary scorer ...... consensus/majority
+#   - Primary horizon ..... D+5 (5 trading sessions)
+#   - Primary metric ...... mean event return vs 0 (t-test), reported with the
+#                           BH-corrected q-value; everything else is sensitivity.
+#   - Holdout ............. configs/week4_trading_holdout.toml — DO NOT run or
+#                           inspect until this main set is collected, screened,
+#                           and its primary result is locked.
+#   - Inclusion rules ..... automatic_title_rule_v1 + documented manual review;
+#                           rules are frozen and not tuned after seeing returns.
+#
+# Dates are forward/rolling: collect near each date (NewsAPI only indexes ~30
+# days back), then compute returns once every date has aged 7 trading sessions.
+# Adjust the date list to your collection schedule; keep them non-adjacent.
+# ============================================================================
+
+[run]
+id = "week4_trading_main"
+title = "Week 4 News-Sentiment Trading — Spread Panel (pre-registered)"
+timezone = "America/New_York"
+dates = [
+  "2026-06-25",
+  "2026-07-02",
+  "2026-07-09",
+  "2026-07-16",
+  "2026-07-23",
+  "2026-07-30",
+]
+horizons = [1, 2, 3, 4, 5, 6, 7]
+notional_usd = 10000
+
+[preregistration]
+# Read by humans and captured in the run's config hash; ignored by the loader.
+primary_scorer = "consensus/majority"
+primary_horizon = 5
+hypothesis = "Daily news-sentiment signals produce a non-zero mean event return at D+5 for the consensus scorer."
+decision_rule = "Confirm only if the primary cell is significant after BH correction AND replicates with the same sign on the untouched holdout."
+holdout_config = "configs/week4_trading_holdout.toml"
+frozen = true
+
+[scoring]
+models = [
+  "openai/gpt-4o-mini",
+  "google/gemini-2.5-flash-lite",
+  "meta-llama/llama-3.3-70b-instruct",
+]
+prompt_id = "target_company_news_label_only"
+prompts_path = "configs/default_prompts.toml"
+temperature = 0.0
+max_completion_tokens = 64
+concurrency = 3
+retries = 3
+
+[sources]
+# Base Tavily corpus from the Week 3 panel; it does not cover the new dates, so
+# live NewsAPI + per-company-day Tavily gap fetching supplies them at run time.
+tavily_package_manifest = "Data/derived/tavily_ticker_panel_v1/package_manifest.json"
+newsapi_max_pages = 10
+
+[outputs]
+news_output_root = "Data/news"
+derived_output_root = "Data/derived/trading"
+results_output_root = "results/trading"
+experiment_registry = "experiments/manifest.toml"
+
+# Spread dates raise the chance of thin-coverage company-days; route those onto
+# the S&P 500 rather than dropping them (keeps the panel balanced).
+[index_fallback]
+enabled = true
+symbol = "^GSPC"
+min_texts = 3
+
+[[companies]]
+symbol = "AAPL"
+name = "Apple Inc."
+query = "Apple AAPL stock news"
+tavily_query_id = "us_aapl"
+family = "AAPL — Apple"
+aliases = ["Apple", "AAPL"]
+
+[[companies]]
+symbol = "MSFT"
+name = "Microsoft Corporation"
+query = "Microsoft MSFT stock news"
+tavily_query_id = "us_msft"
+family = "MSFT — Microsoft"
+aliases = ["Microsoft", "MSFT"]
+
+[[companies]]
+symbol = "NVDA"
+name = "NVIDIA Corporation"
+query = "Nvidia NVDA stock news"
+tavily_query_id = "us_nvda"
+family = "NVDA — Nvidia"
+aliases = ["Nvidia", "NVIDIA", "NVDA"]
+
+[[companies]]
+symbol = "AMZN"
+name = "Amazon.com Inc."
+query = "Amazon AMZN stock news"
+tavily_query_id = "us_amzn"
+family = "AMZN — Amazon"
+aliases = ["Amazon", "AMZN"]
+
+[[companies]]
+symbol = "TSLA"
+name = "Tesla Inc."
+query = "Tesla TSLA stock news"
+tavily_query_id = "us_tsla"
+family = "TSLA — Tesla"
+aliases = ["Tesla", "TSLA"]
+
+[[companies]]
+symbol = "JPM"
+name = "JPMorgan Chase & Co."
+query = "JPMorgan JPM stock news"
+tavily_query_id = "us_jpm"
+family = "JPM — JPMorgan"
+aliases = ["JPMorgan", "JPMorgan Chase", "JPM"]
+
+[[companies]]
+symbol = "XOM"
+name = "Exxon Mobil Corporation"
+query = "Exxon Mobil XOM stock news"
+tavily_query_id = "us_xom"
+family = "XOM — Exxon Mobil"
+aliases = ["Exxon", "Exxon Mobil", "XOM"]
+
+[[companies]]
+symbol = "BA"
+name = "The Boeing Company"
+query = "Boeing BA stock news"
+tavily_query_id = "us_ba"
+family = "BA — Boeing"
+aliases = ["Boeing", "BA"]

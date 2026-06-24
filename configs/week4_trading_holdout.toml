@@ -1,0 +1,125 @@
+# ============================================================================
+# Week 4+ news-sentiment trading run — HOLDOUT (untouched confirmation set)
+# ============================================================================
+#  ┌──────────────────────────────────────────────────────────────────────┐
+#  │  DO NOT RUN, SCREEN, OR INSPECT THIS SET until the MAIN run            │
+#  │  (configs/week4_trading_main.toml) is collected, screened, and its     │
+#  │  pre-registered primary result (consensus @ D+5) is locked in writing. │
+#  └──────────────────────────────────────────────────────────────────────┘
+# This is a later, temporally-separated block reserved as a one-shot out-of-time
+# test. Its only job is to confirm (same sign, same primary cell) whatever the
+# main set found. Looking early turns it into just more training data and
+# destroys its value. Collect the news near each date; analyse once only, at the
+# very end, after the main result is frozen.
+# ============================================================================
+
+[run]
+id = "week4_trading_holdout"
+title = "Week 4 News-Sentiment Trading — Holdout (do not touch early)"
+timezone = "America/New_York"
+dates = [
+  "2026-08-06",
+  "2026-08-13",
+]
+horizons = [1, 2, 3, 4, 5, 6, 7]
+notional_usd = 10000
+
+[preregistration]
+primary_scorer = "consensus/majority"
+primary_horizon = 5
+role = "holdout"
+confirmation_rule = "Replicates if the consensus D+5 mean return has the same sign as the main set; report regardless of outcome."
+parent_config = "configs/week4_trading_main.toml"
+frozen = true
+
+[scoring]
+models = [
+  "openai/gpt-4o-mini",
+  "google/gemini-2.5-flash-lite",
+  "meta-llama/llama-3.3-70b-instruct",
+]
+prompt_id = "target_company_news_label_only"
+prompts_path = "configs/default_prompts.toml"
+temperature = 0.0
+max_completion_tokens = 64
+concurrency = 3
+retries = 3
+
+[sources]
+tavily_package_manifest = "Data/derived/tavily_ticker_panel_v1/package_manifest.json"
+newsapi_max_pages = 10
+
+[outputs]
+news_output_root = "Data/news"
+derived_output_root = "Data/derived/trading"
+results_output_root = "results/trading"
+experiment_registry = "experiments/manifest.toml"
+
+[index_fallback]
+enabled = true
+symbol = "^GSPC"
+min_texts = 3
+
+[[companies]]
+symbol = "AAPL"
+name = "Apple Inc."
+query = "Apple AAPL stock news"
+tavily_query_id = "us_aapl"
+family = "AAPL — Apple"
+aliases = ["Apple", "AAPL"]
+
+[[companies]]
+symbol = "MSFT"
+name = "Microsoft Corporation"
+query = "Microsoft MSFT stock news"
+tavily_query_id = "us_msft"
+family = "MSFT — Microsoft"
+aliases = ["Microsoft", "MSFT"]
+
+[[companies]]
+symbol = "NVDA"
+name = "NVIDIA Corporation"
+query = "Nvidia NVDA stock news"
+tavily_query_id = "us_nvda"
+family = "NVDA — Nvidia"
+aliases = ["Nvidia", "NVIDIA", "NVDA"]
+
+[[companies]]
+symbol = "AMZN"
+name = "Amazon.com Inc."
+query = "Amazon AMZN stock news"
+tavily_query_id = "us_amzn"
+family = "AMZN — Amazon"
+aliases = ["Amazon", "AMZN"]
+
+[[companies]]
+symbol = "TSLA"
+name = "Tesla Inc."
+query = "Tesla TSLA stock news"
+tavily_query_id = "us_tsla"
+family = "TSLA — Tesla"
+aliases = ["Tesla", "TSLA"]
+
+[[companies]]
+symbol = "JPM"
+name = "JPMorgan Chase & Co."
+query = "JPMorgan JPM stock news"
+tavily_query_id = "us_jpm"
+family = "JPM — JPMorgan"
+aliases = ["JPMorgan", "JPMorgan Chase", "JPM"]
+
+[[companies]]
+symbol = "XOM"
+name = "Exxon Mobil Corporation"
+query = "Exxon Mobil XOM stock news"
+tavily_query_id = "us_xom"
+family = "XOM — Exxon Mobil"
+aliases = ["Exxon", "Exxon Mobil", "XOM"]
+
+[[companies]]
+symbol = "BA"
+name = "The Boeing Company"
+query = "Boeing BA stock news"
+tavily_query_id = "us_ba"
+family = "BA — Boeing"
+aliases = ["Boeing", "BA"]

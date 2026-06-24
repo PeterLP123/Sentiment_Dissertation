@@ -210,3 +210,37 @@ bootstrap_seed = 42
 bootstrap_resamples = 10000
 accepted_articles = 48
 evaluable_company_days = 22
+
+[[experiments]]
+id = "week4_backfill_20260624"
+title = "Week 4 Backfill — Recent Non-Adjacent Days (8-company panel)"
+status = "completed"
+dissertation_relevance = "Exploratory Week 3 L1 news-sentiment trading pipeline pilot; non-preregistered and non-causal."
+commit_sha = "0d49a90fc3739148b963db508f1b549ee0ed3d66"
+export_path = "results/trading/week4_backfill_20260624"
+
+[experiments.models]
+ids = [
+  "openai/gpt-4o-mini",
+  "google/gemini-2.5-flash-lite",
+  "meta-llama/llama-3.3-70b-instruct",
+  "baseline/vader",
+  "consensus/majority",
+]
+prompt_id = "target_company_news_label_only"
+
+[experiments.settings]
+symbols = ["AAPL", "MSFT", "NVDA", "AMZN", "TSLA", "JPM", "XOM", "BA"]
+news_dates = ["2026-05-26", "2026-05-28", "2026-06-01", "2026-06-03", "2026-06-05", "2026-06-11"]
+horizons = [1, 2, 3, 4, 5, 6, 7]
+temperature = 0.0
+notional_usd = 10000.0
+entry_rule = "next_observed_session_adjusted_open"
+price_source = "Yahoo Finance via yfinance"
+transaction_costs = 0
+
+[experiments.analysis]
+exploratory = true
+preregistered = false
+causal_claim = false
+interpretation_notes = "Event-level and equal-weight mean returns only; overlapping events are not a funded portfolio."

@@ -319,6 +319,27 @@ The fixed Week 3 config covers AAPL, AMZN, and TSLA on 8–10 June 2026. It reus
 | `--config` | `configs/week3_trading_pilot.toml` | Fixed TOML run definition. |
 | `--dry-run` | off | Print calls, dates, models, horizons, and entry rule without writes or API calls. |
 
+### Optional index fallback for thin-coverage company-days
+
+By default every company-day trades the company's own stock, and a company-day with no accepted
+texts produces no signal (it is dropped, never imputed). For companies with sparse daily news you
+can opt into the supervisor's "use a US index if you can't get enough texts" rule by adding an
+`[index_fallback]` table to the run config:
+
+```toml
+[index_fallback]
+enabled = true
+symbol = "^GSPC"   # any yfinance index ticker, e.g. ^DJI (Dow) or ^IXIC (Nasdaq)
+min_texts = 3      # company-days with fewer accepted texts trade the index instead
+```
+
+When enabled, a company-day with fewer than `min_texts` accepted texts keeps its (thin) sentiment
+signal but executes against `symbol` rather than the individual stock; the index price series is
+fetched alongside the companies. Each return row records `traded_symbol` and an `index_fallback`
+flag, and the run manifest reports the index settings plus an `index_fallback_events` count, so
+fallback trades stay fully auditable. The option is off unless a config sets `enabled = true`, and
+the already-completed Week 3 runs do not use it.
+
 ## `analyze-trading-run`
 
 ```bash

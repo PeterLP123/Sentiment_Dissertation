@@ -1,0 +1,116 @@
+# ============================================================================
+# Week 4 BACKFILL — runnable-today expansion on recent PAST dates
+# ============================================================================
+# The pre-registered forward set (week4_trading_main.toml) cannot run yet (its
+# dates are in the future). This backfill instead uses 6 non-adjacent trading
+# days that have already aged 7 sessions, to add real events now.
+#
+# Window is bounded by: (a) D+7 must already exist  -> dates <= 2026-06-12, and
+# (b) the free NewsAPI tier only reaches ~30 days back -> dates >= 2026-05-26.
+# Week 3's 8-10 June are excluded; no two dates are consecutive sessions.
+#
+# NOTE: ~2.5 weeks of dates are economically correlated, so this boosts sample
+# size (power) but not regime independence. The forward week4_trading_main +
+# untouched holdout remain the cleaner out-of-time test.
+# ============================================================================
+
+[run]
+id = "week4_backfill_20260624"
+title = "Week 4 Backfill — Recent Non-Adjacent Days (8-company panel)"
+timezone = "America/New_York"
+dates = ["2026-05-26", "2026-05-28", "2026-06-01", "2026-06-03", "2026-06-05", "2026-06-11"]
+horizons = [1, 2, 3, 4, 5, 6, 7]
+notional_usd = 10000
+
+[scoring]
+models = [
+  "openai/gpt-4o-mini",
+  "google/gemini-2.5-flash-lite",
+  "meta-llama/llama-3.3-70b-instruct",
+]
+prompt_id = "target_company_news_label_only"
+prompts_path = "configs/default_prompts.toml"
+temperature = 0.0
+max_completion_tokens = 64
+concurrency = 3
+retries = 3
+
+[sources]
+tavily_package_manifest = "Data/derived/tavily_ticker_panel_v1/package_manifest.json"
+# Free NewsAPI tier serves only the first 100-result page; page 2 returns 426.
+newsapi_max_pages = 1
+
+[outputs]
+news_output_root = "Data/news"
+derived_output_root = "Data/derived/trading"
+results_output_root = "results/trading"
+experiment_registry = "experiments/manifest.toml"
+
+[index_fallback]
+enabled = true
+symbol = "^GSPC"
+min_texts = 3
+
+[[companies]]
+symbol = "AAPL"
+name = "Apple Inc."
+query = "Apple AAPL stock news"
+tavily_query_id = "us_aapl"
+family = "AAPL — Apple"
+aliases = ["Apple", "AAPL"]
+
+[[companies]]
+symbol = "MSFT"
+name = "Microsoft Corporation"
+query = "Microsoft MSFT stock news"
+tavily_query_id = "us_msft"
+family = "MSFT — Microsoft"
+aliases = ["Microsoft", "MSFT"]
+
+[[companies]]
+symbol = "NVDA"
+name = "NVIDIA Corporation"
+query = "Nvidia NVDA stock news"
+tavily_query_id = "us_nvda"
+family = "NVDA — Nvidia"
+aliases = ["Nvidia", "NVIDIA", "NVDA"]
+
+[[companies]]
+symbol = "AMZN"
+name = "Amazon.com Inc."
+query = "Amazon AMZN stock news"
+tavily_query_id = "us_amzn"
+family = "AMZN — Amazon"
+aliases = ["Amazon", "AMZN"]
+
+[[companies]]
+symbol = "TSLA"
+name = "Tesla Inc."
+query = "Tesla TSLA stock news"
+tavily_query_id = "us_tsla"
+family = "TSLA — Tesla"
+aliases = ["Tesla", "TSLA"]
+
+[[companies]]
+symbol = "JPM"
+name = "JPMorgan Chase & Co."
+query = "JPMorgan JPM stock news"
+tavily_query_id = "us_jpm"
+family = "JPM — JPMorgan"
+aliases = ["JPMorgan", "JPMorgan Chase", "JPM"]
+
+[[companies]]
+symbol = "XOM"
+name = "Exxon Mobil Corporation"
+query = "Exxon Mobil XOM stock news"
+tavily_query_id = "us_xom"
+family = "XOM — Exxon Mobil"
+aliases = ["Exxon", "Exxon Mobil", "XOM"]
+
+[[companies]]
+symbol = "BA"
+name = "The Boeing Company"
+query = "Boeing BA stock news"
+tavily_query_id = "us_ba"
+family = "BA — Boeing"
+aliases = ["Boeing", "BA"]

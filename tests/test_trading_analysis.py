@@ -208,6 +208,8 @@ def _write_completed_fixture(tmp_path: Path) -> tuple[Path, Path]:
             "news_date": "2026-01-01",
             "scorer_id": scorer,
             "horizon": 1,
+            "entry_date": "2026-01-02",
+            "market_return": 0.01,
             "strategy_return_pct": 1.0,
             "signal_value": 1,
             "pnl_usd": 100.0,

@@ -11,6 +11,7 @@ from sentiment_benchmark.prompts import load_prompts
 from sentiment_benchmark.trading_strategy import (
     ArticleCandidate,
     DailySignal,
+    IndexFallback,
     PriceRow,
     SentimentScore,
     TradingCompany,
@@ -167,6 +168,32 @@ def test_return_rejects_incomplete_horizon() -> None:
     signal = DailySignal("AAPL", "2026-06-10", "model", 1, 1, 1.0, "positive", 1)
     with pytest.raises(TradingStrategyError, match="incomplete price horizon"):
         calculate_returns([signal], _prices(), horizons=(5,), notional_usd=10_000)
+
+
+def _index_prices() -> list[PriceRow]:
+    dates = ["2026-06-10", "2026-06-11", "2026-06-12", "2026-06-15", "2026-06-16"]
+    return [
+        PriceRow("^GSPC", day, 5000 + index, 5100, 4900, 5000 + index * 10, 0, False)
+        for index, day in enumerate(dates)
+    ]
+
+
+def test_index_fallback_routes_thin_company_day_to_index_only() -> None:
+    prices = _prices() + _index_prices()
+    fallback = IndexFallback(symbol="^GSPC", min_texts=3)
+    thin = DailySignal("AAPL", "2026-06-10", "model", 1, 1, 1.0, "positive", 1)
+    covered = DailySignal("AAPL", "2026-06-10", "model", 5, 5, 1.0, "positive", 1)
+    rows = calculate_returns([thin, covered], prices, horizons=(1,), notional_usd=10_000, index_fallback=fallback)
+
+    thin_row = next(row for row in rows if row.index_fallback)
+    covered_row = next(row for row in rows if not row.index_fallback)
+    # The thin company-day keeps its company attribution but trades the index series.
+    assert thin_row.symbol == "AAPL"
+    assert thin_row.traded_symbol == "^GSPC"
+    assert thin_row.entry_adjusted_open == 5001
+    # A well-covered company-day still trades its own stock.
+    assert covered_row.traded_symbol == "AAPL"
+    assert covered_row.entry_adjusted_open == 101
 
 
 class FakeNewsApi:
@@ -330,3 +357,25 @@ def test_broadened_reviewed_config_loads_fixed_panel() -> None:
 
     assert [company.symbol for company in config.companies] == ["AAPL", "MSFT", "NVDA", "AMZN", "TSLA", "JPM", "XOM", "BA"]
     assert config.screening_overrides_path == Path("configs/week3_broad_screening_overrides.toml")
+
+
+def test_index_fallback_disabled_by_default() -> None:
+    assert load_trading_config("configs/week3_trading_pilot.toml").index_fallback is None
+
+
+def test_index_fallback_config_parses(tmp_path: Path) -> None:
+    config_path = tmp_path / "trade.toml"
+    base = Path("configs/week3_trading_pilot.toml").read_text()
+    config_path.write_text(base + '\n[index_fallback]\nenabled = true\nsymbol = "^GSPC"\nmin_texts = 4\n')
+    config = load_trading_config(config_path)
+    assert config.index_fallback is not None
+    assert config.index_fallback.symbol == "^GSPC"
+    assert config.index_fallback.min_texts == 4
+
+
+def test_index_fallback_enabled_requires_symbol(tmp_path: Path) -> None:
+    config_path = tmp_path / "trade.toml"
+    base = Path("configs/week3_trading_pilot.toml").read_text()
+    config_path.write_text(base + "\n[index_fallback]\nenabled = true\nmin_texts = 2\n")
+    with pytest.raises(TradingStrategyError, match="index_fallback.symbol is required"):
+        load_trading_config(config_path)
