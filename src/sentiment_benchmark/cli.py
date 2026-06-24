@@ -5,7 +5,7 @@ import json
 import os
 from contextlib import AsyncExitStack
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 from rich.console import Console
@@ -841,6 +841,53 @@ def news_quality(
         )
 
 
+def _print_news_batch_dry_run(plans: list[Any], output_dir: Path, skip_existing: bool) -> None:
+    table = Table(title="Tavily News Batch Dry Run")
+    table.add_column("Query ID")
+    table.add_column("Family")
+    table.add_column("Date Window")
+    table.add_column("Max", justify="right")
+    table.add_column("Topic")
+    table.add_column("Depth (search/extract)")
+    for plan in plans:
+        table.add_row(
+            plan.query_entry.id,
+            plan.query_entry.family,
+            f"{plan.date_window.start_date}:{plan.date_window.end_date}",
+            str(plan.config.max_results),
+            plan.config.topic,
+            f"{plan.config.search_depth}/{plan.config.extract_depth}",
+        )
+    console.print(table)
+    console.print(f"Planned fetches: {len(plans)}")
+    if skip_existing:
+        fetched = load_fetched_corpora(output_dir)
+        already = sum(1 for plan in plans if find_fetched_corpus(plan, fetched) is not None)
+        console.print(f"Already fetched (will be skipped): {already}")
+
+
+async def _fetch_plan_with_retries(client: Any, plan: Any, window: str, progress: Progress) -> Any | None:
+    for attempt in range(1, FETCH_ATTEMPTS + 1):
+        try:
+            return await client.fetch(plan.config)
+        except Exception as exc:
+            if attempt == FETCH_ATTEMPTS:
+                progress.console.print(
+                    "[red]✗[/red] "
+                    f"{plan.query_entry.id} [dim]{window}[/dim] "
+                    f"-> failed after {FETCH_ATTEMPTS} attempts: {exc}"
+                )
+            else:
+                delay = FETCH_RETRY_BASE_DELAY_SECONDS * attempt
+                progress.console.print(
+                    "[yellow]![/yellow] "
+                    f"{plan.query_entry.id} [dim]{window}[/dim] "
+                    f"-> attempt {attempt} failed ({exc}); retrying in {delay:.0f}s"
+                )
+                await asyncio.sleep(delay)
+    return None
+
+
 @app.command("fetch-news-batch")
 def fetch_news_batch(
     date_window: Annotated[
@@ -931,28 +978,7 @@ def fetch_news_batch(
         raise typer.BadParameter(str(exc)) from exc
 
     if dry_run:
-        table = Table(title="Tavily News Batch Dry Run")
-        table.add_column("Query ID")
-        table.add_column("Family")
-        table.add_column("Date Window")
-        table.add_column("Max", justify="right")
-        table.add_column("Topic")
-        table.add_column("Depth (search/extract)")
-        for plan in plans:
-            table.add_row(
-                plan.query_entry.id,
-                plan.query_entry.family,
-                f"{plan.date_window.start_date}:{plan.date_window.end_date}",
-                str(plan.config.max_results),
-                plan.config.topic,
-                f"{plan.config.search_depth}/{plan.config.extract_depth}",
-            )
-        console.print(table)
-        console.print(f"Planned fetches: {len(plans)}")
-        if skip_existing:
-            fetched = load_fetched_corpora(output_dir)
-            already = sum(1 for plan in plans if find_fetched_corpus(plan, fetched) is not None)
-            console.print(f"Already fetched (will be skipped): {already}")
+        _print_news_batch_dry_run(plans, output_dir, skip_existing)
         return
 
     if package:
@@ -1003,28 +1029,9 @@ def fetch_news_batch(
                         )
                         progress.advance(fetch_task)
                         continue
-                    result = None
-                    for attempt in range(1, FETCH_ATTEMPTS + 1):
-                        try:
-                            result = await client.fetch(plan.config)
-                            break
-                        except Exception as exc:
-                            if attempt == FETCH_ATTEMPTS:
-                                failed_fetch_count += 1
-                                progress.console.print(
-                                    "[red]✗[/red] "
-                                    f"{plan.query_entry.id} [dim]{window}[/dim] "
-                                    f"-> failed after {FETCH_ATTEMPTS} attempts: {exc}"
-                                )
-                            else:
-                                delay = FETCH_RETRY_BASE_DELAY_SECONDS * attempt
-                                progress.console.print(
-                                    "[yellow]![/yellow] "
-                                    f"{plan.query_entry.id} [dim]{window}[/dim] "
-                                    f"-> attempt {attempt} failed ({exc}); retrying in {delay:.0f}s"
-                                )
-                                await asyncio.sleep(delay)
+                    result = await _fetch_plan_with_retries(client, plan, window, progress)
                     if result is None:
+                        failed_fetch_count += 1
                         progress.advance(fetch_task)
                         continue
                     paths = write_news_corpus(result, output_dir)

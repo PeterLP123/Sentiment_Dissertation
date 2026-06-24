@@ -166,6 +166,160 @@ def _optional_text(value: Any) -> str | None:
     return text or None
 
 
+def _summary_run_meta_lines(runs: pd.DataFrame) -> list[str]:
+    if runs.empty:
+        return []
+    run = runs.iloc[0].to_dict()
+    machine = _optional_text(run.get("machine_label")) or _optional_text(run.get("machine_id")) or "unknown"
+    return [
+        f"- Mode: `{run['mode']}`",
+        f"- Status: `{run['status']}`",
+        f"- Output mode: `{run['output_mode']}`",
+        f"- Created: `{run['created_at']}`",
+        f"- Machine: `{machine}`",
+        "",
+    ]
+
+
+def _summary_metrics_lines(metric_records: list[dict[str, Any]]) -> list[str]:
+    if not metric_records:
+        return []
+    lines = ["## Metrics", ""]
+    for metric in metric_records:
+        lines.extend(
+            [
+                f"### {metric['model_id']} ({metric['scope']})",
+                "",
+                f"- Rows: {metric['row_count']}",
+                f"- Accuracy: {metric['accuracy']:.4f}",
+                f"- Balanced accuracy: {metric.get('balanced_accuracy', 0.0):.4f}",
+                f"- MCC: {metric.get('mcc', 0.0):.4f}",
+                f"- Macro F1: {metric['macro_f1']:.4f}",
+                f"- Weighted F1: {metric['weighted_f1']:.4f}",
+                f"- Invalid outputs: {metric['invalid_output_count']}",
+                f"- API errors: {metric['api_error_count']}",
+            ]
+        )
+        calibration = metric.get("calibration")
+        if isinstance(calibration, dict):
+            lines.extend(
+                [
+                    f"- Brier score: {calibration['brier_score']:.4f} (soft-label, n={calibration['n_scored']})",
+                    f"- ECE: {calibration['ece']:.4f} ({calibration['n_bins']} bins)",
+                ]
+            )
+        lines.append("")
+    return lines
+
+
+def _summary_statistics_lines(statistics: dict[str, Any]) -> list[str]:
+    per_model_statistics = statistics["per_model"]
+    if not per_model_statistics:
+        return []
+    lines = ["## Statistics (primary scope)", ""]
+    for model_id, model_statistics in per_model_statistics.items():
+        accuracy_ci = model_statistics["accuracy_ci"]
+        macro_f1_ci = model_statistics["macro_f1_ci"]
+        confidence_pct = f"{accuracy_ci['confidence'] * 100:.0f}"
+        accuracy_interval = f"[{accuracy_ci['lower']:.4f}, {accuracy_ci['upper']:.4f}]"
+        macro_f1_interval = f"[{macro_f1_ci['lower']:.4f}, {macro_f1_ci['upper']:.4f}]"
+        lines.extend(
+            [
+                f"### {model_id}",
+                "",
+                f"- Rows: {model_statistics['n']}",
+                f"- Accuracy: {accuracy_ci['point']:.4f} ({confidence_pct}% CI {accuracy_interval})",
+                f"- Macro F1: {macro_f1_ci['point']:.4f} ({confidence_pct}% CI {macro_f1_interval})",
+                "",
+            ]
+        )
+    pairwise = statistics["pairwise_mcnemar"]
+    if pairwise:
+        lines.extend(["### Pairwise McNemar", ""])
+        for pair in pairwise:
+            lines.append(
+                f"- {pair['model_a']} vs {pair['model_b']}: p = {pair['p_value']:.4f} "
+                f"(n_discordant = {pair['n_discordant']}, {pair['method']})"
+            )
+        lines.append("")
+    return lines
+
+
+def _summary_operational_lines(statistics: dict[str, Any]) -> list[str]:
+    operational_models = statistics["operational"]["per_model"]
+    if not operational_models:
+        return []
+
+    def _cell(value: Any, decimals: int = 0) -> str:
+        return f"{float(value):.{decimals}f}" if isinstance(value, (int, float)) else "-"
+
+    def _cost_cell(value: Any) -> str:
+        return f"{float(value):.4f}" if isinstance(value, (int, float)) else "-"
+
+    lines = [
+        "## Operational metrics (OQ4)",
+        "",
+        "Computed over every attempted row in the run (both scopes). "
+        "Cost requires provider-reported generation metadata and is `-` for baselines and local models.",
+        "",
+        "| Model | Rows | Cost (USD) | USD/1k rows | Latency p50 (ms) | Latency p95 (ms) | Tokens/row | Invalid | API errors |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for model_id in sorted(operational_models):
+        entry = operational_models[model_id]
+        latency = entry["latency_ms"]
+        cost = entry["cost"]
+        lines.append(
+            f"| {model_id} | {entry['n_rows']} | {_cost_cell(cost['total_usd'])} "
+            f"| {_cost_cell(cost['usd_per_1k_rows'])} | {_cell(latency['p50'])} | {_cell(latency['p95'])} "
+            f"| {_cell(entry['tokens']['mean_total_per_row'], 1)} "
+            f"| {entry['invalid_count']} ({entry['invalid_rate'] * 100:.1f}%) "
+            f"| {entry['api_error_count']} ({entry['api_error_rate'] * 100:.1f}%) |"
+        )
+    lines.append("")
+    return lines
+
+
+def _summary_agreement_lines(statistics: dict[str, Any]) -> list[str]:
+    agreement = statistics.get("agreement")
+    if not agreement:
+        return []
+
+    def _fmt(value: float | None) -> str:
+        return f"{value:.4f}" if isinstance(value, (int, float)) else "n/a"
+
+    lines = [
+        "## Inter-model agreement (primary scope)",
+        "",
+        f"- Raters (models): {agreement['n_raters']}",
+        f"- Observed agreement: {_fmt(agreement['observed_agreement'])}",
+        f"- Fleiss' kappa: {_fmt(agreement['fleiss_kappa'])}",
+        f"- Krippendorff's alpha: {_fmt(agreement['krippendorff_alpha'])}",
+        "",
+    ]
+    for pair in agreement["pairwise_cohen_kappa"]:
+        lines.append(
+            f"- Cohen's kappa {pair['rater_a']} vs {pair['rater_b']}: {pair['kappa']:.4f} (n = {pair['n']})"
+        )
+    lines.append("")
+    return lines
+
+
+def _build_summary_markdown(
+    run_id: int,
+    runs: pd.DataFrame,
+    metric_records: list[dict[str, Any]],
+    statistics: dict[str, Any],
+) -> list[str]:
+    lines = [f"# Sentiment Benchmark Run {run_id}", ""]
+    lines.extend(_summary_run_meta_lines(runs))
+    lines.extend(_summary_metrics_lines(metric_records))
+    lines.extend(_summary_statistics_lines(statistics))
+    lines.extend(_summary_operational_lines(statistics))
+    lines.extend(_summary_agreement_lines(statistics))
+    return lines
+
+
 def export_run(db_path: str | Path, run_id: int, output_dir: str | Path | None = None) -> list[Path]:
     db = Path(db_path)
     destination = Path(output_dir) if output_dir else Path("results/exports") / f"run_{run_id}"
@@ -292,126 +446,10 @@ def export_run(db_path: str | Path, run_id: int, output_dir: str | Path | None =
     paths.append(statistics_path)
 
     summary_path = destination / "summary.md"
-    lines = [f"# Sentiment Benchmark Run {run_id}", ""]
-    if not runs.empty:
-        run = runs.iloc[0].to_dict()
-        lines.extend(
-            [
-                f"- Mode: `{run['mode']}`",
-                f"- Status: `{run['status']}`",
-                f"- Output mode: `{run['output_mode']}`",
-                f"- Created: `{run['created_at']}`",
-                f"- Machine: `{_optional_text(run.get('machine_label')) or _optional_text(run.get('machine_id')) or 'unknown'}`",
-                "",
-            ]
-        )
-    if metric_records:
-        lines.extend(["## Metrics", ""])
-        for metric in metric_records:
-            lines.extend(
-                [
-                    f"### {metric['model_id']} ({metric['scope']})",
-                    "",
-                    f"- Rows: {metric['row_count']}",
-                    f"- Accuracy: {metric['accuracy']:.4f}",
-                    f"- Balanced accuracy: {metric.get('balanced_accuracy', 0.0):.4f}",
-                    f"- MCC: {metric.get('mcc', 0.0):.4f}",
-                    f"- Macro F1: {metric['macro_f1']:.4f}",
-                    f"- Weighted F1: {metric['weighted_f1']:.4f}",
-                    f"- Invalid outputs: {metric['invalid_output_count']}",
-                    f"- API errors: {metric['api_error_count']}",
-                ]
-            )
-            calibration = metric.get("calibration")
-            if isinstance(calibration, dict):
-                lines.extend(
-                    [
-                        f"- Brier score: {calibration['brier_score']:.4f} (soft-label, n={calibration['n_scored']})",
-                        f"- ECE: {calibration['ece']:.4f} ({calibration['n_bins']} bins)",
-                    ]
-                )
-            lines.append("")
-    per_model_statistics = statistics["per_model"]
-    if per_model_statistics:
-        lines.extend(["## Statistics (primary scope)", ""])
-        for model_id, model_statistics in per_model_statistics.items():
-            accuracy_ci = model_statistics["accuracy_ci"]
-            macro_f1_ci = model_statistics["macro_f1_ci"]
-            confidence_pct = f"{accuracy_ci['confidence'] * 100:.0f}"
-            accuracy_interval = f"[{accuracy_ci['lower']:.4f}, {accuracy_ci['upper']:.4f}]"
-            macro_f1_interval = f"[{macro_f1_ci['lower']:.4f}, {macro_f1_ci['upper']:.4f}]"
-            lines.extend(
-                [
-                    f"### {model_id}",
-                    "",
-                    f"- Rows: {model_statistics['n']}",
-                    f"- Accuracy: {accuracy_ci['point']:.4f} ({confidence_pct}% CI {accuracy_interval})",
-                    f"- Macro F1: {macro_f1_ci['point']:.4f} ({confidence_pct}% CI {macro_f1_interval})",
-                    "",
-                ]
-            )
-        pairwise = statistics["pairwise_mcnemar"]
-        if pairwise:
-            lines.extend(["### Pairwise McNemar", ""])
-            for pair in pairwise:
-                lines.append(
-                    f"- {pair['model_a']} vs {pair['model_b']}: p = {pair['p_value']:.4f} "
-                    f"(n_discordant = {pair['n_discordant']}, {pair['method']})"
-                )
-            lines.append("")
-    operational_models = statistics["operational"]["per_model"]
-    if operational_models:
-        def _cell(value: Any, decimals: int = 0) -> str:
-            return f"{float(value):.{decimals}f}" if isinstance(value, (int, float)) else "-"
-
-        def _cost_cell(value: Any) -> str:
-            return f"{float(value):.4f}" if isinstance(value, (int, float)) else "-"
-
-        lines.extend(
-            [
-                "## Operational metrics (OQ4)",
-                "",
-                "Computed over every attempted row in the run (both scopes). "
-                "Cost requires provider-reported generation metadata and is `-` for baselines and local models.",
-                "",
-                "| Model | Rows | Cost (USD) | USD/1k rows | Latency p50 (ms) | Latency p95 (ms) | Tokens/row | Invalid | API errors |",
-                "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
-            ]
-        )
-        for model_id in sorted(operational_models):
-            entry = operational_models[model_id]
-            latency = entry["latency_ms"]
-            cost = entry["cost"]
-            lines.append(
-                f"| {model_id} | {entry['n_rows']} | {_cost_cell(cost['total_usd'])} "
-                f"| {_cost_cell(cost['usd_per_1k_rows'])} | {_cell(latency['p50'])} | {_cell(latency['p95'])} "
-                f"| {_cell(entry['tokens']['mean_total_per_row'], 1)} "
-                f"| {entry['invalid_count']} ({entry['invalid_rate'] * 100:.1f}%) "
-                f"| {entry['api_error_count']} ({entry['api_error_rate'] * 100:.1f}%) |"
-            )
-        lines.append("")
-    agreement = statistics.get("agreement")
-    if agreement:
-        def _fmt(value: float | None) -> str:
-            return f"{value:.4f}" if isinstance(value, (int, float)) else "n/a"
-
-        lines.extend(
-            [
-                "## Inter-model agreement (primary scope)",
-                "",
-                f"- Raters (models): {agreement['n_raters']}",
-                f"- Observed agreement: {_fmt(agreement['observed_agreement'])}",
-                f"- Fleiss' kappa: {_fmt(agreement['fleiss_kappa'])}",
-                f"- Krippendorff's alpha: {_fmt(agreement['krippendorff_alpha'])}",
-                "",
-            ]
-        )
-        for pair in agreement["pairwise_cohen_kappa"]:
-            lines.append(
-                f"- Cohen's kappa {pair['rater_a']} vs {pair['rater_b']}: {pair['kappa']:.4f} (n = {pair['n']})"
-            )
-        lines.append("")
-    summary_path.write_text("\n".join(lines), encoding="utf-8")
+    summary_path.write_text(
+        "\n".join(_build_summary_markdown(run_id, runs, metric_records, statistics)),
+        encoding="utf-8",
+    )
     paths.append(summary_path)
 
     # Dissertation-ready booktabs tables (pure text; no optional dependencies).

@@ -27,6 +27,21 @@ class RunSummary:
     status: str = "completed"
 
 
+@dataclass(frozen=True)
+class _RunContext:
+    """Run-stable state shared by the per-model and per-row workers."""
+
+    run_id: int
+    config: RunConfig
+    rows: list[DatasetRow]
+    selected_rows: list[DatasetRow]
+    selected_by_number: dict[int, DatasetRow]
+    semaphore: asyncio.Semaphore
+    cancel_event: asyncio.Event | None
+    callback: ProgressCallback | None
+    event_callback: EventCallback | None
+
+
 class BenchmarkRunner:
     def __init__(self, client: Any, store: BenchmarkStore) -> None:
         self.client = client
@@ -101,6 +116,171 @@ class BenchmarkRunner:
         self.store.save_prompt(config.prompt)
         return config
 
+    async def _classify_row(self, ctx: _RunContext, model_id: str, example: BlindExample) -> None:
+        if self.store.successful_response_exists(ctx.run_id, model_id, example.row_number, ctx.config.prompt.prompt_hash):
+            await self._notify(ctx.callback, f"Skipped existing response: run={ctx.run_id} model={model_id} row={example.row_number}")
+            await self._emit(
+                ctx.event_callback,
+                {
+                    "type": "row_completed",
+                    "model_id": model_id,
+                    "row_number": example.row_number,
+                    "status": "skipped",
+                    "latency_ms": None,
+                },
+            )
+            return
+        max_completion_tokens = resolve_max_completion_tokens(
+            model_id,
+            ctx.config.max_completion_tokens,
+            ctx.config.model_max_completion_tokens,
+            ctx.config.reasoning_max_completion_tokens,
+        )
+        if ctx.config.prompt.output_mode == "soft_label":
+            max_completion_tokens = max(max_completion_tokens, SOFT_LABEL_MIN_COMPLETION_TOKENS)
+        async with ctx.semaphore:
+            classify_kwargs = {
+                "model_id": model_id,
+                "prompt": ctx.config.prompt,
+                "example": example,
+                "temperature": ctx.config.temperature,
+                "max_completion_tokens": max_completion_tokens,
+                "retries": ctx.config.retries,
+            }
+            if ctx.config.provider == "ollama":
+                classify_kwargs["ollama_think"] = ctx.config.ollama_think
+            record = await self.client.classify(**classify_kwargs)
+            self.store.save_response(ctx.run_id, record)
+            if record.status == "success" and record.generation_id:
+                try:
+                    metadata = await self.client.get_generation_metadata(record.generation_id, retries=ctx.config.retries)
+                except Exception as exc:
+                    metadata = None
+                    await self._notify(
+                        ctx.callback,
+                        "Metadata lookup failed: "
+                        f"run={ctx.run_id} model={model_id} row={example.row_number} "
+                        f"generation={record.generation_id} error={exc}",
+                    )
+                if metadata:
+                    self.store.save_generation_metadata(
+                        run_id=ctx.run_id,
+                        row_number=record.row_number,
+                        model_id=model_id,
+                        generation_id=record.generation_id,
+                        metadata=metadata,
+                    )
+            await self._notify(
+                ctx.callback,
+                f"Saved response: run={ctx.run_id} model={model_id} row={example.row_number} "
+                f"status={record.status} label={record.normalized_label or '-'}",
+            )
+            await self._emit(
+                ctx.event_callback,
+                {
+                    "type": "row_completed",
+                    "model_id": model_id,
+                    "row_number": example.row_number,
+                    "status": record.status,
+                    "latency_ms": record.latency_ms,
+                },
+            )
+
+    async def _classify_row_guarded(self, ctx: _RunContext, model_id: str, example: BlindExample) -> None:
+        try:
+            await self._classify_row(ctx, model_id, example)
+        except Exception as exc:
+            # Record the failure instead of letting it propagate: one bad row
+            # must not abort the batch loop or leave the run unfinalized.
+            record = LLMResponseRecord(
+                row_number=example.row_number,
+                model_id=model_id,
+                prompt_hash=ctx.config.prompt.prompt_hash,
+                raw_content=None,
+                normalized_label=None,
+                parse_status="error",
+                status="client_error",
+                error=f"{type(exc).__name__}: {exc}",
+            )
+            try:
+                self.store.save_response(ctx.run_id, record)
+            except Exception as save_exc:
+                await self._notify(
+                    ctx.callback,
+                    f"Could not record row failure: run={ctx.run_id} model={model_id} "
+                    f"row={example.row_number} error={save_exc}",
+                )
+            await self._notify(
+                ctx.callback,
+                f"Row failed: run={ctx.run_id} model={model_id} row={example.row_number} error={exc}",
+            )
+            await self._emit(
+                ctx.event_callback,
+                {
+                    "type": "row_completed",
+                    "model_id": model_id,
+                    "row_number": example.row_number,
+                    "status": "client_error",
+                    "latency_ms": None,
+                },
+            )
+
+    async def _run_model(self, ctx: _RunContext, model_id: str) -> str:
+        self.store.upsert_run_model(ctx.run_id, model_id, "running")
+        await self._notify(ctx.callback, f"Starting model {model_id} on {len(ctx.selected_rows)} rows")
+        await self._emit(
+            ctx.event_callback,
+            {"type": "model_started", "model_id": model_id, "total_rows": len(ctx.selected_rows)},
+        )
+        model_cancelled = False
+        model_failed = False
+        concurrency = max(1, ctx.config.concurrency)
+        for start in range(0, len(ctx.selected_rows), concurrency):
+            if ctx.cancel_event is not None and ctx.cancel_event.is_set():
+                model_cancelled = True
+                break
+            batch = ctx.selected_rows[start : start + concurrency]
+            results = await asyncio.gather(
+                *(self._classify_row_guarded(ctx, model_id, row.blind()) for row in batch),
+                return_exceptions=True,
+            )
+            for result in results:
+                if isinstance(result, BaseException):
+                    raise result
+            if ctx.cancel_event is not None and ctx.cancel_event.is_set():
+                model_cancelled = True
+                break
+        primary = None
+        try:
+            responses = self.store.fetch_responses(ctx.run_id, model_id)
+            all_rows_for_metrics = [row for row in ctx.rows if row.row_number in ctx.selected_by_number]
+            primary = evaluate_responses(all_rows_for_metrics, responses, model_id=model_id, scope="primary")
+            audit = evaluate_responses(all_rows_for_metrics, responses, model_id=model_id, scope="all")
+            self.store.save_metrics(ctx.run_id, primary)
+            self.store.save_metrics(ctx.run_id, audit)
+        except Exception as exc:
+            model_failed = True
+            await self._notify(ctx.callback, f"Metrics computation failed: run={ctx.run_id} model={model_id} error={exc}")
+        if model_cancelled:
+            model_status = "cancelled"
+        elif model_failed:
+            model_status = "failed"
+        else:
+            model_status = "completed"
+        self.store.upsert_run_model(ctx.run_id, model_id, model_status)
+        if primary is not None:
+            await self._notify(ctx.callback, f"{model_status.title()} model {model_id}: primary accuracy={primary.accuracy:.4f}")
+        await self._emit(
+            ctx.event_callback,
+            {
+                "type": "model_completed",
+                "model_id": model_id,
+                "accuracy": primary.accuracy if primary is not None else None,
+                "status": model_status,
+            },
+        )
+        return model_status
+
     async def run(
         self,
         config: RunConfig,
@@ -147,178 +327,28 @@ class BenchmarkRunner:
             },
         )
 
-        async def classify_one(model_id: str, example: BlindExample) -> None:
-            try:
-                await _classify_one_inner(model_id, example)
-            except Exception as exc:
-                # Record the failure instead of letting it propagate: one bad row
-                # must not abort the batch loop or leave the run unfinalized.
-                record = LLMResponseRecord(
-                    row_number=example.row_number,
-                    model_id=model_id,
-                    prompt_hash=config.prompt.prompt_hash,
-                    raw_content=None,
-                    normalized_label=None,
-                    parse_status="error",
-                    status="client_error",
-                    error=f"{type(exc).__name__}: {exc}",
-                )
-                try:
-                    self.store.save_response(run_id, record)
-                except Exception as save_exc:
-                    await self._notify(
-                        callback,
-                        f"Could not record row failure: run={run_id} model={model_id} "
-                        f"row={example.row_number} error={save_exc}",
-                    )
-                await self._notify(
-                    callback,
-                    f"Row failed: run={run_id} model={model_id} row={example.row_number} error={exc}",
-                )
-                await self._emit(
-                    event_callback,
-                    {
-                        "type": "row_completed",
-                        "model_id": model_id,
-                        "row_number": example.row_number,
-                        "status": "client_error",
-                        "latency_ms": None,
-                    },
-                )
-
-        async def _classify_one_inner(model_id: str, example: BlindExample) -> None:
-            if self.store.successful_response_exists(run_id, model_id, example.row_number, config.prompt.prompt_hash):
-                await self._notify(callback, f"Skipped existing response: run={run_id} model={model_id} row={example.row_number}")
-                await self._emit(
-                    event_callback,
-                    {
-                        "type": "row_completed",
-                        "model_id": model_id,
-                        "row_number": example.row_number,
-                        "status": "skipped",
-                        "latency_ms": None,
-                    },
-                )
-                return
-            max_completion_tokens = resolve_max_completion_tokens(
-                model_id,
-                config.max_completion_tokens,
-                config.model_max_completion_tokens,
-                config.reasoning_max_completion_tokens,
-            )
-            if config.prompt.output_mode == "soft_label":
-                max_completion_tokens = max(max_completion_tokens, SOFT_LABEL_MIN_COMPLETION_TOKENS)
-            async with semaphore:
-                classify_kwargs = {
-                    "model_id": model_id,
-                    "prompt": config.prompt,
-                    "example": example,
-                    "temperature": config.temperature,
-                    "max_completion_tokens": max_completion_tokens,
-                    "retries": config.retries,
-                }
-                if config.provider == "ollama":
-                    classify_kwargs["ollama_think"] = config.ollama_think
-                record = await self.client.classify(**classify_kwargs)
-                self.store.save_response(run_id, record)
-                if record.status == "success" and record.generation_id:
-                    try:
-                        metadata = await self.client.get_generation_metadata(record.generation_id, retries=config.retries)
-                    except Exception as exc:
-                        metadata = None
-                        await self._notify(
-                            callback,
-                            "Metadata lookup failed: "
-                            f"run={run_id} model={model_id} row={example.row_number} "
-                            f"generation={record.generation_id} error={exc}",
-                        )
-                    if metadata:
-                        self.store.save_generation_metadata(
-                            run_id=run_id,
-                            row_number=record.row_number,
-                            model_id=model_id,
-                            generation_id=record.generation_id,
-                            metadata=metadata,
-                        )
-                await self._notify(
-                    callback,
-                    f"Saved response: run={run_id} model={model_id} row={example.row_number} "
-                    f"status={record.status} label={record.normalized_label or '-'}",
-                )
-                await self._emit(
-                    event_callback,
-                    {
-                        "type": "row_completed",
-                        "model_id": model_id,
-                        "row_number": example.row_number,
-                        "status": record.status,
-                        "latency_ms": record.latency_ms,
-                    },
-                )
-
+        ctx = _RunContext(
+            run_id=run_id,
+            config=config,
+            rows=rows,
+            selected_rows=selected_rows,
+            selected_by_number=selected_by_number,
+            semaphore=semaphore,
+            cancel_event=cancel_event,
+            callback=callback,
+            event_callback=event_callback,
+        )
         final_status = "completed"
         try:
             for model_id in config.models:
                 if cancel_event is not None and cancel_event.is_set():
                     final_status = "cancelled"
                     break
-                self.store.upsert_run_model(run_id, model_id, "running")
-                await self._notify(callback, f"Starting model {model_id} on {len(selected_rows)} rows")
-                await self._emit(
-                    event_callback,
-                    {"type": "model_started", "model_id": model_id, "total_rows": len(selected_rows)},
-                )
-                model_cancelled = False
-                model_failed = False
-                concurrency = max(1, config.concurrency)
-                for start in range(0, len(selected_rows), concurrency):
-                    if cancel_event is not None and cancel_event.is_set():
-                        model_cancelled = True
-                        final_status = "cancelled"
-                        break
-                    batch = selected_rows[start : start + concurrency]
-                    results = await asyncio.gather(
-                        *(classify_one(model_id, row.blind()) for row in batch),
-                        return_exceptions=True,
-                    )
-                    for result in results:
-                        if isinstance(result, BaseException):
-                            raise result
-                    if cancel_event is not None and cancel_event.is_set():
-                        model_cancelled = True
-                        final_status = "cancelled"
-                        break
-                primary = None
-                try:
-                    responses = self.store.fetch_responses(run_id, model_id)
-                    all_rows_for_metrics = [row for row in rows if row.row_number in selected_by_number]
-                    primary = evaluate_responses(all_rows_for_metrics, responses, model_id=model_id, scope="primary")
-                    audit = evaluate_responses(all_rows_for_metrics, responses, model_id=model_id, scope="all")
-                    self.store.save_metrics(run_id, primary)
-                    self.store.save_metrics(run_id, audit)
-                except Exception as exc:
-                    model_failed = True
+                model_status = await self._run_model(ctx, model_id)
+                if model_status == "failed":
                     final_status = "failed"
-                    await self._notify(callback, f"Metrics computation failed: run={run_id} model={model_id} error={exc}")
-                if model_cancelled:
-                    model_status = "cancelled"
-                elif model_failed:
-                    model_status = "failed"
-                else:
-                    model_status = "completed"
-                self.store.upsert_run_model(run_id, model_id, model_status)
-                if primary is not None:
-                    await self._notify(callback, f"{model_status.title()} model {model_id}: primary accuracy={primary.accuracy:.4f}")
-                await self._emit(
-                    event_callback,
-                    {
-                        "type": "model_completed",
-                        "model_id": model_id,
-                        "accuracy": primary.accuracy if primary is not None else None,
-                        "status": model_status,
-                    },
-                )
-                if model_cancelled:
+                elif model_status == "cancelled":
+                    final_status = "cancelled"
                     break
         except asyncio.CancelledError:
             final_status = "cancelled"

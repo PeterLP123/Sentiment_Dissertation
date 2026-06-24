@@ -299,7 +299,12 @@ def load_trading_config(path: str | Path) -> TradingStrategyConfig:
             raw = tomllib.load(file)
     except (OSError, tomllib.TOMLDecodeError) as exc:
         raise TradingStrategyError(f"cannot load trading config {config_path}: {exc}") from exc
+    config = _build_trading_config(raw, config_path)
+    _validate_trading_config(config)
+    return config
 
+
+def _build_trading_config(raw: dict[str, Any], config_path: Path) -> TradingStrategyConfig:
     run = raw.get("run") or {}
     scoring = raw.get("scoring") or {}
     sources = raw.get("sources") or {}
@@ -395,12 +400,28 @@ def load_trading_config(path: str | Path) -> TradingStrategyConfig:
         )
     except (KeyError, TypeError, ValueError) as exc:
         raise TradingStrategyError(f"invalid trading config {config_path}: {exc}") from exc
+    return config
 
+
+def _validate_lseg_ollama_scoring(config: TradingStrategyConfig) -> None:
+    if len(config.models) != 2:
+        raise TradingStrategyError("LSEG Ollama scoring requires exactly one primary and one secondary model")
+    if config.temperature != 0:
+        raise TradingStrategyError("LSEG Ollama scoring requires temperature = 0")
+    if config.concurrency != 1:
+        raise TradingStrategyError("LSEG Ollama scoring requires concurrency = 1")
+    if config.ollama_think is not False:
+        raise TradingStrategyError("LSEG Ollama scoring requires ollama_think = false")
+    if not config.structured_output:
+        raise TradingStrategyError("LSEG Ollama scoring requires structured_output = true")
+
+
+def _validate_trading_config(config: TradingStrategyConfig) -> None:
     if not config.run_id or not re.fullmatch(r"[A-Za-z0-9_.-]+", config.run_id):
         raise TradingStrategyError("run.id must contain only letters, numbers, dots, underscores, or hyphens")
-    if not companies:
+    if not config.companies:
         raise TradingStrategyError("at least one [[companies]] entry is required")
-    if len({company.symbol for company in companies}) != len(companies):
+    if len({company.symbol for company in config.companies}) != len(config.companies):
         raise TradingStrategyError("company symbols must be unique")
     if config.provider not in {"openrouter", "ollama"}:
         raise TradingStrategyError("scoring.provider must be openrouter or ollama")
@@ -415,27 +436,18 @@ def load_trading_config(path: str | Path) -> TradingStrategyConfig:
     if config.provider == "ollama" and any(":" not in model for model in config.models):
         raise TradingStrategyError("Ollama research models must use exact tags, for example model:tag")
     if config.provider == "ollama" and config.lseg_corpus_manifest is not None:
-        if len(config.models) != 2:
-            raise TradingStrategyError("LSEG Ollama scoring requires exactly one primary and one secondary model")
-        if config.temperature != 0:
-            raise TradingStrategyError("LSEG Ollama scoring requires temperature = 0")
-        if config.concurrency != 1:
-            raise TradingStrategyError("LSEG Ollama scoring requires concurrency = 1")
-        if config.ollama_think is not False:
-            raise TradingStrategyError("LSEG Ollama scoring requires ollama_think = false")
-        if not config.structured_output:
-            raise TradingStrategyError("LSEG Ollama scoring requires structured_output = true")
+        _validate_lseg_ollama_scoring(config)
     unsupported_baselines = sorted(set(config.baselines) - {"vader", "finbert"})
     if unsupported_baselines:
         raise TradingStrategyError(f"unsupported trading baseline(s): {', '.join(unsupported_baselines)}")
     if config.tavily_package_manifest is None and config.lseg_corpus_manifest is None and not config.newsapi_enabled:
         raise TradingStrategyError("at least one of Tavily, LSEG, or NewsAPI must be enabled")
-    for value in dates:
+    for value in config.dates:
         try:
             date.fromisoformat(value)
         except ValueError as exc:
             raise TradingStrategyError(f"invalid run date: {value}") from exc
-    if sorted(set(horizons)) != list(horizons) or horizons[0] < 1:
+    if sorted(set(config.horizons)) != list(config.horizons) or config.horizons[0] < 1:
         raise TradingStrategyError("run.horizons must be unique, ascending positive integers")
     if config.notional_usd <= 0 or config.concurrency < 1 or config.max_completion_tokens < 1:
         raise TradingStrategyError("notional, concurrency, and completion-token settings must be positive")
@@ -454,7 +466,6 @@ def load_trading_config(path: str | Path) -> TradingStrategyConfig:
             raise TradingStrategyError("index_fallback.symbol is required when index_fallback.enabled is true")
         if config.index_fallback.min_texts < 1:
             raise TradingStrategyError("index_fallback.min_texts must be 1 or greater")
-    return config
 
 
 def canonicalize_url(url: str) -> str:

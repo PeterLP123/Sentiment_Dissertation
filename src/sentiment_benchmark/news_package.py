@@ -222,6 +222,62 @@ def _validate_query_id(value: str) -> str:
     return query_id
 
 
+def _parse_query_matrix_entry(
+    raw_entry: Any,
+    index: int,
+    seen_ids: set[str],
+    seen_queries: set[str],
+) -> QueryMatrixEntry:
+    if not isinstance(raw_entry, dict):
+        raise NewsPackageError(f"query matrix entry {index} must be a table")
+    query_id = _validate_query_id(_clean_string(raw_entry.get("id")))
+    if query_id in seen_ids:
+        raise NewsPackageError(f"duplicate query matrix id: {query_id}")
+    seen_ids.add(query_id)
+
+    query = _clean_string(raw_entry.get("query"))
+    if not query:
+        raise NewsPackageError(f"query matrix entry {query_id} is missing query")
+    query_key = _query_key(query)
+    if query_key in seen_queries:
+        raise NewsPackageError(f"duplicate query matrix query: {query}")
+    seen_queries.add(query_key)
+
+    family = _clean_string(raw_entry.get("family"))
+    if not family:
+        raise NewsPackageError(f"query matrix entry {query_id} is missing family")
+    topic = _clean_string(raw_entry.get("topic") or "news").lower()
+    if topic not in NEWS_TOPICS:
+        raise NewsPackageError(f"query matrix entry {query_id} has invalid topic: {topic}")
+    time_range = _optional_string(raw_entry.get("time_range")).lower() or None
+    if time_range is not None and time_range not in NEWS_TIME_RANGES:
+        raise NewsPackageError(f"query matrix entry {query_id} has invalid time_range: {time_range}")
+    search_depth = _clean_string(raw_entry.get("search_depth") or "basic").lower()
+    if search_depth not in NEWS_SEARCH_DEPTHS:
+        raise NewsPackageError(f"query matrix entry {query_id} has invalid search_depth: {search_depth}")
+    extract_depth = _clean_string(raw_entry.get("extract_depth") or DEFAULT_NEWS_EXTRACT_DEPTH).lower()
+    if extract_depth not in NEWS_EXTRACT_DEPTHS:
+        raise NewsPackageError(f"query matrix entry {query_id} has invalid extract_depth: {extract_depth}")
+    max_results = _optional_int(raw_entry.get("max_results"))
+    if max_results is None or max_results < 1 or max_results > MAX_TAVILY_RESULTS:
+        raise NewsPackageError(f"query matrix entry {query_id} max_results must be between 1 and {MAX_TAVILY_RESULTS}")
+
+    return QueryMatrixEntry(
+        id=query_id,
+        family=family,
+        query=query,
+        topic=topic,
+        time_range=time_range,
+        max_results=max_results,
+        search_depth=search_depth,
+        extract_depth=extract_depth,
+        coverage_target=_optional_string(raw_entry.get("coverage_target")),
+        include_domains=_optional_string_list(raw_entry.get("include_domains", []), name=f"{query_id}.include_domains"),
+        exclude_domains=_optional_string_list(raw_entry.get("exclude_domains", []), name=f"{query_id}.exclude_domains"),
+        notes=_optional_string(raw_entry.get("notes")),
+    )
+
+
 def load_query_matrix(path: str | Path | None = DEFAULT_QUERY_MATRIX_PATH) -> QueryMatrix | None:
     if path is None:
         return None
@@ -242,63 +298,16 @@ def load_query_matrix(path: str | Path | None = DEFAULT_QUERY_MATRIX_PATH) -> Qu
     if not isinstance(raw_queries, list) or not raw_queries:
         raise NewsPackageError("query matrix must contain at least one [[queries]] entry")
 
-    ids: set[str] = set()
-    queries: set[str] = set()
+    seen_ids: set[str] = set()
+    seen_queries: set[str] = set()
     entries: list[QueryMatrixEntry] = []
     entries_by_id: dict[str, QueryMatrixEntry] = {}
     entries_by_query: dict[str, QueryMatrixEntry] = {}
     for index, raw_entry in enumerate(raw_queries, start=1):
-        if not isinstance(raw_entry, dict):
-            raise NewsPackageError(f"query matrix entry {index} must be a table")
-        query_id = _validate_query_id(_clean_string(raw_entry.get("id")))
-        if query_id in ids:
-            raise NewsPackageError(f"duplicate query matrix id: {query_id}")
-        ids.add(query_id)
-
-        query = _clean_string(raw_entry.get("query"))
-        if not query:
-            raise NewsPackageError(f"query matrix entry {query_id} is missing query")
-        query_key = _query_key(query)
-        if query_key in queries:
-            raise NewsPackageError(f"duplicate query matrix query: {query}")
-        queries.add(query_key)
-
-        family = _clean_string(raw_entry.get("family"))
-        if not family:
-            raise NewsPackageError(f"query matrix entry {query_id} is missing family")
-        topic = _clean_string(raw_entry.get("topic") or "news").lower()
-        if topic not in NEWS_TOPICS:
-            raise NewsPackageError(f"query matrix entry {query_id} has invalid topic: {topic}")
-        time_range = _optional_string(raw_entry.get("time_range")).lower() or None
-        if time_range is not None and time_range not in NEWS_TIME_RANGES:
-            raise NewsPackageError(f"query matrix entry {query_id} has invalid time_range: {time_range}")
-        search_depth = _clean_string(raw_entry.get("search_depth") or "basic").lower()
-        if search_depth not in NEWS_SEARCH_DEPTHS:
-            raise NewsPackageError(f"query matrix entry {query_id} has invalid search_depth: {search_depth}")
-        extract_depth = _clean_string(raw_entry.get("extract_depth") or DEFAULT_NEWS_EXTRACT_DEPTH).lower()
-        if extract_depth not in NEWS_EXTRACT_DEPTHS:
-            raise NewsPackageError(f"query matrix entry {query_id} has invalid extract_depth: {extract_depth}")
-        max_results = _optional_int(raw_entry.get("max_results"))
-        if max_results is None or max_results < 1 or max_results > MAX_TAVILY_RESULTS:
-            raise NewsPackageError(f"query matrix entry {query_id} max_results must be between 1 and {MAX_TAVILY_RESULTS}")
-
-        entry = QueryMatrixEntry(
-            id=query_id,
-            family=family,
-            query=query,
-            topic=topic,
-            time_range=time_range,
-            max_results=max_results,
-            search_depth=search_depth,
-            extract_depth=extract_depth,
-            coverage_target=_optional_string(raw_entry.get("coverage_target")),
-            include_domains=_optional_string_list(raw_entry.get("include_domains", []), name=f"{query_id}.include_domains"),
-            exclude_domains=_optional_string_list(raw_entry.get("exclude_domains", []), name=f"{query_id}.exclude_domains"),
-            notes=_optional_string(raw_entry.get("notes")),
-        )
+        entry = _parse_query_matrix_entry(raw_entry, index, seen_ids, seen_queries)
         entries.append(entry)
-        entries_by_id[query_id] = entry
-        entries_by_query[query_key] = entry
+        entries_by_id[entry.id] = entry
+        entries_by_query[_query_key(entry.query)] = entry
     return QueryMatrix(
         path=matrix_path,
         version=version,
