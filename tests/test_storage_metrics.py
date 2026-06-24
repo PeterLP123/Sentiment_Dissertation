@@ -20,9 +20,9 @@ def test_storage_insert_and_resume_check(tmp_path) -> None:
         parse_status="valid",
         status="success",
     )
-    assert not store.response_exists(1, "test/model", 2, "abc123")
+    assert not store.successful_response_exists(1, "test/model", 2, "abc123")
     store.save_response(1, record)
-    assert store.response_exists(1, "test/model", 2, "abc123")
+    assert store.successful_response_exists(1, "test/model", 2, "abc123")
     store.save_response(1, record)
     responses = store.fetch_responses(1, "test/model")
     assert len(responses) == 1

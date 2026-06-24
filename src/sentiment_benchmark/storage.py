@@ -7,7 +7,6 @@ import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import asdict
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +20,7 @@ from .self_consistency import (
     compute_row_consistency,
     compute_self_consistency,
 )
+from .utils import utc_now
 
 # libSQL/Turso embedded-replica connections cannot be accessed concurrently:
 # two open connections to the same local replica file deadlock on the replica
@@ -35,10 +35,6 @@ _LIBSQL_LOCK = threading.RLock()
 # Cap the number of bound parameters in a single multi-row INSERT so it stays
 # well under SQLite's variable limit (SQLITE_MAX_VARIABLE_NUMBER) across versions.
 _MAX_BULK_PARAMS = 900
-
-
-def utc_now() -> str:
-    return datetime.now(UTC).isoformat()
 
 
 def _chunked(seq: list[Any], size: int) -> Iterator[list[Any]]:
@@ -507,17 +503,6 @@ class BenchmarkStore:
                 ),
             )
 
-    def response_exists(self, run_id: int, model_id: str, row_number: int, prompt_hash: str) -> bool:
-        with self.connect() as connection:
-            row = connection.execute(
-                """
-                SELECT 1 FROM responses
-                WHERE run_id = ? AND model_id = ? AND row_number = ? AND prompt_hash = ?
-                """,
-                (run_id, model_id, row_number, prompt_hash),
-            ).fetchone()
-        return row is not None
-
     def successful_response_exists(self, run_id: int, model_id: str, row_number: int, prompt_hash: str) -> bool:
         """True only if a *successful* response is already stored.
 
@@ -894,13 +879,6 @@ class BenchmarkStore:
                 (sc_run_id,),
             ).fetchall()
         return list(rows)
-
-    def fetch_sc_result(self, sc_run_id: int) -> sqlite3.Row | None:
-        """Stored aggregate result for a self-consistency run."""
-        with self.connect() as connection:
-            return connection.execute(
-                "SELECT * FROM sc_results WHERE sc_run_id = ?", (sc_run_id,)
-            ).fetchone()
 
     def sc_run_by_id(self, sc_run_id: int) -> sqlite3.Row | None:
         """Metadata for a self-consistency run."""

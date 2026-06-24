@@ -13,6 +13,10 @@ from typing import Any, Literal
 from urllib.parse import ParseResult, urlparse, urlunparse
 
 from .env import load_env_file
+from .utils import normalize_domains as _normalize_domains
+from .utils import preview as _preview
+from .utils import slugify as _slugify
+from .utils import to_jsonable as _to_jsonable
 
 NEWS_SCHEMA_VERSION = 1
 DEFAULT_NEWS_OUTPUT_DIR = Path("Data/news")
@@ -171,24 +175,6 @@ def _get_field(value: Any, field_name: str, default: Any = None) -> Any:
     return getattr(value, field_name, default)
 
 
-def _to_jsonable(value: Any) -> Any:
-    if value is None or isinstance(value, str | int | float | bool):
-        return value
-    if isinstance(value, dict):
-        return {str(key): _to_jsonable(item) for key, item in value.items()}
-    if isinstance(value, list | tuple):
-        return [_to_jsonable(item) for item in value]
-    model_dump = getattr(value, "model_dump", None)
-    if callable(model_dump):
-        return model_dump(mode="json")
-    as_dict = getattr(value, "dict", None)
-    if callable(as_dict):
-        return _to_jsonable(as_dict())
-    if hasattr(value, "__dict__"):
-        return _to_jsonable(vars(value))
-    return repr(value)
-
-
 def _as_optional_float(value: Any) -> float | None:
     if isinstance(value, bool):
         return None
@@ -200,15 +186,6 @@ def _as_optional_float(value: Any) -> float | None:
         except ValueError:
             return None
     return None
-
-
-def _normalize_domains(values: tuple[str, ...] | list[str] | None) -> tuple[str, ...]:
-    cleaned = []
-    for value in values or []:
-        item = value.strip().lower()
-        if item:
-            cleaned.append(item)
-    return tuple(dict.fromkeys(cleaned))
 
 
 def _validate_date(value: str | None, *, name: str) -> str | None:
@@ -388,20 +365,6 @@ def normalize_url(url: str) -> str:
 
 def article_record_id(normalized_url: str) -> str:
     return hashlib.sha256(normalized_url.encode("utf-8")).hexdigest()[:16]
-
-
-def _slugify(value: str, limit: int = 48) -> str:
-    slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
-    return slug[:limit].strip("-") or "news"
-
-
-def _preview(value: str | None, limit: int = 500) -> str:
-    if not value:
-        return ""
-    collapsed = re.sub(r"\s+", " ", value).strip()
-    if len(collapsed) <= limit:
-        return collapsed
-    return collapsed[: limit - 3] + "..."
 
 
 def _result_list(payload: Any, field_name: str) -> list[Any]:

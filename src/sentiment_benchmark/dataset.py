@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .constants import ALLOWED_LABELS, DEFAULT_PILOT_PER_CLASS, DEFAULT_SEED
-from .models import BlindExample, DatasetRow, RunMode
+from .models import DatasetRow, RunMode
 
 
 @dataclass(frozen=True)
@@ -123,8 +123,4 @@ def select_rows(
         selected.extend(rng.sample(candidates, sample_per_class))
 
     return sorted(selected, key=lambda row: row.row_number)
-
-
-def blind_examples(rows: list[DatasetRow]) -> list[BlindExample]:
-    return [row.blind() for row in rows]
 

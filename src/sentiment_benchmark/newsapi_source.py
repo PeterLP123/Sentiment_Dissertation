@@ -4,7 +4,6 @@ import asyncio
 import csv
 import json
 import os
-import re
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -22,6 +21,9 @@ from .news_source import (
     article_record_id,
     normalize_url,
 )
+from .utils import normalize_domains as _normalize_domains
+from .utils import preview as _preview
+from .utils import slugify as _slugify
 
 NEWSAPI_SCHEMA_VERSION = 1
 NEWSAPI_BASE_URL = "https://newsapi.org/v2"
@@ -72,8 +74,6 @@ def _validate_iso8601(value: str | None, *, name: str) -> str | None:
     return cleaned
 
 
-def _normalize_domains(values: list[str] | tuple[str, ...] | None) -> tuple[str, ...]:
-    return tuple(dict.fromkeys(value.strip().lower() for value in values or () if value.strip()))
 
 
 def make_newsapi_fetch_config(
@@ -257,16 +257,6 @@ class NewsApiClient:
             total_results=total_results,
             pages_fetched=pages_fetched,
         )
-
-
-def _slugify(value: str, limit: int = 48) -> str:
-    slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
-    return slug[:limit].strip("-") or "news"
-
-
-def _preview(value: str | None, limit: int = 500) -> str:
-    collapsed = re.sub(r"\s+", " ", value or "").strip()
-    return collapsed if len(collapsed) <= limit else collapsed[: limit - 3] + "..."
 
 
 def write_newsapi_corpus(

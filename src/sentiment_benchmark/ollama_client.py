@@ -14,6 +14,7 @@ from .env import load_env_file
 from .models import BlindExample, LLMResponseRecord, ModelConfig, PromptConfig
 from .parser import parse_model_response
 from .prompts import render_messages
+from .utils import to_jsonable as _to_jsonable
 
 _TRANSIENT_STATUS_CODES = {429, 500, 502, 503, 504}
 _LABEL_SCHEMA = {"type": "string", "enum": ["positive", "negative", "neutral"]}
@@ -38,24 +39,6 @@ def _get_field(value: Any, field_name: str, default: Any = None) -> Any:
     if isinstance(value, dict):
         return value.get(field_name, default)
     return getattr(value, field_name, default)
-
-
-def _to_jsonable(value: Any) -> Any:
-    if value is None or isinstance(value, str | int | float | bool):
-        return value
-    if isinstance(value, dict):
-        return {str(key): _to_jsonable(item) for key, item in value.items()}
-    if isinstance(value, list | tuple):
-        return [_to_jsonable(item) for item in value]
-    model_dump = getattr(value, "model_dump", None)
-    if callable(model_dump):
-        return model_dump(mode="json")
-    as_dict = getattr(value, "dict", None)
-    if callable(as_dict):
-        return _to_jsonable(as_dict())
-    if hasattr(value, "__dict__"):
-        return _to_jsonable(vars(value))
-    return repr(value)
 
 
 def _as_int(value: Any) -> int | None:

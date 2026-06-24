@@ -22,6 +22,7 @@ from .artifact_io import (
     sha256_text,
 )
 from .runtime_metadata import collect_run_environment
+from .utils import utc_now
 
 LSEG_RAW_SCHEMA_VERSION = 1
 DEFAULT_LSEG_RAW_ROOT = Path("Data/news")
@@ -135,10 +136,6 @@ class LsegFetchResult:
     story_count: int
     failed_story_count: int
     resumed: bool = False
-
-
-def utc_now() -> str:
-    return datetime.now(UTC).isoformat()
 
 
 def _parse_utc(value: str, *, name: str) -> str:

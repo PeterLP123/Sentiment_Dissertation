@@ -10,7 +10,7 @@ import os
 import re
 import subprocess
 import time
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from dataclasses import replace
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -1107,10 +1107,8 @@ class SentimentBenchmarkApp(App):
             ("#compare-result", "Statistical comparison"),
             ("#ollama-loaded", "Loaded in Ollama (VRAM)"),
         ):
-            try:
+            with suppress(Exception):
                 self.query_one(panel_id, Static).border_title = title
-            except Exception:
-                pass
 
         self._reconcile_orphaned_runs()
         self._apply_loaded_run_settings()
@@ -1227,17 +1225,13 @@ class SentimentBenchmarkApp(App):
 
     def _notify_error(self, message: str, *, title: str = "Error") -> None:
         self.notifications.append(("error", message))
-        try:
+        with suppress(Exception):
             self.notify(message, title=title, severity="error")
-        except Exception:
-            pass
 
     def _notify_info(self, message: str, *, title: str = "") -> None:
         self.notifications.append(("information", message))
-        try:
+        with suppress(Exception):
             self.notify(message, title=title, severity="information")
-        except Exception:
-            pass
 
     def _active_endpoint(self) -> str:
         return endpoint_for_provider(self.provider, base_url=self.base_url, ollama_host=self.ollama_host)
@@ -1249,10 +1243,8 @@ class SentimentBenchmarkApp(App):
         return "Ollama" if self.provider == "ollama" else "OpenRouter"
 
     def action_show_tab(self, tab_id: str) -> None:
-        try:
+        with suppress(Exception):
             self.query_one(TabbedContent).active = tab_id
-        except Exception:
-            pass
 
     def action_show_help(self) -> None:
         self.push_screen(HelpScreen())
@@ -1405,10 +1397,8 @@ class SentimentBenchmarkApp(App):
             used = self._format_gpu_value(mem_used)
             total = self._format_gpu_value(mem_total)
             memory_percent = "-"
-            try:
+            with suppress(ValueError, ZeroDivisionError):
                 memory_percent = f"{(float(mem_used) / float(mem_total)) * 100:.0f}%"
-            except (ValueError, ZeroDivisionError):
-                pass
             lines.append(
                 "GPU "
                 f"{index}: {name} | util {self._format_gpu_value(util, '%')} | "
@@ -1438,10 +1428,8 @@ class SentimentBenchmarkApp(App):
         ]
         content = "\n".join(lines)
         for widget_id in ("#dashboard-resource-monitor", "#run-resource-monitor"):
-            try:
+            with suppress(Exception):
                 self.query_one(widget_id, Static).update(content)
-            except Exception:
-                pass
 
     async def _refresh_gpu_lines(self) -> None:
         """Refresh cached GPU stats in a worker thread, then re-render the monitor."""
@@ -1640,10 +1628,8 @@ class SentimentBenchmarkApp(App):
             }
         provider = data.get("provider")
         if isinstance(provider, str):
-            try:
+            with suppress(ValueError):
                 self.provider = normalize_provider(provider)
-            except ValueError:
-                pass
         self._normalize_selected_ollama_cloud_models()
         prompt_id = data.get("prompt_id")
         if isinstance(prompt_id, str) and prompt_id in self.prompts:
@@ -1692,10 +1678,8 @@ class SentimentBenchmarkApp(App):
         """Pull current run-setting widget values into the persisted cache (skips invalid/missing)."""
         self._run_settings["run_mode"] = self.run_mode
         for key, widget_id, caster, _low, _high in _RUN_SETTING_FIELDS:
-            try:
+            with suppress(Exception):
                 self._run_settings[key] = caster(self.query_one(f"#{widget_id}", Input).value)
-            except Exception:
-                pass
 
     def _apply_loaded_run_settings(self) -> None:
         """Write loaded run settings onto the Run-tab widgets (called once after mount).
@@ -1709,14 +1693,10 @@ class SentimentBenchmarkApp(App):
         except Exception:
             pass
         for key, widget_id, _caster, _low, _high in _RUN_SETTING_FIELDS:
-            try:
+            with suppress(Exception):
                 self.query_one(f"#{widget_id}", Input).value = str(self._run_settings[key])
-            except Exception:
-                pass
-        try:
+        with suppress(Exception):
             self.query_one("#sample-per-class", Input).disabled = self.run_mode != "pilot"
-        except Exception:
-            pass
 
     def _save_session(self) -> None:
         self._refresh_run_settings_cache()
@@ -1888,14 +1868,10 @@ class SentimentBenchmarkApp(App):
         ]
         stepper.update("  ".join(parts))
         busy = self._run_in_progress or self._baseline_in_progress or self._confirmation_pending
-        try:
+        with suppress(Exception):
             self.query_one("#start-run", Button).disabled = busy or not ready
-        except Exception:
-            pass
-        try:
+        with suppress(Exception):
             self.query_one("#run-baselines", Button).disabled = busy
-        except Exception:
-            pass
         has_pending = any(not self._queue_item_done(item) for item in self._experiment_queue)
         # Editing the queue is safe except while it is draining; starting it needs a fully idle app.
         queue_editable = not self._queue_running
@@ -1908,10 +1884,8 @@ class SentimentBenchmarkApp(App):
             ("#queue-move-down", has_items and queue_editable),
             ("#queue-clone", has_items and queue_editable),
         ):
-            try:
+            with suppress(Exception):
                 self.query_one(button_id, Button).disabled = not enabled
-            except Exception:
-                pass
 
     def _reset_progress(self, models: list[str], rows_per_model: int) -> None:
         self._progress = {
@@ -1957,10 +1931,8 @@ class SentimentBenchmarkApp(App):
             _status_text(state["status"]),
         ]
         for column_index, value in enumerate(cells):
-            try:
+            with suppress(Exception):
                 table.update_cell_at(Coordinate(row_index, column_index), value)
-            except Exception:
-                pass
 
     def _handle_run_event(self, event: dict) -> None:
         self._handle_run_event_inner(event)
@@ -2007,10 +1979,8 @@ class SentimentBenchmarkApp(App):
             # During a queue drain the loop owns these flags across experiments;
             # only a standalone run resets them here.
             if not self._queue_running:
-                try:
+                with suppress(Exception):
                     self.query_one("#cancel-run", Button).disabled = True
-                except Exception:
-                    pass
                 self._run_in_progress = False
                 self._refresh_stepper()
             self._set_monitor(f"Run finished with status: {status}")
@@ -2094,10 +2064,8 @@ class SentimentBenchmarkApp(App):
             self._refresh_news_summary()
             self._save_session()
         if event.input.id == "news-max-results":
-            try:
+            with suppress(ValueError):
                 self.news_max_results = int(event.input.value.strip() or DEFAULT_NEWS_MAX_RESULTS)
-            except ValueError:
-                pass
             self._save_session()
         if event.input.id in _VALIDATED_INPUTS:
             self._update_validation_hint(event.input.id, event.validation_result)
@@ -2109,20 +2077,16 @@ class SentimentBenchmarkApp(App):
             advanced_ids = {"seed", "concurrency", "temperature", "max-tokens"}
             result = event.validation_result
             if event.input.id in advanced_ids and result is not None and not result.is_valid:
-                try:
+                with suppress(Exception):
                     self.query_one("#advanced-settings", Collapsible).collapsed = False
-                except Exception:
-                    pass
 
     def on_radio_set_changed(self, event: RadioSet.Changed) -> None:
         if event.radio_set.id != "run-mode":
             return
         pressed_id = event.pressed.id or "mode-pilot"
         self.run_mode = pressed_id.removeprefix("mode-")
-        try:
+        with suppress(Exception):
             self.query_one("#sample-per-class", Input).disabled = self.run_mode != "pilot"
-        except Exception:
-            pass
         self._refresh_run_estimate()
         self._save_session()
 
@@ -2182,10 +2146,8 @@ class SentimentBenchmarkApp(App):
     def _set_news_busy(self, busy: bool) -> None:
         self._news_in_progress = busy
         for button_id in ("#news-check", "#news-fetch"):
-            try:
+            with suppress(Exception):
                 self.query_one(button_id, Button).disabled = busy
-            except Exception:
-                pass
 
     def _news_config_from_ui(self, *, check_only: bool = False):
         try:
@@ -2294,10 +2256,8 @@ class SentimentBenchmarkApp(App):
             except Exception:
                 pass
         if spinner_widget is not None:
-            try:
+            with suppress(Exception):
                 self.query_one(f"#{spinner_widget}").loading = busy
-            except Exception:
-                pass
 
     @contextmanager
     def _busy(self, button_id: str | None = None, *, label: str | None = None, spinner_widget: str | None = None):
@@ -2311,10 +2271,8 @@ class SentimentBenchmarkApp(App):
     def _expand_sections(self, *section_ids: str) -> None:
         """Open the given Collapsible sections, ignoring any not currently mounted."""
         for section_id in section_ids:
-            try:
+            with suppress(Exception):
                 self.query_one(f"#{section_id}", Collapsible).collapsed = False
-            except Exception:
-                pass
 
     @staticmethod
     def _cycle_sort(current: tuple[int, bool] | None, index: int, ascending_first: bool) -> tuple[int, bool]:
@@ -2381,10 +2339,8 @@ class SentimentBenchmarkApp(App):
             key = event.row_key.value
             if key is None:
                 return
-            try:
+            with suppress(ValueError):
                 self._load_metrics_for(int(key))
-            except ValueError:
-                pass
         elif table_id == "metrics-table":
             key = event.row_key.value
             if key is None:
@@ -2468,10 +2424,8 @@ class SentimentBenchmarkApp(App):
                 if model.name:
                     self._model_names.setdefault(model.model_id, model.name)
             # Filter the table to the cloud entries so they are visible immediately.
-            try:
+            with suppress(Exception):
                 self.query_one("#model-search", Input).value = "cloud"
-            except Exception:
-                pass
             self._render_model_table()
             self._render_selected_table()
         self._set_monitor(
@@ -2481,10 +2435,8 @@ class SentimentBenchmarkApp(App):
         )
 
     def _set_ollama_loaded(self, text: str) -> None:
-        try:
+        with suppress(Exception):
             self.query_one("#ollama-loaded", Static).update(text)
-        except Exception:
-            pass
 
     def _reset_ollama_loaded_hint(self) -> None:
         self._set_ollama_loaded(
@@ -2590,10 +2542,8 @@ class SentimentBenchmarkApp(App):
     def _begin_run(self, config: RunConfig) -> None:
         self._cancel_event = ThreadEvent()
         self._run_in_progress = True
-        try:
+        with suppress(Exception):
             self.query_one("#cancel-run", Button).disabled = False
-        except Exception:
-            pass
         self._refresh_stepper()
         self._set_monitor("Starting benchmark run...")
         self._run_task = asyncio.create_task(self._run_benchmark(config))
@@ -2650,10 +2600,8 @@ class SentimentBenchmarkApp(App):
             self._run_in_progress = False
             self._cancel_event = None
             self._run_task = None
-            try:
+            with suppress(Exception):
                 self.query_one("#cancel-run", Button).disabled = True
-            except Exception:
-                pass
             self._refresh_stepper()
             self._refresh_status_bar()
             self._refresh_results_help()
@@ -2902,10 +2850,8 @@ class SentimentBenchmarkApp(App):
         queue[index], queue[target] = queue[target], queue[index]
         self._render_queue_table()
         self._save_queue()
-        try:
+        with suppress(Exception):
             self.query_one("#queue-table", DataTable).move_cursor(row=target)
-        except Exception:
-            pass
         self._set_monitor(f"Moved experiment to position {target + 1}.")
 
     def _clone_queue_item(self) -> None:
@@ -3042,10 +2988,8 @@ class SentimentBenchmarkApp(App):
         self._queue_cancel = False
         self._queue_running = True
         self._run_in_progress = True
-        try:
+        with suppress(Exception):
             self.query_one("#cancel-run", Button).disabled = False
-        except Exception:
-            pass
         self._refresh_stepper()
         self._run_task = asyncio.create_task(self._run_queue())
 
@@ -3117,10 +3061,8 @@ class SentimentBenchmarkApp(App):
             self._run_in_progress = False
             self._run_task = None
             self._queue_cancel = False
-            try:
+            with suppress(Exception):
                 self.query_one("#cancel-run", Button).disabled = True
-            except Exception:
-                pass
             self._render_queue_table()  # restores the queue summary and refreshes status bar + stepper
         outcome = "cancelled" if cancelled else "finished"
         self._set_monitor(f"Experiment queue {outcome}: {completed}/{total} experiment(s) completed.")
@@ -3128,10 +3070,8 @@ class SentimentBenchmarkApp(App):
             f"Queue {outcome}: {completed}/{total} experiment(s) completed.",
             title="Queue",
         )
-        try:
+        with suppress(Exception):
             self.bell()  # audible cue that an unattended queue has finished
-        except Exception:
-            pass
 
     def _selected_baselines(self) -> list[str]:
         names: list[str] = []
@@ -3214,10 +3154,8 @@ class SentimentBenchmarkApp(App):
             index, ascending = self._runs_sort
             meta = _RUNS_SORT_COLUMNS.get(index)
             if meta is not None:
-                try:
+                with suppress(Exception):
                     runs.sort(key=meta[2], reverse=not ascending)
-                except Exception:
-                    pass
         self._update_sort_help("runs-help", _RUNS_HELP_BASE, self._runs_sort, _RUNS_SORT_COLUMNS)
         for run in runs:
             models = json.loads(run["models_json"]) if run["models_json"] else []
@@ -3296,10 +3234,8 @@ class SentimentBenchmarkApp(App):
             index, ascending = self._leaderboard_sort
             meta = _LEADERBOARD_SORT_COLUMNS.get(index)
             if meta is not None:
-                try:
+                with suppress(Exception):
                     rows.sort(key=lambda data, field=meta[2]: data[field], reverse=not ascending)
-                except Exception:
-                    pass
         self._update_sort_help("leaderboard-help", _LEADERBOARD_HELP_BASE, self._leaderboard_sort, _LEADERBOARD_SORT_COLUMNS)
         for data in rows:
             self._leaderboard_best_run[data["model_id"]] = data["run_id"]
@@ -3350,10 +3286,8 @@ class SentimentBenchmarkApp(App):
                 select.value = current
 
     def _set_compare_status(self, text: str) -> None:
-        try:
+        with suppress(Exception):
             self.query_one("#compare-result", Static).update(text)
-        except Exception:
-            pass
 
     @staticmethod
     def _parse_compare_target(value: str) -> ModelTarget:
