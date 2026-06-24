@@ -11,6 +11,10 @@ This reference explains where benchmark evidence is stored, what gets exported, 
 | `results/exports/run_<id>/` | `export` or TUI Export Run | Reproducible run evidence for analysis and dissertation writing. | Ignored. |
 | `results/ollama_cloud_cache.json` | TUI **Cloud Catalog** button | Last successful fetch of Ollama's live cloud model list, used as an offline fallback. | Ignored. |
 | `Data/news/tavily_news_*/` | `fetch-news` or TUI News tab | Unlabeled Tavily article corpora. | Ignored except `.gitkeep`. |
+| `Data/news/newsapi_news_*/` | `fetch-newsapi` or the trading runner | NewsAPI titles, descriptions, timestamps, and provenance. | Ignored except `.gitkeep`. |
+| `Data/derived/trading/<run-id>/` | `run-trading-strategy` | Provider-neutral articles, screening decisions, and data manifest. | Ignored. |
+| `results/trading/<run-id>/` | `run-trading-strategy` | Sentiment outputs, daily signals, adjusted prices, horizon returns, figures, summary, and run manifest. | Ignored. |
+| `results/trading/<analysis-id>/` | `analyze-trading-run` | Robustness CSVs, plots, technical summary, source map, and hashed analysis manifest. | Ignored. |
 | `experiments/manifest.toml` | Manual curation | Formal dissertation experiment registry. | Source-controlled. |
 
 ## Optional Turso/libSQL Cloud Database

@@ -1,0 +1,97 @@
+[run]
+id = "week3_trading_broad_20260624"
+title = "Week 3 News-Sentiment Trading Test — Broadened Panel"
+timezone = "America/New_York"
+dates = ["2026-06-08", "2026-06-09", "2026-06-10"]
+horizons = [1, 2, 3, 4, 5, 6, 7]
+notional_usd = 10000
+
+[scoring]
+models = [
+  "openai/gpt-4o-mini",
+  "google/gemini-2.5-flash-lite",
+  "meta-llama/llama-3.3-70b-instruct",
+]
+prompt_id = "target_company_news_label_only"
+prompts_path = "configs/default_prompts.toml"
+temperature = 0.0
+max_completion_tokens = 64
+concurrency = 3
+retries = 3
+resume_scores_path = "results/trading/week3_trading_pilot_20260624_reviewed/sentiment_scores.jsonl"
+
+[sources]
+tavily_package_manifest = "Data/derived/tavily_ticker_panel_v1/package_manifest.json"
+newsapi_sources_file = "Data/derived/trading/week3_trading_pilot_20260624/newsapi_sources.json"
+screening_overrides_path = "configs/week3_screening_overrides.toml"
+newsapi_max_pages = 10
+
+[outputs]
+news_output_root = "Data/news"
+derived_output_root = "Data/derived/trading"
+results_output_root = "results/trading"
+experiment_registry = "experiments/manifest.toml"
+
+[[companies]]
+symbol = "AAPL"
+name = "Apple Inc."
+query = "Apple AAPL stock news"
+tavily_query_id = "us_aapl"
+family = "AAPL — Apple"
+aliases = ["Apple", "AAPL"]
+
+[[companies]]
+symbol = "MSFT"
+name = "Microsoft Corporation"
+query = "Microsoft MSFT stock news"
+tavily_query_id = "us_msft"
+family = "MSFT — Microsoft"
+aliases = ["Microsoft", "MSFT"]
+
+[[companies]]
+symbol = "NVDA"
+name = "NVIDIA Corporation"
+query = "Nvidia NVDA stock news"
+tavily_query_id = "us_nvda"
+family = "NVDA — Nvidia"
+aliases = ["Nvidia", "NVIDIA", "NVDA"]
+
+[[companies]]
+symbol = "AMZN"
+name = "Amazon.com Inc."
+query = "Amazon AMZN stock news"
+tavily_query_id = "us_amzn"
+family = "AMZN — Amazon"
+aliases = ["Amazon", "AMZN"]
+
+[[companies]]
+symbol = "TSLA"
+name = "Tesla Inc."
+query = "Tesla TSLA stock news"
+tavily_query_id = "us_tsla"
+family = "TSLA — Tesla"
+aliases = ["Tesla", "TSLA"]
+
+[[companies]]
+symbol = "JPM"
+name = "JPMorgan Chase & Co."
+query = "JPMorgan JPM stock news"
+tavily_query_id = "us_jpm"
+family = "JPM — JPMorgan"
+aliases = ["JPMorgan", "JPMorgan Chase", "JPM"]
+
+[[companies]]
+symbol = "XOM"
+name = "Exxon Mobil Corporation"
+query = "Exxon Mobil XOM stock news"
+tavily_query_id = "us_xom"
+family = "XOM — Exxon Mobil"
+aliases = ["Exxon", "Exxon Mobil", "XOM"]
+
+[[companies]]
+symbol = "BA"
+name = "The Boeing Company"
+query = "Boeing BA stock news"
+tavily_query_id = "us_ba"
+family = "BA — Boeing"
+aliases = ["Boeing", "BA"]

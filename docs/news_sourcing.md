@@ -1,6 +1,8 @@
-# How To Source News Articles With Tavily
+# How To Source News Articles With Tavily And NewsAPI
 
 Use Tavily when you need current article source material from the internet. The feature searches for articles, optionally extracts full text, deduplicates URLs, and writes a timestamped derived corpus under `Data/news`.
+
+Use NewsAPI when you need a simpler dated discovery feed. It supplies titles, descriptions, URLs, publishers, and UTC publication timestamps but not complete article bodies. The trading pilot therefore scores the common `title + snippet/description` representation for both providers and uses Tavily full text only for screening provenance.
 
 ![CLI Tavily fetch screenshot](assets/cli-news-fetch.svg)
 
@@ -15,9 +17,46 @@ Add:
 ```bash
 TAVILY_API_KEY=your-tavily-key
 TAVILY_PROJECT=sentiment-dissertation
+NEWSAPI_API_KEY=your-newsapi-key
 ```
 
 `TAVILY_PROJECT` is optional and is passed through for project tracking when configured. The API key is never printed by the CLI or TUI.
+
+## NewsAPI Connectivity And Fetching
+
+Check the key with one result:
+
+```bash
+sentiment-bench newsapi-check --query "Apple AAPL stock"
+```
+
+Fetch a dated corpus through the Everything endpoint:
+
+```bash
+sentiment-bench fetch-newsapi --query "Apple AAPL stock news" \
+  --from 2026-06-08T04:00:00Z --to 2026-06-11T04:00:00Z \
+  --max-pages 10 --output-dir Data/news
+```
+
+Each request uses the `X-Api-Key` header, requests English results ordered by publication time, and pages in batches of 100 until `totalResults` is exhausted or `--max-pages` is reached. Output directories use the `newsapi_news_*` prefix and contain `articles.jsonl`, `articles.csv`, and `manifest.json`. API keys are never placed in URLs, manifests, or logs.
+
+## Week 3 Trading Pilot
+
+Preview the fixed companies, dates, models, and price horizons without external calls:
+
+```bash
+sentiment-bench run-trading-strategy --dry-run
+```
+
+Run it after configuring Tavily, NewsAPI, and OpenRouter credentials:
+
+```bash
+sentiment-bench run-trading-strategy --config configs/week3_trading_pilot.toml
+```
+
+The runner reuses `Data/derived/tavily_ticker_panel_v1`, collects one NewsAPI date-range corpus per company, merges by canonical URL and normalized headline, and records title-based screening decisions. A company-day with no accepted merged text triggers one targeted Tavily daily fetch. NewsAPI source pointers and successful LLM results are resumable; a completed run is returned unchanged and cannot be overwritten with a changed config.
+
+Generated merged data lives under `Data/derived/trading/<run-id>/`. Meeting evidence lives under `results/trading/<run-id>/`, including the report, raw scorer outputs, signals, adjusted prices, 1–7-session returns, charts, and hashed run manifest. A successful run also appends one completed exploratory entry to `experiments/manifest.toml`; reruns do not duplicate the entry.
 
 ## Check Connectivity
 
@@ -276,6 +315,7 @@ python -m json.tool Data/news/tavily_news_*/manifest.json | head -80
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
 | `TAVILY_API_KEY is required` | `.env` missing or key not exported. | Add `TAVILY_API_KEY` to `.env`. |
+| `NEWSAPI_API_KEY is required` | NewsAPI key is missing. | Add the key locally to `.env`; do not paste it into logs or commit it. |
 | `max_results must be between 1 and 20` | Out-of-range input. | Choose a value from `1` to `20`. |
 | `topic must be one of...` | Unsupported topic. | Use `news`, `finance`, or `general`. |
 | Extracted text is empty | Source blocks extraction or Tavily returned no content. | Review `extraction_status`, `extract_error`, and `raw_extract_result`. |

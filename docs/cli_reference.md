@@ -40,6 +40,8 @@ sentiment-bench --help
 | --- | --- |
 | `SENTIMENT_BENCH_PROVIDER` | Default provider for CLI/TUI: `openrouter` or `ollama`. |
 | `OPENROUTER_API_KEY` | OpenRouter authentication token. |
+| `TAVILY_API_KEY` | Tavily search and extraction token. |
+| `NEWSAPI_API_KEY` | NewsAPI Everything endpoint token. |
 | `OPENROUTER_BASE_URL` | OpenRouter-compatible endpoint. |
 | `OLLAMA_HOST` | Ollama endpoint, such as `http://localhost:11434`. |
 | `SENTIMENT_BENCH_DB_BACKEND` | `sqlite` by default; set `libsql` for Turso/native libSQL. |
@@ -56,10 +58,14 @@ sentiment-bench --help
 | --- | --- |
 | `validate-data` | Validate dataset columns, labels, duplicates, and primary scoring scope. |
 | `news-check` | Run a small Tavily search to verify API connectivity. |
+| `newsapi-check` | Run a one-result NewsAPI Everything query. |
 | `fetch-news` | Fetch Tavily-sourced articles into a timestamped derived corpus. |
+| `fetch-newsapi` | Page through NewsAPI titles and descriptions into a timestamped corpus. |
 | `fetch-news-batch` | Fetch a TOML query matrix across repeated date windows and optionally package the results. |
 | `package-news` | Package existing Tavily corpora into a colleague-shareable source dataset. |
 | `news-quality` | Summarize text quality across fetched Tavily corpora without calling Tavily. |
+| `run-trading-strategy` | Run or preview the fixed source-to-sentiment-to-return pilot. |
+| `analyze-trading-run` | Create robustness tables, plots, and a technical report for a completed trading run. |
 | `list-models` | List models from OpenRouter or Ollama. |
 | `run` | Run LLM sentiment classification benchmarks. |
 | `run-baselines` | Run non-LLM baseline classifiers. |
@@ -177,6 +183,26 @@ sentiment-bench news-check --query "financial markets" --max-results 1
 | `--query` | `financial markets` | Small Tavily query for connectivity check. |
 | `--max-results` | `1` | Maximum results for the check. |
 
+## `newsapi-check` and `fetch-newsapi`
+
+```bash
+sentiment-bench newsapi-check --query "Apple AAPL stock"
+sentiment-bench fetch-newsapi --query "Apple AAPL stock news" \
+  --from 2026-06-08T04:00:00Z --to 2026-06-11T04:00:00Z
+```
+
+`fetch-newsapi` calls the Everything endpoint with English results, publication-time ordering, `X-Api-Key` authentication, and 100 rows per page. It writes a `newsapi_news_*` corpus containing JSONL, CSV, and a manifest; full article bodies are not represented as available.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `--query` | required | NewsAPI keyword/Boolean query. |
+| `--from` | none | Oldest ISO 8601 publication date or timestamp. |
+| `--to` | none | Newest ISO 8601 publication date or timestamp. |
+| `--max-pages` | `10` | Maximum 100-result pages. |
+| `--domain` | none | Included publisher domain; repeatable. |
+| `--exclude-domain` | none | Excluded publisher domain; repeatable. |
+| `--output-dir` | `Data/news` | Root for the timestamped corpus. |
+
 ## `fetch-news`
 
 ```bash
@@ -278,6 +304,43 @@ Output files:
 | `package_manifest.json` | Package metadata, source corpora, counts, duplicate URL count, file hashes, and sharing notes. |
 | `README.md` | Handoff notes for colleagues. |
 | `extracts.jsonl` | Optional internal full-text bundle, written only with `--text-policy internal-extracts`. |
+
+## `run-trading-strategy`
+
+```bash
+sentiment-bench run-trading-strategy --dry-run
+sentiment-bench run-trading-strategy --config configs/week3_trading_pilot.toml
+```
+
+The fixed Week 3 config covers AAPL, AMZN, and TSLA on 8–10 June 2026. It reuses the Tavily ticker package, collects NewsAPI results, performs target-title screening and cross-provider deduplication, scores three OpenRouter models plus VADER, enters at the next observed adjusted open, and exports 1–7-session returns on $10,000 notional. Successful NewsAPI source pointers and LLM responses are resumable. A completed run cannot be overwritten with a changed config.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `--config` | `configs/week3_trading_pilot.toml` | Fixed TOML run definition. |
+| `--dry-run` | off | Print calls, dates, models, horizons, and entry rule without writes or API calls. |
+
+## `analyze-trading-run`
+
+```bash
+sentiment-bench analyze-trading-run \
+  --run-dir results/trading/week3_trading_broad_20260624_reviewed \
+  --comparison-run-dir results/trading/week3_trading_pilot_20260624_reviewed \
+  --output-dir results/trading/week3_trading_broad_20260624_reviewed_analysis
+```
+
+The analysis command refuses to overwrite an existing output directory. It writes seeded percentile-bootstrap intervals,
+traded-only hit rates, company and date breakdowns, leave-one-company-out estimates, LLM/VADER agreement diagnostics,
+source-yield tables, five static plots, a technical `summary.md`, a source map, and an SHA-256 manifest. Bootstrap
+intervals are descriptive because company-day events overlap and are not independent. Install plotting support first with
+`uv sync --extra figures` when the optional figure dependencies are not already present.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `--run-dir` | required | Completed trading run containing `run_manifest.json` and CSV outputs. |
+| `--output-dir` | required | New directory for the non-overwriting analysis artifact. |
+| `--comparison-run-dir` | none | Optional earlier run for descriptive panel-sensitivity comparison. |
+| `--bootstrap-resamples` | `10000` | Number of percentile-bootstrap event resamples. |
+| `--seed` | `42` | Random seed used by the bootstrap. |
 
 ## `news-quality`
 

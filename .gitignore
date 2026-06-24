@@ -22,3 +22,5 @@ models/
 checkpoints/
 artifacts/
 exports/
+# Tavily shared news packages are out-of-band deliverables, not source.
+tavily_shared_*.zip

@@ -1,0 +1,1365 @@
+from __future__ import annotations
+
+import asyncio
+import csv
+import hashlib
+import json
+import re
+import tomllib
+from collections import Counter, defaultdict
+from collections.abc import Callable
+from dataclasses import asdict, dataclass
+from datetime import UTC, date, datetime, time, timedelta
+from email.utils import parsedate_to_datetime
+from pathlib import Path
+from typing import Any
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+from zoneinfo import ZoneInfo
+
+from .baselines import classify_vader_text
+from .models import BlindExample, LLMResponseRecord, PromptConfig
+from .news_source import NewsArticleRecord, make_news_fetch_config, write_news_corpus
+from .newsapi_source import make_newsapi_fetch_config, write_newsapi_corpus
+from .prompts import load_prompts
+from .runtime_metadata import collect_run_environment
+
+LABEL_VALUES = {"positive": 1, "neutral": 0, "negative": -1}
+TRACKING_QUERY_KEYS = {
+    "fbclid",
+    "gclid",
+    "guccounter",
+    "guce_referrer",
+    "guce_referrer_sig",
+    "mc_cid",
+    "mc_eid",
+}
+PROMOTION_PATTERN = re.compile(
+    r"\b(?:coupon|discount|record low|prime day|shopping deal|price drop|cheaper on|save \d+%|% off)\b",
+    re.IGNORECASE,
+)
+
+
+class TradingStrategyError(RuntimeError):
+    """Raised when the trading pilot cannot be configured or completed."""
+
+
+@dataclass(frozen=True)
+class TradingCompany:
+    symbol: str
+    name: str
+    query: str
+    tavily_query_id: str
+    family: str
+    aliases: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class TradingStrategyConfig:
+    run_id: str
+    title: str
+    timezone: str
+    dates: tuple[str, ...]
+    horizons: tuple[int, ...]
+    notional_usd: float
+    models: tuple[str, ...]
+    prompt_id: str
+    prompts_path: Path
+    temperature: float
+    max_completion_tokens: int
+    concurrency: int
+    retries: int
+    resume_scores_path: Path | None
+    tavily_package_manifest: Path
+    newsapi_sources_file: Path | None
+    screening_overrides_path: Path | None
+    news_output_root: Path
+    derived_output_root: Path
+    results_output_root: Path
+    experiment_registry: Path
+    newsapi_max_pages: int
+    companies: tuple[TradingCompany, ...]
+
+    @property
+    def derived_dir(self) -> Path:
+        return self.derived_output_root / self.run_id
+
+    @property
+    def results_dir(self) -> Path:
+        return self.results_output_root / self.run_id
+
+
+@dataclass(frozen=True)
+class ArticleCandidate:
+    company: TradingCompany
+    provider: str
+    query: str
+    source_corpus: str
+    record: NewsArticleRecord
+
+
+@dataclass
+class MergedArticle:
+    article_id: str
+    symbol: str
+    company_name: str
+    title: str
+    snippet: str
+    scoring_text: str
+    url: str
+    normalized_url: str
+    source_domain: str
+    providers: list[str]
+    queries: list[str]
+    source_corpora: list[str]
+    published_at: str
+    published_date_local: str
+    published_precision: str
+    timezone: str
+    article_text_available: bool
+    article_text_sha256: str
+    screening_decision: str
+    screening_reason: str
+    screening_method: str
+
+
+@dataclass(frozen=True)
+class SentimentScore:
+    article_id: str
+    symbol: str
+    news_date: str
+    scorer_id: str
+    scorer_kind: str
+    label: str | None
+    label_value: int | None
+    status: str
+    parse_status: str
+    raw_output: str | None
+    compound: float | None
+    latency_ms: float | None
+    prompt_tokens: int | None
+    completion_tokens: int | None
+    total_tokens: int | None
+    generation_id: str | None
+    total_cost_usd: float | None
+    error: str | None
+
+
+@dataclass(frozen=True)
+class DailySignal:
+    symbol: str
+    news_date: str
+    scorer_id: str
+    article_count: int
+    valid_count: int
+    mean_score: float | None
+    signal: str | None
+    signal_value: int | None
+
+
+@dataclass(frozen=True)
+class PriceRow:
+    symbol: str
+    session_date: str
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float
+    repaired: bool
+
+
+@dataclass(frozen=True)
+class ReturnRow:
+    symbol: str
+    news_date: str
+    scorer_id: str
+    mean_score: float
+    signal: str
+    signal_value: int
+    d_adjusted_close: float | None
+    entry_date: str
+    entry_adjusted_open: float
+    horizon: int
+    exit_date: str
+    exit_adjusted_close: float
+    market_return: float
+    strategy_return: float
+    strategy_return_pct: float
+    pnl_usd: float
+    notional_usd: float
+
+
+@dataclass(frozen=True)
+class TradingRunResult:
+    run_id: str
+    derived_dir: Path
+    results_dir: Path
+    accepted_article_count: int
+    sentiment_score_count: int
+    return_count: int
+    source_corpora: tuple[str, ...]
+
+
+def _as_tuple(value: Any, *, field: str) -> tuple[Any, ...]:
+    if not isinstance(value, list) or not value:
+        raise TradingStrategyError(f"{field} must be a non-empty list")
+    return tuple(value)
+
+
+def load_trading_config(path: str | Path) -> TradingStrategyConfig:
+    config_path = Path(path)
+    try:
+        with config_path.open("rb") as file:
+            raw = tomllib.load(file)
+    except (OSError, tomllib.TOMLDecodeError) as exc:
+        raise TradingStrategyError(f"cannot load trading config {config_path}: {exc}") from exc
+
+    run = raw.get("run") or {}
+    scoring = raw.get("scoring") or {}
+    sources = raw.get("sources") or {}
+    outputs = raw.get("outputs") or {}
+    company_items = raw.get("companies") or []
+    try:
+        dates = tuple(str(value) for value in _as_tuple(run["dates"], field="run.dates"))
+        horizons = tuple(int(value) for value in _as_tuple(run["horizons"], field="run.horizons"))
+        models = tuple(str(value) for value in _as_tuple(scoring["models"], field="scoring.models"))
+        companies = tuple(
+            TradingCompany(
+                symbol=str(item["symbol"]).strip().upper(),
+                name=str(item["name"]).strip(),
+                query=str(item["query"]).strip(),
+                tavily_query_id=str(item["tavily_query_id"]).strip(),
+                family=str(item["family"]).strip(),
+                aliases=tuple(str(alias).strip() for alias in item["aliases"] if str(alias).strip()),
+            )
+            for item in company_items
+        )
+        config = TradingStrategyConfig(
+            run_id=str(run["id"]).strip(),
+            title=str(run["title"]).strip(),
+            timezone=str(run.get("timezone", "America/New_York")).strip(),
+            dates=dates,
+            horizons=horizons,
+            notional_usd=float(run.get("notional_usd", 10_000)),
+            models=models,
+            prompt_id=str(scoring["prompt_id"]).strip(),
+            prompts_path=Path(scoring.get("prompts_path", "configs/default_prompts.toml")),
+            temperature=float(scoring.get("temperature", 0.0)),
+            max_completion_tokens=int(scoring.get("max_completion_tokens", 64)),
+            concurrency=int(scoring.get("concurrency", 3)),
+            retries=int(scoring.get("retries", 3)),
+            resume_scores_path=Path(scoring["resume_scores_path"]) if scoring.get("resume_scores_path") else None,
+            tavily_package_manifest=Path(sources["tavily_package_manifest"]),
+            newsapi_sources_file=Path(sources["newsapi_sources_file"]) if sources.get("newsapi_sources_file") else None,
+            screening_overrides_path=(
+                Path(sources["screening_overrides_path"]) if sources.get("screening_overrides_path") else None
+            ),
+            news_output_root=Path(outputs.get("news_output_root", "Data/news")),
+            derived_output_root=Path(outputs.get("derived_output_root", "Data/derived/trading")),
+            results_output_root=Path(outputs.get("results_output_root", "results/trading")),
+            experiment_registry=Path(outputs.get("experiment_registry", "experiments/manifest.toml")),
+            newsapi_max_pages=int(sources.get("newsapi_max_pages", 10)),
+            companies=companies,
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        raise TradingStrategyError(f"invalid trading config {config_path}: {exc}") from exc
+
+    if not config.run_id or not re.fullmatch(r"[A-Za-z0-9_.-]+", config.run_id):
+        raise TradingStrategyError("run.id must contain only letters, numbers, dots, underscores, or hyphens")
+    if not companies:
+        raise TradingStrategyError("at least one [[companies]] entry is required")
+    if len({company.symbol for company in companies}) != len(companies):
+        raise TradingStrategyError("company symbols must be unique")
+    for value in dates:
+        try:
+            date.fromisoformat(value)
+        except ValueError as exc:
+            raise TradingStrategyError(f"invalid run date: {value}") from exc
+    if sorted(set(horizons)) != list(horizons) or horizons[0] < 1:
+        raise TradingStrategyError("run.horizons must be unique, ascending positive integers")
+    if config.notional_usd <= 0 or config.concurrency < 1 or config.max_completion_tokens < 1:
+        raise TradingStrategyError("notional, concurrency, and completion-token settings must be positive")
+    try:
+        ZoneInfo(config.timezone)
+    except Exception as exc:
+        raise TradingStrategyError(f"unknown timezone: {config.timezone}") from exc
+    return config
+
+
+def canonicalize_url(url: str) -> str:
+    parsed = urlparse(url.strip())
+    if not parsed.scheme:
+        parsed = urlparse(f"https://{url.strip()}")
+    host = parsed.netloc.lower()
+    if host.startswith("www."):
+        host = host[4:]
+    query = [
+        (key, value)
+        for key, value in parse_qsl(parsed.query, keep_blank_values=True)
+        if key.lower() not in TRACKING_QUERY_KEYS and not key.lower().startswith("utm_")
+    ]
+    return urlunparse(
+        (
+            parsed.scheme.lower() or "https",
+            host,
+            parsed.path.rstrip("/") or "/",
+            "",
+            urlencode(sorted(query)),
+            "",
+        )
+    )
+
+
+def normalize_headline(title: str) -> str:
+    # Publisher suffixes and syndication bylines commonly turn one wire story
+    # into several superficially different headlines. Remove those decorations
+    # before exact-title deduplication while retaining the substantive title.
+    substantive = re.split(r"\s+(?:by|[-|])\s+", title, maxsplit=1, flags=re.IGNORECASE)[0]
+    substantive = substantive.replace("’s", "").replace("'s", "")
+    return re.sub(r"[^a-z0-9]+", " ", substantive.lower()).strip()
+
+
+def _parse_published(value: str | None, timezone: str) -> tuple[str, str, str]:
+    if not value:
+        return "", "", "missing"
+    cleaned = value.strip()
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", cleaned):
+        return cleaned, cleaned, "date"
+    try:
+        parsed = parsedate_to_datetime(cleaned)
+    except (TypeError, ValueError):
+        try:
+            parsed = datetime.fromisoformat(cleaned.replace("Z", "+00:00"))
+        except ValueError:
+            return cleaned, "", "unparsed"
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    local = parsed.astimezone(ZoneInfo(timezone))
+    return local.isoformat(), local.date().isoformat(), "timestamp"
+
+
+def _alias_match(text: str, aliases: tuple[str, ...]) -> bool:
+    for alias in aliases:
+        if re.search(rf"(?<!\w){re.escape(alias)}(?!\w)", text, re.IGNORECASE):
+            return True
+    return False
+
+
+def _screen(title: str, aliases: tuple[str, ...]) -> tuple[str, str]:
+    if not title.strip():
+        return "exclude", "missing_title"
+    if not _alias_match(title, aliases):
+        return "exclude", "target_not_in_title"
+    if PROMOTION_PATTERN.search(title):
+        return "exclude", "consumer_promotion"
+    return "include", "target_alias_in_title"
+
+
+def _clean_text(value: str | None) -> str:
+    return re.sub(r"\s+", " ", value or "").strip()
+
+
+def _article_from_group(
+    company: TradingCompany,
+    candidates: list[ArticleCandidate],
+    timezone: str,
+) -> MergedArticle:
+    titles = [_clean_text(candidate.record.title) for candidate in candidates]
+    snippets = [_clean_text(candidate.record.snippet) for candidate in candidates]
+    title = max(titles, key=len, default="")
+    snippet = max(snippets, key=len, default="")
+    dated = []
+    for candidate in candidates:
+        parsed, local_date, precision = _parse_published(candidate.record.published_date, timezone)
+        if local_date:
+            dated.append((parsed, local_date, precision))
+    published_at, published_local, precision = min(dated, default=("", "", "missing"))
+    canonical_urls = [canonicalize_url(candidate.record.url) for candidate in candidates]
+    canonical_url = min(canonical_urls, key=len)
+    article_id = hashlib.sha256(f"{company.symbol}|{canonical_url}".encode()).hexdigest()[:16]
+    article_texts = [candidate.record.article_text or "" for candidate in candidates if candidate.record.article_text]
+    article_text = max(article_texts, key=len, default="")
+    decision, reason = _screen(title, company.aliases)
+    scoring_text = f"Target company: {company.name} ({company.symbol})\nHeadline: {title}"
+    if snippet:
+        scoring_text += f"\nSummary: {snippet}"
+    return MergedArticle(
+        article_id=article_id,
+        symbol=company.symbol,
+        company_name=company.name,
+        title=title,
+        snippet=snippet,
+        scoring_text=scoring_text,
+        url=candidates[0].record.url,
+        normalized_url=canonical_url,
+        source_domain=urlparse(canonical_url).netloc,
+        providers=sorted({candidate.provider for candidate in candidates}),
+        queries=sorted({candidate.query for candidate in candidates}),
+        source_corpora=sorted({candidate.source_corpus for candidate in candidates}),
+        published_at=published_at,
+        published_date_local=published_local,
+        published_precision=precision,
+        timezone=timezone,
+        article_text_available=bool(article_text),
+        article_text_sha256=hashlib.sha256(article_text.encode()).hexdigest() if article_text else "",
+        screening_decision=decision,
+        screening_reason=reason,
+        screening_method="automatic_title_rule_v1",
+    )
+
+
+def merge_article_candidates(
+    candidates: list[ArticleCandidate],
+    *,
+    timezone: str,
+    selected_dates: tuple[str, ...],
+) -> list[MergedArticle]:
+    by_company: dict[str, list[ArticleCandidate]] = defaultdict(list)
+    for candidate in candidates:
+        by_company[candidate.company.symbol].append(candidate)
+    merged: list[MergedArticle] = []
+    for _symbol, company_candidates in sorted(by_company.items()):
+        company = company_candidates[0].company
+        by_url: dict[str, list[ArticleCandidate]] = defaultdict(list)
+        for candidate in company_candidates:
+            by_url[canonicalize_url(candidate.record.url)].append(candidate)
+        url_groups = list(by_url.values())
+        by_title: dict[str, list[ArticleCandidate]] = defaultdict(list)
+        no_title: list[list[ArticleCandidate]] = []
+        for group in url_groups:
+            normalized_title = normalize_headline(max((_clean_text(item.record.title) for item in group), key=len, default=""))
+            if normalized_title:
+                by_title[normalized_title].extend(group)
+            else:
+                no_title.append(group)
+        groups = list(by_title.values()) + no_title
+        for group in groups:
+            article = _article_from_group(company, group, timezone)
+            if article.published_date_local in selected_dates:
+                merged.append(article)
+    return sorted(merged, key=lambda row: (row.published_date_local, row.symbol, row.article_id))
+
+
+def apply_screening_overrides(
+    articles: list[MergedArticle],
+    overrides_path: Path | None,
+) -> list[MergedArticle]:
+    if overrides_path is None:
+        return articles
+    try:
+        with overrides_path.open("rb") as file:
+            raw = tomllib.load(file)
+    except (OSError, tomllib.TOMLDecodeError) as exc:
+        raise TradingStrategyError(f"cannot load screening overrides {overrides_path}: {exc}") from exc
+    overrides: dict[str, tuple[str, str]] = {}
+    for item in raw.get("overrides", []):
+        article_id = str(item.get("article_id") or "").strip()
+        decision = str(item.get("decision") or "").strip().lower()
+        reason = str(item.get("reason") or "manual_review").strip()
+        if not article_id or decision not in {"include", "exclude"}:
+            raise TradingStrategyError("each screening override requires article_id and decision=include|exclude")
+        overrides[article_id] = (decision, reason)
+    known = {article.article_id for article in articles}
+    missing = sorted(set(overrides) - known)
+    if missing:
+        raise TradingStrategyError(f"screening override article id(s) not found: {', '.join(missing)}")
+    for article in articles:
+        override = overrides.get(article.article_id)
+        if override:
+            article.screening_decision, article.screening_reason = override
+            article.screening_method = "manual_review_override_v1"
+    return articles
+
+
+def _read_jsonl(path: Path) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    with path.open(encoding="utf-8") as file:
+        for line_number, line in enumerate(file, start=1):
+            if not line.strip():
+                continue
+            try:
+                value = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise TradingStrategyError(f"invalid JSONL at {path}:{line_number}: {exc}") from exc
+            if isinstance(value, dict):
+                rows.append(value)
+    return rows
+
+
+def _record_from_dict(value: dict[str, Any]) -> NewsArticleRecord:
+    fields = NewsArticleRecord.__dataclass_fields__
+    return NewsArticleRecord(**{name: value[name] for name in fields if name in value})
+
+
+def load_tavily_candidates(config: TradingStrategyConfig) -> list[ArticleCandidate]:
+    try:
+        package = json.loads(config.tavily_package_manifest.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise TradingStrategyError(f"cannot load Tavily package manifest {config.tavily_package_manifest}: {exc}") from exc
+    source_corpora = package.get("source_corpora")
+    if not isinstance(source_corpora, list):
+        raise TradingStrategyError("Tavily package manifest has no source_corpora list")
+    companies = {company.tavily_query_id: company for company in config.companies}
+    candidates: list[ArticleCandidate] = []
+    for source in source_corpora:
+        if not isinstance(source, dict):
+            continue
+        company = companies.get(str(source.get("query_id") or ""))
+        if company is None:
+            continue
+        corpus = Path(str(source.get("path") or ""))
+        articles_path = corpus / "articles.jsonl"
+        if not articles_path.exists():
+            raise TradingStrategyError(f"Tavily corpus is missing: {articles_path}")
+        for row in _read_jsonl(articles_path):
+            candidates.append(
+                ArticleCandidate(
+                    company=company,
+                    provider="tavily",
+                    query=str(source.get("query") or company.query),
+                    source_corpus=str(corpus),
+                    record=_record_from_dict(row),
+                )
+            )
+    return candidates
+
+
+def _utc_newsapi_bounds(config: TradingStrategyConfig) -> tuple[str, str]:
+    timezone = ZoneInfo(config.timezone)
+    start = datetime.combine(min(date.fromisoformat(value) for value in config.dates), time.min, timezone)
+    end = datetime.combine(max(date.fromisoformat(value) for value in config.dates) + timedelta(days=1), time.min, timezone)
+    return start.astimezone(UTC).isoformat().replace("+00:00", "Z"), end.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+
+async def fetch_newsapi_candidates(
+    config: TradingStrategyConfig,
+    client: Any,
+) -> tuple[list[ArticleCandidate], list[str]]:
+    pointer_path = config.derived_dir / "newsapi_sources.json"
+    restore_path = config.newsapi_sources_file or pointer_path
+    candidates: list[ArticleCandidate] = []
+    corpora: list[str] = []
+    valid_pointers: list[dict[str, str]] = []
+    restored_symbols: set[str] = set()
+    if restore_path.exists():
+        try:
+            pointers = json.loads(restore_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            pointers = None
+        if isinstance(pointers, list):
+            companies = {company.symbol: company for company in config.companies}
+            for pointer in pointers:
+                if not isinstance(pointer, dict):
+                    continue
+                company = companies.get(str(pointer.get("symbol") or ""))
+                corpus = Path(str(pointer.get("path") or ""))
+                if company is None or not (corpus / "articles.jsonl").exists():
+                    continue
+                for row in _read_jsonl(corpus / "articles.jsonl"):
+                    candidates.append(
+                        ArticleCandidate(company, "newsapi", company.query, str(corpus), _record_from_dict(row))
+                    )
+                corpora.append(str(corpus))
+                valid_pointers.append({"symbol": company.symbol, "path": str(corpus)})
+                restored_symbols.add(company.symbol)
+            if len(restored_symbols) == len(config.companies):
+                return candidates, corpora
+
+    from_time, to_time = _utc_newsapi_bounds(config)
+    for company in config.companies:
+        if company.symbol in restored_symbols:
+            continue
+        fetch_config = make_newsapi_fetch_config(
+            query=company.query,
+            from_time=from_time,
+            to_time=to_time,
+            max_pages=config.newsapi_max_pages,
+        )
+        result = await client.fetch(fetch_config)
+        paths = write_newsapi_corpus(result, config.news_output_root)
+        corpora.append(str(paths.output_dir))
+        valid_pointers.append({"symbol": company.symbol, "path": str(paths.output_dir)})
+        pointer_path.parent.mkdir(parents=True, exist_ok=True)
+        pointer_path.write_text(json.dumps(valid_pointers, indent=2, sort_keys=True), encoding="utf-8")
+        for record in result.records:
+            candidates.append(
+                ArticleCandidate(
+                    company=company,
+                    provider="newsapi",
+                    query=company.query,
+                    source_corpus=str(paths.output_dir),
+                    record=record,
+                )
+            )
+    return candidates, corpora
+
+
+async def fetch_tavily_gaps(
+    config: TradingStrategyConfig,
+    client: Any,
+    current: list[ArticleCandidate],
+) -> tuple[list[ArticleCandidate], list[str]]:
+    articles = merge_article_candidates(current, timezone=config.timezone, selected_dates=config.dates)
+    articles = apply_screening_overrides(articles, config.screening_overrides_path)
+    accepted = {(article.symbol, article.published_date_local) for article in articles if article.screening_decision == "include"}
+    candidates: list[ArticleCandidate] = []
+    corpora: list[str] = []
+    for company in config.companies:
+        for news_date in config.dates:
+            if (company.symbol, news_date) in accepted:
+                continue
+            end_date = (date.fromisoformat(news_date) + timedelta(days=1)).isoformat()
+            fetch_config = make_news_fetch_config(
+                query=company.query,
+                max_results=20,
+                topic="news",
+                time_range=None,
+                search_depth="basic",
+                extract=True,
+                extract_depth="advanced",
+                start_date=news_date,
+                end_date=end_date,
+                exclude_domains=["finance.yahoo.com", "ca.finance.yahoo.com"],
+            )
+            result = await client.fetch(fetch_config)
+            paths = write_news_corpus(result, config.news_output_root)
+            corpora.append(str(paths.output_dir))
+            for record in result.records:
+                candidates.append(
+                    ArticleCandidate(company, "tavily", company.query, str(paths.output_dir), record)
+                )
+    return candidates, corpora
+
+
+def _score_key(article_id: str, scorer_id: str) -> tuple[str, str]:
+    return article_id, scorer_id
+
+
+def _sentiment_from_response(article: MergedArticle, model_id: str, record: LLMResponseRecord, cost: float | None) -> SentimentScore:
+    label = record.normalized_label if record.normalized_label in LABEL_VALUES else None
+    return SentimentScore(
+        article_id=article.article_id,
+        symbol=article.symbol,
+        news_date=article.published_date_local,
+        scorer_id=model_id,
+        scorer_kind="llm",
+        label=label,
+        label_value=LABEL_VALUES.get(label) if label else None,
+        status=record.status,
+        parse_status=record.parse_status,
+        raw_output=record.raw_content,
+        compound=None,
+        latency_ms=record.latency_ms,
+        prompt_tokens=record.prompt_tokens,
+        completion_tokens=record.completion_tokens,
+        total_tokens=record.total_tokens,
+        generation_id=record.generation_id,
+        total_cost_usd=cost,
+        error=record.error,
+    )
+
+
+def _load_existing_scores(path: Path) -> dict[tuple[str, str], SentimentScore]:
+    if not path.exists():
+        return {}
+    scores: dict[tuple[str, str], SentimentScore] = {}
+    for value in _read_jsonl(path):
+        try:
+            score = SentimentScore(**value)
+        except TypeError:
+            continue
+        scores[_score_key(score.article_id, score.scorer_id)] = score
+    return scores
+
+
+async def score_articles(
+    articles: list[MergedArticle],
+    *,
+    models: tuple[str, ...],
+    prompt: PromptConfig,
+    client: Any,
+    output_path: Path,
+    resume_path: Path | None,
+    temperature: float,
+    max_completion_tokens: int,
+    concurrency: int,
+    retries: int,
+) -> list[SentimentScore]:
+    accepted = [article for article in articles if article.screening_decision == "include"]
+    existing = _load_existing_scores(resume_path) if resume_path else {}
+    existing.update(_load_existing_scores(output_path))
+    semaphore = asyncio.Semaphore(concurrency)
+
+    async def classify(index: int, article: MergedArticle, model_id: str) -> SentimentScore:
+        key = _score_key(article.article_id, model_id)
+        if key in existing and existing[key].status == "success":
+            return existing[key]
+        example = BlindExample(row_number=index, sentence=article.scoring_text)
+        async with semaphore:
+            response = await client.classify(
+                model_id=model_id,
+                prompt=prompt,
+                example=example,
+                temperature=temperature,
+                max_completion_tokens=max_completion_tokens,
+                retries=retries,
+            )
+            cost: float | None = None
+            metadata_method = getattr(client, "get_generation_metadata", None)
+            if response.status == "success" and response.generation_id and callable(metadata_method):
+                try:
+                    metadata = await metadata_method(response.generation_id, retries=retries)
+                    raw_cost = metadata.get("total_cost") if isinstance(metadata, dict) else None
+                    cost = float(raw_cost) if raw_cost is not None else None
+                except Exception:
+                    cost = None
+            return _sentiment_from_response(article, model_id, response, cost)
+
+    tasks = [
+        classify(index, article, model_id)
+        for index, article in enumerate(accepted, start=1)
+        for model_id in models
+    ]
+    llm_scores = await asyncio.gather(*tasks)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    # Checkpoint the paid LLM scores before running VADER: if the local baseline
+    # raises (e.g. a missing lexicon), a resume reads these back instead of
+    # re-issuing the API calls. The file is rewritten in full below.
+    with output_path.open("w", encoding="utf-8") as file:
+        for score in sorted(llm_scores, key=lambda row: (row.news_date, row.symbol, row.article_id, row.scorer_id)):
+            file.write(json.dumps(asdict(score), sort_keys=True, ensure_ascii=False) + "\n")
+    vader_scores: list[SentimentScore] = []
+    for article in accepted:
+        result = classify_vader_text(article.scoring_text)
+        vader_scores.append(
+            SentimentScore(
+                article_id=article.article_id,
+                symbol=article.symbol,
+                news_date=article.published_date_local,
+                scorer_id="baseline/vader",
+                scorer_kind="baseline",
+                label=result.label,
+                label_value=LABEL_VALUES[result.label],
+                status="success",
+                parse_status="valid",
+                raw_output=result.label,
+                compound=result.compound,
+                latency_ms=None,
+                prompt_tokens=None,
+                completion_tokens=None,
+                total_tokens=None,
+                generation_id=None,
+                total_cost_usd=0.0,
+                error=None,
+            )
+        )
+    scores = sorted(llm_scores + vader_scores, key=lambda row: (row.news_date, row.symbol, row.article_id, row.scorer_id))
+    with output_path.open("w", encoding="utf-8") as file:
+        for score in scores:
+            file.write(json.dumps(asdict(score), sort_keys=True, ensure_ascii=False) + "\n")
+    return scores
+
+
+def article_consensus(scores: list[SentimentScore], models: tuple[str, ...]) -> list[SentimentScore]:
+    grouped: dict[str, list[SentimentScore]] = defaultdict(list)
+    for score in scores:
+        if score.scorer_id in models:
+            grouped[score.article_id].append(score)
+    consensus: list[SentimentScore] = []
+    for article_scores in grouped.values():
+        by_model = {score.scorer_id: score for score in article_scores if score.label in LABEL_VALUES and score.status == "success"}
+        if set(by_model) != set(models):
+            continue
+        labels = [str(by_model[model].label) for model in models]
+        counts = Counter(labels)
+        label, count = counts.most_common(1)[0]
+        if count < 2:
+            label = "neutral"
+        exemplar = article_scores[0]
+        consensus.append(
+            SentimentScore(
+                article_id=exemplar.article_id,
+                symbol=exemplar.symbol,
+                news_date=exemplar.news_date,
+                scorer_id="consensus/majority",
+                scorer_kind="consensus",
+                label=label,
+                label_value=LABEL_VALUES[label],
+                status="success",
+                parse_status="valid",
+                raw_output="|".join(str(value) for value in labels),
+                compound=None,
+                latency_ms=None,
+                prompt_tokens=None,
+                completion_tokens=None,
+                total_tokens=None,
+                generation_id=None,
+                total_cost_usd=sum(score.total_cost_usd or 0.0 for score in article_scores),
+                error=None,
+            )
+        )
+    return sorted(consensus, key=lambda row: (row.news_date, row.symbol, row.article_id))
+
+
+def daily_signals(
+    articles: list[MergedArticle],
+    scores: list[SentimentScore],
+    scorer_ids: tuple[str, ...],
+    dates: tuple[str, ...],
+    symbols: tuple[str, ...],
+) -> list[DailySignal]:
+    accepted_counts = Counter(
+        (article.symbol, article.published_date_local)
+        for article in articles
+        if article.screening_decision == "include"
+    )
+    grouped: dict[tuple[str, str, str], list[SentimentScore]] = defaultdict(list)
+    for score in scores:
+        grouped[(score.symbol, score.news_date, score.scorer_id)].append(score)
+    results: list[DailySignal] = []
+    for news_date in dates:
+        for symbol in symbols:
+            for scorer_id in scorer_ids:
+                values = [score.label_value for score in grouped.get((symbol, news_date, scorer_id), []) if score.label_value is not None]
+                mean = sum(values) / len(values) if values else None
+                if mean is None:
+                    signal = None
+                    signal_value = None
+                elif mean > 0:
+                    signal, signal_value = "positive", 1
+                elif mean < 0:
+                    signal, signal_value = "negative", -1
+                else:
+                    signal, signal_value = "neutral", 0
+                results.append(
+                    DailySignal(
+                        symbol=symbol,
+                        news_date=news_date,
+                        scorer_id=scorer_id,
+                        article_count=accepted_counts[(symbol, news_date)],
+                        valid_count=len(values),
+                        mean_score=mean,
+                        signal=signal,
+                        signal_value=signal_value,
+                    )
+                )
+    return results
+
+
+def fetch_price_rows(config: TradingStrategyConfig) -> list[PriceRow]:
+    try:
+        import yfinance as yf
+    except ImportError as exc:
+        raise TradingStrategyError("yfinance is required for trading price data") from exc
+    start = min(config.dates)
+    requested_end = max(date.fromisoformat(value) for value in config.dates) + timedelta(days=max(config.horizons) * 3 + 7)
+    end = min(requested_end, date.today() + timedelta(days=1)).isoformat()
+    rows: list[PriceRow] = []
+    for company in config.companies:
+        frame = yf.download(
+            company.symbol,
+            start=start,
+            end=end,
+            interval="1d",
+            auto_adjust=True,
+            actions=False,
+            repair=True,
+            keepna=False,
+            progress=False,
+            threads=False,
+            multi_level_index=False,
+        )
+        if frame is None or frame.empty:
+            raise TradingStrategyError(f"no Yahoo Finance prices returned for {company.symbol}")
+        for index, value in frame.iterrows():
+            session_date = index.date().isoformat()
+            repaired_value = value.get("Repaired?", False)
+            rows.append(
+                PriceRow(
+                    symbol=company.symbol,
+                    session_date=session_date,
+                    open=float(value["Open"]),
+                    high=float(value["High"]),
+                    low=float(value["Low"]),
+                    close=float(value["Close"]),
+                    volume=float(value["Volume"]),
+                    repaired=bool(repaired_value),
+                )
+            )
+    return sorted(rows, key=lambda row: (row.symbol, row.session_date))
+
+
+def calculate_returns(
+    signals: list[DailySignal],
+    prices: list[PriceRow],
+    *,
+    horizons: tuple[int, ...],
+    notional_usd: float,
+) -> list[ReturnRow]:
+    prices_by_symbol: dict[str, list[PriceRow]] = defaultdict(list)
+    for row in prices:
+        prices_by_symbol[row.symbol].append(row)
+    returns: list[ReturnRow] = []
+    for signal in signals:
+        if signal.signal is None or signal.signal_value is None or signal.mean_score is None:
+            continue
+        symbol_prices = prices_by_symbol.get(signal.symbol, [])
+        d_price = next((row for row in symbol_prices if row.session_date == signal.news_date), None)
+        future = [row for row in symbol_prices if row.session_date > signal.news_date]
+        if len(future) < max(horizons):
+            raise TradingStrategyError(
+                f"incomplete price horizon for {signal.symbol} on {signal.news_date}: "
+                f"need {max(horizons)} future sessions, found {len(future)}"
+            )
+        entry = future[0]
+        if entry.open <= 0:
+            raise TradingStrategyError(f"invalid entry price for {signal.symbol} on {entry.session_date}")
+        for horizon in horizons:
+            exit_row = future[horizon - 1]
+            market_return = exit_row.close / entry.open - 1
+            strategy_return = signal.signal_value * market_return
+            returns.append(
+                ReturnRow(
+                    symbol=signal.symbol,
+                    news_date=signal.news_date,
+                    scorer_id=signal.scorer_id,
+                    mean_score=signal.mean_score,
+                    signal=signal.signal,
+                    signal_value=signal.signal_value,
+                    d_adjusted_close=d_price.close if d_price else None,
+                    entry_date=entry.session_date,
+                    entry_adjusted_open=entry.open,
+                    horizon=horizon,
+                    exit_date=exit_row.session_date,
+                    exit_adjusted_close=exit_row.close,
+                    market_return=market_return,
+                    strategy_return=strategy_return,
+                    strategy_return_pct=strategy_return * 100,
+                    pnl_usd=strategy_return * notional_usd,
+                    notional_usd=notional_usd,
+                )
+            )
+    return returns
+
+
+def _write_csv(path: Path, rows: list[dict[str, Any]], fieldnames: list[str] | None = None) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fields = fieldnames or (list(rows[0]) if rows else [])
+    with path.open("w", newline="", encoding="utf-8") as file:
+        if not fields:
+            return
+        writer = csv.DictWriter(file, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def _public_article(article: MergedArticle) -> dict[str, Any]:
+    value = asdict(article)
+    value["providers"] = "; ".join(article.providers)
+    value["queries"] = "; ".join(article.queries)
+    value["source_corpora"] = "; ".join(article.source_corpora)
+    return value
+
+
+def write_articles(config: TradingStrategyConfig, articles: list[MergedArticle]) -> tuple[Path, Path]:
+    config.derived_dir.mkdir(parents=True, exist_ok=True)
+    articles_path = config.derived_dir / "articles.csv"
+    screening_path = config.derived_dir / "screening.csv"
+    _write_csv(articles_path, [_public_article(article) for article in articles])
+    screening_fields = [
+        "article_id",
+        "symbol",
+        "published_date_local",
+        "title",
+        "url",
+        "providers",
+        "screening_decision",
+        "screening_reason",
+        "screening_method",
+    ]
+    _write_csv(screening_path, [{key: _public_article(article).get(key, "") for key in screening_fields} for article in articles])
+    manifest = {
+        "schema_version": 1,
+        "run_id": config.run_id,
+        "created_at": datetime.now(UTC).isoformat(),
+        "record_count": len(articles),
+        "accepted_count": sum(article.screening_decision == "include" for article in articles),
+        "notes": [
+            "Scoring text is target-company context plus headline and provider snippet/description.",
+            "Extracted Tavily bodies are not copied; only availability and SHA-256 are recorded.",
+        ],
+    }
+    (config.derived_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
+    return articles_path, screening_path
+
+
+def _markdown_table(headers: list[str], rows: list[list[str]]) -> str:
+    lines = ["| " + " | ".join(headers) + " |", "| " + " | ".join("---" for _ in headers) + " |"]
+    lines.extend("| " + " | ".join(value.replace("|", "\\|") for value in row) + " |" for row in rows)
+    return "\n".join(lines)
+
+
+def write_summary(
+    config: TradingStrategyConfig,
+    articles: list[MergedArticle],
+    signals: list[DailySignal],
+    returns: list[ReturnRow],
+) -> Path:
+    accepted = [article for article in articles if article.screening_decision == "include"]
+    event_count = len({(row.symbol, row.news_date) for row in returns})
+    source_counts = Counter((article.symbol, article.published_date_local) for article in accepted)
+    signal_rows = [
+        [
+            signal.news_date,
+            signal.symbol,
+            signal.scorer_id,
+            str(signal.valid_count),
+            "-" if signal.mean_score is None else f"{signal.mean_score:.3f}",
+            signal.signal or "no signal",
+        ]
+        for signal in signals
+    ]
+    mean_by_horizon: dict[tuple[str, int], list[float]] = defaultdict(list)
+    for row in returns:
+        mean_by_horizon[(row.scorer_id, row.horizon)].append(row.strategy_return_pct)
+    return_rows = [
+        [scorer, str(horizon), f"{sum(values) / len(values):.3f}%", str(len(values))]
+        for (scorer, horizon), values in sorted(mean_by_horizon.items())
+    ]
+    source_rows = [
+        [news_date, symbol, str(source_counts[(symbol, news_date)])]
+        for news_date in config.dates
+        for symbol in (company.symbol for company in config.companies)
+    ]
+    text = f"""# {config.title}
+
+Generated: {datetime.now(UTC).isoformat()}
+
+This is an exploratory, non-preregistered research pilot. It is not causal evidence,
+investment advice, or a funded portfolio backtest. Overlapping company-day events are
+reported independently.
+
+## Method
+
+- Companies: {", ".join(company.symbol for company in config.companies)}
+- News dates: {", ".join(config.dates)}
+- News assignment timezone: `{config.timezone}`
+- Entry: adjusted open of the first observed trading session after the news date
+- Exit horizons: {", ".join(map(str, config.horizons))} trading sessions
+- Position notional: ${config.notional_usd:,.0f}; transaction costs ignored
+- LLM models: {", ".join(config.models)}
+- Consensus: per-article majority of all three valid LLM labels; three-way split is neutral
+- VADER: conventional compound thresholds at ±0.05
+
+## Accepted Article Yield
+
+{_markdown_table(["News date", "Symbol", "Accepted articles"], source_rows)}
+
+## Daily Signals
+
+{_markdown_table(["News date", "Symbol", "Scorer", "Valid texts", "Mean", "Signal"], signal_rows)}
+
+## Equal-Weight Mean Event Return by Horizon
+
+These are simple means of event-level returns, not returns on a capital-constrained portfolio.
+
+{_markdown_table(["Scorer", "Horizon", "Mean return", "Events"], return_rows)}
+
+## Limitations
+
+- News discovery and timestamp coverage differ by provider.
+- Title-and-summary sentiment is a noisy proxy for market impact.
+- The automated screen is conservative but may retain or reject borderline stories.
+- {event_count} company-day observations are insufficient for statistical inference.
+- Costs, spreads, borrow constraints, taxes, and execution slippage are excluded.
+"""
+    path = config.results_dir / "summary.md"
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+def write_charts(config: TradingStrategyConfig, articles: list[MergedArticle], returns: list[ReturnRow]) -> list[Path]:
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ImportError:
+        return []
+    paths: list[Path] = []
+    accepted = [article for article in articles if article.screening_decision == "include"]
+    counts = Counter(article.symbol for article in accepted)
+    fig, axis = plt.subplots(figsize=(7, 4))
+    symbols = [company.symbol for company in config.companies]
+    axis.bar(symbols, [counts[symbol] for symbol in symbols], color="#2563eb")
+    axis.set(title="Accepted news texts", ylabel="Article count")
+    fig.tight_layout()
+    path = config.results_dir / "source_yield.png"
+    fig.savefig(path, dpi=180)
+    plt.close(fig)
+    paths.append(path)
+
+    grouped: dict[tuple[str, int], list[float]] = defaultdict(list)
+    for row in returns:
+        grouped[(row.scorer_id, row.horizon)].append(row.strategy_return_pct)
+    fig, axis = plt.subplots(figsize=(9, 5))
+    for scorer in sorted({row.scorer_id for row in returns}):
+        means = [sum(grouped[(scorer, horizon)]) / len(grouped[(scorer, horizon)]) for horizon in config.horizons]
+        axis.plot(config.horizons, means, marker="o", label=scorer)
+    axis.axhline(0, color="black", linewidth=0.8)
+    axis.set(title="Mean event return by trading-session horizon", xlabel="Horizon", ylabel="Strategy return (%)")
+    axis.legend(fontsize=7)
+    fig.tight_layout()
+    path = config.results_dir / "horizon_returns.png"
+    fig.savefig(path, dpi=180)
+    plt.close(fig)
+    paths.append(path)
+    return paths
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as file:
+        for chunk in iter(lambda: file.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def write_run_outputs(
+    config: TradingStrategyConfig,
+    config_path: Path,
+    articles: list[MergedArticle],
+    scores: list[SentimentScore],
+    signals: list[DailySignal],
+    prices: list[PriceRow],
+    returns: list[ReturnRow],
+    source_corpora: list[str],
+) -> None:
+    config.results_dir.mkdir(parents=True, exist_ok=True)
+    score_csv = config.results_dir / "sentiment_scores.csv"
+    signal_csv = config.results_dir / "daily_signals.csv"
+    price_csv = config.results_dir / "prices.csv"
+    return_csv = config.results_dir / "returns.csv"
+    _write_csv(score_csv, [asdict(row) for row in scores])
+    _write_csv(signal_csv, [asdict(row) for row in signals])
+    _write_csv(price_csv, [asdict(row) for row in prices])
+    _write_csv(return_csv, [asdict(row) for row in returns])
+    summary_path = write_summary(config, articles, signals, returns)
+    charts = write_charts(config, articles, returns)
+    files = [
+        config.derived_dir / "articles.csv",
+        config.derived_dir / "screening.csv",
+        config.derived_dir / "manifest.json",
+        config.results_dir / "sentiment_scores.jsonl",
+        score_csv,
+        signal_csv,
+        price_csv,
+        return_csv,
+        summary_path,
+        *charts,
+    ]
+    manifest = {
+        "schema_version": 1,
+        "run_id": config.run_id,
+        "title": config.title,
+        "status": "completed",
+        "created_at": datetime.now(UTC).isoformat(),
+        "exploratory": True,
+        "preregistered": False,
+        "causal_claim": False,
+        "config_path": str(config_path),
+        "config_sha256": _sha256(config_path),
+        "source_corpora": sorted(set(source_corpora)),
+        "settings": {
+            "dates": config.dates,
+            "symbols": [company.symbol for company in config.companies],
+            "models": config.models,
+            "prompt_id": config.prompt_id,
+            "temperature": config.temperature,
+            "horizons": config.horizons,
+            "notional_usd": config.notional_usd,
+            "entry_rule": "next_observed_session_adjusted_open",
+            "price_source": "Yahoo Finance via yfinance",
+            "transaction_costs": 0,
+        },
+        "counts": {
+            "articles_discovered": len(articles),
+            "articles_accepted": sum(article.screening_decision == "include" for article in articles),
+            "sentiment_scores": len(scores),
+            "daily_signals": len(signals),
+            "return_rows": len(returns),
+        },
+        "environment": collect_run_environment(),
+        "files": {str(path): _sha256(path) for path in files if path.exists()},
+        "notes": [
+            "Event returns overlap and are not combined into a funded portfolio.",
+            "This exploratory pilot is not causal evidence or investment advice.",
+        ],
+    }
+    (config.results_dir / "run_manifest.json").write_text(
+        json.dumps(manifest, indent=2, sort_keys=True, ensure_ascii=False), encoding="utf-8"
+    )
+
+
+def _toml_string(value: str) -> str:
+    return json.dumps(value, ensure_ascii=False)
+
+
+def register_completed_experiment(config: TradingStrategyConfig) -> None:
+    registry = config.experiment_registry
+    existing_text = registry.read_text(encoding="utf-8") if registry.exists() else ""
+    try:
+        existing = tomllib.loads(existing_text) if existing_text.strip() else {}
+    except tomllib.TOMLDecodeError as exc:
+        raise TradingStrategyError(f"cannot parse experiment registry {registry}: {exc}") from exc
+    entries = existing.get("experiments") if isinstance(existing, dict) else None
+    if isinstance(entries, list) and any(isinstance(entry, dict) and entry.get("id") == config.run_id for entry in entries):
+        return
+    environment = collect_run_environment()
+    raw_git = environment.get("git")
+    git: dict[str, Any] = raw_git if isinstance(raw_git, dict) else {}
+    commit = str(git.get("commit") or "unknown")
+    model_lines = ",\n  ".join(_toml_string(model) for model in config.models)
+    dates = ", ".join(_toml_string(value) for value in config.dates)
+    horizons = ", ".join(str(value) for value in config.horizons)
+    symbols = ", ".join(_toml_string(company.symbol) for company in config.companies)
+    entry = f"""
+
+[[experiments]]
+id = {_toml_string(config.run_id)}
+title = {_toml_string(config.title)}
+status = "completed"
+dissertation_relevance = "Exploratory Week 3 L1 news-sentiment trading pipeline pilot; non-preregistered and non-causal."
+commit_sha = {_toml_string(commit)}
+export_path = {_toml_string(str(config.results_dir))}
+
+[experiments.models]
+ids = [
+  {model_lines},
+  "baseline/vader",
+  "consensus/majority",
+]
+prompt_id = {_toml_string(config.prompt_id)}
+
+[experiments.settings]
+symbols = [{symbols}]
+news_dates = [{dates}]
+horizons = [{horizons}]
+temperature = {config.temperature}
+notional_usd = {config.notional_usd}
+entry_rule = "next_observed_session_adjusted_open"
+price_source = "Yahoo Finance via yfinance"
+transaction_costs = 0
+
+[experiments.analysis]
+exploratory = true
+preregistered = false
+causal_claim = false
+interpretation_notes = "Event-level and equal-weight mean returns only; overlapping events are not a funded portfolio."
+"""
+    registry.parent.mkdir(parents=True, exist_ok=True)
+    registry.write_text(existing_text.rstrip() + entry, encoding="utf-8")
+
+
+async def run_trading_strategy(
+    config_path: str | Path,
+    *,
+    newsapi_client: Any,
+    tavily_client: Any,
+    llm_client: Any,
+    price_loader: Callable[[TradingStrategyConfig], list[PriceRow]] = fetch_price_rows,
+) -> TradingRunResult:
+    path = Path(config_path)
+    config = load_trading_config(path)
+    completed_manifest = config.results_dir / "run_manifest.json"
+    if completed_manifest.exists():
+        try:
+            completed = json.loads(completed_manifest.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            completed = None
+        if isinstance(completed, dict) and completed.get("status") == "completed":
+            if completed.get("config_sha256") != _sha256(path):
+                raise TradingStrategyError(
+                    f"completed run {config.run_id} used a different config; choose a new run.id instead of overwriting it"
+                )
+            register_completed_experiment(config)
+            raw_counts = completed.get("counts")
+            counts: dict[str, Any] = raw_counts if isinstance(raw_counts, dict) else {}
+            return TradingRunResult(
+                run_id=config.run_id,
+                derived_dir=config.derived_dir,
+                results_dir=config.results_dir,
+                accepted_article_count=int(counts.get("articles_accepted", 0)),
+                sentiment_score_count=int(counts.get("sentiment_scores", 0)),
+                return_count=int(counts.get("return_rows", 0)),
+                source_corpora=tuple(completed.get("source_corpora") or ()),
+            )
+    config.derived_dir.mkdir(parents=True, exist_ok=True)
+    config.results_dir.mkdir(parents=True, exist_ok=True)
+
+    tavily_candidates = load_tavily_candidates(config)
+    newsapi_candidates, newsapi_corpora = await fetch_newsapi_candidates(config, newsapi_client)
+    candidates = tavily_candidates + newsapi_candidates
+    gap_candidates, gap_corpora = await fetch_tavily_gaps(config, tavily_client, candidates)
+    candidates.extend(gap_candidates)
+    articles = merge_article_candidates(candidates, timezone=config.timezone, selected_dates=config.dates)
+    articles = apply_screening_overrides(articles, config.screening_overrides_path)
+    write_articles(config, articles)
+
+    prompts = load_prompts(config.prompts_path)
+    if config.prompt_id not in prompts:
+        raise TradingStrategyError(f"prompt id not found: {config.prompt_id}")
+    score_jsonl = config.results_dir / "sentiment_scores.jsonl"
+    scores = await score_articles(
+        articles,
+        models=config.models,
+        prompt=prompts[config.prompt_id],
+        client=llm_client,
+        output_path=score_jsonl,
+        resume_path=config.resume_scores_path,
+        temperature=config.temperature,
+        max_completion_tokens=config.max_completion_tokens,
+        concurrency=config.concurrency,
+        retries=config.retries,
+    )
+    consensus = article_consensus(scores, config.models)
+    all_scores = sorted(scores + consensus, key=lambda row: (row.news_date, row.symbol, row.article_id, row.scorer_id))
+    scorer_ids = (*config.models, "consensus/majority", "baseline/vader")
+    signals = daily_signals(
+        articles,
+        all_scores,
+        scorer_ids,
+        config.dates,
+        tuple(company.symbol for company in config.companies),
+    )
+    prices = price_loader(config)
+    returns = calculate_returns(signals, prices, horizons=config.horizons, notional_usd=config.notional_usd)
+    source_corpora = sorted(
+        {candidate.source_corpus for candidate in tavily_candidates} | set(newsapi_corpora) | set(gap_corpora)
+    )
+    write_run_outputs(config, path, articles, all_scores, signals, prices, returns, source_corpora)
+    register_completed_experiment(config)
+    return TradingRunResult(
+        run_id=config.run_id,
+        derived_dir=config.derived_dir,
+        results_dir=config.results_dir,
+        accepted_article_count=sum(article.screening_decision == "include" for article in articles),
+        sentiment_score_count=len(all_scores),
+        return_count=len(returns),
+        source_corpora=tuple(source_corpora),
+    )
+
+
+def describe_trading_plan(config: TradingStrategyConfig) -> dict[str, Any]:
+    from_time, to_time = _utc_newsapi_bounds(config)
+    return {
+        "run_id": config.run_id,
+        "companies": [company.symbol for company in config.companies],
+        "dates": list(config.dates),
+        "models": list(config.models),
+        "horizons": list(config.horizons),
+        "newsapi_requests_before_pagination": len(config.companies),
+        "newsapi_from": from_time,
+        "newsapi_to": to_time,
+        "entry_rule": "next observed trading-session adjusted open",
+    }
