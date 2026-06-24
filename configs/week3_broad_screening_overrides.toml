@@ -1,0 +1,78 @@
+# Manual review of the broadened Week 3 panel. The first six decisions carry
+# forward the reviewed pilot; the remaining decisions remove false-positive
+# entity matches and promotional investment listicles from the added symbols.
+
+[[overrides]]
+article_id = "bb44801f11990a56"
+decision = "exclude"
+reason = "manual_other_company_corning"
+
+[[overrides]]
+article_id = "e7659fb6a9285616"
+decision = "exclude"
+reason = "manual_other_company_corning"
+
+[[overrides]]
+article_id = "3c752c9b202de4a2"
+decision = "exclude"
+reason = "manual_other_company_corning"
+
+[[overrides]]
+article_id = "ac2cb80c49fbd167"
+decision = "exclude"
+reason = "manual_other_company_corning"
+
+[[overrides]]
+article_id = "0009eb38b8b5eaf2"
+decision = "exclude"
+reason = "manual_duplicate_denmark_approval_event"
+
+[[overrides]]
+article_id = "c42a4ef5d2c83cbc"
+decision = "exclude"
+reason = "manual_duplicate_belgium_approval_event"
+
+[[overrides]]
+article_id = "db493a188b96e7b0"
+decision = "exclude"
+reason = "manual_other_company_tesla"
+
+[[overrides]]
+article_id = "213e82b65163b364"
+decision = "exclude"
+reason = "manual_other_companies_memory_suppliers"
+
+[[overrides]]
+article_id = "93742300898a7737"
+decision = "exclude"
+reason = "manual_other_company_amd"
+
+[[overrides]]
+article_id = "4ae1f63b66b1dba2"
+decision = "exclude"
+reason = "manual_other_company_ai_fiber_vendor"
+
+[[overrides]]
+article_id = "7db249c6d224c497"
+decision = "exclude"
+reason = "manual_macro_commentary_not_company_impact"
+
+[[overrides]]
+article_id = "e7bfbc30d64ef532"
+decision = "exclude"
+reason = "manual_ai_jobs_debate_not_company_impact"
+
+[[overrides]]
+article_id = "0aec7be29ed566ea"
+decision = "exclude"
+reason = "manual_promotional_stock_listicle"
+
+[[overrides]]
+article_id = "d2b4fe9b5cc4aa60"
+decision = "exclude"
+reason = "manual_promotional_stock_recommendation"
+
+[[overrides]]
+article_id = "4c68e3d7275b9436"
+decision = "exclude"
+reason = "manual_promotional_stock_listicle"

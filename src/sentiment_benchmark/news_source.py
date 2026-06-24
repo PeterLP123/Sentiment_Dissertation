@@ -54,6 +54,11 @@ TEXT_QUALITY_ERROR_PAGE = "error_page"
 TEXT_QUALITY_TOO_SHORT = "too_short"
 TEXT_QUALITY_NON_ARTICLE = "non_article"
 TEXT_QUALITY_MISSING = "missing"
+# NewsAPI deliberately supplies discovery metadata rather than complete article
+# bodies.  Keep snippet-only records distinct from failed/missing extraction so
+# provider-neutral downstream workflows can use their title and description
+# without pretending that full text was available.
+TEXT_QUALITY_SNIPPET = "snippet_only"
 
 # URL shapes that identify listing, index, and other non-article pages, which
 # can be long and clean enough to pass the text gate.

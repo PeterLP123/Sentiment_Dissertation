@@ -7,10 +7,29 @@ from sentiment_benchmark.cli import app
 from sentiment_benchmark.metrics import evaluate_responses
 from sentiment_benchmark.models import DatasetRow, LLMResponseRecord, RunConfig
 from sentiment_benchmark.news_source import NewsArticleRecord, NewsFetchResult, article_record_id, make_news_fetch_config, normalize_url
+from sentiment_benchmark.newsapi_source import NewsApiConfigurationError
 from sentiment_benchmark.prompts import make_prompt
 from sentiment_benchmark.storage import BenchmarkStore
 
 runner = CliRunner()
+
+
+def test_cli_trading_strategy_dry_run_has_no_credential_dependency() -> None:
+    result = runner.invoke(app, ["run-trading-strategy", "--dry-run"])
+    assert result.exit_code == 0
+    assert "Trading Strategy Dry Run" in result.output
+    assert "AAPL, AMZN, TSLA" in result.output
+    assert "Entry Rule" in result.output
+
+
+def test_cli_newsapi_check_reports_missing_key(monkeypatch) -> None:
+    def missing():
+        raise NewsApiConfigurationError("NEWSAPI_API_KEY is required for NewsAPI sourcing")
+
+    monkeypatch.setattr("sentiment_benchmark.cli._make_newsapi_client", missing)
+    result = runner.invoke(app, ["newsapi-check"])
+    assert result.exit_code != 0
+    assert "NEWSAPI_API_KEY is required" in result.output
 
 
 def _record(prompt_hash: str, row_number: int, model_id: str, label: str) -> LLMResponseRecord:

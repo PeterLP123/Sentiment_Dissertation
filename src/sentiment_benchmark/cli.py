@@ -70,6 +70,13 @@ from .news_source import (
     make_news_fetch_config,
     write_news_corpus,
 )
+from .newsapi_source import (
+    NEWSAPI_MAX_PAGES,
+    NewsApiClient,
+    NewsApiError,
+    make_newsapi_fetch_config,
+    write_newsapi_corpus,
+)
 from .perturbations import generate_prompt_suite
 from .prompt_sensitivity import SENSITIVITY_METRICS, prompt_sensitivity
 from .prompts import load_prompts
@@ -79,6 +86,15 @@ from .runner import BenchmarkRunner
 from .sc_runner import SelfConsistencyRunner
 from .self_consistency import SelfConsistencyResult
 from .storage import BenchmarkStore
+from .trading_analysis import TradingAnalysisError, analyze_trading_run
+from .trading_strategy import (
+    TradingStrategyError,
+    describe_trading_plan,
+    load_trading_config,
+)
+from .trading_strategy import (
+    run_trading_strategy as execute_trading_strategy,
+)
 
 console = Console()
 app = typer.Typer(help="Benchmark OpenRouter and Ollama LLMs on dissertation sentiment data.")
@@ -92,6 +108,10 @@ FETCH_RETRY_BASE_DELAY_SECONDS = 5.0
 
 def _make_tavily_news_client() -> TavilyNewsClient:
     return TavilyNewsClient()
+
+
+def _make_newsapi_client() -> NewsApiClient:
+    return NewsApiClient()
 
 
 def _resolve_prompt(prompt_id: str, prompts_path: Path):
@@ -312,6 +332,191 @@ def fetch_news(
         console.print(table)
 
     asyncio.run(main())
+
+
+@app.command("newsapi-check")
+def newsapi_check(
+    query: Annotated[str, typer.Option("--query", help="Small NewsAPI query used for connectivity checking.")] = "financial markets",
+) -> None:
+    """Run a one-result NewsAPI Everything request to verify credentials."""
+
+    async def main() -> None:
+        async with _make_newsapi_client() as client:
+            result = await client.check(query)
+        table = Table(title="NewsAPI Check")
+        table.add_column("Metric")
+        table.add_column("Value", justify="right")
+        table.add_row("Query", result.config.query)
+        table.add_row("Records", str(len(result.records)))
+        table.add_row("Total available", str(result.total_results))
+        table.add_row("Pages", str(result.pages_fetched))
+        console.print(table)
+
+    try:
+        asyncio.run(main())
+    except NewsApiError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+
+@app.command("fetch-newsapi")
+def fetch_newsapi(
+    query: Annotated[str, typer.Option("--query", help="NewsAPI Everything search query.")],
+    from_time: Annotated[
+        str | None,
+        typer.Option("--from", help="Oldest publication date/time, in ISO 8601 format."),
+    ] = None,
+    to_time: Annotated[
+        str | None,
+        typer.Option("--to", help="Newest publication date/time, in ISO 8601 format."),
+    ] = None,
+    max_pages: Annotated[
+        int,
+        typer.Option("--max-pages", help="Maximum 100-result pages to request."),
+    ] = NEWSAPI_MAX_PAGES,
+    domain: Annotated[
+        list[str] | None,
+        typer.Option("--domain", help="Publisher domain to include. Repeat for multiple domains."),
+    ] = None,
+    exclude_domain: Annotated[
+        list[str] | None,
+        typer.Option("--exclude-domain", help="Publisher domain to exclude. Repeat for multiple domains."),
+    ] = None,
+    output_dir: Annotated[
+        Path,
+        typer.Option("--output-dir", help="Directory where the timestamped NewsAPI corpus is written."),
+    ] = DEFAULT_NEWS_OUTPUT_DIR,
+) -> None:
+    """Fetch NewsAPI titles and descriptions into a derived article corpus."""
+    try:
+        config = make_newsapi_fetch_config(
+            query=query,
+            from_time=from_time,
+            to_time=to_time,
+            max_pages=max_pages,
+            domains=domain,
+            exclude_domains=exclude_domain,
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+    async def main() -> None:
+        async with _make_newsapi_client() as client:
+            result = await client.fetch(config)
+        paths = write_newsapi_corpus(result, output_dir)
+        table = Table(title="NewsAPI Fetch")
+        table.add_column("Metric")
+        table.add_column("Value", justify="right")
+        table.add_row("Records", str(len(result.records)))
+        table.add_row("Total available", str(result.total_results))
+        table.add_row("Pages", str(result.pages_fetched))
+        table.add_row("Output directory", str(paths.output_dir))
+        table.add_row("JSONL", str(paths.articles_jsonl))
+        table.add_row("CSV", str(paths.articles_csv))
+        table.add_row("Manifest", str(paths.manifest_json))
+        console.print(table)
+
+    try:
+        asyncio.run(main())
+    except NewsApiError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+
+@app.command("run-trading-strategy")
+def run_trading_strategy_command(
+    config_path: Annotated[
+        Path,
+        typer.Option("--config", help="TOML trading strategy configuration."),
+    ] = Path("configs/week3_trading_pilot.toml"),
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Print the fixed plan without API calls or output writes."),
+    ] = False,
+) -> None:
+    """Run the reproducible news-sentiment trading pilot."""
+    try:
+        config = load_trading_config(config_path)
+    except TradingStrategyError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    if dry_run:
+        plan = describe_trading_plan(config)
+        table = Table(title="Trading Strategy Dry Run")
+        table.add_column("Setting")
+        table.add_column("Value")
+        for key, value in plan.items():
+            table.add_row(key.replace("_", " ").title(), ", ".join(map(str, value)) if isinstance(value, list) else str(value))
+        console.print(table)
+        return
+
+    async def main() -> None:
+        async with (
+            _make_newsapi_client() as newsapi_client,
+            _make_tavily_news_client() as tavily_client,
+            make_llm_client("openrouter", base_url=os.getenv("OPENROUTER_BASE_URL", DEFAULT_BASE_URL)) as llm_client,
+        ):
+            result = await execute_trading_strategy(
+                config_path,
+                newsapi_client=newsapi_client,
+                tavily_client=tavily_client,
+                llm_client=llm_client,
+            )
+        table = Table(title="Trading Strategy Complete")
+        table.add_column("Metric")
+        table.add_column("Value", justify="right")
+        table.add_row("Run ID", result.run_id)
+        table.add_row("Accepted articles", str(result.accepted_article_count))
+        table.add_row("Sentiment scores", str(result.sentiment_score_count))
+        table.add_row("Return rows", str(result.return_count))
+        table.add_row("Derived data", str(result.derived_dir))
+        table.add_row("Meeting report", str(result.results_dir / "summary.md"))
+        console.print(table)
+
+    try:
+        asyncio.run(main())
+    except (NewsApiError, TradingStrategyError, RuntimeError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+
+@app.command("analyze-trading-run")
+def analyze_trading_run_command(
+    run_dir: Annotated[
+        Path,
+        typer.Option("--run-dir", help="Completed trading run directory containing run_manifest.json."),
+    ],
+    output_dir: Annotated[
+        Path,
+        typer.Option("--output-dir", help="New non-overwriting directory for analysis tables, plots, and report."),
+    ],
+    comparison_run_dir: Annotated[
+        Path | None,
+        typer.Option("--comparison-run-dir", help="Optional earlier run used for descriptive panel-sensitivity comparison."),
+    ] = None,
+    bootstrap_resamples: Annotated[
+        int,
+        typer.Option("--bootstrap-resamples", min=1, help="Number of deterministic percentile-bootstrap resamples."),
+    ] = 10_000,
+    seed: Annotated[
+        int,
+        typer.Option("--seed", help="Random seed used for bootstrap resampling."),
+    ] = 42,
+) -> None:
+    """Create robustness tables, plots, and a technical report for a completed trading run."""
+    try:
+        result = analyze_trading_run(
+            run_dir,
+            output_dir,
+            comparison_run_dir=comparison_run_dir,
+            seed=seed,
+            resamples=bootstrap_resamples,
+        )
+    except TradingAnalysisError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    table = Table(title="Trading Analysis Complete")
+    table.add_column("Artifact")
+    table.add_column("Path")
+    table.add_row("Technical report", str(result.summary_path))
+    table.add_row("Analysis manifest", str(result.manifest_path))
+    table.add_row("Generated files", str(len(result.generated_files)))
+    console.print(table)
 
 
 @app.command("package-news")

@@ -1,0 +1,33 @@
+# Manual review of the first Week 3 run. These exclusions implement the
+# pre-declared rule to remove stories centered on another company and
+# syndicated coverage of an event already represented by another source.
+
+[[overrides]]
+article_id = "bb44801f11990a56"
+decision = "exclude"
+reason = "manual_other_company_corning"
+
+[[overrides]]
+article_id = "e7659fb6a9285616"
+decision = "exclude"
+reason = "manual_other_company_corning"
+
+[[overrides]]
+article_id = "3c752c9b202de4a2"
+decision = "exclude"
+reason = "manual_other_company_corning"
+
+[[overrides]]
+article_id = "ac2cb80c49fbd167"
+decision = "exclude"
+reason = "manual_other_company_corning"
+
+[[overrides]]
+article_id = "0009eb38b8b5eaf2"
+decision = "exclude"
+reason = "manual_duplicate_denmark_approval_event"
+
+[[overrides]]
+article_id = "c42a4ef5d2c83cbc"
+decision = "exclude"
+reason = "manual_duplicate_belgium_approval_event"

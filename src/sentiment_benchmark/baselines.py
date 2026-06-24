@@ -17,12 +17,19 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import lru_cache
 
 from .constants import ALLOWED_LABELS, DEFAULT_SEED
 from .models import DatasetRow
 
 # VADER's conventional decision threshold on the normalised compound score.
 VADER_THRESHOLD = 0.05
+
+
+@dataclass(frozen=True)
+class VaderSentiment:
+    label: str
+    compound: float
 
 
 @dataclass(frozen=True)
@@ -126,19 +133,36 @@ def _predict_tfidf_logreg(rows: list[DatasetRow], folds: int, seed: int) -> list
     return _stratified_oof(rows, fit_predict, folds, seed)
 
 
-def _predict_vader(rows: list[DatasetRow]) -> list[str | None]:
+@lru_cache(maxsize=1)
+def _vader_analyzer():
     try:
         from nltk.sentiment.vader import SentimentIntensityAnalyzer
     except ImportError as exc:  # pragma: no cover - exercised only without nltk
         raise RuntimeError("VADER baseline requires nltk. Install with: pip install '.[baselines]'") from exc
 
     try:
-        analyzer = SentimentIntensityAnalyzer()
+        return SentimentIntensityAnalyzer()
     except LookupError:
         import nltk
 
         nltk.download("vader_lexicon", quiet=True)
-        analyzer = SentimentIntensityAnalyzer()
+        return SentimentIntensityAnalyzer()
+
+
+def classify_vader_text(text: str) -> VaderSentiment:
+    """Classify arbitrary text with VADER's conventional compound thresholds."""
+    compound = float(_vader_analyzer().polarity_scores(text)["compound"])
+    if compound >= VADER_THRESHOLD:
+        label = "positive"
+    elif compound <= -VADER_THRESHOLD:
+        label = "negative"
+    else:
+        label = "neutral"
+    return VaderSentiment(label=label, compound=compound)
+
+
+def _predict_vader(rows: list[DatasetRow]) -> list[str | None]:
+    analyzer = _vader_analyzer()
 
     predictions: list[str | None] = []
     for row in rows:

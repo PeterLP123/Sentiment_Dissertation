@@ -26,6 +26,9 @@ flowchart LR
     S --> A["Analysis commands<br/>results, compare, agreement"]
     S --> E["Export bundle<br/>run.json, metrics, statistics, figures"]
     T["Tavily"] --> N["Data/news<br/>unlabeled derived corpora"]
+    NA["NewsAPI"] --> N
+    N --> TR["Provider-neutral trading runner<br/>screen, score, align prices"]
+    TR --> TE["Data/derived/trading + results/trading"]
 ```
 
 Core boundaries:
@@ -43,6 +46,8 @@ Core boundaries:
 | `src/sentiment_benchmark/runtime_metadata.py` | Captures machine id/label, git state, Python version, OS/platform, database backend, and timezone for new runs. |
 | `src/sentiment_benchmark/exporter.py` | Writes reproducible run export bundles. |
 | `src/sentiment_benchmark/news_source.py` | Sources Tavily article corpora without touching benchmark labels. |
+| `src/sentiment_benchmark/newsapi_source.py` | Pages through NewsAPI discovery results and writes provenance-rich snippet corpora. |
+| `src/sentiment_benchmark/trading_strategy.py` | Merges provider records, screens target relevance, scores sentiment, aligns sessions, and exports event returns. |
 | `src/sentiment_benchmark/tui.py` | Interactive Textual interface over the same services. |
 
 ## Why Two Scoring Scopes Exist
@@ -78,9 +83,9 @@ Runs can now be produced on more than one machine and synced through Turso/libSQ
 
 The environment snapshot records package version, git commit/branch/dirty state, Python version, OS/platform, database backend, and local timezone. This makes a shared run history easier to audit when local Gemma behavior differs across machines.
 
-## Why Tavily Outputs Are Separate
+## Why News And Trading Outputs Are Separate
 
-Tavily searches and extracts article text from the internet. Those articles are useful source material, but they are not labeled sentiment examples yet. Writing them under `Data/news` prevents accidental mutation of the labeled benchmark datasets and makes later labeling work explicit.
+Tavily and NewsAPI supply article source material, not gold benchmark labels. Writing raw provider corpora under `Data/news`, merged screening data under `Data/derived/trading`, and strategy evidence under `results/trading` prevents accidental mutation of the labeled benchmark and keeps external-data provenance explicit. Trading sentiment is stored outside the benchmark database because it has no hidden human label.
 
 The Tavily corpus writer records:
 
@@ -92,6 +97,8 @@ The Tavily corpus writer records:
 - Raw Tavily payload fragments.
 - Schema version.
 
+NewsAPI records the equivalent query, pagination, publication timestamp, publisher, and raw result fragment. The trading runner then canonicalizes URLs, removes exact headline syndications, assigns exchange-local news dates, and records every automatic screening decision. Its run manifest hashes the config and generated evidence, and it refuses to overwrite a completed run created from a different config.
+
 ## Trade-Offs
 
 | Choice | Benefit | Cost |
@@ -102,6 +109,7 @@ The Tavily corpus writer records:
 | Provider abstraction | Same benchmark flow works for OpenRouter and Ollama. | Lowest common denominator interface hides provider-specific advanced controls. |
 | Primary/all scopes | Separates headline comparison from ambiguity audit. | Readers must understand which scope is being discussed. |
 | Tavily corpora unlabeled by default | Prevents accidental weak labeling. | A later labeling workflow is required before articles can become benchmark rows. |
+| Next-session-open trading entry | Permits all news on day D without look-ahead. | It differs from a literal close-to-close teaching example. |
 
 ## Alternatives Considered
 

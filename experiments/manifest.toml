@@ -68,3 +68,145 @@ metrics_focus = [
 ]
 cost_notes = "No OpenRouter API cost; baselines ran locally. FinBERT may require local model download and compute time."
 interpretation_notes = "Use as contextual baseline evidence only. Pilot sample is balanced by design and should not be treated as full-dataset prevalence."
+
+[[experiments]]
+id = "week3_trading_pilot_20260624"
+title = "Week 3 News-Sentiment Trading Pilot"
+status = "completed"
+dissertation_relevance = "Exploratory Week 3 L1 news-sentiment trading pipeline pilot; non-preregistered and non-causal."
+commit_sha = "37cacbbffbb064bf1d1eca2bd165bc99870ebb06"
+export_path = "results/trading/week3_trading_pilot_20260624"
+
+[experiments.models]
+ids = [
+  "openai/gpt-4o-mini",
+  "google/gemini-2.5-flash-lite",
+  "meta-llama/llama-3.3-70b-instruct",
+  "baseline/vader",
+  "consensus/majority",
+]
+prompt_id = "target_company_news_label_only"
+
+[experiments.settings]
+symbols = ["AAPL", "AMZN", "TSLA"]
+news_dates = ["2026-06-08", "2026-06-09", "2026-06-10"]
+horizons = [1, 2, 3, 4, 5, 6, 7]
+temperature = 0.0
+notional_usd = 10000.0
+entry_rule = "next_observed_session_adjusted_open"
+price_source = "Yahoo Finance via yfinance"
+transaction_costs = 0
+
+[experiments.analysis]
+exploratory = true
+preregistered = false
+causal_claim = false
+interpretation_notes = "Event-level and equal-weight mean returns only; overlapping events are not a funded portfolio."
+
+[[experiments]]
+id = "week3_trading_pilot_20260624_reviewed"
+title = "Week 3 News-Sentiment Trading Pilot — Reviewed"
+status = "completed"
+dissertation_relevance = "Exploratory Week 3 L1 news-sentiment trading pipeline pilot; non-preregistered and non-causal."
+commit_sha = "37cacbbffbb064bf1d1eca2bd165bc99870ebb06"
+export_path = "results/trading/week3_trading_pilot_20260624_reviewed"
+
+[experiments.models]
+ids = [
+  "openai/gpt-4o-mini",
+  "google/gemini-2.5-flash-lite",
+  "meta-llama/llama-3.3-70b-instruct",
+  "baseline/vader",
+  "consensus/majority",
+]
+prompt_id = "target_company_news_label_only"
+
+[experiments.settings]
+symbols = ["AAPL", "AMZN", "TSLA"]
+news_dates = ["2026-06-08", "2026-06-09", "2026-06-10"]
+horizons = [1, 2, 3, 4, 5, 6, 7]
+temperature = 0.0
+notional_usd = 10000.0
+entry_rule = "next_observed_session_adjusted_open"
+price_source = "Yahoo Finance via yfinance"
+transaction_costs = 0
+
+[experiments.analysis]
+exploratory = true
+preregistered = false
+causal_claim = false
+interpretation_notes = "Event-level and equal-weight mean returns only; overlapping events are not a funded portfolio."
+
+[[experiments]]
+id = "week3_trading_broad_20260624"
+title = "Week 3 News-Sentiment Trading Test — Broadened Panel"
+status = "completed"
+dissertation_relevance = "Exploratory Week 3 L1 news-sentiment trading pipeline pilot; non-preregistered and non-causal."
+commit_sha = "37cacbbffbb064bf1d1eca2bd165bc99870ebb06"
+export_path = "results/trading/week3_trading_broad_20260624"
+
+[experiments.models]
+ids = [
+  "openai/gpt-4o-mini",
+  "google/gemini-2.5-flash-lite",
+  "meta-llama/llama-3.3-70b-instruct",
+  "baseline/vader",
+  "consensus/majority",
+]
+prompt_id = "target_company_news_label_only"
+
+[experiments.settings]
+symbols = ["AAPL", "MSFT", "NVDA", "AMZN", "TSLA", "JPM", "XOM", "BA"]
+news_dates = ["2026-06-08", "2026-06-09", "2026-06-10"]
+horizons = [1, 2, 3, 4, 5, 6, 7]
+temperature = 0.0
+notional_usd = 10000.0
+entry_rule = "next_observed_session_adjusted_open"
+price_source = "Yahoo Finance via yfinance"
+transaction_costs = 0
+
+[experiments.analysis]
+exploratory = true
+preregistered = false
+causal_claim = false
+interpretation_notes = "Event-level and equal-weight mean returns only; overlapping events are not a funded portfolio."
+
+[[experiments]]
+id = "week3_trading_broad_20260624_reviewed"
+title = "Week 3 News-Sentiment Trading Test — Broadened and Reviewed"
+status = "completed"
+dissertation_relevance = "Exploratory Week 3 L1 news-sentiment trading pipeline pilot; non-preregistered and non-causal."
+commit_sha = "37cacbbffbb064bf1d1eca2bd165bc99870ebb06"
+export_path = "results/trading/week3_trading_broad_20260624_reviewed"
+
+[experiments.models]
+ids = [
+  "openai/gpt-4o-mini",
+  "google/gemini-2.5-flash-lite",
+  "meta-llama/llama-3.3-70b-instruct",
+  "baseline/vader",
+  "consensus/majority",
+]
+prompt_id = "target_company_news_label_only"
+
+[experiments.settings]
+symbols = ["AAPL", "MSFT", "NVDA", "AMZN", "TSLA", "JPM", "XOM", "BA"]
+news_dates = ["2026-06-08", "2026-06-09", "2026-06-10"]
+horizons = [1, 2, 3, 4, 5, 6, 7]
+temperature = 0.0
+notional_usd = 10000.0
+entry_rule = "next_observed_session_adjusted_open"
+price_source = "Yahoo Finance via yfinance"
+transaction_costs = 0
+
+[experiments.analysis]
+exploratory = true
+preregistered = false
+causal_claim = false
+interpretation_notes = "Event-level and equal-weight mean returns only; overlapping events are not a funded portfolio."
+robustness_export_path = "results/trading/week3_trading_broad_20260624_reviewed_analysis"
+bootstrap_method = "percentile event bootstrap; descriptive because events overlap"
+bootstrap_seed = 42
+bootstrap_resamples = 10000
+accepted_articles = 48
+evaluable_company_days = 22

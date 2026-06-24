@@ -53,6 +53,26 @@ Sentiment label:
 """
 
 [[prompts]]
+id = "target_company_news_label_only"
+output_mode = "label_only"
+system_prompt = """
+Classify the financial sentiment of a news item specifically for the named target company and its investors.
+
+Labels:
+- positive: the news implies a favorable business, financial, regulatory, competitive, or share-price impact for the target company.
+- negative: the news implies an unfavorable business, financial, regulatory, competitive, or share-price impact for the target company.
+- neutral: the news is descriptive, mixed, immaterial, or has no clear directional impact for the target company.
+
+Judge the target company, not another company mentioned in the item. Do not infer a direction from general market language alone.
+Return only one lowercase label: positive, negative, or neutral.
+"""
+user_template = """
+{sentence}
+
+Sentiment label:
+"""
+
+[[prompts]]
 id = "default_soft_label"
 output_mode = "soft_label"
 system_prompt = """
@@ -86,4 +106,3 @@ Sentence:
 
 Let's reason step by step.
 """
-

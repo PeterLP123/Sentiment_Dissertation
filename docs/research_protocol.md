@@ -149,7 +149,7 @@ mapping, split logic, and random seed.
 
 ### News corpus
 
-News articles sourced through Tavily are unlabeled, timestamped derived source
+News articles sourced through Tavily or NewsAPI are unlabeled, timestamped derived source
 material. Their dissertation role is to supply event-time text for L1 daily aggregation
 and the L2 event study; ingestion must remain source-agnostic so FNSPID or GDELT can
 substitute if Tavily coverage proves inadequate (tripwire 28 Jun: no working
@@ -162,6 +162,12 @@ separate labeling protocol is defined and documented.
 Daily prices come from Yahoo Finance: index futures (FTSE, DOW, Hang Seng) for L1 and
 the L2 futures overlay, plus single-name constituents for the L2 event-study arm.
 Timestamp alignment follows the news-before-decision rule (see Leakage below).
+
+The Week 3 exploratory pilot assigns all news on exchange-local day D, enters at the
+next observed trading session's adjusted open, and measures adjusted-close returns over
+1–7 trading sessions. It reports event-level and equal-weight mean returns only; overlapping
+events are not presented as a funded portfolio, and transaction costs are omitted as an
+explicit pilot limitation.
 
 ## Model Selection
 

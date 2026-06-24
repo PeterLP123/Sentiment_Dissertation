@@ -2,7 +2,7 @@
 
 ![Sentiment benchmark workflow](docs/assets/research-workflow.svg)
 
-A reproducible CLI and terminal UI for dissertation experiments on financial sentiment analysis. The project validates a provenance-clean default dataset, runs OpenRouter or Ollama-hosted models, compares them with non-LLM baselines, exports publication-ready evidence, and sources unlabeled news articles through Tavily for later annotation workflows.
+A reproducible CLI and terminal UI for dissertation experiments on financial sentiment analysis. The project validates a provenance-clean default dataset, runs OpenRouter or Ollama-hosted models, compares them with non-LLM baselines, exports publication-ready evidence, sources unlabeled news through Tavily and NewsAPI, and runs an exploratory news-to-price trading pilot.
 
 ## What This Project Does
 
@@ -16,6 +16,9 @@ A reproducible CLI and terminal UI for dissertation experiments on financial sen
 | Self-consistency | Sample one model repeatedly to estimate sentiment ambiguity. | `sentiment-bench run-self-consistency` |
 | Tavily news sourcing | Search and extract current articles into reproducible derived corpora. | `sentiment-bench fetch-news` |
 | Tavily dataset packaging | Batch-fetch query families and package shareable source datasets. | `sentiment-bench fetch-news-batch`, `package-news` |
+| NewsAPI sourcing | Page through dated article titles and descriptions with source manifests. | `sentiment-bench newsapi-check`, `fetch-newsapi` |
+| Trading pilot | Merge and screen news, score three LLMs plus VADER, and calculate next-session event returns. | `sentiment-bench run-trading-strategy` |
+| Trading robustness report | Bootstrap event means, compare scorers, test company sensitivity, and render meeting-ready plots. | `sentiment-bench analyze-trading-run` |
 | Terminal UI | Run the same workflows interactively with tabs for models, prompts, runs, results, and news. | `sentiment-bench tui` |
 
 ## Quick Start
@@ -55,6 +58,8 @@ OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 
 TAVILY_API_KEY=your-tavily-key
 TAVILY_PROJECT=sentiment-dissertation
+
+NEWSAPI_API_KEY=your-newsapi-key
 
 # Optional: route model calls to Ollama instead of OpenRouter.
 SENTIMENT_BENCH_PROVIDER=ollama
@@ -101,6 +106,17 @@ sentiment-bench fetch-news --query "bank earnings sentiment" \
   --max-results 10 --time-range week --output-dir Data/news
 ```
 
+Check NewsAPI and preview or run the fixed Week 3 strategy:
+
+```bash
+sentiment-bench newsapi-check --query "Apple AAPL stock"
+sentiment-bench run-trading-strategy --dry-run
+sentiment-bench run-trading-strategy --config configs/week3_trading_pilot.toml
+sentiment-bench analyze-trading-run \
+  --run-dir results/trading/<run-id> \
+  --output-dir results/trading/<analysis-id>
+```
+
 Launch the TUI:
 
 ```bash
@@ -118,7 +134,7 @@ Start here if you are setting up the project or writing the dissertation methods
 | [CLI reference](docs/cli_reference.md) | Reference | Commands, options, defaults, and examples. |
 | [TUI guide](docs/tui_guide.md) | How-to | Interactive model, prompt, run, results, and news workflows. |
 | [Model providers](docs/model_providers.md) | How-to | OpenRouter setup and local/remote Ollama setup for Gemma models. |
-| [Tavily news sourcing](docs/news_sourcing.md) | How-to | Search, extract, save, review, and troubleshoot article corpora. |
+| [News sourcing](docs/news_sourcing.md) | How-to | Search, extract, save, review, and troubleshoot Tavily and NewsAPI corpora. |
 | [Results and exports](docs/results_and_exports.md) | Reference | SQLite or Turso/libSQL storage, export files, metrics, figures, and reproducibility metadata. |
 | [Architecture](docs/architecture.md) | Explanation | Why the project separates source data, runs, providers, news corpora, and exports. |
 | [Dataset card](docs/dataset_card.md) | Reference | Dataset identity, shape, label policy, limitations, and ethics. |
@@ -134,6 +150,9 @@ flowchart LR
     D --> E["export<br/>responses, metrics, statistics, figures"]
     F["Tavily API"] --> G["fetch-news<br/>search + optional extract"]
     G --> H["Data/news/tavily_news_*<br/>unlabeled derived corpora"]
+    K["NewsAPI"] --> H
+    H --> L["run-trading-strategy<br/>screen + score + price horizons"]
+    L --> M["results/trading<br/>meeting report + evidence"]
     I["OpenRouter"] --> C
     J["Ollama on desktop PC"] --> C
 ```
@@ -148,7 +167,9 @@ Generated artifacts are intentionally separated:
 | --- | --- | --- |
 | `Data/derived/labeled/financial_sentiment_v2.csv` | Default provenance-clean benchmark dataset. | Source-controlled derived data. |
 | `Data/data.csv` | Legacy Kaggle source dataset with documented merge corruption. | Source-controlled source material. |
-| `Data/news/` | Tavily article corpora for later review or labeling. | Ignored except `.gitkeep`. |
+| `Data/news/` | Tavily and NewsAPI article corpora for later review or trading inputs. | Ignored except `.gitkeep`. |
+| `Data/derived/trading/` | Provider-neutral merged articles and screening decisions. | Ignored. |
+| `results/trading/` | Trading scores, signals, prices, returns, charts, and run manifests. | Ignored. |
 | `results/sentiment_benchmark.sqlite` | Local run database when using SQLite. | Ignored. |
 | `results/turso_replica.db` | Local embedded libSQL replica when using Turso. | Ignored. |
 | `results/exports/run_<id>/` | Reproducible run exports and optional figures. | Ignored. |
