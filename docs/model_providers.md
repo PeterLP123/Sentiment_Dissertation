@@ -151,6 +151,10 @@ Gemma 4 models can spend a short completion budget on internal thinking before e
 
 For CLI runs, use the finance-calibrated label-only prompt and keep `--max-completion-tokens` at the default `64` or higher. If a CLI Gemma 4 pilot produces invalid outputs, retry through the TUI with `Disable Ollama thinking` enabled, then compare the run metadata.
 
+## LSEG Trading Runs With Local Ollama
+
+Use `configs/lseg_ollama_trading_example.toml` as the contract. Trading runs require exact tags containing a tag separator (for example `gemma3:12b`), record the digest returned by Ollama, set temperature 0 and concurrency 1, disable thinking, keep models resident with configurable `ollama_keep_alive = "30m"`, and constrain label-only responses with a positive/negative/neutral JSON enum. Score reuse also requires matching content revision/hash, model tag/digest, prompt hash, and request settings. See [LSEG to Ollama pipeline](lseg_ollama_pipeline.md).
+
 ## Use The TUI Provider Controls
 
 Open:

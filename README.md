@@ -17,6 +17,7 @@ A reproducible CLI and terminal UI for dissertation experiments on financial sen
 | Tavily news sourcing | Search and extract current articles into reproducible derived corpora. | `sentiment-bench fetch-news` |
 | Tavily dataset packaging | Batch-fetch query families and package shareable source datasets. | `sentiment-bench fetch-news-batch`, `package-news` |
 | NewsAPI sourcing | Page through dated article titles and descriptions with source manifests. | `sentiment-bench newsapi-check`, `fetch-newsapi` |
+| LSEG Workspace research corpus | Collect entitled stories immutably, clean them offline, and create seeded local validation sheets. | `lseg-news-check`, `fetch-lseg-news`, `build-lseg-corpus` |
 | Trading pilot | Merge and screen news, score three LLMs plus VADER, and calculate next-session event returns. | `sentiment-bench run-trading-strategy` |
 | Trading robustness report | Bootstrap event means, compare scorers, test company sensitivity, and render meeting-ready plots. | `sentiment-bench analyze-trading-run` |
 | Terminal UI | Run the same workflows interactively with tabs for models, prompts, runs, results, and news. | `sentiment-bench tui` |
@@ -117,6 +118,16 @@ sentiment-bench analyze-trading-run \
   --output-dir results/trading/<analysis-id>
 ```
 
+Collect an entitled LSEG corpus and run the local-model policy:
+
+```bash
+python -m pip install -e ".[dev,lseg,baselines,finbert]"
+sentiment-bench lseg-news-check --config configs/lseg_workspace_example.toml
+sentiment-bench fetch-lseg-news --config configs/lseg_workspace_example.toml
+sentiment-bench build-lseg-corpus --source Data/news/lseg_lseg_workspace_example
+sentiment-bench run-trading-strategy --config configs/lseg_ollama_trading_example.toml
+```
+
 Launch the TUI:
 
 ```bash
@@ -135,6 +146,7 @@ Start here if you are setting up the project or writing the dissertation methods
 | [TUI guide](docs/tui_guide.md) | How-to | Interactive model, prompt, run, results, and news workflows. |
 | [Model providers](docs/model_providers.md) | How-to | OpenRouter setup and local/remote Ollama setup for Gemma models. |
 | [News sourcing](docs/news_sourcing.md) | How-to | Search, extract, save, review, and troubleshoot Tavily and NewsAPI corpora. |
+| [LSEG to Ollama pipeline](docs/lseg_ollama_pipeline.md) | How-to | Collect, clean, score, validate, and evaluate local-only Workspace news. |
 | [Results and exports](docs/results_and_exports.md) | Reference | SQLite or Turso/libSQL storage, export files, metrics, figures, and reproducibility metadata. |
 | [Architecture](docs/architecture.md) | Explanation | Why the project separates source data, runs, providers, news corpora, and exports. |
 | [Dataset card](docs/dataset_card.md) | Reference | Dataset identity, shape, label policy, limitations, and ethics. |
@@ -151,10 +163,13 @@ flowchart LR
     F["Tavily API"] --> G["fetch-news<br/>search + optional extract"]
     G --> H["Data/news/tavily_news_*<br/>unlabeled derived corpora"]
     K["NewsAPI"] --> H
+    N["LSEG Workspace"] --> O["immutable raw + clean revision corpus"]
+    O --> L
     H --> L["run-trading-strategy<br/>screen + score + price horizons"]
     L --> M["results/trading<br/>meeting report + evidence"]
     I["OpenRouter"] --> C
     J["Ollama on desktop PC"] --> C
+    J --> L
 ```
 
 ## Data And Output Policy
@@ -168,6 +183,7 @@ Generated artifacts are intentionally separated:
 | `Data/derived/labeled/financial_sentiment_v2.csv` | Default provenance-clean benchmark dataset. | Source-controlled derived data. |
 | `Data/data.csv` | Legacy Kaggle source dataset with documented merge corruption. | Source-controlled source material. |
 | `Data/news/` | Tavily and NewsAPI article corpora for later review or trading inputs. | Ignored except `.gitkeep`. |
+| `Data/derived/lseg/` | Clean, manifest-backed LSEG corpora and local annotation sheets. | Ignored. |
 | `Data/derived/trading/` | Provider-neutral merged articles and screening decisions. | Ignored. |
 | `results/trading/` | Trading scores, signals, prices, returns, charts, and run manifests. | Ignored. |
 | `results/sentiment_benchmark.sqlite` | Local run database when using SQLite. | Ignored. |

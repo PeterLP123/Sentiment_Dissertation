@@ -32,7 +32,15 @@ def make_llm_client(
     *,
     base_url: str = DEFAULT_BASE_URL,
     ollama_host: str = DEFAULT_OLLAMA_HOST,
+    ollama_keep_alive: str | int | None = None,
+    ollama_think: bool | None = None,
+    structured_label_output: bool = False,
 ) -> Any:
     if provider == "ollama":
-        return OllamaClient(host=ollama_host)
+        return OllamaClient(
+            host=ollama_host,
+            keep_alive=ollama_keep_alive,
+            structured_label_output=structured_label_output,
+            default_think=ollama_think,
+        )
     return OpenRouterClient(base_url=base_url)

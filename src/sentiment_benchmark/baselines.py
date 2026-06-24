@@ -212,7 +212,8 @@ def _disable_hf_progress_bars() -> None:
         pass
 
 
-def _predict_finbert(rows: list[DatasetRow], batch_size: int = 32) -> list[str | None]:
+def classify_finbert_texts(texts: list[str], batch_size: int = 32) -> list[str | None]:
+    """Classify arbitrary financial texts with the pretrained FinBERT baseline."""
     try:
         from transformers import pipeline as hf_pipeline
     except ImportError as exc:  # pragma: no cover - exercised only without transformers
@@ -222,14 +223,17 @@ def _predict_finbert(rows: list[DatasetRow], batch_size: int = 32) -> list[str |
 
     _disable_hf_progress_bars()
     classifier = hf_pipeline("text-classification", model="ProsusAI/finbert", truncation=True)
-    sentences = [row.sentence for row in rows]
     predictions: list[str | None] = []
-    for start in range(0, len(sentences), batch_size):
-        batch = sentences[start : start + batch_size]
+    for start in range(0, len(texts), batch_size):
+        batch = texts[start : start + batch_size]
         for output in classifier(batch):
             label = str(output.get("label", "")).strip().lower()
             predictions.append(label if label in ALLOWED_LABELS else None)
     return predictions
+
+
+def _predict_finbert(rows: list[DatasetRow], batch_size: int = 32) -> list[str | None]:
+    return classify_finbert_texts([row.sentence for row in rows], batch_size=batch_size)
 
 
 def predict_baseline(

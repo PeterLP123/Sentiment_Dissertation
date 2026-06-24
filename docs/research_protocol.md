@@ -286,6 +286,15 @@ documented in the dissertation text.
 - Memorization caveat: models may have memorized outcomes for pre-training-cutoff text;
   this look-ahead risk is acknowledged and cited rather than instrumented.
 
+### LSEG Local-Model Evaluation
+
+- Build a 150-story sample stratified by ticker and exchange-local news date with seed 42.
+- Double-code 30 sampled stories selected with seed 43; report percent agreement and Cohen's kappa, then adjudicate every disagreement before calculating model metrics.
+- Report accuracy, macro-F1, MCC, per-class precision/recall/F1, confusion matrices, and invalid-output coverage against both the existing financial benchmark and the adjudicated local LSEG sample.
+- Sort unique dates and make a chronological 70/30 development/holdout split. Tune on the first 70% only. Freeze exact model tags/digests, prompt hash, cleaning version, scoring representation, and decision policy before evaluating the final 30% once.
+- Predictive reporting includes coverage, traded-event count, hit rate, gross/net mean returns, confidence intervals, and Benjamini-Hochberg-adjusted results. Overlapping events are screening evidence, not independent causal observations.
+- The trading policy predicts sentiment, not market impact. Market-impact modeling remains a separate future experiment.
+
 ## Interpretation Limits
 
 The dataset is financial-domain text and should not be generalized to non-financial

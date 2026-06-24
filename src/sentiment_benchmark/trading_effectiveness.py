@@ -101,13 +101,24 @@ def _require(returns: pd.DataFrame) -> None:
         raise TradingEffectivenessError(f"returns data is missing columns: {', '.join(sorted(missing))}")
 
 
+def _net_return_column(returns: pd.DataFrame) -> str:
+    return "net_strategy_return_pct" if "net_strategy_return_pct" in returns else "strategy_return_pct"
+
+
+def _net_pnl_column(returns: pd.DataFrame) -> str:
+    return "net_pnl_usd" if "net_pnl_usd" in returns else "pnl_usd"
+
+
 def significance_tests(returns: pd.DataFrame, *, scorer_display: dict[str, str] | None = None) -> pd.DataFrame:
     """Per scorer-horizon: mean-return tests vs zero and a directional hit-rate test."""
     _require(returns)
     rows: list[dict[str, object]] = []
+    net_column = _net_return_column(returns)
     for (scorer_id, horizon), group in returns.groupby(["scorer_id", "horizon"], sort=True):
         values = group["strategy_return_pct"].to_numpy(dtype=float)
         traded = group[group["signal_value"].astype(float) != 0]["strategy_return_pct"].to_numpy(dtype=float)
+        net_values = group[net_column].to_numpy(dtype=float)
+        net_traded = group[group["signal_value"].astype(float) != 0][net_column].to_numpy(dtype=float)
         wins = int((traded > 0).sum())
         n_trades = int(traded.size)
         rows.append(
@@ -123,12 +134,19 @@ def significance_tests(returns: pd.DataFrame, *, scorer_display: dict[str, str] 
                 "n_trades": n_trades,
                 "trade_hit_rate": wins / n_trades if n_trades else float("nan"),
                 "hit_rate_p": float(stats.binomtest(wins, n_trades, 0.5).pvalue) if n_trades else float("nan"),
+                "net_mean_return_pct": float(net_values.mean()),
+                "net_t_test_p": _ttest_vs_zero(net_values),
+                "net_wilcoxon_p": _wilcoxon_vs_zero(net_values),
+                "net_sign_test_p": _sign_test(net_values),
+                "net_trade_hit_rate": float((net_traded > 0).mean()) if net_traded.size else float("nan"),
             }
         )
     frame = pd.DataFrame(rows)
     if not frame.empty:
         frame["t_test_q_bh"] = benjamini_hochberg(frame["t_test_p"].tolist())
         frame["significant_bh_5pct"] = frame["t_test_q_bh"] < 0.05
+        frame["net_t_test_q_bh"] = benjamini_hochberg(frame["net_t_test_p"].tolist())
+        frame["net_significant_bh_5pct"] = frame["net_t_test_q_bh"] < 0.05
     return frame
 
 
@@ -137,9 +155,11 @@ def benchmark_comparison(returns: pd.DataFrame, *, scorer_display: dict[str, str
     _require(returns)
     data = returns.copy()
     data["market_return_pct"] = data["market_return"].astype(float) * 100.0
+    net_column = _net_return_column(data)
     rows: list[dict[str, object]] = []
     for (scorer_id, horizon), group in data.groupby(["scorer_id", "horizon"], sort=True):
         strategy = group["strategy_return_pct"].to_numpy(dtype=float)
+        net_strategy = group[net_column].to_numpy(dtype=float)
         market = group["market_return_pct"].to_numpy(dtype=float)
         difference = strategy - market
         rows.append(
@@ -153,6 +173,10 @@ def benchmark_comparison(returns: pd.DataFrame, *, scorer_display: dict[str, str
                 "excess_vs_buy_and_hold_pp": float(strategy.mean() - market.mean()),
                 "paired_t_p": _ttest_vs_zero(difference),
                 "paired_wilcoxon_p": _wilcoxon_vs_zero(difference),
+                "net_strategy_mean_pct": float(net_strategy.mean()),
+                "net_excess_vs_buy_and_hold_pp": float(net_strategy.mean() - market.mean()),
+                "net_paired_t_p": _ttest_vs_zero(net_strategy - market),
+                "net_paired_wilcoxon_p": _wilcoxon_vs_zero(net_strategy - market),
             }
         )
     return pd.DataFrame(rows)
@@ -162,14 +186,18 @@ def risk_economics(returns: pd.DataFrame, *, scorer_display: dict[str, str] | No
     """Per scorer-horizon: return/risk ratio, win/loss profile, profit factor, and drawdown."""
     _require(returns)
     rows: list[dict[str, object]] = []
+    net_column = _net_return_column(returns)
+    net_pnl_column = _net_pnl_column(returns)
     for (scorer_id, horizon), group in returns.groupby(["scorer_id", "horizon"], sort=True):
         ordered = group.sort_values(["entry_date", "symbol"])
         all_values = ordered["strategy_return_pct"].to_numpy(dtype=float)
+        net_values = ordered[net_column].to_numpy(dtype=float)
         traded = ordered[ordered["signal_value"].astype(float) != 0]["strategy_return_pct"].to_numpy(dtype=float)
         wins = traded[traded > 0]
         losses = traded[traded < 0]
         volatility = float(all_values.std(ddof=1)) if all_values.size > 1 else float("nan")
         mean = float(all_values.mean())
+        net_mean = float(net_values.mean())
         equity = np.cumsum(all_values)
         drawdown = equity - np.maximum.accumulate(equity)
         if losses.size and losses.sum() != 0:
@@ -192,6 +220,9 @@ def risk_economics(returns: pd.DataFrame, *, scorer_display: dict[str, str] | No
                 "profit_factor": profit_factor,
                 "total_pnl_usd": float(ordered["pnl_usd"].astype(float).sum()),
                 "max_drawdown_pct": float(drawdown.min()) if drawdown.size else float("nan"),
+                "net_mean_return_pct": net_mean,
+                "net_volatility_pct": float(net_values.std(ddof=1)) if net_values.size > 1 else float("nan"),
+                "total_net_pnl_usd": float(ordered[net_pnl_column].astype(float).sum()),
             }
         )
     return pd.DataFrame(rows)
@@ -251,9 +282,11 @@ def format_effectiveness_markdown(
         return "## Trading effectiveness\n\nNo return rows were available for effectiveness testing.\n"
 
     total_cells = len(significance)
-    n_significant = int(significance["significant_bh_5pct"].sum())
+    n_significant = int(significance["net_significant_bh_5pct"].sum())
     n_events = int(significance["n_events"].max())
-    beat_benchmark = benchmarks[(benchmarks["excess_vs_buy_and_hold_pp"] > 0) & (benchmarks["paired_t_p"] < 0.05)]
+    beat_benchmark = benchmarks[
+        (benchmarks["net_excess_vs_buy_and_hold_pp"] > 0) & (benchmarks["net_paired_t_p"] < 0.05)
+    ]
     n_beat = int(len(beat_benchmark))
 
     ranked = economics.replace([np.inf, -np.inf], np.nan).dropna(subset=["return_risk_ratio"])
@@ -290,12 +323,12 @@ def format_effectiveness_markdown(
         [
             str(int(row.horizon)),
             _fmt_pct(row.mean_return_pct),
-            _fmt_p(row.t_test_p),
-            _fmt_p(row.wilcoxon_p),
-            _fmt_p(row.sign_test_p),
-            f"{_fmt_rate(row.trade_hit_rate)} ({_fmt_p(row.hit_rate_p)})",
-            _fmt_p(row.t_test_q_bh),
-            "yes" if bool(row.significant_bh_5pct) else "no",
+            _fmt_pct(row.net_mean_return_pct),
+            _fmt_p(row.net_t_test_p),
+            _fmt_p(row.net_wilcoxon_p),
+            _fmt_p(row.net_sign_test_p),
+            _fmt_p(row.net_t_test_q_bh),
+            "yes" if bool(row.net_significant_bh_5pct) else "no",
         ]
         for row in significance[significance["scorer_id"] == primary_scorer].sort_values("horizon").itertuples()
     ]
@@ -303,10 +336,11 @@ def format_effectiveness_markdown(
         [
             str(int(row.horizon)),
             _fmt_pct(row.strategy_mean_pct),
+            _fmt_pct(row.net_strategy_mean_pct),
             _fmt_pct(row.buy_and_hold_mean_pct),
-            _fmt_pp(row.excess_vs_buy_and_hold_pp),
-            _fmt_p(row.paired_t_p),
-            _fmt_p(row.paired_wilcoxon_p),
+            _fmt_pp(row.net_excess_vs_buy_and_hold_pp),
+            _fmt_p(row.net_paired_t_p),
+            _fmt_p(row.net_paired_wilcoxon_p),
         ]
         for row in benchmarks[benchmarks["scorer_id"] == primary_scorer].sort_values("horizon").itertuples()
     ]
@@ -314,6 +348,7 @@ def format_effectiveness_markdown(
         [
             str(int(row.horizon)),
             _fmt_pct(row.mean_return_pct),
+            _fmt_pct(row.net_mean_return_pct),
             _fmt_pct(row.volatility_pct),
             _fmt_ratio(row.return_risk_ratio),
             _fmt_rate(row.win_rate),
@@ -335,10 +370,10 @@ correction, and {n_beat} beat buy-and-hold at p<0.05 (paired). {best_line} {verd
 
 ### Significance and direction — {primary_display}
 
-Mean-return tests are vs zero; the hit-rate test is a two-sided binomial of traded outcomes vs 50%.
+Mean-return tests are vs zero. Gross is shown for transparency; inference uses net returns when cost-adjusted columns exist.
 
 {_table(
-    ["Horizon", "Mean return", "t-test p", "Wilcoxon p", "Sign p", "Hit rate (p)", "BH q", "Sig. q<0.05"],
+    ["Horizon", "Gross mean", "Net mean", "Net t p", "Net Wilcoxon p", "Net sign p", "Net BH q", "Sig. q<0.05"],
     sig_rows,
 )}
 
@@ -348,18 +383,19 @@ Buy-and-hold is an always-long position in the same names over the same windows;
 per-event strategy-minus-benchmark difference.
 
 {_table(
-    ["Horizon", "Strategy mean", "Buy-and-hold mean", "Excess", "Paired t p", "Paired Wilcoxon p"],
+    ["Horizon", "Gross mean", "Net mean", "Buy-and-hold mean", "Net excess", "Net paired t p", "Net Wilcoxon p"],
     bench_rows,
 )}
 
 ### Risk-adjusted economics — {primary_display}
 
-Return/risk is the per-event mean over standard deviation across all events (neutral no-trade days contribute
-zero). Win rate, average win/loss, and profit factor use traded events only. Max drawdown is the trough of a
+Return/risk is the per-event mean over standard deviation across exported return rows. Policy-enabled runs omit holds
+from this table and retain them in the decision/coverage outputs. Win rate, average win/loss, and profit factor use
+traded events only. Max drawdown is the trough of a
 naive equal-weight, date-ordered cumulative-return curve and is illustrative given overlapping events.
 
 {_table(
-    ["Horizon", "Mean return", "Volatility", "Return/risk", "Win rate", "Profit factor", "Max drawdown"],
+    ["Horizon", "Gross mean", "Net mean", "Gross volatility", "Gross return/risk", "Win rate", "Profit factor", "Gross max drawdown"],
     econ_rows,
 )}
 

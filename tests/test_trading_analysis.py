@@ -248,3 +248,54 @@ def test_analyze_trading_run_refuses_to_overwrite_existing_output(tmp_path: Path
 
     with pytest.raises(TradingAnalysisError, match="already exists"):
         analyze_trading_run(run_dir, output_dir)
+
+
+def test_analyze_trading_run_supports_dynamic_lseg_primary_and_net_returns(tmp_path: Path) -> None:
+    run_dir, output_dir = _write_completed_fixture(tmp_path)
+    articles_path = tmp_path / "derived" / "articles.csv"
+    pd.DataFrame(
+        [{"article_id": "a1", "symbol": "AAA", "screening_decision": "include", "providers": "lseg"}]
+    ).to_csv(articles_path, index=False)
+    pd.DataFrame([{"article_id": "a1", "scorer_id": "local:exact", "label": "positive"}]).to_csv(
+        run_dir / "sentiment_scores.csv", index=False
+    )
+    pd.DataFrame(
+        [
+            {
+                "symbol": "AAA",
+                "news_date": "2026-01-01",
+                "scorer_id": "local:exact",
+                "signal": "positive",
+                "signal_value": 1,
+                "valid_count": 3,
+            }
+        ]
+    ).to_csv(run_dir / "daily_signals.csv", index=False)
+    pd.DataFrame(
+        [
+            {
+                "symbol": "AAA",
+                "news_date": "2026-01-01",
+                "scorer_id": "local:exact",
+                "horizon": 1,
+                "entry_date": "2026-01-02",
+                "market_return": 0.01,
+                "strategy_return_pct": 1.0,
+                "net_strategy_return_pct": 0.8,
+                "signal_value": 1,
+                "pnl_usd": 100.0,
+                "net_pnl_usd": 80.0,
+            }
+        ]
+    ).to_csv(run_dir / "returns.csv", index=False)
+    manifest = json.loads((run_dir / "run_manifest.json").read_text())
+    manifest["settings"].update({"models": ["local:exact"], "primary_model": "local:exact"})
+    (run_dir / "run_manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    result = analyze_trading_run(run_dir, output_dir, resamples=10)
+
+    assert "local:exact" in result.summary_path.read_text()
+    source = pd.read_csv(output_dir / "source_yield.csv").iloc[0]
+    horizon = pd.read_csv(output_dir / "horizon_summary.csv").iloc[0]
+    assert source["accepted_lseg"] == 1
+    assert horizon["net_mean_return_pct"] == pytest.approx(0.8)

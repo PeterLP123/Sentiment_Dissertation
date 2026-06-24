@@ -1,9 +1,11 @@
 import asyncio
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
+from sentiment_benchmark.artifact_io import sha256_file
 from sentiment_benchmark.models import LLMResponseRecord
 from sentiment_benchmark.news_source import NewsArticleRecord, article_record_id, normalize_url
 from sentiment_benchmark.newsapi_source import NewsApiFetchResult
@@ -11,16 +13,19 @@ from sentiment_benchmark.prompts import load_prompts
 from sentiment_benchmark.trading_strategy import (
     ArticleCandidate,
     DailySignal,
+    DecisionPolicyConfig,
     IndexFallback,
     PriceRow,
     SentimentScore,
     TradingCompany,
+    TradingDecision,
     TradingStrategyError,
     apply_screening_overrides,
     article_consensus,
     calculate_returns,
     canonicalize_url,
     load_trading_config,
+    make_trading_decisions,
     merge_article_candidates,
     run_trading_strategy,
     score_articles,
@@ -170,6 +175,62 @@ def test_return_rejects_incomplete_horizon() -> None:
         calculate_returns([signal], _prices(), horizons=(5,), notional_usd=10_000)
 
 
+def test_decision_policy_boundaries_and_insufficient_evidence() -> None:
+    policy = DecisionPolicyConfig(min_valid_stories=3, threshold=0.5, transaction_cost_bps_per_side=10)
+    signals = [
+        DailySignal("AAPL", "2026-06-10", "model", 3, 3, 0.5, "positive", 1),
+        DailySignal("AAPL", "2026-06-10", "model2", 3, 3, -0.5, "negative", -1),
+        DailySignal("AAPL", "2026-06-10", "model3", 3, 3, 0.49, "positive", 1),
+        DailySignal("AAPL", "2026-06-10", "model4", 2, 2, 1.0, "positive", 1),
+        DailySignal("AAPL", "2026-06-10", "model5", 0, 0, None, None, None),
+    ]
+
+    decisions = make_trading_decisions(signals, policy)
+
+    assert [decision.action for decision in decisions] == ["buy", "sell", "hold", "hold", "hold"]
+    assert decisions[2].reason == "inside_no_trade_band"
+    assert decisions[3].reason == "insufficient_valid_stories"
+    assert decisions[4].reason == "no_valid_sentiment"
+
+
+def test_decision_returns_skip_holds_and_report_net_costs() -> None:
+    decisions = [
+        TradingDecision("AAPL", "2026-06-10", "buy", 3, 3, 1.0, "buy", 1, 0.5, 3, "v1", "threshold"),
+        TradingDecision("AAPL", "2026-06-10", "hold", 3, 3, 0.0, "hold", 0, 0.5, 3, "v1", "band"),
+    ]
+
+    rows = calculate_returns(
+        decisions,
+        _prices(),
+        horizons=(1,),
+        notional_usd=10_000,
+        transaction_cost_bps_per_side=10,
+    )
+
+    assert len(rows) == 1
+    assert rows[0].action == "buy"
+    assert rows[0].transaction_cost == pytest.approx(0.002)
+    assert rows[0].net_strategy_return == pytest.approx(rows[0].strategy_return - 0.002)
+    assert rows[0].net_pnl_usd == pytest.approx(rows[0].net_strategy_return * 10_000)
+
+
+@pytest.mark.parametrize(
+    ("available_at", "expected_entry"),
+    [
+        ("2026-06-10T12:00:00+00:00", "2026-06-10"),  # 08:00 New York, before the open
+        ("2026-06-10T14:00:00+00:00", "2026-06-11"),  # 10:00 New York, after the open
+        ("2026-06-13T12:00:00+00:00", "2026-06-15"),  # weekend
+    ],
+)
+def test_lseg_availability_enters_at_next_observed_session_open(available_at: str, expected_entry: str) -> None:
+    signal = DailySignal("AAPL", "2026-06-10", "model", 3, 3, 1.0, "positive", 1, available_at)
+
+    row = calculate_returns([signal], _prices(), horizons=(1,), notional_usd=10_000)[0]
+
+    assert row.entry_date == expected_entry
+    assert row.availability_timestamp == available_at
+
+
 def _index_prices() -> list[PriceRow]:
     dates = ["2026-06-10", "2026-06-11", "2026-06-12", "2026-06-15", "2026-06-16"]
     return [
@@ -208,7 +269,11 @@ class FakeTavily:
 
 
 class FakeLlm:
+    def __init__(self):
+        self.calls = 0
+
     async def classify(self, model_id, prompt, example, **_kwargs):
+        self.calls += 1
         return LLMResponseRecord(
             row_number=example.row_number,
             model_id=model_id,
@@ -259,6 +324,125 @@ def test_score_articles_checkpoints_llm_results_before_vader(
     assert len(rows) == 1
     assert rows[0]["scorer_id"] == "a"
     assert rows[0]["label"] == "positive"
+
+
+def test_strict_resume_identity_invalidates_changed_content_and_model_digest(tmp_path: Path) -> None:
+    articles = merge_article_candidates(
+        [_candidate("newsapi", _record("https://x.test/apple", "Apple wins contract", "2026-06-10"))],
+        timezone="America/New_York",
+        selected_dates=("2026-06-10",),
+    )
+    article = articles[0]
+    article.source_revision_id = "revision-1"
+    article.scoring_text_sha256 = "content-1"
+    output = tmp_path / "scores.jsonl"
+    prompt = load_prompts(Path("configs/default_prompts.toml"))["target_company_news_label_only"]
+    first_client = FakeLlm()
+    asyncio.run(
+        score_articles(
+            articles,
+            models=("model",),
+            prompt=prompt,
+            client=first_client,
+            output_path=output,
+            resume_path=None,
+            temperature=0,
+            max_completion_tokens=64,
+            concurrency=1,
+            retries=0,
+            baselines=(),
+            model_digests={"model": "digest-1"},
+            request_settings={"structured_output": True},
+            strict_resume_identity=True,
+        )
+    )
+    assert first_client.calls == 1
+
+    resumed_client = FakeLlm()
+    asyncio.run(
+        score_articles(
+            articles,
+            models=("model",),
+            prompt=prompt,
+            client=resumed_client,
+            output_path=output,
+            resume_path=None,
+            temperature=0,
+            max_completion_tokens=64,
+            concurrency=1,
+            retries=0,
+            baselines=(),
+            model_digests={"model": "digest-1"},
+            request_settings={"structured_output": True},
+            strict_resume_identity=True,
+        )
+    )
+    assert resumed_client.calls == 0
+
+    settings_client = FakeLlm()
+    asyncio.run(
+        score_articles(
+            articles,
+            models=("model",),
+            prompt=prompt,
+            client=settings_client,
+            output_path=output,
+            resume_path=None,
+            temperature=0,
+            max_completion_tokens=64,
+            concurrency=1,
+            retries=0,
+            baselines=(),
+            model_digests={"model": "digest-1"},
+            request_settings={"structured_output": True, "keep_alive": "30m"},
+            strict_resume_identity=True,
+        )
+    )
+    assert settings_client.calls == 1
+
+    prompt_client = FakeLlm()
+    changed_prompt = replace(prompt, prompt_hash="changed-prompt-hash")
+    asyncio.run(
+        score_articles(
+            articles,
+            models=("model",),
+            prompt=changed_prompt,
+            client=prompt_client,
+            output_path=output,
+            resume_path=None,
+            temperature=0,
+            max_completion_tokens=64,
+            concurrency=1,
+            retries=0,
+            baselines=(),
+            model_digests={"model": "digest-1"},
+            request_settings={"structured_output": True, "keep_alive": "30m"},
+            strict_resume_identity=True,
+        )
+    )
+    assert prompt_client.calls == 1
+
+    changed = replace(article, scoring_text=article.scoring_text + " changed", scoring_text_sha256="content-2")
+    changed_client = FakeLlm()
+    asyncio.run(
+        score_articles(
+            [changed],
+            models=("model",),
+            prompt=prompt,
+            client=changed_client,
+            output_path=output,
+            resume_path=None,
+            temperature=0,
+            max_completion_tokens=64,
+            concurrency=1,
+            retries=0,
+            baselines=(),
+            model_digests={"model": "digest-2"},
+            request_settings={"structured_output": True},
+            strict_resume_identity=True,
+        )
+    )
+    assert changed_client.calls == 1
 
 
 def test_end_to_end_runner_writes_meeting_artifacts(tmp_path: Path) -> None:
@@ -346,10 +530,116 @@ aliases = ["Apple", "AAPL"]
     assert resumed.return_count == result.return_count
 
 
+def test_pure_lseg_ollama_run_needs_no_web_news_clients_and_writes_decisions(tmp_path: Path) -> None:
+    corpus = tmp_path / "lseg_corpus"
+    corpus.mkdir()
+    article_rows = []
+    for index in range(3):
+        text = f"Apple contract story {index} with favorable revenue implications."
+        article_rows.append(
+            {
+                "article_id": f"source-{index}",
+                "revision_id": f"revision-{index}",
+                "story_family_id": "urn:test:shared" if index < 2 else f"urn:test:{index}",
+                "story_id": f"urn:test:{index}:1",
+                "headline": f"Apple wins contract {index}",
+                "version_created": f"2026-06-10T1{index}:00:00+00:00",
+                "matched_symbols": ["AAPL"],
+                "matched_queries": ["R:AAPL.O"],
+                "clean_text": text,
+                "clean_text_sha256": f"clean-{index}",
+                "max_scoring_chars": 8000,
+                "scoring_eligible": True,
+            }
+        )
+    articles_path = corpus / "articles.jsonl"
+    articles_path.write_text("".join(json.dumps(row) + "\n" for row in article_rows))
+    lseg_manifest = corpus / "manifest.json"
+    lseg_manifest.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "status": "completed",
+                "files": {
+                    "articles_jsonl": {"path": "articles.jsonl", "sha256": sha256_file(articles_path)}
+                },
+            }
+        )
+    )
+    config_path = tmp_path / "lseg_trading.toml"
+    config_path.write_text(
+        f"""
+[run]
+id = "lseg_test"
+title = "LSEG test"
+timezone = "America/New_York"
+dates = ["2026-06-10"]
+horizons = [1]
+notional_usd = 10000
+[scoring]
+provider = "ollama"
+models = ["primary:exact", "secondary:exact"]
+primary_model = "primary:exact"
+baselines = []
+consensus_enabled = false
+prompt_id = "target_company_news_label_only"
+prompts_path = "{Path('configs/default_prompts.toml').resolve()}"
+temperature = 0.0
+max_completion_tokens = 64
+concurrency = 1
+retries = 0
+ollama_keep_alive = "30m"
+ollama_think = false
+structured_output = true
+[sources]
+lseg_corpus_manifest = "{lseg_manifest}"
+newsapi_enabled = false
+tavily_gap_fetch = false
+[signal_policy]
+min_valid_stories = 3
+threshold = 0.5
+transaction_cost_bps_per_side = 10
+short_borrow_bps_per_day = 0
+[outputs]
+derived_output_root = "{tmp_path / 'derived'}"
+results_output_root = "{tmp_path / 'results'}"
+experiment_registry = "{tmp_path / 'experiments.toml'}"
+[[companies]]
+symbol = "AAPL"
+name = "Apple Inc."
+aliases = ["Apple", "AAPL"]
+"""
+    )
+
+    result = asyncio.run(
+        run_trading_strategy(
+            config_path,
+            newsapi_client=None,
+            tavily_client=None,
+            llm_client=FakeLlm(),
+            price_loader=lambda _config: _prices()[:2],
+        )
+    )
+
+    assert result.accepted_article_count == 3
+    assert result.return_count == 2
+    decisions = (result.results_dir / "trading_decisions.csv").read_text()
+    assert decisions.count("positive_mean_meets_threshold") == 2
+    returns = (result.results_dir / "returns.csv").read_text()
+    assert "net_strategy_return" in returns
+    manifest = json.loads((result.results_dir / "run_manifest.json").read_text())
+    assert manifest["settings"]["provider"] == "ollama"
+    assert manifest["settings"]["decision_policy"]["threshold"] == 0.5
+    assert manifest["counts"]["traded_decisions"] == 2
+
+
 def test_fixed_config_loads() -> None:
     config = load_trading_config("configs/week3_trading_pilot.toml")
     assert [company.symbol for company in config.companies] == ["AAPL", "AMZN", "TSLA"]
     assert config.horizons == (1, 2, 3, 4, 5, 6, 7)
+    assert config.provider == "openrouter"
+    assert config.lseg_corpus_manifest is None
+    assert config.decision_policy_enabled is False
 
 
 def test_broadened_reviewed_config_loads_fixed_panel() -> None:

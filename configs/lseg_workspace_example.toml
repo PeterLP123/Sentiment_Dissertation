@@ -1,0 +1,42 @@
+# Example only. Copy this file, choose a new stable collection ID, and freeze
+# the company/date window before collecting dissertation data.
+
+[collection]
+id = "lseg_workspace_example"
+start = "2026-06-01T00:00:00Z"
+end = "2026-06-08T00:00:00Z"
+language = "en"
+session = "desktop"
+page_size = 100
+max_pages = 50
+story_concurrency = 4
+retries = 3
+
+[cleaning]
+min_text_chars = 100
+max_scoring_chars = 8000
+
+[outputs]
+raw_output_root = "Data/news"
+derived_output_root = "Data/derived/lseg"
+
+[[companies]]
+symbol = "AAPL"
+name = "Apple Inc."
+ric = "AAPL.O"
+news_query = "R:AAPL.O and Language:LEN"
+aliases = ["Apple", "AAPL"]
+
+[[companies]]
+symbol = "MSFT"
+name = "Microsoft Corporation"
+ric = "MSFT.O"
+news_query = "R:MSFT.O and Language:LEN"
+aliases = ["Microsoft", "MSFT"]
+
+[[companies]]
+symbol = "NVDA"
+name = "NVIDIA Corporation"
+ric = "NVDA.O"
+news_query = "R:NVDA.O and Language:LEN"
+aliases = ["Nvidia", "NVIDIA", "NVDA"]

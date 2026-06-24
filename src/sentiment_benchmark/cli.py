@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+from contextlib import AsyncExitStack
 from pathlib import Path
 from typing import Annotated
 
@@ -35,6 +36,15 @@ from .dataset import compute_stats, load_dataset
 from .env import load_env_file
 from .exporter import export_run
 from .latex_tables import sensitivity_table_latex
+from .lseg_corpus import build_lseg_corpus
+from .lseg_source import (
+    LsegNewsClient,
+    LsegNewsError,
+    check_lseg_news,
+    fetch_lseg_news,
+    load_lseg_collection_config,
+)
+from .lseg_validation import create_lseg_validation_sample, evaluate_lseg_annotations
 from .models import PromptConfig, RunConfig
 from .news_batch import (
     NewsBatchError,
@@ -43,6 +53,7 @@ from .news_batch import (
     find_fetched_corpus,
     load_fetched_corpora,
 )
+from .news_cleaning import NewsCleaningDependencyError
 from .news_package import (
     DEFAULT_NEWS_PACKAGE_ID,
     DEFAULT_NEWS_PACKAGE_OUTPUT_DIR,
@@ -112,6 +123,10 @@ def _make_tavily_news_client() -> TavilyNewsClient:
 
 def _make_newsapi_client() -> NewsApiClient:
     return NewsApiClient()
+
+
+def _make_lseg_news_client() -> LsegNewsClient:
+    return LsegNewsClient()
 
 
 def _resolve_prompt(prompt_id: str, prompts_path: Path):
@@ -358,6 +373,150 @@ def newsapi_check(
         raise typer.BadParameter(str(exc)) from exc
 
 
+@app.command("lseg-news-check")
+def lseg_news_check(
+    config_path: Annotated[
+        Path,
+        typer.Option("--config", help="TOML LSEG collection definition used for the entitlement check."),
+    ] = Path("configs/lseg_workspace_example.toml"),
+) -> None:
+    """Verify Workspace headline and story access without writing data."""
+    try:
+        config = load_lseg_collection_config(config_path)
+    except LsegNewsError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+    async def main() -> None:
+        async with _make_lseg_news_client() as client:
+            result = await check_lseg_news(config, client)
+        table = Table(title="LSEG Workspace News Check")
+        table.add_column("Metric")
+        table.add_column("Value")
+        table.add_row("Query", str(result["query"]))
+        table.add_row("Headlines", str(result["headline_count"]))
+        table.add_row("Story ID", str(result["story_id"] or "-"))
+        table.add_row("Story status", str(result["story_status"]))
+        console.print(table)
+
+    try:
+        asyncio.run(main())
+    except LsegNewsError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+
+@app.command("fetch-lseg-news")
+def fetch_lseg_news_command(
+    config_path: Annotated[
+        Path,
+        typer.Option("--config", help="TOML LSEG collection definition."),
+    ] = Path("configs/lseg_workspace_example.toml"),
+) -> None:
+    """Fetch an immutable, resumable LSEG Workspace headline/story collection."""
+    try:
+        config = load_lseg_collection_config(config_path)
+    except LsegNewsError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+    async def main() -> None:
+        async with _make_lseg_news_client() as client:
+            result = await fetch_lseg_news(config, client)
+        table = Table(title="LSEG Workspace News Fetch")
+        table.add_column("Metric")
+        table.add_column("Value")
+        table.add_row("Collection ID", config.collection_id)
+        table.add_row("Headlines", str(result.headline_count))
+        table.add_row("Stories", str(result.story_count))
+        table.add_row("Unavailable/failed stories", str(result.failed_story_count))
+        table.add_row("Resumed", str(result.resumed))
+        table.add_row("Raw collection", str(result.raw_dir))
+        table.add_row("Manifest", str(result.manifest_path))
+        console.print(table)
+
+    try:
+        asyncio.run(main())
+    except LsegNewsError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+
+@app.command("build-lseg-corpus")
+def build_lseg_corpus_command(
+    source: Annotated[
+        Path,
+        typer.Option("--source", help="Completed raw LSEG collection directory under Data/news."),
+    ],
+) -> None:
+    """Build deterministic clean text from a completed raw LSEG collection."""
+    try:
+        result = build_lseg_corpus(source)
+    except (LsegNewsError, NewsCleaningDependencyError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    table = Table(title="LSEG Clean Corpus")
+    table.add_column("Metric")
+    table.add_column("Value")
+    table.add_row("Articles", str(result.article_count))
+    table.add_row("Eligible", str(result.eligible_count))
+    table.add_row("Resumed", str(result.resumed))
+    table.add_row("Derived corpus", str(result.derived_dir))
+    table.add_row("Articles JSONL", str(result.articles_path))
+    table.add_row("Screening index", str(result.screening_path))
+    table.add_row("Manifest", str(result.manifest_path))
+    console.print(table)
+
+
+@app.command("sample-lseg-validation")
+def sample_lseg_validation_command(
+    corpus_manifest: Annotated[Path, typer.Option("--corpus-manifest", help="Verified derived LSEG corpus manifest.")],
+    output_dir: Annotated[Path, typer.Option("--output-dir", help="New local-only annotation directory.")],
+    sample_size: Annotated[int, typer.Option("--sample-size")] = 150,
+    double_code_size: Annotated[int, typer.Option("--double-code-size")] = 30,
+    seed: Annotated[int, typer.Option("--seed")] = 42,
+    double_code_seed: Annotated[int, typer.Option("--double-code-seed")] = 43,
+) -> None:
+    """Create deterministic primary and double-code LSEG annotation sheets."""
+    try:
+        result = create_lseg_validation_sample(
+            corpus_manifest,
+            output_dir,
+            sample_size=sample_size,
+            double_code_size=double_code_size,
+            seed=seed,
+            double_code_seed=double_code_seed,
+        )
+    except LsegNewsError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    table = Table(title="LSEG Validation Sample")
+    table.add_column("Metric")
+    table.add_column("Value")
+    table.add_row("Stories", str(result.sample_count))
+    table.add_row("Double-coded", str(result.double_code_count))
+    table.add_row("Primary sheet", str(result.primary_path))
+    table.add_row("Secondary sheet", str(result.secondary_path))
+    table.add_row("Manifest", str(result.manifest_path))
+    console.print(table)
+
+
+@app.command("evaluate-lseg-annotations")
+def evaluate_lseg_annotations_command(
+    primary: Annotated[Path, typer.Option("--primary", help="Completed primary annotation CSV.")],
+    secondary: Annotated[Path, typer.Option("--secondary", help="Completed secondary annotation CSV.")],
+    output_dir: Annotated[Path, typer.Option("--output-dir", help="New local-only evaluation directory.")],
+) -> None:
+    """Validate annotations, report agreement, and export the adjudicated benchmark."""
+    try:
+        result = evaluate_lseg_annotations(primary, secondary, output_dir)
+    except LsegNewsError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    table = Table(title="LSEG Annotation Agreement")
+    table.add_column("Metric")
+    table.add_column("Value")
+    table.add_row("Double-coded", str(result.double_code_count))
+    table.add_row("Percent agreement", f"{result.percent_agreement:.1%}")
+    table.add_row("Cohen's kappa", f"{result.cohen_kappa:.4f}")
+    table.add_row("Adjudicated dataset", str(result.labeled_dataset_path))
+    table.add_row("Metrics", str(result.metrics_path))
+    console.print(table)
+
+
 @app.command("fetch-newsapi")
 def fetch_newsapi(
     query: Annotated[str, typer.Option("--query", help="NewsAPI Everything search query.")],
@@ -448,11 +607,23 @@ def run_trading_strategy_command(
         return
 
     async def main() -> None:
-        async with (
-            _make_newsapi_client() as newsapi_client,
-            _make_tavily_news_client() as tavily_client,
-            make_llm_client("openrouter", base_url=os.getenv("OPENROUTER_BASE_URL", DEFAULT_BASE_URL)) as llm_client,
-        ):
+        async with AsyncExitStack() as stack:
+            newsapi_client = (
+                await stack.enter_async_context(_make_newsapi_client()) if config.newsapi_enabled else None
+            )
+            tavily_client = (
+                await stack.enter_async_context(_make_tavily_news_client()) if config.tavily_gap_fetch else None
+            )
+            llm_client = await stack.enter_async_context(
+                make_llm_client(
+                    _resolve_provider(config.provider),
+                    base_url=os.getenv("OPENROUTER_BASE_URL", DEFAULT_BASE_URL),
+                    ollama_host=config.ollama_host,
+                    ollama_keep_alive=config.ollama_keep_alive,
+                    ollama_think=config.ollama_think,
+                    structured_label_output=config.structured_output,
+                )
+            )
             result = await execute_trading_strategy(
                 config_path,
                 newsapi_client=newsapi_client,
@@ -604,7 +775,11 @@ def news_quality(
     ] = 10,
 ) -> None:
     """Summarize text quality across fetched Tavily corpora without calling Tavily."""
-    sources = [Path(item) for item in source] if source else discover_news_corpora(news_dir)
+    sources: list[str | Path] = []
+    if source:
+        sources.extend(Path(item) for item in source)
+    else:
+        sources.extend(discover_news_corpora(news_dir))
     try:
         report = summarize_news_quality(sources, query_matrix_path=query_matrix)
     except NewsQualityError as exc:
@@ -875,7 +1050,7 @@ def fetch_news_batch(
                     "Re-run the same command to retry only the failed fetches and build the package."
                 )
             if package and not failed_fetch_count:
-                package_dirs = list(dict.fromkeys(corpus_dirs))
+                package_dirs: list[str | Path] = list(dict.fromkeys(corpus_dirs))
                 package_task = progress.add_task("Packaging share dataset", total=1)
                 progress.update(
                     package_task,

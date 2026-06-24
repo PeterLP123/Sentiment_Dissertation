@@ -16,6 +16,7 @@ from .parser import parse_model_response
 from .prompts import render_messages
 
 _TRANSIENT_STATUS_CODES = {429, 500, 502, 503, 504}
+_LABEL_SCHEMA = {"type": "string", "enum": ["positive", "negative", "neutral"]}
 
 
 class OllamaDependencyError(RuntimeError):
@@ -96,12 +97,18 @@ class OllamaClient:
         host: str | None = None,
         timeout: float = 120.0,
         client: Any | None = None,
+        keep_alive: str | int | None = None,
+        structured_label_output: bool = False,
+        default_think: bool | None = None,
     ) -> None:
         load_env_file()
         self.host = (host or os.getenv("OLLAMA_HOST") or DEFAULT_OLLAMA_HOST).rstrip("/")
         self.timeout = timeout
         self._client = client
         self._owns_client = client is None
+        self.keep_alive = keep_alive
+        self.structured_label_output = structured_label_output
+        self.default_think = default_think
 
     async def __aenter__(self) -> OllamaClient:
         return self
@@ -215,8 +222,13 @@ class OllamaClient:
             "options": options,
             "stream": False,
         }
-        if ollama_think is not None:
-            chat_kwargs["think"] = ollama_think
+        resolved_think = self.default_think if ollama_think is None else ollama_think
+        if resolved_think is not None:
+            chat_kwargs["think"] = resolved_think
+        if self.keep_alive is not None:
+            chat_kwargs["keep_alive"] = self.keep_alive
+        if self.structured_label_output and prompt.output_mode == "label_only":
+            chat_kwargs["format"] = _LABEL_SCHEMA
         start = time.monotonic()
         try:
             response = await self._call_with_retries(
@@ -309,4 +321,13 @@ class OllamaClient:
             )
 
     async def get_generation_metadata(self, generation_id: str, retries: int = 3) -> dict[str, Any] | None:
+        return None
+
+    async def model_digest(self, model_id: str, retries: int = 3) -> str | None:
+        payload = await self._call_with_retries(lambda: self._get_client().list(), retries)
+        for item in _get_field(payload, "models", []) or []:
+            candidate = _get_field(item, "model") or _get_field(item, "name")
+            if candidate == model_id:
+                digest = _get_field(item, "digest")
+                return digest if isinstance(digest, str) and digest else None
         return None

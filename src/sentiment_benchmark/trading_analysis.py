@@ -41,6 +41,7 @@ SCORER_DISPLAY = {
     "meta-llama/llama-3.3-70b-instruct": "Llama 3.3 70B",
     "consensus/majority": "LLM consensus",
     "baseline/vader": "VADER",
+    "baseline/finbert": "FinBERT",
 }
 
 
@@ -79,7 +80,10 @@ def summarize_horizons(returns: pd.DataFrame, *, seed: int = 42, resamples: int 
     rows: list[dict[str, Any]] = []
     for (scorer_id, horizon), group in returns.groupby(["scorer_id", "horizon"], sort=True):
         values = group["strategy_return_pct"].astype(float)
+        net_column = "net_strategy_return_pct" if "net_strategy_return_pct" in group else "strategy_return_pct"
+        net_values = group[net_column].astype(float)
         interval = bootstrap_mean_interval(values.tolist(), seed=seed, resamples=resamples)
+        net_interval = bootstrap_mean_interval(net_values.tolist(), seed=seed, resamples=resamples)
         traded = group[group["signal_value"].astype(float) != 0]
         rows.append(
             {
@@ -96,6 +100,15 @@ def summarize_horizons(returns: pd.DataFrame, *, seed: int = 42, resamples: int 
                 "mean_traded_return_pct": float(traded["strategy_return_pct"].mean()) if len(traded) else np.nan,
                 "trade_hit_rate": float((traded["strategy_return_pct"] > 0).mean()) if len(traded) else np.nan,
                 "mean_pnl_usd": float(group["pnl_usd"].mean()),
+                "net_mean_return_pct": net_interval.mean,
+                "net_ci95_lower_pct": net_interval.lower,
+                "net_ci95_upper_pct": net_interval.upper,
+                "net_median_return_pct": float(net_values.median()),
+                "net_mean_traded_return_pct": float(traded[net_column].mean()) if len(traded) else np.nan,
+                "net_trade_hit_rate": float((traded[net_column] > 0).mean()) if len(traded) else np.nan,
+                "mean_net_pnl_usd": float(
+                    group["net_pnl_usd"].mean() if "net_pnl_usd" in group else group["pnl_usd"].mean()
+                ),
             }
         )
     return pd.DataFrame(rows)
@@ -144,6 +157,7 @@ def summarize_source_yield(articles: pd.DataFrame) -> pd.DataFrame:
         provider_text = accepted["providers"].fillna("").astype(str)
         newsapi = provider_text.str.contains("newsapi", regex=False)
         tavily = provider_text.str.contains("tavily", regex=False)
+        lseg = provider_text.str.contains("lseg", regex=False)
         rows.append(
             {
                 "symbol": str(symbol),
@@ -154,6 +168,7 @@ def summarize_source_yield(articles: pd.DataFrame) -> pd.DataFrame:
                 "accepted_newsapi_only": int((newsapi & ~tavily).sum()),
                 "accepted_tavily_only": int((tavily & ~newsapi).sum()),
                 "accepted_both": int((newsapi & tavily).sum()),
+                "accepted_lseg": int(lseg.sum()),
             }
         )
     return pd.DataFrame(rows)
@@ -169,6 +184,8 @@ def summarize_agreement(
     scores: pd.DataFrame,
     signals: pd.DataFrame,
     llm_scorers: Sequence[str],
+    *,
+    primary_scorer: str = "consensus/majority",
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     article_pivot = scores.pivot_table(index="article_id", columns="scorer_id", values="label", aggfunc="first")
     pairwise_rows: list[dict[str, Any]] = []
@@ -211,6 +228,19 @@ def summarize_agreement(
             _metric(
                 "event_consensus_vader_signal_agreement",
                 int((valid["consensus/majority"] == valid["baseline/vader"]).sum()),
+                len(valid),
+            )
+        )
+    baseline_scorer = next(
+        (scorer for scorer in ("baseline/vader", "baseline/finbert") if scorer in event_pivot),
+        None,
+    )
+    if baseline_scorer is not None and primary_scorer in event_pivot:
+        valid = event_pivot[[primary_scorer, baseline_scorer]].dropna()
+        metrics.append(
+            _metric(
+                "event_primary_baseline_signal_agreement",
+                int((valid[primary_scorer] == valid[baseline_scorer]).sum()),
                 len(valid),
             )
         )
@@ -320,13 +350,16 @@ def _write_plots(
         raise TradingAnalysisError("plot generation requires the figures extra: uv sync --extra figures") from exc
 
     plt.rcParams.update({"axes.spines.top": False, "axes.spines.right": False, "font.size": 9})
-    scorer_order = [scorer for scorer in SCORER_DISPLAY if scorer in set(horizon["scorer_id"])]
-    colors = ["#4C78A8", "#F58518", "#B279A2", "#72B7B2", "#79706E"]
+    available_scorers = list(dict.fromkeys(horizon["scorer_id"].astype(str).tolist()))
+    scorer_order = [scorer for scorer in SCORER_DISPLAY if scorer in available_scorers]
+    scorer_order.extend(scorer for scorer in available_scorers if scorer not in scorer_order)
+    colors = ["#4C78A8", "#F58518", "#B279A2", "#72B7B2", "#79706E", "#E45756", "#54A24B"]
     paths: list[Path] = []
 
     fig, axis = plt.subplots(figsize=(11, 6.2))
     offsets = np.linspace(-0.28, 0.28, len(scorer_order))
-    for offset, scorer, color in zip(offsets, scorer_order, colors, strict=True):
+    for index, (offset, scorer) in enumerate(zip(offsets, scorer_order, strict=True)):
+        color = colors[index % len(colors)]
         rows = horizon[horizon["scorer_id"] == scorer].sort_values("horizon")
         yerr = np.vstack(
             [
@@ -371,7 +404,7 @@ def _write_plots(
     fig, axis = plt.subplots(figsize=(9.5, 5.2))
     image = axis.imshow(values, cmap="PuOr", norm=TwoSlopeNorm(vmin=-limit, vcenter=0, vmax=limit), aspect="auto")
     axis.set(
-        title="LLM-consensus mean return by company and horizon",
+        title="Primary-scorer mean return by company and horizon",
         xlabel="Trading-session horizon",
         ylabel="Company",
         xticks=range(len(matrix.columns)),
@@ -395,7 +428,9 @@ def _write_plots(
     signal_order = ["negative", "neutral", "positive", "missing"]
     signal_colors = {"negative": "#6F4E7C", "neutral": "#BAB0AC", "positive": "#F28E2B", "missing": "#D6D6D6"}
     signal_matrix = signals.pivot(index="scorer", columns="signal", values="event_count").fillna(0)
-    signal_matrix = signal_matrix.reindex([SCORER_DISPLAY[s] for s in scorer_order if SCORER_DISPLAY[s] in signal_matrix.index])
+    signal_matrix = signal_matrix.reindex(
+        [SCORER_DISPLAY.get(s, s) for s in scorer_order if SCORER_DISPLAY.get(s, s) in signal_matrix.index]
+    )
     fig, axis = plt.subplots(figsize=(9, 4.8))
     left = np.zeros(len(signal_matrix))
     for signal in signal_order:
@@ -413,11 +448,13 @@ def _write_plots(
     fig, axis = plt.subplots(figsize=(9, 4.8))
     symbols = source_yield["symbol"].tolist()
     bottom = np.zeros(len(symbols))
-    for column, label, color in [
+    source_columns = [
         ("accepted_tavily_only", "Tavily only", "#4C78A8"),
         ("accepted_newsapi_only", "NewsAPI only", "#F58518"),
         ("accepted_both", "Matched across providers", "#B279A2"),
-    ]:
+        ("accepted_lseg", "LSEG Workspace", "#54A24B"),
+    ]
+    for column, label, color in source_columns:
         values_for_source = source_yield[column].to_numpy()
         axis.bar(symbols, values_for_source, bottom=bottom, label=label, color=color)
         bottom += values_for_source
@@ -429,7 +466,7 @@ def _write_plots(
     plt.close(fig)
     paths.append(path)
 
-    agreement_scorers = [*scorer_order[:3], "baseline/vader"]
+    agreement_scorers = list(dict.fromkeys([*scorer_order[:3], "baseline/vader"]))
     labels = [SCORER_DISPLAY.get(scorer, scorer) for scorer in agreement_scorers]
     agreement = np.eye(len(agreement_scorers))
     for row in pairwise.itertuples():
@@ -464,35 +501,45 @@ def _write_summary(
     run_manifest: dict[str, Any],
     articles: pd.DataFrame,
     returns: pd.DataFrame,
+    signals: pd.DataFrame,
     horizon: pd.DataFrame,
     source_yield: pd.DataFrame,
     metrics: pd.DataFrame,
     leave_one_out: pd.DataFrame,
     comparison: pd.DataFrame | None,
+    primary_scorer: str,
     *,
     seed: int,
     resamples: int,
 ) -> Path:
-    consensus = horizon[horizon["scorer_id"] == "consensus/majority"].sort_values("horizon")
-    best = consensus.loc[consensus["mean_return_pct"].idxmax()]
-    worst = consensus.loc[consensus["mean_return_pct"].idxmin()]
+    primary = horizon[horizon["scorer_id"] == primary_scorer].sort_values("horizon")
+    if primary.empty:
+        primary_scorer = str(horizon["scorer_id"].iloc[0])
+        primary = horizon[horizon["scorer_id"] == primary_scorer].sort_values("horizon")
+    primary_display = SCORER_DISPLAY.get(primary_scorer, primary_scorer)
+    best = primary.loc[primary["net_mean_return_pct"].idxmax()]
+    worst = primary.loc[primary["net_mean_return_pct"].idxmin()]
     planned_events = len(run_manifest["settings"]["symbols"]) * len(run_manifest["settings"]["dates"])
-    evaluable_events = int(returns[["symbol", "news_date"]].drop_duplicates().shape[0])
+    primary_signals = signals[signals["scorer_id"].astype(str) == primary_scorer]
+    if "valid_count" in primary_signals:
+        primary_signals = primary_signals[primary_signals["valid_count"].fillna(0).astype(float) > 0]
+    evaluable_events = int(primary_signals[["symbol", "news_date"]].drop_duplicates().shape[0])
     accepted = int((articles["screening_decision"] == "include").sum())
     llm_unanimous = _safe_rate(metrics, "article_llm_unanimous")
     event_unanimous = _safe_rate(metrics, "event_llm_signal_unanimous")
-    vader_agreement = _safe_rate(metrics, "event_consensus_vader_signal_agreement")
-    consensus_rows = [
+    baseline_agreement = _safe_rate(metrics, "event_primary_baseline_signal_agreement")
+    primary_rows = [
         [
             str(int(row.horizon)),
             f"{row.mean_return_pct:.3f}%",
-            f"[{row.ci95_lower_pct:.3f}%, {row.ci95_upper_pct:.3f}%]",
-            f"{row.trade_hit_rate:.1%}",
+            f"{row.net_mean_return_pct:.3f}%",
+            f"[{row.net_ci95_lower_pct:.3f}%, {row.net_ci95_upper_pct:.3f}%]",
+            f"{row.net_trade_hit_rate:.1%}",
             f"{int(row.n_trades)}/{int(row.n_events)}",
         ]
-        for row in consensus.itertuples()
+        for row in primary.itertuples()
     ]
-    final_horizon = int(consensus["horizon"].max())
+    final_horizon = int(primary["horizon"].max())
     final_rows = horizon[horizon["horizon"] == final_horizon].sort_values("mean_return_pct", ascending=False)
     scorer_rows = [
         [
@@ -517,52 +564,58 @@ def _write_summary(
     sign_stable = int(((loo_ranges["min"] > 0) | (loo_ranges["max"] < 0)).sum())
     comparison_note = ""
     if comparison is not None and not comparison.empty:
-        comparison_consensus = comparison[comparison["scorer_id"] == "consensus/majority"]
-        delta = comparison_consensus["mean_return_change_pp"].abs().mean()
-        previous_n = int(comparison_consensus["previous_n_events"].max())
+        comparison_primary = comparison[comparison["scorer_id"] == primary_scorer]
+        delta = comparison_primary["mean_return_change_pp"].abs().mean()
+        previous_n = int(comparison_primary["previous_n_events"].max())
         comparison_note = (
-            f" Relative to the original {previous_n}-event pilot, the absolute change in the consensus mean averaged "
+            f" Relative to the comparison run ({previous_n} events), the absolute change in the primary mean averaged "
             f"{delta:.3f} percentage points across horizons, showing that the small pilot was sensitive to panel composition."
         )
 
-    title = "Broadened News-Sentiment Trading Test: Technical Results"
+    zero_crossing = int(
+        ((primary["net_ci95_lower_pct"] <= 0) & (primary["net_ci95_upper_pct"] >= 0)).sum()
+    )
+    horizon_count = int(primary["horizon"].nunique())
+    missing_events = planned_events - evaluable_events
+    title = f"{run_manifest.get('title') or run_manifest['run_id']}: Technical Results"
     text = f"""# {title}
 
 Generated: {datetime.now(UTC).isoformat()}
 
 ## Technical summary
 
-The reviewed panel broadened the pilot from 3 to 8 companies while retaining the same three news dates and seven
-trading-session exit horizons. It discovered {len(articles)} unique company-linked articles, retained {accepted} after
-automated and manual screening, and produced signals for {evaluable_events} of {planned_events} planned company-day
-events. XOM had no accepted text on two dates, so those events were not silently imputed.
+The run covered {len(run_manifest["settings"]["symbols"])} companies, {len(run_manifest["settings"]["dates"])} news dates,
+and {horizon_count} trading-session exit horizons. It discovered {len(articles)} company-linked article revisions,
+retained {accepted} after screening, and produced evaluable data for {evaluable_events} of {planned_events} planned
+company-day events. The {missing_events} missing events were not imputed.
 
-The LLM-consensus strategy's best mean result was {best.mean_return_pct:.3f}% at horizon {int(best.horizon)} and its
-worst was {worst.mean_return_pct:.3f}% at horizon {int(worst.horizon)}. Every consensus bootstrap interval included
-zero. These are descriptive event-level results, not evidence of a reliable trading edge.{comparison_note}
+The primary strategy ({primary_display}) had a best net mean of {best.net_mean_return_pct:.3f}% at horizon {int(best.horizon)} and a
+worst net mean of {worst.net_mean_return_pct:.3f}% at horizon {int(worst.horizon)}. Zero was inside
+{zero_crossing}/{horizon_count} primary bootstrap intervals. These are descriptive event-level results, not evidence of a
+reliable trading edge.{comparison_note}
 
 ## Key findings
 
-1. **No robust positive edge appeared.** Consensus means were positive at some intermediate horizons and negative at
-   others, but the uncertainty bands were wide and all crossed zero.
-2. **Model choice materially changed trades.** The three LLMs were unanimous on {llm_unanimous[0]}/{llm_unanimous[1]}
+1. **Uncertainty remains material.** The primary net means and intervals are shown below; confirmatory interpretation
+   requires the frozen chronological holdout.
+2. **Model agreement is incomplete.** The configured LLMs were unanimous on {llm_unanimous[0]}/{llm_unanimous[1]}
    articles ({llm_unanimous[2]:.1%}) and on {event_unanimous[0]}/{event_unanimous[1]} daily signals
-   ({event_unanimous[2]:.1%}). Consensus and VADER agreed on {vader_agreement[0]}/{vader_agreement[1]} evaluable daily
-   signals ({vader_agreement[2]:.1%}).
-3. **Results were company-sensitive.** Leave-one-company-out means retained the full-panel sign at {sign_stable}/7
+   ({event_unanimous[2]:.1%}). The primary scorer and the first available baseline agreed on
+   {baseline_agreement[0]}/{baseline_agreement[1]} evaluable daily signals ({baseline_agreement[2]:.1%}).
+3. **Results were company-sensitive.** Leave-one-company-out means retained the full-panel sign at {sign_stable}/{horizon_count}
    horizons; the remaining horizons changed sign for at least one omission.
 4. **Coverage remained uneven.** Accepted yield ranged from {int(source_yield.accepted_articles.min())} to
-   {int(source_yield.accepted_articles.max())} articles per company, and two planned XOM dates produced no signal.
+   {int(source_yield.accepted_articles.max())} articles per company, with {missing_events} planned event(s) unevaluable.
 
 ![Mean return estimates](mean_returns_by_horizon.png)
 
-## LLM-consensus returns
+## Primary-scorer returns — {primary_display}
 
 Intervals are percentile bootstrap intervals over company-day events using seed {seed} and {resamples:,} resamples.
 The bootstrap treats events as independent even though dates and companies overlap, so it is a descriptive sensitivity
 measure rather than a valid causal or portfolio-level confidence interval. Hit rate excludes neutral/no-trade events.
 
-{_md_table(["Horizon", "Mean return", "Naive 95% interval", "Trade hit rate", "Trades/events"], consensus_rows)}
+{_md_table(["Horizon", "Gross mean", "Net mean", "Net 95% interval", "Net hit rate", "Trades/events"], primary_rows)}
 
 ![Company-horizon heatmap](consensus_company_horizon_heatmap.png)
 
@@ -576,9 +629,8 @@ measure rather than a valid causal or portfolio-level confidence interval. Hit r
 
 ## Source coverage and screening
 
-Articles were merged across Tavily and NewsAPI, deduplicated by normalized URL and headline, assigned to New York dates,
-and screened for target-company relevance. Manual exclusions are persisted in
-`configs/week3_broad_screening_overrides.toml`; no source text or decision was overwritten.
+Articles were loaded from the source corpora recorded in the completed run manifest, deduplicated using their native
+identities, assigned to exchange-local dates, and screened for target-company relevance. No source text was overwritten.
 
 {_md_table(["Company", "Discovered", "Accepted", "Acceptance rate"], coverage_rows)}
 
@@ -587,14 +639,16 @@ and screened for target-company relevance. Manual exclusions are persisted in
 ## Method and metric definitions
 
 - Companies: {", ".join(run_manifest["settings"]["symbols"])}.
-- News dates: {", ".join(run_manifest["settings"]["dates"])}; timestamps assigned in `America/New_York`.
-- Text scored: target-company context plus title and snippet/description.
-- Scorers: three temperature-zero LLMs, their complete-response majority consensus, and VADER at ±0.05 thresholds.
-- Signal: sign of each scorer's arithmetic mean label value for a company-day; positive = long, negative = short,
-  exactly zero = no trade.
-- Entry: adjusted open of the first observed trading session after the news date.
+- News dates: {", ".join(run_manifest["settings"]["dates"])}; timestamps assigned in
+  `{run_manifest["settings"].get("timezone", "America/New_York")}`.
+- Text scored: target-company context, headline, and the configured provider representation.
+- Primary scorer: {primary_display}. Labels map to positive=1, neutral=0, negative=-1 and are averaged equally by
+  company-day before the configured minimum-story and threshold policy is applied.
+- Entry: first observed session open after the recorded decision availability timestamp; legacy web-only runs use the
+  next session after the news date.
 - Exit: adjusted close at sessions 1–7. Long return is `exit / entry - 1`; short return is its negative.
-- P/L: return on a hypothetical $10,000 notional, with no costs, spreads, borrow fees, taxes, or slippage.
+- P/L: gross and configured transaction-cost-adjusted net return on the run's fixed notional; short-borrow assumptions
+  are disclosed in the run manifest.
 - Aggregation: equal-weight arithmetic mean of event returns. Overlapping events are not combined into a funded portfolio.
 
 ## Robustness checks
@@ -603,17 +657,18 @@ and screened for target-company relevance. Manual exclusions are persisted in
 - Traded-only means and hit rates are reported separately from all-event means that include neutral zeros.
 - Leave-one-company-out estimates expose concentration in individual symbols.
 - Company and news-date CSV breakdowns expose cross-sectional and regime dependence.
-- The original narrow pilot is retained separately; the broadened run is non-overwriting and independently manifested.
+- The completed run and this analysis are non-overwriting and independently manifested.
 
 ## Limitations
 
-- The panel covers only three adjacent news dates, so market-regime and temporal generalization are untested.
+- The recorded date panel may not represent other market regimes; temporal generalization requires a frozen holdout.
 - Evaluable company-day events number {evaluable_events}; this remains too small for confirmatory inference.
-- NewsAPI and Tavily differ in indexing, timestamp precision, and source mix. Headline-plus-description sentiment is a
-  noisy proxy for investor impact.
+- News providers differ in indexing, timestamp precision, entitlements, and source mix. Sentiment is not the same as
+  market-impact prediction.
 - Manual relevance review improves precision but introduces researcher judgment; all decisions are auditable.
-- Multiple horizons, scorers, and companies create substantial multiplicity. No p-values or causal claims are reported.
-- Transaction costs and short-sale constraints are absent, and events overlap economically and temporally.
+- Multiple horizons, scorers, and companies create substantial multiplicity. Adjusted p-values are exploratory screening
+  diagnostics and no causal claims are made.
+- Net returns include configured transaction and borrow costs, but omit market impact, liquidity constraints, and funding interactions.
 
 ## Recommended next steps
 
@@ -663,14 +718,17 @@ def analyze_trading_run(
     signals = pd.read_csv(run_dir / "daily_signals.csv")
     scores = pd.read_csv(run_dir / "sentiment_scores.csv")
     llm_scorers = tuple(str(value) for value in run_manifest["settings"]["models"])
+    configured_primary = str(run_manifest["settings"].get("primary_model") or "consensus/majority")
+    available_return_scorers = set(returns["scorer_id"].astype(str))
+    primary_scorer = configured_primary if configured_primary in available_return_scorers else str(returns["scorer_id"].iloc[0])
 
     horizon = summarize_horizons(returns, seed=seed, resamples=resamples)
-    company = summarize_company_horizons(returns)
-    date = summarize_date_horizons(returns)
+    company = summarize_company_horizons(returns, scorer_id=primary_scorer)
+    date = summarize_date_horizons(returns, scorer_id=primary_scorer)
     signal_distribution = summarize_signal_distribution(signals)
     source_yield = summarize_source_yield(articles)
-    agreement_metrics, pairwise = summarize_agreement(scores, signals, llm_scorers)
-    leave_one_out = summarize_leave_one_company_out(returns)
+    agreement_metrics, pairwise = summarize_agreement(scores, signals, llm_scorers, primary_scorer=primary_scorer)
+    leave_one_out = summarize_leave_one_company_out(returns, scorer_id=primary_scorer)
     effectiveness = evaluate_effectiveness(returns, scorer_display=SCORER_DISPLAY)
     comparison: pd.DataFrame | None = None
     if comparison_run_dir is not None:
@@ -701,16 +759,18 @@ def analyze_trading_run(
         run_manifest,
         articles,
         returns,
+        signals,
         horizon,
         source_yield,
         agreement_metrics,
         leave_one_out,
         comparison,
+        primary_scorer,
         seed=seed,
         resamples=resamples,
     )
     with summary_path.open("a", encoding="utf-8") as handle:
-        handle.write("\n" + format_effectiveness_markdown(effectiveness) + "\n")
+        handle.write("\n" + format_effectiveness_markdown(effectiveness, primary_scorer=primary_scorer) + "\n")
     generated.append(summary_path)
     source_map = output_dir / "source_map.md"
     source_map.write_text(

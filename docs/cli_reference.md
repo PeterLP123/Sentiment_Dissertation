@@ -509,3 +509,28 @@ sentiment-bench tui
 ```
 
 Launches the Textual terminal UI. See [TUI guide](tui_guide.md).
+## LSEG Workspace Commands
+
+These commands require `python -m pip install -e ".[lseg]"` only on the collection machine. Full details are in [LSEG to Ollama pipeline](lseg_ollama_pipeline.md).
+
+```bash
+sentiment-bench lseg-news-check --config configs/lseg_workspace_example.toml
+sentiment-bench fetch-lseg-news --config configs/lseg_workspace_example.toml
+sentiment-bench build-lseg-corpus --source Data/news/lseg_lseg_workspace_example
+```
+
+`lseg-news-check` tests the desktop session plus headline and story entitlements without writing data. `fetch-lseg-news` atomically checkpoints an immutable collection. `build-lseg-corpus` verifies raw hashes and deterministically rebuilds clean text offline.
+
+```bash
+sentiment-bench sample-lseg-validation \
+  --corpus-manifest Data/derived/lseg/<id>/manifest.json \
+  --output-dir Data/derived/lseg/<id>/validation_seed42
+
+sentiment-bench evaluate-lseg-annotations \
+  --primary <annotation_primary.csv> --secondary <annotation_secondary.csv> \
+  --output-dir Data/derived/lseg/<id>/validation_evaluated
+```
+
+Sampling defaults to 150 ticker/date-stratified stories with seed 42 and 30 double-coded stories with seed 43. Annotation evaluation requires allowed labels and adjudication of every disagreement.
+
+For `run-trading-strategy`, `[scoring].provider` defaults to `openrouter` for existing configs. A pure-LSEG Ollama config supplies `sources.lseg_corpus_manifest`, exact tagged `models`, `primary_model`, optional `baselines`, Ollama host/keep-alive/thinking/structured-output settings, and `[signal_policy]`. See `configs/lseg_ollama_trading_example.toml`.

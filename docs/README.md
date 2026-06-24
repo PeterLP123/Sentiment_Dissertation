@@ -12,6 +12,7 @@ This documentation is organized by reader task. Use the tutorial when you are ne
 | Use Gemma or another local model running on a desktop PC. | [Model providers](model_providers.md) |
 | Share run history across machines with Turso/libSQL. | [Results and exports](results_and_exports.md) |
 | Fetch articles from Tavily into `Data/news`. | [Tavily news sourcing](news_sourcing.md) |
+| Build the licensed Workspace-to-local-model pipeline. | [LSEG to Ollama pipeline](lseg_ollama_pipeline.md) |
 | Batch-fetch and package a shareable Tavily source dataset. | [Tavily news sourcing](news_sourcing.md) |
 | Plan a shareable Tavily-derived source dataset. | [Tavily dataset strategy](tavily_dataset_plan.html) |
 | Work through the terminal UI. | [TUI guide](tui_guide.md) |
@@ -25,7 +26,7 @@ This documentation is organized by reader task. Use the tutorial when you are ne
 | Quadrant | Documents |
 | --- | --- |
 | Tutorial | [Getting started](getting_started.md) |
-| How-to | [Model providers](model_providers.md), [Tavily news sourcing](news_sourcing.md), [TUI guide](tui_guide.md) |
+| How-to | [Model providers](model_providers.md), [Tavily news sourcing](news_sourcing.md), [LSEG to Ollama pipeline](lseg_ollama_pipeline.md), [TUI guide](tui_guide.md) |
 | Reference | [CLI reference](cli_reference.md), [Results and exports](results_and_exports.md), [Dataset card](dataset_card.md) |
 | Explanation | [Architecture](architecture.md), [Research protocol](research_protocol.md) |
 

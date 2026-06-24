@@ -1,5 +1,18 @@
 # Architecture
 
+## LSEG Research Path
+
+```mermaid
+flowchart LR
+    W["Workspace desktop session"] --> R["Data/news/lseg_<id><br/>immutable raw checkpoints"]
+    R --> C["Data/derived/lseg/<id><br/>verified clean revisions"]
+    C --> O["Ollama primary + secondary<br/>VADER + FinBERT"]
+    O --> D["TradingDecision<br/>buy / sell / hold"]
+    D --> P["next observed session<br/>gross + net returns"]
+```
+
+Collection and cleaning are separate commands so a corpus can be rebuilt and audited without another licensed API call. Native story and revision identifiers cross the trading boundary; URL-based web records retain their existing representation. Sentiment records and trading decisions are separate artifacts so model behavior can be inspected independently from policy thresholds. Python owns the orchestration because network and model inference dominate latency; a C++ component would not improve those boundaries.
+
 This project keeps source data, external article sourcing, model execution, scoring, and export evidence separated so dissertation results can be reproduced and audited.
 
 ## The Problem

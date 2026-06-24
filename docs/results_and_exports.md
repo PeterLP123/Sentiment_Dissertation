@@ -229,3 +229,9 @@ For formal results:
 3. Record the code commit SHA.
 4. Preserve `run.json`, `metrics.json`, `statistics.json`, and `summary.md`.
 5. Interpret headline metrics with `primary` scope and report `all` as an audit scope.
+
+## LSEG Trading Artifacts
+
+`Data/news/lseg_<collection-id>/manifest.json` hashes raw aggregate files and checkpoint state. `Data/derived/lseg/<collection-id>/manifest.json` hashes cleaned article revisions and records cleaner/package versions and quality counts. Both directories contain licensed local-only content and remain ignored.
+
+Completed trading runs add `trading_decisions.csv` alongside `sentiment_scores.csv`, `daily_signals.csv`, `prices.csv`, and `returns.csv`. Decisions retain holds and their reasons; return rows include trades only when the signal policy is enabled. Return exports contain gross and net return/P&L columns, availability timestamp, two-sided transaction costs, and the disclosed short-borrow assumption. The run manifest records corpus hashes, model tags/digests, prompt and request identity, policy settings, and traded-decision counts.

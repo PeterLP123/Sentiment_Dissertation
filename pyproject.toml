@@ -26,6 +26,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "lxml>=5,<7",
     "mypy>=1.10",
     "pytest>=8.0",
     "ruff>=0.5",
@@ -42,6 +43,11 @@ finbert = [
 # Publication-ready figures written into run exports.
 figures = [
     "matplotlib>=3.7",
+]
+# LSEG Workspace news collection and deterministic story-body cleaning.
+lseg = [
+    "lseg-data>=2.1.1,<3",
+    "lxml>=5,<7",
 ]
 
 [project.scripts]

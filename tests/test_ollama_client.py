@@ -22,6 +22,7 @@ class FakeOllamaAsyncClient:
                 {
                     "model": "gemma3:latest",
                     "name": "Gemma 3",
+                    "digest": "sha256:abc123",
                     "details": {"context_length": 8192},
                 }
             ]
@@ -100,6 +101,30 @@ def test_ollama_classify_can_disable_thinking() -> None:
 
         assert record.status == "success"
         assert fake.chat_calls[0]["think"] is False
+
+    run(scenario())
+
+
+def test_ollama_structured_label_keep_alive_and_default_thinking() -> None:
+    async def scenario() -> None:
+        fake = FakeOllamaAsyncClient()
+        client = OllamaClient(
+            client=fake,
+            keep_alive="30m",
+            structured_label_output=True,
+            default_think=False,
+        )
+        prompt = make_prompt("test", "Return a label.", "{sentence}", "label_only")
+
+        record = await client.classify("gemma3:latest", prompt, BlindExample(1, "Profits rose."))
+        digest = await client.model_digest("gemma3:latest")
+
+        assert record.normalized_label == "positive"
+        assert digest == "sha256:abc123"
+        call = fake.chat_calls[0]
+        assert call["format"] == {"type": "string", "enum": ["positive", "negative", "neutral"]}
+        assert call["keep_alive"] == "30m"
+        assert call["think"] is False
 
     run(scenario())
 

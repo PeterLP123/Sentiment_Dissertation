@@ -4,6 +4,7 @@ import asyncio
 import csv
 import hashlib
 import json
+import os
 import re
 import tomllib
 from collections import Counter, defaultdict
@@ -16,7 +17,11 @@ from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 from zoneinfo import ZoneInfo
 
-from .baselines import classify_vader_text
+from .artifact_io import canonical_json, sha256_text
+from .baselines import classify_finbert_texts, classify_vader_text
+from .constants import DEFAULT_OLLAMA_HOST
+from .lseg_corpus import load_verified_lseg_corpus
+from .lseg_source import LsegNewsError
 from .models import BlindExample, LLMResponseRecord, PromptConfig
 from .news_source import NewsArticleRecord, make_news_fetch_config, write_news_corpus
 from .newsapi_source import make_newsapi_fetch_config, write_newsapi_corpus
@@ -68,6 +73,15 @@ class IndexFallback:
 
 
 @dataclass(frozen=True)
+class DecisionPolicyConfig:
+    min_valid_stories: int = 1
+    threshold: float = 0.0
+    transaction_cost_bps_per_side: float = 0.0
+    short_borrow_bps_per_day: float = 0.0
+    policy_version: str = "sentiment_threshold_v1"
+
+
+@dataclass(frozen=True)
 class TradingStrategyConfig:
     run_id: str
     title: str
@@ -75,7 +89,11 @@ class TradingStrategyConfig:
     dates: tuple[str, ...]
     horizons: tuple[int, ...]
     notional_usd: float
+    provider: str
     models: tuple[str, ...]
+    primary_model: str
+    baselines: tuple[str, ...]
+    consensus_enabled: bool
     prompt_id: str
     prompts_path: Path
     temperature: float
@@ -83,7 +101,14 @@ class TradingStrategyConfig:
     concurrency: int
     retries: int
     resume_scores_path: Path | None
-    tavily_package_manifest: Path
+    ollama_host: str
+    ollama_keep_alive: str | int | None
+    ollama_think: bool | None
+    structured_output: bool
+    tavily_package_manifest: Path | None
+    lseg_corpus_manifest: Path | None
+    newsapi_enabled: bool
+    tavily_gap_fetch: bool
     newsapi_sources_file: Path | None
     screening_overrides_path: Path | None
     news_output_root: Path
@@ -92,6 +117,8 @@ class TradingStrategyConfig:
     experiment_registry: Path
     newsapi_max_pages: int
     index_fallback: IndexFallback | None
+    decision_policy_enabled: bool
+    decision_policy: DecisionPolicyConfig
     companies: tuple[TradingCompany, ...]
 
     @property
@@ -135,6 +162,10 @@ class MergedArticle:
     screening_decision: str
     screening_reason: str
     screening_method: str
+    source_id: str = ""
+    source_revision_id: str = ""
+    scoring_text_sha256: str = ""
+    scoring_text_truncated: bool = False
 
 
 @dataclass(frozen=True)
@@ -157,6 +188,12 @@ class SentimentScore:
     generation_id: str | None
     total_cost_usd: float | None
     error: str | None
+    source_revision_id: str | None = None
+    content_sha256: str | None = None
+    prompt_hash: str | None = None
+    request_sha256: str | None = None
+    model_digest: str | None = None
+    scoring_text_truncated: bool = False
 
 
 @dataclass(frozen=True)
@@ -169,6 +206,24 @@ class DailySignal:
     mean_score: float | None
     signal: str | None
     signal_value: int | None
+    availability_timestamp: str | None = None
+
+
+@dataclass(frozen=True)
+class TradingDecision:
+    symbol: str
+    news_date: str
+    scorer_id: str
+    article_count: int
+    valid_count: int
+    mean_score: float | None
+    action: str
+    action_value: int
+    threshold: float
+    min_valid_stories: int
+    policy_version: str
+    reason: str
+    availability_timestamp: str | None = None
 
 
 @dataclass(frozen=True)
@@ -204,6 +259,12 @@ class ReturnRow:
     strategy_return_pct: float
     pnl_usd: float
     notional_usd: float
+    action: str
+    transaction_cost: float
+    net_strategy_return: float
+    net_strategy_return_pct: float
+    net_pnl_usd: float
+    availability_timestamp: str | None = None
 
 
 @dataclass(frozen=True)
@@ -223,6 +284,14 @@ def _as_tuple(value: Any, *, field: str) -> tuple[Any, ...]:
     return tuple(value)
 
 
+def _optional_string_tuple(value: Any, *, field: str) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise TradingStrategyError(f"{field} must be a list of strings")
+    return tuple(item.strip() for item in value if item.strip())
+
+
 def load_trading_config(path: str | Path) -> TradingStrategyConfig:
     config_path = Path(path)
     try:
@@ -235,6 +304,7 @@ def load_trading_config(path: str | Path) -> TradingStrategyConfig:
     scoring = raw.get("scoring") or {}
     sources = raw.get("sources") or {}
     outputs = raw.get("outputs") or {}
+    signal_policy_raw = raw.get("signal_policy") or {}
     index_fallback_raw = raw.get("index_fallback") or {}
     company_items = raw.get("companies") or []
     try:
@@ -245,12 +315,34 @@ def load_trading_config(path: str | Path) -> TradingStrategyConfig:
             TradingCompany(
                 symbol=str(item["symbol"]).strip().upper(),
                 name=str(item["name"]).strip(),
-                query=str(item["query"]).strip(),
-                tavily_query_id=str(item["tavily_query_id"]).strip(),
-                family=str(item["family"]).strip(),
+                query=str(item.get("query") or f"{item['name']} {item['symbol']} stock news").strip(),
+                tavily_query_id=str(item.get("tavily_query_id") or "").strip(),
+                family=str(item.get("family") or f"{item['symbol']} — {item['name']}").strip(),
                 aliases=tuple(str(alias).strip() for alias in item["aliases"] if str(alias).strip()),
             )
             for item in company_items
+        )
+        provider = str(scoring.get("provider", "openrouter")).strip().lower()
+        consensus_enabled = bool(scoring.get("consensus_enabled", True))
+        primary_model = str(
+            scoring.get("primary_model") or ("consensus/majority" if consensus_enabled else models[0])
+        ).strip()
+        baselines = _optional_string_tuple(scoring.get("baselines", ["vader"]), field="scoring.baselines")
+        lseg_corpus_manifest = Path(sources["lseg_corpus_manifest"]) if sources.get("lseg_corpus_manifest") else None
+        tavily_package_manifest = (
+            Path(sources["tavily_package_manifest"]) if sources.get("tavily_package_manifest") else None
+        )
+        newsapi_enabled = bool(sources.get("newsapi_enabled", lseg_corpus_manifest is None))
+        tavily_gap_fetch = bool(
+            sources.get("tavily_gap_fetch", tavily_package_manifest is not None and newsapi_enabled)
+        )
+        decision_policy_enabled = "signal_policy" in raw
+        decision_policy = DecisionPolicyConfig(
+            min_valid_stories=int(signal_policy_raw.get("min_valid_stories", 1)),
+            threshold=float(signal_policy_raw.get("threshold", 0.0)),
+            transaction_cost_bps_per_side=float(signal_policy_raw.get("transaction_cost_bps_per_side", 0.0)),
+            short_borrow_bps_per_day=float(signal_policy_raw.get("short_borrow_bps_per_day", 0.0)),
+            policy_version=str(signal_policy_raw.get("policy_version", "sentiment_threshold_v1")).strip(),
         )
         index_fallback = (
             IndexFallback(
@@ -267,7 +359,11 @@ def load_trading_config(path: str | Path) -> TradingStrategyConfig:
             dates=dates,
             horizons=horizons,
             notional_usd=float(run.get("notional_usd", 10_000)),
+            provider=provider,
             models=models,
+            primary_model=primary_model,
+            baselines=baselines,
+            consensus_enabled=consensus_enabled,
             prompt_id=str(scoring["prompt_id"]).strip(),
             prompts_path=Path(scoring.get("prompts_path", "configs/default_prompts.toml")),
             temperature=float(scoring.get("temperature", 0.0)),
@@ -275,7 +371,14 @@ def load_trading_config(path: str | Path) -> TradingStrategyConfig:
             concurrency=int(scoring.get("concurrency", 3)),
             retries=int(scoring.get("retries", 3)),
             resume_scores_path=Path(scoring["resume_scores_path"]) if scoring.get("resume_scores_path") else None,
-            tavily_package_manifest=Path(sources["tavily_package_manifest"]),
+            ollama_host=str(scoring.get("ollama_host") or os.getenv("OLLAMA_HOST") or DEFAULT_OLLAMA_HOST).rstrip("/"),
+            ollama_keep_alive=scoring.get("ollama_keep_alive"),
+            ollama_think=(bool(scoring["ollama_think"]) if "ollama_think" in scoring else (False if provider == "ollama" else None)),
+            structured_output=bool(scoring.get("structured_output", provider == "ollama")),
+            tavily_package_manifest=tavily_package_manifest,
+            lseg_corpus_manifest=lseg_corpus_manifest,
+            newsapi_enabled=newsapi_enabled,
+            tavily_gap_fetch=tavily_gap_fetch,
             newsapi_sources_file=Path(sources["newsapi_sources_file"]) if sources.get("newsapi_sources_file") else None,
             screening_overrides_path=(
                 Path(sources["screening_overrides_path"]) if sources.get("screening_overrides_path") else None
@@ -286,6 +389,8 @@ def load_trading_config(path: str | Path) -> TradingStrategyConfig:
             experiment_registry=Path(outputs.get("experiment_registry", "experiments/manifest.toml")),
             newsapi_max_pages=int(sources.get("newsapi_max_pages", 10)),
             index_fallback=index_fallback,
+            decision_policy_enabled=decision_policy_enabled,
+            decision_policy=decision_policy,
             companies=companies,
         )
     except (KeyError, TypeError, ValueError) as exc:
@@ -297,6 +402,34 @@ def load_trading_config(path: str | Path) -> TradingStrategyConfig:
         raise TradingStrategyError("at least one [[companies]] entry is required")
     if len({company.symbol for company in companies}) != len(companies):
         raise TradingStrategyError("company symbols must be unique")
+    if config.provider not in {"openrouter", "ollama"}:
+        raise TradingStrategyError("scoring.provider must be openrouter or ollama")
+    if len(set(config.models)) != len(config.models) or any(not model.strip() for model in config.models):
+        raise TradingStrategyError("scoring.models must contain unique non-empty model IDs")
+    if config.primary_model not in config.models and not (
+        config.consensus_enabled and config.primary_model == "consensus/majority"
+    ):
+        raise TradingStrategyError(
+            "scoring.primary_model must be included in scoring.models, or be consensus/majority when consensus is enabled"
+        )
+    if config.provider == "ollama" and any(":" not in model for model in config.models):
+        raise TradingStrategyError("Ollama research models must use exact tags, for example model:tag")
+    if config.provider == "ollama" and config.lseg_corpus_manifest is not None:
+        if len(config.models) != 2:
+            raise TradingStrategyError("LSEG Ollama scoring requires exactly one primary and one secondary model")
+        if config.temperature != 0:
+            raise TradingStrategyError("LSEG Ollama scoring requires temperature = 0")
+        if config.concurrency != 1:
+            raise TradingStrategyError("LSEG Ollama scoring requires concurrency = 1")
+        if config.ollama_think is not False:
+            raise TradingStrategyError("LSEG Ollama scoring requires ollama_think = false")
+        if not config.structured_output:
+            raise TradingStrategyError("LSEG Ollama scoring requires structured_output = true")
+    unsupported_baselines = sorted(set(config.baselines) - {"vader", "finbert"})
+    if unsupported_baselines:
+        raise TradingStrategyError(f"unsupported trading baseline(s): {', '.join(unsupported_baselines)}")
+    if config.tavily_package_manifest is None and config.lseg_corpus_manifest is None and not config.newsapi_enabled:
+        raise TradingStrategyError("at least one of Tavily, LSEG, or NewsAPI must be enabled")
     for value in dates:
         try:
             date.fromisoformat(value)
@@ -306,6 +439,12 @@ def load_trading_config(path: str | Path) -> TradingStrategyConfig:
         raise TradingStrategyError("run.horizons must be unique, ascending positive integers")
     if config.notional_usd <= 0 or config.concurrency < 1 or config.max_completion_tokens < 1:
         raise TradingStrategyError("notional, concurrency, and completion-token settings must be positive")
+    if config.decision_policy.min_valid_stories < 1:
+        raise TradingStrategyError("signal_policy.min_valid_stories must be 1 or greater")
+    if not 0 <= config.decision_policy.threshold <= 1:
+        raise TradingStrategyError("signal_policy.threshold must be between 0 and 1")
+    if config.decision_policy.transaction_cost_bps_per_side < 0 or config.decision_policy.short_borrow_bps_per_day < 0:
+        raise TradingStrategyError("signal-policy cost assumptions cannot be negative")
     try:
         ZoneInfo(config.timezone)
     except Exception as exc:
@@ -415,6 +554,7 @@ def _article_from_group(
     scoring_text = f"Target company: {company.name} ({company.symbol})\nHeadline: {title}"
     if snippet:
         scoring_text += f"\nSummary: {snippet}"
+    scoring_text_sha256 = hashlib.sha256(scoring_text.encode()).hexdigest()
     return MergedArticle(
         article_id=article_id,
         symbol=company.symbol,
@@ -437,6 +577,9 @@ def _article_from_group(
         screening_decision=decision,
         screening_reason=reason,
         screening_method="automatic_title_rule_v1",
+        source_id=canonical_url,
+        source_revision_id=candidates[0].record.record_id,
+        scoring_text_sha256=scoring_text_sha256,
     )
 
 
@@ -524,6 +667,8 @@ def _record_from_dict(value: dict[str, Any]) -> NewsArticleRecord:
 
 
 def load_tavily_candidates(config: TradingStrategyConfig) -> list[ArticleCandidate]:
+    if config.tavily_package_manifest is None:
+        return []
     try:
         package = json.loads(config.tavily_package_manifest.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -556,6 +701,73 @@ def load_tavily_candidates(config: TradingStrategyConfig) -> list[ArticleCandida
     return candidates
 
 
+def load_lseg_articles(config: TradingStrategyConfig) -> tuple[list[MergedArticle], list[str]]:
+    if config.lseg_corpus_manifest is None:
+        return [], []
+    try:
+        _manifest, records = load_verified_lseg_corpus(config.lseg_corpus_manifest)
+    except LsegNewsError as exc:
+        raise TradingStrategyError(str(exc)) from exc
+    companies = {company.symbol: company for company in config.companies}
+    articles: list[MergedArticle] = []
+    for record in records:
+        if not record.get("scoring_eligible"):
+            continue
+        clean_text = str(record.get("clean_text") or "")
+        title = _clean_text(str(record.get("headline") or ""))
+        version_created = str(record.get("version_created") or "")
+        published_at, published_local, precision = _parse_published(version_created, config.timezone)
+        if published_local not in config.dates:
+            continue
+        max_chars = 8_000
+        scoring_body = clean_text[:max_chars]
+        truncated = len(clean_text) > max_chars
+        for symbol_value in record.get("matched_symbols") or []:
+            symbol = str(symbol_value).upper()
+            company = companies.get(symbol)
+            if company is None:
+                continue
+            scoring_text = (
+                f"Target company: {company.name} ({company.symbol})\n"
+                f"Headline: {title}\n"
+                "<news_document>\n"
+                f"{scoring_body}\n"
+                "</news_document>"
+            )
+            revision_id = str(record.get("revision_id") or "")
+            article_id = hashlib.sha256(f"{symbol}|lseg|{revision_id}".encode()).hexdigest()[:16]
+            article = MergedArticle(
+                article_id=article_id,
+                symbol=symbol,
+                company_name=company.name,
+                title=title,
+                snippet="",
+                scoring_text=scoring_text,
+                url="",
+                normalized_url="",
+                source_domain="lseg",
+                providers=["lseg"],
+                queries=sorted(str(query) for query in record.get("matched_queries") or []),
+                source_corpora=[str(config.lseg_corpus_manifest.parent)],
+                published_at=published_at,
+                published_date_local=published_local,
+                published_precision=precision,
+                timezone=config.timezone,
+                article_text_available=True,
+                article_text_sha256=str(record.get("clean_text_sha256") or ""),
+                screening_decision="include",
+                screening_reason="lseg_ric_query_and_text_quality",
+                screening_method="lseg_metadata_quality_v1",
+                source_id=str(record.get("story_family_id") or record.get("story_id") or ""),
+                source_revision_id=revision_id,
+                scoring_text_sha256=hashlib.sha256(scoring_text.encode()).hexdigest(),
+                scoring_text_truncated=truncated,
+            )
+            articles.append(article)
+    articles.sort(key=lambda row: (row.published_date_local, row.symbol, row.published_at, row.article_id))
+    return articles, [str(config.lseg_corpus_manifest.parent)]
+
+
 def _utc_newsapi_bounds(config: TradingStrategyConfig) -> tuple[str, str]:
     timezone = ZoneInfo(config.timezone)
     start = datetime.combine(min(date.fromisoformat(value) for value in config.dates), time.min, timezone)
@@ -567,6 +779,8 @@ async def fetch_newsapi_candidates(
     config: TradingStrategyConfig,
     client: Any,
 ) -> tuple[list[ArticleCandidate], list[str]]:
+    if not config.newsapi_enabled:
+        return [], []
     pointer_path = config.derived_dir / "newsapi_sources.json"
     restore_path = config.newsapi_sources_file or pointer_path
     candidates: list[ArticleCandidate] = []
@@ -631,6 +845,8 @@ async def fetch_tavily_gaps(
     client: Any,
     current: list[ArticleCandidate],
 ) -> tuple[list[ArticleCandidate], list[str]]:
+    if not config.tavily_gap_fetch:
+        return [], []
     articles = merge_article_candidates(current, timezone=config.timezone, selected_dates=config.dates)
     articles = apply_screening_overrides(articles, config.screening_overrides_path)
     accepted = {(article.symbol, article.published_date_local) for article in articles if article.screening_decision == "include"}
@@ -667,7 +883,45 @@ def _score_key(article_id: str, scorer_id: str) -> tuple[str, str]:
     return article_id, scorer_id
 
 
-def _sentiment_from_response(article: MergedArticle, model_id: str, record: LLMResponseRecord, cost: float | None) -> SentimentScore:
+def _identity_score_key(score: SentimentScore) -> tuple[str, str, str, str, str, str, str]:
+    return (
+        score.article_id,
+        score.scorer_id,
+        score.source_revision_id or "",
+        score.content_sha256 or "",
+        score.prompt_hash or "",
+        score.request_sha256 or "",
+        score.model_digest or "",
+    )
+
+
+def _desired_score_key(
+    article: MergedArticle,
+    scorer_id: str,
+    prompt_hash: str,
+    request_sha256: str,
+    model_digest: str | None,
+) -> tuple[str, str, str, str, str, str, str]:
+    return (
+        article.article_id,
+        scorer_id,
+        article.source_revision_id,
+        article.scoring_text_sha256 or hashlib.sha256(article.scoring_text.encode()).hexdigest(),
+        prompt_hash,
+        request_sha256,
+        model_digest or "",
+    )
+
+
+def _sentiment_from_response(
+    article: MergedArticle,
+    model_id: str,
+    record: LLMResponseRecord,
+    cost: float | None,
+    *,
+    request_sha256: str,
+    model_digest: str | None,
+) -> SentimentScore:
     label = record.normalized_label if record.normalized_label in LABEL_VALUES else None
     return SentimentScore(
         article_id=article.article_id,
@@ -688,19 +942,25 @@ def _sentiment_from_response(article: MergedArticle, model_id: str, record: LLMR
         generation_id=record.generation_id,
         total_cost_usd=cost,
         error=record.error,
+        source_revision_id=article.source_revision_id or None,
+        content_sha256=article.scoring_text_sha256 or hashlib.sha256(article.scoring_text.encode()).hexdigest(),
+        prompt_hash=record.prompt_hash,
+        request_sha256=request_sha256,
+        model_digest=model_digest,
+        scoring_text_truncated=article.scoring_text_truncated,
     )
 
 
-def _load_existing_scores(path: Path) -> dict[tuple[str, str], SentimentScore]:
+def _load_existing_scores(path: Path) -> list[SentimentScore]:
     if not path.exists():
-        return {}
-    scores: dict[tuple[str, str], SentimentScore] = {}
+        return []
+    scores: list[SentimentScore] = []
     for value in _read_jsonl(path):
         try:
             score = SentimentScore(**value)
         except TypeError:
             continue
-        scores[_score_key(score.article_id, score.scorer_id)] = score
+        scores.append(score)
     return scores
 
 
@@ -716,16 +976,39 @@ async def score_articles(
     max_completion_tokens: int,
     concurrency: int,
     retries: int,
+    baselines: tuple[str, ...] = ("vader",),
+    model_digests: dict[str, str | None] | None = None,
+    request_settings: dict[str, Any] | None = None,
+    strict_resume_identity: bool = False,
 ) -> list[SentimentScore]:
     accepted = [article for article in articles if article.screening_decision == "include"]
-    existing = _load_existing_scores(resume_path) if resume_path else {}
-    existing.update(_load_existing_scores(output_path))
+    existing_scores = _load_existing_scores(resume_path) if resume_path else []
+    existing_scores.extend(_load_existing_scores(output_path))
+    existing_legacy = {_score_key(score.article_id, score.scorer_id): score for score in existing_scores}
+    existing_identity = {_identity_score_key(score): score for score in existing_scores}
     semaphore = asyncio.Semaphore(concurrency)
+    resolved_request_settings = {
+        "temperature": temperature,
+        "max_completion_tokens": max_completion_tokens,
+        **(request_settings or {}),
+    }
+    request_sha256 = sha256_text(canonical_json(resolved_request_settings))
+    resolved_model_digests = model_digests or {}
 
     async def classify(index: int, article: MergedArticle, model_id: str) -> SentimentScore:
-        key = _score_key(article.article_id, model_id)
-        if key in existing and existing[key].status == "success":
-            return existing[key]
+        if strict_resume_identity:
+            key = _desired_score_key(
+                article,
+                model_id,
+                prompt.prompt_hash,
+                request_sha256,
+                resolved_model_digests.get(model_id),
+            )
+            existing = existing_identity.get(key)
+        else:
+            existing = existing_legacy.get(_score_key(article.article_id, model_id))
+        if existing is not None and existing.status == "success":
+            return existing
         example = BlindExample(row_number=index, sentence=article.scoring_text)
         async with semaphore:
             response = await client.classify(
@@ -745,7 +1028,14 @@ async def score_articles(
                     cost = float(raw_cost) if raw_cost is not None else None
                 except Exception:
                     cost = None
-            return _sentiment_from_response(article, model_id, response, cost)
+            return _sentiment_from_response(
+                article,
+                model_id,
+                response,
+                cost,
+                request_sha256=request_sha256,
+                model_digest=resolved_model_digests.get(model_id),
+            )
 
     tasks = [
         classify(index, article, model_id)
@@ -760,32 +1050,67 @@ async def score_articles(
     with output_path.open("w", encoding="utf-8") as file:
         for score in sorted(llm_scores, key=lambda row: (row.news_date, row.symbol, row.article_id, row.scorer_id)):
             file.write(json.dumps(asdict(score), sort_keys=True, ensure_ascii=False) + "\n")
-    vader_scores: list[SentimentScore] = []
-    for article in accepted:
-        result = classify_vader_text(article.scoring_text)
-        vader_scores.append(
-            SentimentScore(
-                article_id=article.article_id,
-                symbol=article.symbol,
-                news_date=article.published_date_local,
-                scorer_id="baseline/vader",
-                scorer_kind="baseline",
-                label=result.label,
-                label_value=LABEL_VALUES[result.label],
-                status="success",
-                parse_status="valid",
-                raw_output=result.label,
-                compound=result.compound,
-                latency_ms=None,
-                prompt_tokens=None,
-                completion_tokens=None,
-                total_tokens=None,
-                generation_id=None,
-                total_cost_usd=0.0,
-                error=None,
+    baseline_scores: list[SentimentScore] = []
+    if "vader" in baselines:
+        for article in accepted:
+            result = classify_vader_text(article.scoring_text)
+            baseline_scores.append(
+                SentimentScore(
+                    article_id=article.article_id,
+                    symbol=article.symbol,
+                    news_date=article.published_date_local,
+                    scorer_id="baseline/vader",
+                    scorer_kind="baseline",
+                    label=result.label,
+                    label_value=LABEL_VALUES[result.label],
+                    status="success",
+                    parse_status="valid",
+                    raw_output=result.label,
+                    compound=result.compound,
+                    latency_ms=None,
+                    prompt_tokens=None,
+                    completion_tokens=None,
+                    total_tokens=None,
+                    generation_id=None,
+                    total_cost_usd=0.0,
+                    error=None,
+                    source_revision_id=article.source_revision_id or None,
+                    content_sha256=article.scoring_text_sha256 or hashlib.sha256(article.scoring_text.encode()).hexdigest(),
+                    scoring_text_truncated=article.scoring_text_truncated,
+                )
             )
-        )
-    scores = sorted(llm_scores + vader_scores, key=lambda row: (row.news_date, row.symbol, row.article_id, row.scorer_id))
+    if "finbert" in baselines:
+        predictions = classify_finbert_texts([article.scoring_text for article in accepted])
+        for article, label in zip(accepted, predictions, strict=True):
+            baseline_scores.append(
+                SentimentScore(
+                    article_id=article.article_id,
+                    symbol=article.symbol,
+                    news_date=article.published_date_local,
+                    scorer_id="baseline/finbert",
+                    scorer_kind="baseline",
+                    label=label,
+                    label_value=LABEL_VALUES.get(label) if label else None,
+                    status="success" if label else "malformed_response",
+                    parse_status="valid" if label else "invalid",
+                    raw_output=label,
+                    compound=None,
+                    latency_ms=None,
+                    prompt_tokens=None,
+                    completion_tokens=None,
+                    total_tokens=None,
+                    generation_id=None,
+                    total_cost_usd=0.0,
+                    error=None if label else "FinBERT returned an unknown label",
+                    source_revision_id=article.source_revision_id or None,
+                    content_sha256=article.scoring_text_sha256 or hashlib.sha256(article.scoring_text.encode()).hexdigest(),
+                    scoring_text_truncated=article.scoring_text_truncated,
+                )
+            )
+    scores = sorted(
+        llm_scores + baseline_scores,
+        key=lambda row: (row.news_date, row.symbol, row.article_id, row.scorer_id),
+    )
     with output_path.open("w", encoding="utf-8") as file:
         for score in scores:
             file.write(json.dumps(asdict(score), sort_keys=True, ensure_ascii=False) + "\n")
@@ -828,6 +1153,7 @@ def article_consensus(scores: list[SentimentScore], models: tuple[str, ...]) -> 
                 generation_id=None,
                 total_cost_usd=sum(score.total_cost_usd or 0.0 for score in article_scores),
                 error=None,
+                scoring_text_truncated=exemplar.scoring_text_truncated,
             )
         )
     return sorted(consensus, key=lambda row: (row.news_date, row.symbol, row.article_id))
@@ -845,6 +1171,7 @@ def daily_signals(
         for article in articles
         if article.screening_decision == "include"
     )
+    article_by_id = {article.article_id: article for article in articles}
     grouped: dict[tuple[str, str, str], list[SentimentScore]] = defaultdict(list)
     for score in scores:
         grouped[(score.symbol, score.news_date, score.scorer_id)].append(score)
@@ -852,7 +1179,19 @@ def daily_signals(
     for news_date in dates:
         for symbol in symbols:
             for scorer_id in scorer_ids:
-                values = [score.label_value for score in grouped.get((symbol, news_date, scorer_id), []) if score.label_value is not None]
+                valid_scores = [
+                    score
+                    for score in grouped.get((symbol, news_date, scorer_id), [])
+                    if score.label_value is not None
+                ]
+                values = [int(score.label_value) for score in valid_scores if score.label_value is not None]
+                availability_values = [
+                    article_by_id[score.article_id].published_at
+                    for score in valid_scores
+                    if score.article_id in article_by_id
+                    and "lseg" in article_by_id[score.article_id].providers
+                    and article_by_id[score.article_id].published_at
+                ]
                 mean = sum(values) / len(values) if values else None
                 if mean is None:
                     signal = None
@@ -873,9 +1212,46 @@ def daily_signals(
                         mean_score=mean,
                         signal=signal,
                         signal_value=signal_value,
+                        availability_timestamp=max(availability_values, default=None),
                     )
                 )
     return results
+
+
+def make_trading_decisions(
+    signals: list[DailySignal],
+    policy: DecisionPolicyConfig,
+) -> list[TradingDecision]:
+    decisions: list[TradingDecision] = []
+    for signal in signals:
+        if signal.mean_score is None or signal.valid_count == 0:
+            action, action_value, reason = "hold", 0, "no_valid_sentiment"
+        elif signal.valid_count < policy.min_valid_stories:
+            action, action_value, reason = "hold", 0, "insufficient_valid_stories"
+        elif signal.mean_score > 0 and signal.mean_score >= policy.threshold:
+            action, action_value, reason = "buy", 1, "positive_mean_meets_threshold"
+        elif signal.mean_score < 0 and signal.mean_score <= -policy.threshold:
+            action, action_value, reason = "sell", -1, "negative_mean_meets_threshold"
+        else:
+            action, action_value, reason = "hold", 0, "inside_no_trade_band"
+        decisions.append(
+            TradingDecision(
+                symbol=signal.symbol,
+                news_date=signal.news_date,
+                scorer_id=signal.scorer_id,
+                article_count=signal.article_count,
+                valid_count=signal.valid_count,
+                mean_score=signal.mean_score,
+                action=action,
+                action_value=action_value,
+                threshold=policy.threshold,
+                min_valid_stories=policy.min_valid_stories,
+                policy_version=policy.policy_version,
+                reason=reason,
+                availability_timestamp=signal.availability_timestamp,
+            )
+        )
+    return decisions
 
 
 def fetch_price_rows(config: TradingStrategyConfig) -> list[PriceRow]:
@@ -925,25 +1301,56 @@ def fetch_price_rows(config: TradingStrategyConfig) -> list[PriceRow]:
 
 
 def calculate_returns(
-    signals: list[DailySignal],
+    signals: list[DailySignal] | list[TradingDecision],
     prices: list[PriceRow],
     *,
     horizons: tuple[int, ...],
     notional_usd: float,
     index_fallback: IndexFallback | None = None,
+    transaction_cost_bps_per_side: float = 0.0,
+    short_borrow_bps_per_day: float = 0.0,
+    timezone: str = "America/New_York",
 ) -> list[ReturnRow]:
     prices_by_symbol: dict[str, list[PriceRow]] = defaultdict(list)
     for row in prices:
         prices_by_symbol[row.symbol].append(row)
     returns: list[ReturnRow] = []
     for signal in signals:
-        if signal.signal is None or signal.signal_value is None or signal.mean_score is None:
-            continue
+        if isinstance(signal, TradingDecision):
+            if signal.action == "hold" or signal.mean_score is None:
+                continue
+            signal_name = "positive" if signal.action == "buy" else "negative"
+            signal_value = signal.action_value
+            action = signal.action
+        else:
+            if signal.signal is None or signal.signal_value is None or signal.mean_score is None:
+                continue
+            signal_name = signal.signal
+            signal_value = signal.signal_value
+            action = "buy" if signal_value > 0 else "sell" if signal_value < 0 else "hold"
         use_fallback = index_fallback is not None and signal.article_count < index_fallback.min_texts
         traded_symbol = index_fallback.symbol if index_fallback is not None and use_fallback else signal.symbol
         symbol_prices = prices_by_symbol.get(traded_symbol, [])
         d_price = next((row for row in symbol_prices if row.session_date == signal.news_date), None)
-        future = [row for row in symbol_prices if row.session_date > signal.news_date]
+        if signal.availability_timestamp:
+            try:
+                available_at = datetime.fromisoformat(signal.availability_timestamp.replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise TradingStrategyError(
+                    f"invalid availability timestamp for {signal.symbol}: {signal.availability_timestamp}"
+                ) from exc
+            if available_at.tzinfo is None:
+                raise TradingStrategyError(
+                    f"availability timestamp must include an offset: {signal.availability_timestamp}"
+                )
+            exchange_zone = ZoneInfo(timezone)
+            future = [
+                row
+                for row in symbol_prices
+                if datetime.combine(date.fromisoformat(row.session_date), time(9, 30), exchange_zone) > available_at
+            ]
+        else:
+            future = [row for row in symbol_prices if row.session_date > signal.news_date]
         if len(future) < max(horizons):
             raise TradingStrategyError(
                 f"incomplete price horizon for {traded_symbol} on {signal.news_date}: "
@@ -955,7 +1362,10 @@ def calculate_returns(
         for horizon in horizons:
             exit_row = future[horizon - 1]
             market_return = exit_row.close / entry.open - 1
-            strategy_return = signal.signal_value * market_return
+            strategy_return = signal_value * market_return
+            transaction_cost = transaction_cost_bps_per_side * 2 / 10_000
+            short_borrow_cost = short_borrow_bps_per_day * horizon / 10_000 if signal_value < 0 else 0.0
+            net_strategy_return = strategy_return - transaction_cost - short_borrow_cost
             returns.append(
                 ReturnRow(
                     symbol=signal.symbol,
@@ -964,8 +1374,8 @@ def calculate_returns(
                     news_date=signal.news_date,
                     scorer_id=signal.scorer_id,
                     mean_score=signal.mean_score,
-                    signal=signal.signal,
-                    signal_value=signal.signal_value,
+                    signal=signal_name,
+                    signal_value=signal_value,
                     d_adjusted_close=d_price.close if d_price else None,
                     entry_date=entry.session_date,
                     entry_adjusted_open=entry.open,
@@ -977,6 +1387,12 @@ def calculate_returns(
                     strategy_return_pct=strategy_return * 100,
                     pnl_usd=strategy_return * notional_usd,
                     notional_usd=notional_usd,
+                    action=action,
+                    transaction_cost=transaction_cost + short_borrow_cost,
+                    net_strategy_return=net_strategy_return,
+                    net_strategy_return_pct=net_strategy_return * 100,
+                    net_pnl_usd=net_strategy_return * notional_usd,
+                    availability_timestamp=signal.availability_timestamp,
                 )
             )
     return returns
@@ -1043,11 +1459,13 @@ def write_summary(
     config: TradingStrategyConfig,
     articles: list[MergedArticle],
     signals: list[DailySignal],
+    decisions: list[TradingDecision],
     returns: list[ReturnRow],
 ) -> Path:
     accepted = [article for article in articles if article.screening_decision == "include"]
     event_count = len({(row.symbol, row.news_date) for row in returns})
     source_counts = Counter((article.symbol, article.published_date_local) for article in accepted)
+    decision_by_key = {(row.news_date, row.symbol, row.scorer_id): row for row in decisions}
     signal_rows = [
         [
             signal.news_date,
@@ -1056,14 +1474,24 @@ def write_summary(
             str(signal.valid_count),
             "-" if signal.mean_score is None else f"{signal.mean_score:.3f}",
             signal.signal or "no signal",
+            decision_by_key[(signal.news_date, signal.symbol, signal.scorer_id)].action,
+            decision_by_key[(signal.news_date, signal.symbol, signal.scorer_id)].reason,
         ]
         for signal in signals
     ]
-    mean_by_horizon: dict[tuple[str, int], list[float]] = defaultdict(list)
+    mean_by_horizon: dict[tuple[str, int], list[tuple[float, float]]] = defaultdict(list)
     for row in returns:
-        mean_by_horizon[(row.scorer_id, row.horizon)].append(row.strategy_return_pct)
+        mean_by_horizon[(row.scorer_id, row.horizon)].append(
+            (row.strategy_return_pct, row.net_strategy_return_pct)
+        )
     return_rows = [
-        [scorer, str(horizon), f"{sum(values) / len(values):.3f}%", str(len(values))]
+        [
+            scorer,
+            str(horizon),
+            f"{sum(value[0] for value in values) / len(values):.3f}%",
+            f"{sum(value[1] for value in values) / len(values):.3f}%",
+            str(len(values)),
+        ]
         for (scorer, horizon), values in sorted(mean_by_horizon.items())
     ]
     source_rows = [
@@ -1077,6 +1505,12 @@ def write_summary(
         if config.index_fallback is not None
         else ""
     )
+    consensus_line = (
+        "\n- Consensus: per-article majority of the configured LLM labels; a split resolves to neutral"
+        if config.consensus_enabled
+        else ""
+    )
+    cost_bps = config.decision_policy.transaction_cost_bps_per_side
     text = f"""# {config.title}
 
 Generated: {datetime.now(UTC).isoformat()}
@@ -1092,10 +1526,9 @@ reported independently.
 - News assignment timezone: `{config.timezone}`
 - Entry: adjusted open of the first observed trading session after the news date
 - Exit horizons: {", ".join(map(str, config.horizons))} trading sessions
-- Position notional: ${config.notional_usd:,.0f}; transaction costs ignored{fallback_line}
+- Position notional: ${config.notional_usd:,.0f}; transaction costs: {cost_bps:g} bps per side{fallback_line}
 - LLM models: {", ".join(config.models)}
-- Consensus: per-article majority of all three valid LLM labels; three-way split is neutral
-- VADER: conventional compound thresholds at ±0.05
+- Baselines: {", ".join(config.baselines) or "none"}{consensus_line}
 
 ## Accepted Article Yield
 
@@ -1103,13 +1536,13 @@ reported independently.
 
 ## Daily Signals
 
-{_markdown_table(["News date", "Symbol", "Scorer", "Valid texts", "Mean", "Signal"], signal_rows)}
+{_markdown_table(["News date", "Symbol", "Scorer", "Valid texts", "Mean", "Signal", "Action", "Reason"], signal_rows)}
 
 ## Equal-Weight Mean Event Return by Horizon
 
 These are simple means of event-level returns, not returns on a capital-constrained portfolio.
 
-{_markdown_table(["Scorer", "Horizon", "Mean return", "Events"], return_rows)}
+{_markdown_table(["Scorer", "Horizon", "Gross mean", "Net mean", "Events"], return_rows)}
 
 ## Limitations
 
@@ -1117,7 +1550,7 @@ These are simple means of event-level returns, not returns on a capital-constrai
 - Title-and-summary sentiment is a noisy proxy for market impact.
 - The automated screen is conservative but may retain or reject borderline stories.
 - {event_count} company-day observations are insufficient for statistical inference.
-- Costs, spreads, borrow constraints, taxes, and execution slippage are excluded.
+- The configured transaction-cost deduction is simplified; taxes, market impact, and borrow availability remain excluded.
 """
     path = config.results_dir / "summary.md"
     path.write_text(text, encoding="utf-8")
@@ -1177,6 +1610,7 @@ def write_run_outputs(
     articles: list[MergedArticle],
     scores: list[SentimentScore],
     signals: list[DailySignal],
+    decisions: list[TradingDecision],
     prices: list[PriceRow],
     returns: list[ReturnRow],
     source_corpora: list[str],
@@ -1184,14 +1618,25 @@ def write_run_outputs(
     config.results_dir.mkdir(parents=True, exist_ok=True)
     score_csv = config.results_dir / "sentiment_scores.csv"
     signal_csv = config.results_dir / "daily_signals.csv"
+    decision_csv = config.results_dir / "trading_decisions.csv"
     price_csv = config.results_dir / "prices.csv"
     return_csv = config.results_dir / "returns.csv"
     _write_csv(score_csv, [asdict(row) for row in scores])
     _write_csv(signal_csv, [asdict(row) for row in signals])
+    _write_csv(decision_csv, [asdict(row) for row in decisions])
     _write_csv(price_csv, [asdict(row) for row in prices])
     _write_csv(return_csv, [asdict(row) for row in returns])
-    summary_path = write_summary(config, articles, signals, returns)
+    summary_path = write_summary(config, articles, signals, decisions, returns)
     charts = write_charts(config, articles, returns)
+    lseg_source_manifest: dict[str, Any] | None = None
+    if config.lseg_corpus_manifest is not None:
+        lseg_payload = json.loads(config.lseg_corpus_manifest.read_text(encoding="utf-8"))
+        lseg_source_manifest = {
+            "path": str(config.lseg_corpus_manifest),
+            "sha256": _sha256(config.lseg_corpus_manifest),
+            "build_fingerprint": lseg_payload.get("build_fingerprint"),
+            "cleaner_version": lseg_payload.get("cleaner_version"),
+        }
     files = [
         config.derived_dir / "articles.csv",
         config.derived_dir / "screening.csv",
@@ -1199,6 +1644,7 @@ def write_run_outputs(
         config.results_dir / "sentiment_scores.jsonl",
         score_csv,
         signal_csv,
+        decision_csv,
         price_csv,
         return_csv,
         summary_path,
@@ -1216,17 +1662,43 @@ def write_run_outputs(
         "config_path": str(config_path),
         "config_sha256": _sha256(config_path),
         "source_corpora": sorted(set(source_corpora)),
+        "source_manifests": {
+            "tavily": (
+                {"path": str(config.tavily_package_manifest), "sha256": _sha256(config.tavily_package_manifest)}
+                if config.tavily_package_manifest is not None
+                else None
+            ),
+            "lseg": lseg_source_manifest,
+        },
         "settings": {
             "dates": config.dates,
+            "timezone": config.timezone,
             "symbols": [company.symbol for company in config.companies],
             "models": config.models,
+            "primary_model": config.primary_model,
+            "provider": config.provider,
+            "baselines": config.baselines,
+            "consensus_enabled": config.consensus_enabled,
             "prompt_id": config.prompt_id,
             "temperature": config.temperature,
+            "max_completion_tokens": config.max_completion_tokens,
+            "concurrency": config.concurrency,
+            "ollama_host": config.ollama_host if config.provider == "ollama" else None,
+            "ollama_keep_alive": config.ollama_keep_alive if config.provider == "ollama" else None,
+            "ollama_think": config.ollama_think if config.provider == "ollama" else None,
+            "structured_output": config.structured_output if config.provider == "ollama" else False,
+            "model_digests": {
+                scorer: next((row.model_digest for row in scores if row.scorer_id == scorer and row.model_digest), None)
+                for scorer in config.models
+            },
+            "prompt_hashes": sorted({row.prompt_hash for row in scores if row.prompt_hash}),
+            "request_hashes": sorted({row.request_sha256 for row in scores if row.request_sha256}),
             "horizons": config.horizons,
             "notional_usd": config.notional_usd,
             "entry_rule": "next_observed_session_adjusted_open",
             "price_source": "Yahoo Finance via yfinance",
-            "transaction_costs": 0,
+            "decision_policy": asdict(config.decision_policy),
+            "decision_policy_enabled": config.decision_policy_enabled,
             "index_fallback": (
                 {"symbol": config.index_fallback.symbol, "min_texts": config.index_fallback.min_texts}
                 if config.index_fallback is not None
@@ -1238,6 +1710,8 @@ def write_run_outputs(
             "articles_accepted": sum(article.screening_decision == "include" for article in articles),
             "sentiment_scores": len(scores),
             "daily_signals": len(signals),
+            "trading_decisions": len(decisions),
+            "traded_decisions": sum(decision.action != "hold" for decision in decisions),
             "return_rows": len(returns),
             "index_fallback_events": len({(row.symbol, row.news_date) for row in returns if row.index_fallback}),
         },
@@ -1271,7 +1745,10 @@ def register_completed_experiment(config: TradingStrategyConfig) -> None:
     raw_git = environment.get("git")
     git: dict[str, Any] = raw_git if isinstance(raw_git, dict) else {}
     commit = str(git.get("commit") or "unknown")
-    model_lines = ",\n  ".join(_toml_string(model) for model in config.models)
+    scorer_ids = [*config.models, *(f"baseline/{name}" for name in config.baselines)]
+    if config.consensus_enabled:
+        scorer_ids.append("consensus/majority")
+    model_lines = ",\n  ".join(_toml_string(model) for model in scorer_ids)
     dates = ", ".join(_toml_string(value) for value in config.dates)
     horizons = ", ".join(str(value) for value in config.horizons)
     symbols = ", ".join(_toml_string(company.symbol) for company in config.companies)
@@ -1281,17 +1758,17 @@ def register_completed_experiment(config: TradingStrategyConfig) -> None:
 id = {_toml_string(config.run_id)}
 title = {_toml_string(config.title)}
 status = "completed"
-dissertation_relevance = "Exploratory Week 3 L1 news-sentiment trading pipeline pilot; non-preregistered and non-causal."
+dissertation_relevance = "Reproducible news-sentiment trading research pipeline; non-causal."
 commit_sha = {_toml_string(commit)}
 export_path = {_toml_string(str(config.results_dir))}
 
 [experiments.models]
 ids = [
   {model_lines},
-  "baseline/vader",
-  "consensus/majority",
 ]
 prompt_id = {_toml_string(config.prompt_id)}
+provider = {_toml_string(config.provider)}
+primary_model = {_toml_string(config.primary_model)}
 
 [experiments.settings]
 symbols = [{symbols}]
@@ -1301,7 +1778,9 @@ temperature = {config.temperature}
 notional_usd = {config.notional_usd}
 entry_rule = "next_observed_session_adjusted_open"
 price_source = "Yahoo Finance via yfinance"
-transaction_costs = 0
+transaction_cost_bps_per_side = {config.decision_policy.transaction_cost_bps_per_side}
+short_borrow_bps_per_day = {config.decision_policy.short_borrow_bps_per_day}
+decision_policy_version = {_toml_string(config.decision_policy.policy_version)}
 
 [experiments.analysis]
 exploratory = true
@@ -1311,6 +1790,19 @@ interpretation_notes = "Event-level and equal-weight mean returns only; overlapp
 """
     registry.parent.mkdir(parents=True, exist_ok=True)
     registry.write_text(existing_text.rstrip() + entry, encoding="utf-8")
+
+
+async def _resolve_model_digests(client: Any, models: tuple[str, ...], retries: int) -> dict[str, str | None]:
+    resolver = getattr(client, "model_digest", None)
+    if not callable(resolver):
+        return {model: None for model in models}
+    digests: dict[str, str | None] = {}
+    for model in models:
+        try:
+            digests[model] = await resolver(model, retries=retries)
+        except Exception as exc:
+            raise TradingStrategyError(f"cannot resolve Ollama model digest for {model}: {exc}") from exc
+    return digests
 
 
 async def run_trading_strategy(
@@ -1354,13 +1846,26 @@ async def run_trading_strategy(
     candidates = tavily_candidates + newsapi_candidates
     gap_candidates, gap_corpora = await fetch_tavily_gaps(config, tavily_client, candidates)
     candidates.extend(gap_candidates)
-    articles = merge_article_candidates(candidates, timezone=config.timezone, selected_dates=config.dates)
+    web_articles = merge_article_candidates(candidates, timezone=config.timezone, selected_dates=config.dates)
+    lseg_articles, lseg_corpora = load_lseg_articles(config)
+    articles = sorted(
+        [*web_articles, *lseg_articles],
+        key=lambda row: (row.published_date_local, row.symbol, row.article_id),
+    )
     articles = apply_screening_overrides(articles, config.screening_overrides_path)
     write_articles(config, articles)
 
     prompts = load_prompts(config.prompts_path)
     if config.prompt_id not in prompts:
         raise TradingStrategyError(f"prompt id not found: {config.prompt_id}")
+    model_digests = await _resolve_model_digests(llm_client, config.models, config.retries)
+    request_settings = {
+        "provider": config.provider,
+        "ollama_host": config.ollama_host if config.provider == "ollama" else None,
+        "ollama_keep_alive": config.ollama_keep_alive if config.provider == "ollama" else None,
+        "ollama_think": config.ollama_think if config.provider == "ollama" else None,
+        "structured_output": config.structured_output if config.provider == "ollama" else False,
+    }
     score_jsonl = config.results_dir / "sentiment_scores.jsonl"
     scores = await score_articles(
         articles,
@@ -1373,10 +1878,18 @@ async def run_trading_strategy(
         max_completion_tokens=config.max_completion_tokens,
         concurrency=config.concurrency,
         retries=config.retries,
+        baselines=config.baselines,
+        model_digests=model_digests,
+        request_settings=request_settings,
+        strict_resume_identity=config.lseg_corpus_manifest is not None,
     )
-    consensus = article_consensus(scores, config.models)
+    consensus = article_consensus(scores, config.models) if config.consensus_enabled else []
     all_scores = sorted(scores + consensus, key=lambda row: (row.news_date, row.symbol, row.article_id, row.scorer_id))
-    scorer_ids = (*config.models, "consensus/majority", "baseline/vader")
+    scorer_ids = (
+        *config.models,
+        *(('consensus/majority',) if config.consensus_enabled else ()),
+        *(f"baseline/{name}" for name in config.baselines),
+    )
     signals = daily_signals(
         articles,
         all_scores,
@@ -1384,18 +1897,29 @@ async def run_trading_strategy(
         config.dates,
         tuple(company.symbol for company in config.companies),
     )
+    decisions = make_trading_decisions(signals, config.decision_policy)
     prices = price_loader(config)
     returns = calculate_returns(
-        signals,
+        decisions if config.decision_policy_enabled else signals,
         prices,
         horizons=config.horizons,
         notional_usd=config.notional_usd,
         index_fallback=config.index_fallback,
+        transaction_cost_bps_per_side=(
+            config.decision_policy.transaction_cost_bps_per_side if config.decision_policy_enabled else 0.0
+        ),
+        short_borrow_bps_per_day=(
+            config.decision_policy.short_borrow_bps_per_day if config.decision_policy_enabled else 0.0
+        ),
+        timezone=config.timezone,
     )
     source_corpora = sorted(
-        {candidate.source_corpus for candidate in tavily_candidates} | set(newsapi_corpora) | set(gap_corpora)
+        {candidate.source_corpus for candidate in tavily_candidates}
+        | set(newsapi_corpora)
+        | set(gap_corpora)
+        | set(lseg_corpora)
     )
-    write_run_outputs(config, path, articles, all_scores, signals, prices, returns, source_corpora)
+    write_run_outputs(config, path, articles, all_scores, signals, decisions, prices, returns, source_corpora)
     register_completed_experiment(config)
     return TradingRunResult(
         run_id=config.run_id,
@@ -1415,11 +1939,16 @@ def describe_trading_plan(config: TradingStrategyConfig) -> dict[str, Any]:
         "companies": [company.symbol for company in config.companies],
         "dates": list(config.dates),
         "models": list(config.models),
+        "provider": config.provider,
+        "primary_model": config.primary_model,
+        "baselines": list(config.baselines),
         "horizons": list(config.horizons),
-        "newsapi_requests_before_pagination": len(config.companies),
+        "newsapi_requests_before_pagination": len(config.companies) if config.newsapi_enabled else 0,
         "newsapi_from": from_time,
         "newsapi_to": to_time,
         "entry_rule": "next observed trading-session adjusted open",
+        "lseg_corpus": str(config.lseg_corpus_manifest) if config.lseg_corpus_manifest else "disabled",
+        "decision_policy": asdict(config.decision_policy) if config.decision_policy_enabled else "legacy signal rule",
         "index_fallback": (
             f"{config.index_fallback.symbol} when a company-day has fewer than {config.index_fallback.min_texts} texts"
             if config.index_fallback is not None

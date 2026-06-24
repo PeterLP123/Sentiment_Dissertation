@@ -1,0 +1,70 @@
+[run]
+id = "lseg_ollama_example"
+title = "LSEG Workspace local-model trading research"
+timezone = "America/New_York"
+dates = ["2026-06-01", "2026-06-02", "2026-06-03"]
+horizons = [1, 2, 3, 4, 5, 6, 7]
+notional_usd = 10000
+
+[scoring]
+provider = "ollama"
+# Pin exact installed tags from `ollama list`; these are examples, not research defaults.
+models = ["gemma3:12b", "qwen3:8b"]
+primary_model = "gemma3:12b"
+baselines = ["vader", "finbert"]
+consensus_enabled = false
+prompt_id = "target_company_news_label_only"
+prompts_path = "configs/default_prompts.toml"
+temperature = 0.0
+max_completion_tokens = 64
+concurrency = 1
+retries = 3
+ollama_host = "http://localhost:11434"
+ollama_keep_alive = "30m"
+ollama_think = false
+structured_output = true
+
+[sources]
+lseg_corpus_manifest = "Data/derived/lseg/lseg_workspace_example/manifest.json"
+newsapi_enabled = false
+tavily_gap_fetch = false
+
+[signal_policy]
+min_valid_stories = 3
+threshold = 0.5
+transaction_cost_bps_per_side = 10
+short_borrow_bps_per_day = 0
+policy_version = "lseg_equal_story_threshold_v1"
+
+[index_fallback]
+enabled = false
+
+[outputs]
+news_output_root = "Data/news"
+derived_output_root = "Data/derived/trading"
+results_output_root = "results/trading"
+experiment_registry = "experiments/manifest.toml"
+
+[[companies]]
+symbol = "AAPL"
+name = "Apple Inc."
+query = "Apple AAPL stock news"
+tavily_query_id = ""
+family = "AAPL — Apple Inc."
+aliases = ["Apple", "Apple Inc.", "AAPL"]
+
+[[companies]]
+symbol = "MSFT"
+name = "Microsoft Corporation"
+query = "Microsoft MSFT stock news"
+tavily_query_id = ""
+family = "MSFT — Microsoft Corporation"
+aliases = ["Microsoft", "Microsoft Corp.", "MSFT"]
+
+[[companies]]
+symbol = "NVDA"
+name = "NVIDIA Corporation"
+query = "NVIDIA NVDA stock news"
+tavily_query_id = ""
+family = "NVDA — NVIDIA Corporation"
+aliases = ["NVIDIA", "Nvidia", "NVDA"]

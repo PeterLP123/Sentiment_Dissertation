@@ -4,6 +4,8 @@ Use Tavily when you need current article source material from the internet. The 
 
 Use NewsAPI when you need a simpler dated discovery feed. It supplies titles, descriptions, URLs, publishers, and UTC publication timestamps but not complete article bodies. The trading pilot therefore scores the common `title + snippet/description` representation for both providers and uses Tavily full text only for screening provenance.
 
+Use the separate [LSEG to Ollama pipeline](lseg_ollama_pipeline.md) for entitled Workspace headlines and full stories. LSEG content remains local, uses native story/revision identities instead of synthetic URLs, and is never included in Tavily share packages.
+
 ![CLI Tavily fetch screenshot](assets/cli-news-fetch.svg)
 
 ## Prerequisites
