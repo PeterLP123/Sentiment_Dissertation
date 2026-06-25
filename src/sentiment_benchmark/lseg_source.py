@@ -386,6 +386,19 @@ def _nested_string(value: Any, keys: tuple[str, ...]) -> str | None:
     return None
 
 
+def _story_content(data: Any) -> tuple[str | None, str | None, str | None]:
+    story = getattr(data, "story", None)
+    content = getattr(story, "content", None)
+    html = _string(getattr(content, "html", None))
+    text = _string(getattr(content, "text", None))
+    web_url = _string(getattr(content, "web_url", None))
+    if html:
+        return html, "html", web_url
+    if text:
+        return text, "text", web_url
+    return None, None, web_url
+
+
 class _LsegSdkBackend:
     def __init__(self) -> None:
         self.ld: Any | None = None
@@ -445,9 +458,13 @@ class _LsegSdkBackend:
             response = await _await_if_needed(request())
             data = getattr(response, "data", None)
             raw = _raw_data(response)
-            body = _string(getattr(data, "news_story", None))
+            body, body_format, web_url = _story_content(data)
+            if not body:
+                body = _string(getattr(data, "news_story", None))
+                body_format = None
             if not body:
                 body = _nested_string(raw, ("newsstory", "news_story", "story", "body", "content"))
+                body_format = None
         else:
             access_news = getattr(self.ld, "news", None)
             getter = getattr(access_news, "get_story", None)
@@ -455,15 +472,17 @@ class _LsegSdkBackend:
                 raise LsegNewsError("installed LSEG SDK exposes neither story.Definition nor ld.news.get_story")
             response = await _await_if_needed(getter(story_id))
             body = _string(response)
+            body_format = None
             raw = {"access_layer": "ld.news.get_story"}
-        web_url = _nested_string(raw, ("weburl", "web_url"))
+            web_url = None
+        web_url = web_url or _nested_string(raw, ("weburl", "web_url"))
         if body and re.fullmatch(r"https?://\S+", body):
             web_url, body = body, None
         if not body and web_url:
             return LsegStoryResponse(story_id, "story_unavailable", web_url=web_url, raw_response=raw)
         if not body:
             return LsegStoryResponse(story_id, "missing", error="story response has no body", raw_response=raw)
-        body_format = "html" if re.search(r"<[^>]+>", body) else "text"
+        body_format = body_format or ("html" if re.search(r"<[^>]+>", body) else "text")
         return LsegStoryResponse(story_id, "success", body=body, body_format=body_format, raw_response=raw)
 
 

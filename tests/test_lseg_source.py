@@ -117,6 +117,25 @@ aliases = ["Apple"]
     assert config.start.endswith("Z")
 
 
+def test_story_content_reads_lseg_sdk_story_content() -> None:
+    class Content:
+        html = "<p>Full story body.</p>"
+        text = "Full story body."
+        web_url = "https://publisher.test/story"
+
+    class Story:
+        content = Content()
+
+    class Data:
+        story = Story()
+
+    body, body_format, web_url = lseg_source._story_content(Data())
+
+    assert body == "<p>Full story body.</p>"
+    assert body_format == "html"
+    assert web_url == "https://publisher.test/story"
+
+
 def test_fetch_paginates_deduplicates_and_resumes_without_calls(tmp_path: Path) -> None:
     config = _config(tmp_path)
     backend = FakeBackend()

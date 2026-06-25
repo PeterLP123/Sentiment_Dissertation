@@ -843,7 +843,7 @@ def test_tui_run_baselines_button_invokes_runner(tmp_path: Path, monkeypatch: py
             callback("baseline progress")
         return BaselineRunSummary(run_id=7, selected_row_count=90, baseline_count=len(names))
 
-    monkeypatch.setattr("sentiment_benchmark.tui.run_baselines", fake_run_baselines)
+    monkeypatch.setattr("sentiment_benchmark.tui_baselines.run_baselines", fake_run_baselines)
 
     async def scenario() -> None:
         app = _make_app(tmp_path)
@@ -1531,7 +1531,7 @@ def test_tui_cloud_catalog_lists_live_models(tmp_path: Path, monkeypatch: pytest
             ModelConfig(model_id="glm-5:cloud", name="glm-5", raw_metadata={"cloud": True}),
         ]
 
-    monkeypatch.setattr("sentiment_benchmark.tui.fetch_ollama_cloud_models", fake_fetch)
+    monkeypatch.setattr("sentiment_benchmark.tui_models.fetch_ollama_cloud_models", fake_fetch)
 
     async def scenario() -> None:
         app = _make_app(tmp_path)
@@ -1558,9 +1558,9 @@ def test_tui_cloud_catalog_falls_back_when_fetch_fails(tmp_path: Path, monkeypat
     async def boom() -> list[ModelConfig]:
         raise RuntimeError("network down")
 
-    monkeypatch.setattr("sentiment_benchmark.tui.fetch_ollama_cloud_models", boom)
+    monkeypatch.setattr("sentiment_benchmark.tui_models.fetch_ollama_cloud_models", boom)
     monkeypatch.setattr(
-        "sentiment_benchmark.tui.ollama_cloud_catalog",
+        "sentiment_benchmark.tui_models.ollama_cloud_catalog",
         lambda: [ModelConfig(model_id="fallback:thing-cloud", name="fallback", raw_metadata={"cloud": True})],
     )
 
@@ -1624,8 +1624,6 @@ def test_tui_baselines_collapsed_by_default(tmp_path: Path) -> None:
 
 
 def test_tui_loaded_models_panel_lists_ollama_ps(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    import sentiment_benchmark.tui as tui_module
-
     class _FakeOllama:
         async def __aenter__(self):
             return self
@@ -1641,7 +1639,7 @@ def test_tui_loaded_models_panel_lists_ollama_ps(tmp_path: Path, monkeypatch: py
         app.provider = "ollama"
         async with app.run_test() as pilot:
             await pilot.pause(0.1)
-            monkeypatch.setattr(tui_module, "make_llm_client", lambda *a, **k: _FakeOllama())
+            monkeypatch.setattr("sentiment_benchmark.tui_models.make_llm_client", lambda *a, **k: _FakeOllama())
 
             await app._fetch_loaded_models()
 

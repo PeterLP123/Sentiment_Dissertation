@@ -43,7 +43,6 @@ from textual.widgets import (
 )
 from textual.worker import WorkerFailed
 
-from .baseline_runner import run_baselines
 from .baselines import BASELINE_SPECS, DEFAULT_BASELINES, BaselineSpec
 from .comparison import ComparisonResult, ModelTarget, compare_models
 from .constants import (
@@ -67,15 +66,15 @@ from .news_source import (
     DEFAULT_NEWS_TOPIC,
     NEWS_TIME_RANGES,
     NEWS_TOPICS,
-    TavilyNewsClient,
-    make_news_fetch_config,
-    write_news_corpus,
 )
-from .ollama_cloud import _to_cloud_tag, cloud_catalog_overridden, fetch_ollama_cloud_models, ollama_cloud_catalog
 from .prompts import load_prompts, make_prompt
 from .providers import endpoint_for_provider, make_llm_client, normalize_provider
 from .runner import BenchmarkRunner
 from .storage import BenchmarkStore
+from .tui_baselines import BaselinesMixin
+from .tui_models import ModelsMixin
+from .tui_monitor import MonitorMixin
+from .tui_news import NewsMixin
 
 
 def _module_available(module: str) -> bool:
@@ -110,8 +109,6 @@ _LOG_PATH = Path("results/tui.log")
 _CRASH_LOG_PATH = Path("results/tui_crash.log")
 
 logger = logging.getLogger(__name__)
-_SELECTED_MARK = "[x]"
-_UNSELECTED_MARK = "[ ]"
 _CONFIRM_THRESHOLD = 1000
 _MONITOR_FIELD = re.compile(r"\b(run|model|row|status|label)=([^\s]+)")
 
@@ -341,7 +338,7 @@ class HelpScreen(ModalScreen[None]):
             self.dismiss(None)
 
 
-class SentimentBenchmarkApp(App):
+class SentimentBenchmarkApp(BaselinesMixin, ModelsMixin, MonitorMixin, NewsMixin, App):
     TITLE = "Sentiment Benchmark"
     SUB_TITLE = "LLM sentiment evaluation"
     CSS = """
@@ -1194,35 +1191,6 @@ class SentimentBenchmarkApp(App):
         should_follow = bool(log.is_vertical_scroll_end)
         log.write(_monitor_text(message), scroll_end=should_follow)
 
-    def _set_news_log(self, message: str) -> None:
-        self.news_lines.append(message)
-        self.news_lines = self.news_lines[-500:]
-        try:
-            log = self.query_one("#news-log", RichLog)
-        except Exception:
-            return
-        should_follow = bool(log.is_vertical_scroll_end)
-        log.write(message, scroll_end=should_follow)
-
-    def _make_news_client(self) -> TavilyNewsClient:
-        return TavilyNewsClient()
-
-    def _refresh_news_summary(self) -> None:
-        try:
-            summary = self.query_one("#news-summary", Static)
-        except Exception:
-            return
-        api_state = "present" if os.getenv("TAVILY_API_KEY") else "missing"
-        summary.update(
-            "\n".join(
-                [
-                    f"Tavily API key: {api_state}",
-                    f"Output directory: {self.news_output_dir}",
-                    "Generated corpora are unlabeled source material.",
-                ]
-            )
-        )
-
     def _notify_error(self, message: str, *, title: str = "Error") -> None:
         self.notifications.append(("error", message))
         with suppress(Exception):
@@ -1329,286 +1297,6 @@ class SentimentBenchmarkApp(App):
         if errors:
             parts.append(f"{errors} err")
         return Text(" · ".join(parts), style="bold red" if errors else "bold green")
-
-    def _refresh_dashboard(self) -> None:
-        rows = load_dataset(self.dataset_path)
-        stats = compute_stats(rows)
-        key_status = "present" if os.getenv("OPENROUTER_API_KEY") else "missing"
-        endpoint = self._active_endpoint()
-        storage_label = BenchmarkStore(self.db_path).storage_label()
-        self.query_one("#dashboard", Static).update(
-            "\n".join(
-                [
-                    f"Dataset: {self.dataset_path}",
-                    f"Rows: {stats.row_count}",
-                    f"Labels: {stats.label_counts}",
-                    f"Conflicting duplicate rows excluded from primary metrics: {stats.conflicting_duplicate_rows}",
-                    f"Primary scoring rows: {stats.primary_row_count}",
-                    f"Result DB: {storage_label}",
-                    f"Provider: {self._provider_title()}",
-                    f"Endpoint: {endpoint}",
-                    f"OpenRouter API key: {key_status}",
-                ]
-            )
-        )
-        self._refresh_status_bar()
-
-    @staticmethod
-    def _format_gpu_value(value: str, suffix: str = "") -> str:
-        value = value.strip()
-        if not value or "not supported" in value.lower():
-            return "-"
-        try:
-            number = float(value)
-        except ValueError:
-            return value
-        if number.is_integer():
-            return f"{int(number)}{suffix}"
-        return f"{number:.1f}{suffix}"
-
-    def _gpu_monitor_lines(self) -> list[str]:
-        command = [
-            "nvidia-smi",
-            "--query-gpu=name,utilization.gpu,memory.used,memory.total,power.draw,power.limit,temperature.gpu",
-            "--format=csv,noheader,nounits",
-        ]
-        try:
-            result = subprocess.run(
-                command,
-                capture_output=True,
-                check=True,
-                text=True,
-                timeout=2,
-            )
-        except FileNotFoundError:
-            return ["GPU: nvidia-smi not found."]
-        except subprocess.TimeoutExpired:
-            return ["GPU: nvidia-smi timed out."]
-        except subprocess.CalledProcessError as exc:
-            error = (exc.stderr or exc.stdout or str(exc)).strip()
-            return [f"GPU: nvidia-smi failed: {error}"]
-
-        lines: list[str] = []
-        for index, raw_line in enumerate(result.stdout.splitlines()):
-            parts = [part.strip() for part in raw_line.split(",")]
-            if len(parts) < 7:
-                continue
-            name, util, mem_used, mem_total, power_draw, power_limit, temp = parts[:7]
-            used = self._format_gpu_value(mem_used)
-            total = self._format_gpu_value(mem_total)
-            memory_percent = "-"
-            with suppress(ValueError, ZeroDivisionError):
-                memory_percent = f"{(float(mem_used) / float(mem_total)) * 100:.0f}%"
-            lines.append(
-                "GPU "
-                f"{index}: {name} | util {self._format_gpu_value(util, '%')} | "
-                f"VRAM {used}/{total} MB ({memory_percent}) | "
-                f"power {self._format_gpu_value(power_draw)}/{self._format_gpu_value(power_limit)} W | "
-                f"temp {self._format_gpu_value(temp)} C"
-            )
-        return lines or ["GPU: no NVIDIA devices reported."]
-
-    def _refresh_resource_monitor(self) -> None:
-        try:
-            concurrency = self.query_one("#concurrency", Input).value.strip() or "?"
-        except Exception:
-            concurrency = "?"
-        try:
-            max_tokens = self.query_one("#max-tokens", Input).value.strip() or "?"
-        except Exception:
-            max_tokens = "?"
-
-        lines = [
-            f"Provider: {self._provider_title()} | Endpoint: {self._active_endpoint()}",
-            f"Selected models: {len(self.selected_models)} | Fetched provider models: {len(self._all_models)}",
-            f"Run settings: TUI concurrency {concurrency} | max completion tokens {max_tokens}",
-            f"Ollama NUM_PARALLEL env visible to TUI: {os.getenv('OLLAMA_NUM_PARALLEL') or 'default'}",
-            f"Ollama thinking: {'disabled' if self.disable_ollama_thinking else 'provider default'}",
-            *self._gpu_lines,
-        ]
-        content = "\n".join(lines)
-        for widget_id in ("#dashboard-resource-monitor", "#run-resource-monitor"):
-            with suppress(Exception):
-                self.query_one(widget_id, Static).update(content)
-
-    async def _refresh_gpu_lines(self) -> None:
-        """Refresh cached GPU stats in a worker thread, then re-render the monitor."""
-        try:
-            self._gpu_lines = await asyncio.to_thread(self._gpu_monitor_lines)
-        except Exception:  # pragma: no cover - defensive
-            self._gpu_lines = ["GPU: monitor unavailable."]
-        self._refresh_resource_monitor()
-
-    def _render_selected_table(self) -> None:
-        try:
-            table = self.query_one("#selected-table", DataTable)
-        except Exception:
-            return
-        table.clear()
-        for model_id in self.selected_models:
-            name = self._model_names.get(model_id) or "(manual)"
-            table.add_row(model_id, name, key=model_id)
-        self._refresh_selected_summary()
-        self._refresh_status_bar()
-
-    def _refresh_selected_summary(self) -> None:
-        try:
-            summary = self.query_one("#selected-summary", Static)
-        except Exception:
-            return
-        count = len(self.selected_models)
-        if count == 0:
-            summary.update("No models selected yet.")
-        else:
-            cloud = self._selected_cloud_count()
-            cloud_note = f" ({cloud} cloud)" if cloud else ""
-            summary.update(f"{count} model(s) selected{cloud_note}.")
-
-    def _render_model_table(self) -> None:
-        try:
-            table = self.query_one("#model-table", DataTable)
-        except Exception:
-            return
-        table.clear()
-        try:
-            query = self.query_one("#model-search", Input).value.strip().lower()
-        except Exception:
-            query = ""
-        selected = set(self.selected_models)
-        for model in self._all_models:
-            if query:
-                haystack = f"{model.model_id} {model.name or ''}".lower()
-                if query not in haystack:
-                    continue
-            mark = (
-                Text(_SELECTED_MARK, style="bold green")
-                if model.model_id in selected
-                else Text(_UNSELECTED_MARK, style="grey58")
-            )
-            cloud_cell = (
-                Text("cloud", style="cyan") if self._is_cloud_model(model.model_id, model) else Text("", style="grey58")
-            )
-            table.add_row(
-                mark,
-                model.model_id,
-                model.name or "",
-                str(model.context_length or ""),
-                cloud_cell,
-                key=model.model_id,
-            )
-        self._refresh_ollama_thinking_recommendation()
-
-    def _selected_model_configs(self) -> list[ModelConfig]:
-        by_id = {model.model_id: model for model in self._all_models}
-        return [by_id[model_id] for model_id in self.selected_models if model_id in by_id]
-
-    @staticmethod
-    def _is_cloud_model(model_id: str, model: ModelConfig | None = None) -> bool:
-        """Heuristic for Ollama Cloud models, which carry a ``-cloud``/``:cloud`` tag.
-
-        These run on Ollama's hosted infrastructure (proxied through a signed-in
-        local daemon) rather than local VRAM, so they are flagged for the user.
-        """
-        lowered = (model_id or "").lower()
-        if lowered.endswith("-cloud") or lowered.endswith(":cloud") or "-cloud" in lowered:
-            return True
-        raw = model.raw_metadata if model is not None else {}
-        if isinstance(raw, dict) and (raw.get("remote") or raw.get("cloud")):
-            return True
-        return False
-
-    def _normalize_selected_ollama_cloud_models(self) -> None:
-        """Migrate old cached cloud IDs to the current runnable Ollama tag."""
-        if self.provider != "ollama":
-            return
-        normalized: list[str] = []
-        for model_id in self.selected_models:
-            next_id = model_id
-            name = self._model_names.get(model_id)
-            if name and self._is_cloud_model(model_id):
-                next_id = _to_cloud_tag(name)
-                self._model_names.setdefault(next_id, name)
-            if next_id not in normalized:
-                normalized.append(next_id)
-        self.selected_models = normalized
-
-    def _selected_cloud_count(self) -> int:
-        by_id = {model.model_id: model for model in self._all_models}
-        return sum(1 for model_id in self.selected_models if self._is_cloud_model(model_id, by_id.get(model_id)))
-
-    @staticmethod
-    def _model_recommends_disabled_thinking(model_id: str, model: ModelConfig | None = None) -> bool:
-        lowered = model_id.lower()
-        if "gemma4" in lowered:
-            return True
-        raw = model.raw_metadata if model is not None else {}
-        capabilities = raw.get("capabilities") if isinstance(raw, dict) else None
-        if isinstance(capabilities, list) and any(str(item).lower() == "thinking" for item in capabilities):
-            return True
-        details = raw.get("details") if isinstance(raw, dict) else None
-        family = details.get("family") if isinstance(details, dict) else None
-        return isinstance(family, str) and "gemma4" in family.lower()
-
-    def _refresh_ollama_thinking_recommendation(self) -> None:
-        try:
-            target = self.query_one("#ollama-thinking-recommendation", Static)
-        except Exception:
-            return
-        by_id = {model.model_id: model for model in self._all_models}
-        recommended_models = [
-            model_id
-            for model_id in self.selected_models
-            if self._model_recommends_disabled_thinking(model_id, by_id.get(model_id))
-        ]
-        if self.provider != "ollama":
-            target.update("Used only for Ollama runs; OpenRouter runs ignore this setting.")
-            return
-        if recommended_models:
-            state = "ON" if self.disable_ollama_thinking else "OFF"
-            target.update(
-                Text(
-                    "Recommendation: keep Disable Ollama thinking ON for "
-                    f"{', '.join(recommended_models[:3])}"
-                    f"{'...' if len(recommended_models) > 3 else ''}. Current setting: {state}.",
-                    style="bold yellow",
-                )
-            )
-            return
-        target.update("Recommended for Gemma 4 and other thinking-capable Ollama models.")
-
-    def _toggle_model(self, model_id: str, name: str | None = None) -> None:
-        if not model_id:
-            return
-        if model_id in self.selected_models:
-            self.selected_models.remove(model_id)
-        else:
-            self.selected_models.append(model_id)
-            if name:
-                self._model_names[model_id] = name
-        self._render_model_table()
-        self._render_selected_table()
-        self._refresh_run_estimate()
-        self._save_session()
-
-    def _select_model(self, model_id: str, name: str | None = None) -> None:
-        if not model_id or model_id in self.selected_models:
-            return
-        self.selected_models.append(model_id)
-        if name:
-            self._model_names[model_id] = name
-        self._render_model_table()
-        self._render_selected_table()
-        self._refresh_run_estimate()
-        self._save_session()
-
-    def _deselect_model(self, model_id: str) -> None:
-        if model_id not in self.selected_models:
-            return
-        self.selected_models.remove(model_id)
-        self._render_model_table()
-        self._render_selected_table()
-        self._refresh_run_estimate()
-        self._save_session()
 
     def _load_session(self) -> None:
         try:
@@ -2143,86 +1831,6 @@ class SentimentBenchmarkApp(App):
             self._refresh_resource_monitor()
             self._save_session()
 
-    def _set_news_busy(self, busy: bool) -> None:
-        self._news_in_progress = busy
-        for button_id in ("#news-check", "#news-fetch"):
-            with suppress(Exception):
-                self.query_one(button_id, Button).disabled = busy
-
-    def _news_config_from_ui(self, *, check_only: bool = False):
-        try:
-            query = self.query_one("#news-query", Input).value.strip()
-            max_results = 1 if check_only else int(self.query_one("#news-max-results", Input).value.strip())
-            topic_value = self.query_one("#news-topic", Select).value
-            time_range_value = self.query_one("#news-time-range", Select).value
-            if topic_value is Select.BLANK or time_range_value is Select.BLANK:
-                raise ValueError("Choose a Tavily topic and time range")
-            extract = False if check_only else bool(self.query_one("#news-extract", Checkbox).value)
-            return make_news_fetch_config(
-                query=query,
-                max_results=max_results,
-                topic=str(topic_value),
-                time_range=str(time_range_value),
-                extract=extract,
-            )
-        except Exception as exc:
-            raise ValueError(f"News setup error: {exc}") from exc
-
-    async def _check_news(self) -> None:
-        if self._news_in_progress:
-            self._notify_error("A Tavily request is already in progress.", title="Busy")
-            return
-        try:
-            config = self._news_config_from_ui(check_only=True)
-        except ValueError as exc:
-            self._notify_error(str(exc), title="Cannot check")
-            return
-        self._set_news_busy(True)
-        self._set_news_log(f"Checking Tavily with query: {config.query}")
-        try:
-            async with self._make_news_client() as client:
-                result = await client.fetch(config)
-            credits = result.search_usage.get("credits") if isinstance(result.search_usage, dict) else None
-            credit_text = f", credits={credits}" if credits is not None else ""
-            self._set_news_log(
-                f"Tavily check OK: {len(result.records)} result(s), request_id={result.search_request_id or '-'}{credit_text}"
-            )
-            self._notify_info("Tavily news API check succeeded.", title="Tavily")
-        except Exception as exc:
-            self._notify_error(f"Tavily check failed: {exc}", title="Tavily failed")
-            self._set_news_log(f"Tavily check failed: {exc}")
-        finally:
-            self._set_news_busy(False)
-
-    async def _fetch_news(self) -> None:
-        if self._news_in_progress:
-            self._notify_error("A Tavily request is already in progress.", title="Busy")
-            return
-        try:
-            config = self._news_config_from_ui()
-        except ValueError as exc:
-            self._notify_error(str(exc), title="Cannot fetch")
-            return
-        self._set_news_busy(True)
-        self._set_news_log(f"Fetching Tavily news: {config.query}")
-        try:
-            async with self._make_news_client() as client:
-                result = await client.fetch(config)
-            paths = write_news_corpus(result, self.news_output_dir)
-            failed = sum(1 for record in result.records if record.extraction_status == "failed")
-            self._set_news_log(
-                f"Saved {len(result.records)} article record(s), failed extractions={failed}: {paths.output_dir}"
-            )
-            self._set_news_log(f"JSONL: {paths.articles_jsonl}")
-            self._set_news_log(f"CSV: {paths.articles_csv}")
-            self._set_news_log(f"Manifest: {paths.manifest_json}")
-            self._notify_info(f"Saved Tavily article corpus to {paths.output_dir}", title="News saved")
-        except Exception as exc:
-            self._notify_error(f"Tavily fetch failed: {exc}", title="Fetch failed")
-            self._set_news_log(f"Tavily fetch failed: {exc}")
-        finally:
-            self._set_news_busy(False)
-
     def _update_validation_hint(self, input_id: str, result: ValidationResult | None) -> None:
         try:
             hint = self.query_one(f"#hint-{input_id}", Static)
@@ -2371,105 +1979,6 @@ class SentimentBenchmarkApp(App):
             if run_id is not None:
                 self._load_metrics_for(run_id)
                 self._set_monitor(f"Loaded best run {run_id} for {key} from the leaderboard.")
-
-    async def _fetch_models(self) -> None:
-        with self._busy("fetch-models", label="Fetching…", spinner_widget="model-table"):
-            try:
-                async with make_llm_client(self.provider, base_url=self.base_url, ollama_host=self.ollama_host) as client:
-                    models = await client.list_models()
-            except Exception as exc:
-                self._notify_error(f"Could not fetch models: {exc}", title="Fetch failed")
-                return
-            self._all_models = list(models[:200])
-            for model in self._all_models:
-                if model.name:
-                    self._model_names[model.model_id] = model.name
-            self._render_model_table()
-            self._render_selected_table()
-            self._set_monitor(
-                f"Fetched {len(models)} {self._provider_title()} models. Type in the search box to filter, press Enter on a row to toggle."
-            )
-        if self.provider == "ollama":
-            await self._fetch_loaded_models()
-
-    async def _show_cloud_catalog(self) -> None:
-        """List Ollama Cloud models so they can be browsed and selected even when
-        none are pulled locally. Fetches the live catalogue from ollama.com and
-        falls back to the env override / cache / built-in list when offline."""
-        if self.provider != "ollama":
-            self._notify_error(
-                "Ollama Cloud models run through the Ollama provider. Switch Provider to Ollama first.",
-                title="Cloud catalog",
-            )
-            return
-        with self._busy("show-cloud-catalog", label="Loading…", spinner_widget="model-table"):
-            if cloud_catalog_overridden():
-                catalog = ollama_cloud_catalog()
-                source = "OLLAMA_CLOUD_MODELS override"
-            else:
-                try:
-                    catalog = await fetch_ollama_cloud_models()
-                    source = "ollama.com (live)"
-                except Exception as exc:
-                    catalog = ollama_cloud_catalog()
-                    source = f"offline fallback — fetch failed: {exc}"
-
-            existing = {model.model_id for model in self._all_models}
-            added = 0
-            for model in catalog:
-                if model.model_id not in existing:
-                    self._all_models.append(model)
-                    existing.add(model.model_id)
-                    added += 1
-                if model.name:
-                    self._model_names.setdefault(model.model_id, model.name)
-            # Filter the table to the cloud entries so they are visible immediately.
-            with suppress(Exception):
-                self.query_one("#model-search", Input).value = "cloud"
-            self._render_model_table()
-            self._render_selected_table()
-        self._set_monitor(
-            f"Loaded {len(catalog)} Ollama Cloud model(s) from {source} ({added} new). These route through a "
-            "signed-in daemon (run 'ollama signin'); no local pull needed. Press Enter on a row to select. "
-            "Set OLLAMA_CLOUD_MODELS to pin a custom list."
-        )
-
-    def _set_ollama_loaded(self, text: str) -> None:
-        with suppress(Exception):
-            self.query_one("#ollama-loaded", Static).update(text)
-
-    def _reset_ollama_loaded_hint(self) -> None:
-        self._set_ollama_loaded(
-            "Press 'Loaded in Ollama' to query /api/ps for models held in VRAM."
-            if self.provider == "ollama"
-            else "Ollama only — switch the provider to Ollama to see models loaded in VRAM."
-        )
-
-    @staticmethod
-    def _format_vram(size_bytes: int | None) -> str:
-        if not isinstance(size_bytes, (int, float)) or size_bytes <= 0:
-            return "-"
-        return f"{size_bytes / 1e9:.1f} GB"
-
-    async def _fetch_loaded_models(self) -> None:
-        if self.provider != "ollama":
-            self._set_ollama_loaded("Ollama only — switch the provider to Ollama to see models loaded in VRAM.")
-            return
-        with self._busy("fetch-loaded", label="Querying…", spinner_widget="ollama-loaded"):
-            try:
-                async with make_llm_client("ollama", base_url=self.base_url, ollama_host=self.ollama_host) as client:
-                    loaded = await client.list_loaded_models()
-            except Exception as exc:
-                self._set_ollama_loaded(f"Could not query Ollama /api/ps: {exc}")
-                return
-            if not loaded:
-                self._set_ollama_loaded("No models are currently loaded in Ollama.")
-                return
-            lines = []
-            for entry in loaded:
-                vram = self._format_vram(entry.get("size_vram") or entry.get("size"))
-                lines.append(f"{entry['model']} | VRAM {vram}")
-            self._set_ollama_loaded("\n".join(lines))
 
     def _save_prompt_from_ui(self) -> None:
         try:
@@ -3073,72 +2582,8 @@ class SentimentBenchmarkApp(App):
         with suppress(Exception):
             self.bell()  # audible cue that an unattended queue has finished
 
-    def _selected_baselines(self) -> list[str]:
-        names: list[str] = []
-        for name in BASELINE_SPECS:
-            try:
-                checkbox = self.query_one(f"#baseline-{name}", Checkbox)
-            except Exception:
-                continue
-            if checkbox.value and not checkbox.disabled:
-                names.append(name)
-        return names
-
     async def action_run_baselines(self) -> None:
         self._start_baselines()
-
-    def _start_baselines(self) -> None:
-        if self._run_in_progress or self._baseline_in_progress:
-            self._notify_error("A run is already in progress.", title="Busy")
-            return
-        names = self._selected_baselines()
-        if not names:
-            self._notify_error("Select at least one available baseline.", title="No baselines")
-            return
-        try:
-            mode = self.run_mode
-            seed = int(self.query_one("#seed", Input).value)
-            sample_per_class = int(self.query_one("#sample-per-class", Input).value)
-        except Exception as exc:
-            self._notify_error(f"Baseline setup error: {exc}", title="Cannot start")
-            return
-        if mode not in {"pilot", "full"}:
-            self._notify_error("Mode must be pilot or full", title="Cannot start")
-            return
-        self._baseline_in_progress = True
-        self._refresh_stepper()
-        self._refresh_status_bar()
-        self._set_monitor(f"Starting baselines: {', '.join(names)}")
-        self.run_worker(
-            lambda: self._run_baselines_blocking(names, mode, sample_per_class, seed),
-            thread=True,
-            group="baselines",
-            exclusive=False,
-        )
-
-    def _run_baselines_blocking(self, names: list[str], mode: str, sample_per_class: int, seed: int) -> None:
-        try:
-            summary = run_baselines(
-                names,
-                mode=mode,  # type: ignore[arg-type]
-                dataset_path=str(self.dataset_path),
-                db_path=str(self.db_path),
-                sample_per_class=sample_per_class,
-                seed=seed,
-                callback=lambda message: self.call_from_thread(self._set_monitor, message),
-            )
-            self.call_from_thread(
-                self._set_monitor,
-                f"Baseline run {summary.run_id} completed: {summary.baseline_count} baseline(s), {summary.selected_row_count} rows.",
-            )
-        except Exception as exc:
-            self.call_from_thread(self._notify_error, f"Baselines failed: {exc}")
-        finally:
-            self._baseline_in_progress = False
-            self.call_from_thread(self._refresh_stepper)
-            self.call_from_thread(self._refresh_status_bar)
-            self.call_from_thread(self._refresh_runs_table)
-            self.call_from_thread(self._refresh_results_help)
 
     def _refresh_runs_table(self) -> None:
         try:
@@ -3577,7 +3022,6 @@ class SentimentBenchmarkApp(App):
     def _open_path(self, path: Path) -> bool:
         """Open a file or folder in the OS file manager / viewer. Returns success."""
         import shutil
-        import subprocess
         import sys
 
         if sys.platform == "darwin":
