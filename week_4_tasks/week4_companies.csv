@@ -1,0 +1,9 @@
+symbol,name,ric,query
+MSFT,Microsoft Corporation,MSFT.O,R:MSFT.O and Language:LEN
+AAPL,Apple Inc.,AAPL.O,R:AAPL.O and Language:LEN
+NVDA,NVIDIA Corporation,NVDA.O,R:NVDA.O and Language:LEN
+AMZN,Amazon.com Inc.,AMZN.O,R:AMZN.O and Language:LEN
+GOOGL,Alphabet Inc.,GOOGL.O,R:GOOGL.O and Language:LEN
+META,Meta Platforms Inc.,META.O,R:META.O and Language:LEN
+TSLA,Tesla Inc.,TSLA.O,R:TSLA.O and Language:LEN
+JPM,"JPMorgan Chase & Co.",JPM.N,R:JPM.N and Language:LEN

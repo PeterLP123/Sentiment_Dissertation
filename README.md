@@ -4,6 +4,29 @@
 
 A reproducible CLI and terminal UI for dissertation experiments on financial sentiment analysis. The project validates a provenance-clean default dataset, runs OpenRouter or Ollama-hosted models, compares them with non-LLM baselines, exports publication-ready evidence, sources unlabeled news through Tavily and NewsAPI, and runs an exploratory news-to-price trading pilot.
 
+## Project Status
+
+*Active development — MSc dissertation, due 1 September 2026. The CLI/TUI tooling below is stable; current effort is on the dissertation's measurement and trading experiments.*
+
+**Research direction (settled, supervisor-confirmed June 2026): "Beyond the Score."** The central claim is that a single sentiment score `Sₜ` is not a sufficient statistic — the *distribution* of independent model readings carries information the score destroys. The work is layered, and this repository is the measurement engine that feeds it:
+
+- **L1 (baseline):** daily-sentiment threshold trading strategy vs price-only and buy-and-hold.
+- **L2:** inter-model consensus → crowding/reversal event study.
+- **L3:** measurement-reliability (G-theory) → position sizing.
+- **L4 (gated stretch):** writer×scorer robustness.
+
+See [Research protocol](docs/research_protocol.md) and the [Week 4 pre-registration](docs/week4_preregistration.md).
+
+**Where things stand (W3, late June 2026)**
+
+- **Setup (M1) — mostly locked.** Provenance-clean default dataset (`financial_sentiment_v2.csv`), soft-label + calibration (Brier/ECE) metrics, and per-run reproducibility metadata are done. Still open: the final model-roster freeze and the news-API (Tavily) viability decision.
+- **Data pipeline (M2) — largely in place.** Timestamped news + price ingestion, trading-decision alignment, and leakage controls are built; news corpora are being collected with quality and entity-relevance gating.
+- **Current focus — extraction comparison (M3) and the L1 trading test.** A pre-registered, frozen **Week 4+ confirmatory trading test** is collecting now: the consensus scorer at the D+5 horizon, rolling main dates (Jun 25 – Jul 30) plus an untouched holdout, with returns maturing ~late August.
+- **Week 3 pilot — exploratory, no confirmed edge.** The earlier 22-event pilot found no scorer-horizon mean return significant after Benjamini–Hochberg correction, with a suggestive but non-significant positive pattern for the consensus scorer at D+3..D+6. Retained as hypothesis-generating context only.
+- **Novel layers (L2 / L3) — next**, once the crossed-design extraction runs land (target late July).
+
+> Trading results to date are screening diagnostics that assume event independence — not confirmed findings.
+
 ## What This Project Does
 
 | Capability | Use it for | Main entry point |
