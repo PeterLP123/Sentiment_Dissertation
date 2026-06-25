@@ -12,7 +12,8 @@ from sentiment_benchmark.baseline_runner import BaselineRunSummary
 from sentiment_benchmark.models import DatasetRow, EvaluationResult, LLMResponseRecord, ModelConfig, PromptConfig
 from sentiment_benchmark.news_source import NewsArticleRecord, NewsFetchResult, article_record_id, make_news_fetch_config, normalize_url
 from sentiment_benchmark.storage import BenchmarkStore
-from sentiment_benchmark.tui import ConfirmScreen, SentimentBenchmarkApp
+from sentiment_benchmark.tui import SentimentBenchmarkApp
+from sentiment_benchmark.tui_screens import ConfirmScreen
 
 
 def _make_app(tmp_path: Path) -> SentimentBenchmarkApp:
@@ -722,7 +723,7 @@ def test_tui_view_figures_opens_generated_figures(tmp_path: Path, monkeypatch: p
     def fake_export(db_path: object, run_id: int, output_dir: object = None) -> list[Path]:
         return [tmp_path / "run_1" / "summary.md", leaderboard]
 
-    monkeypatch.setattr("sentiment_benchmark.tui.export_run", fake_export)
+    monkeypatch.setattr("sentiment_benchmark.tui_results.export_run", fake_export)
     opened: dict[str, Path] = {}
 
     async def scenario() -> None:
@@ -753,7 +754,7 @@ def test_tui_view_figures_without_plots_hints_install(tmp_path: Path, monkeypatc
     def fake_export(db_path: object, run_id: int, output_dir: object = None) -> list[Path]:
         return [tmp_path / "run_1" / "summary.md"]  # no .png figures
 
-    monkeypatch.setattr("sentiment_benchmark.tui.export_run", fake_export)
+    monkeypatch.setattr("sentiment_benchmark.tui_results.export_run", fake_export)
 
     async def scenario() -> None:
         app = _make_app(tmp_path)
@@ -1017,7 +1018,7 @@ def test_tui_start_run_executes_benchmark_off_app_thread(tmp_path: Path, monkeyp
     )
     classify_thread_ids: list[int] = []
     monkeypatch.setattr(
-        "sentiment_benchmark.tui.make_llm_client",
+        "sentiment_benchmark.tui_run.make_llm_client",
         lambda *args, **kwargs: _FakeTuiRunClient(classify_thread_ids),
     )
 

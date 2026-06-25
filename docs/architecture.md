@@ -61,7 +61,7 @@ Core boundaries:
 | `src/sentiment_benchmark/news_source.py` | Sources Tavily article corpora without touching benchmark labels. |
 | `src/sentiment_benchmark/newsapi_source.py` | Pages through NewsAPI discovery results and writes provenance-rich snippet corpora. |
 | `src/sentiment_benchmark/trading_strategy.py` | Merges provider records, screens target relevance, scores sentiment, aligns sessions, and exports event returns. |
-| `src/sentiment_benchmark/tui.py` | Interactive Textual interface over the same services. |
+| `src/sentiment_benchmark/tui.py` + `tui_*.py` | Interactive Textual interface over the same services: an app shell (`tui.py`) that composes per-feature mixins (`tui_run`, `tui_results`, `tui_queue`, `tui_models`, `tui_monitor`, `tui_news`, `tui_baselines`) on a shared `tui_base` foundation, with `tui_format`/`tui_screens` helpers. |
 
 ## Why Two Scoring Scopes Exist
 
