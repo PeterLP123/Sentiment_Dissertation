@@ -9,7 +9,7 @@ import re
 import tomllib
 from collections import Counter, defaultdict
 from collections.abc import Callable
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field, replace
 from datetime import UTC, date, datetime, time, timedelta
 from email.utils import parsedate_to_datetime
 from pathlib import Path
@@ -32,6 +32,7 @@ from .baselines import classify_finbert_texts, classify_vader_text
 from .constants import DEFAULT_OLLAMA_HOST
 from .lseg_corpus import load_verified_lseg_corpus
 from .lseg_source import LsegNewsError
+from .model_roster import is_post_cutoff, knowledge_cutoff, roster_cutoff
 from .models import BlindExample, LLMResponseRecord, PromptConfig
 from .news_source import NewsArticleRecord, make_news_fetch_config, write_news_corpus
 from .newsapi_source import make_newsapi_fetch_config, write_newsapi_corpus
@@ -79,6 +80,21 @@ class PricesConfig:
 
 
 @dataclass(frozen=True)
+class CutoffConfig:
+    """LLM knowledge-cutoff contamination policy.
+
+    ``stratify`` (default) only annotates scores so results can be split pre/post
+    cutoff downstream — the frozen primary cell is untouched. ``post_only``
+    additionally restricts the traded signal to post-cutoff (contamination-free)
+    scores. ``ignore`` disables annotation. ``overrides`` maps a model id (or its
+    provider-suffix) to an authoritative ISO cutoff date.
+    """
+
+    policy: str = "stratify"
+    overrides: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
 class TradingStrategyConfig:
     run_id: str
     title: str
@@ -117,6 +133,7 @@ class TradingStrategyConfig:
     decision_policy_enabled: bool
     decision_policy: DecisionPolicyConfig
     prices: PricesConfig
+    cutoff: CutoffConfig
     companies: tuple[TradingCompany, ...]
 
     @property
@@ -192,6 +209,9 @@ class SentimentScore:
     request_sha256: str | None = None
     model_digest: str | None = None
     scoring_text_truncated: bool = False
+    # Contamination metadata, filled by annotate_scores_with_cutoff (see model_roster).
+    model_knowledge_cutoff: str | None = None
+    is_post_cutoff: bool | None = None
 
 
 # ``DailySignal``, ``TradingDecision`` and ``ReturnRow`` now live in ``backtest``
@@ -295,6 +315,11 @@ def _build_trading_config(raw: dict[str, Any], config_path: Path) -> TradingStra
             cache_dir=Path(prices_raw["cache_dir"]) if prices_raw.get("cache_dir") else None,
             adjusted=bool(prices_raw.get("adjusted", True)),
         )
+        cutoff_raw = raw.get("cutoff") or {}
+        cutoff = CutoffConfig(
+            policy=str(cutoff_raw.get("policy", "stratify")).strip().lower(),
+            overrides={str(key): str(value) for key, value in (cutoff_raw.get("overrides") or {}).items()},
+        )
         config = TradingStrategyConfig(
             run_id=str(run["id"]).strip(),
             title=str(run["title"]).strip(),
@@ -335,6 +360,7 @@ def _build_trading_config(raw: dict[str, Any], config_path: Path) -> TradingStra
             decision_policy_enabled=decision_policy_enabled,
             decision_policy=decision_policy,
             prices=prices,
+            cutoff=cutoff,
             companies=companies,
         )
     except (KeyError, TypeError, ValueError) as exc:
@@ -360,6 +386,8 @@ def _validate_trading_config(config: TradingStrategyConfig) -> None:
         raise TradingStrategyError("run.id must contain only letters, numbers, dots, underscores, or hyphens")
     if not config.companies:
         raise TradingStrategyError("at least one [[companies]] entry is required")
+    if config.cutoff.policy not in {"ignore", "stratify", "post_only"}:
+        raise TradingStrategyError("cutoff.policy must be ignore, stratify, or post_only")
     if len({company.symbol for company in config.companies}) != len(config.companies):
         raise TradingStrategyError("company symbols must be unique")
     if config.provider not in {"openrouter", "ollama"}:
@@ -1109,6 +1137,40 @@ def article_consensus(scores: list[SentimentScore], models: tuple[str, ...]) -> 
     return sorted(consensus, key=lambda row: (row.news_date, row.symbol, row.article_id))
 
 
+def annotate_scores_with_cutoff(
+    scores: list[SentimentScore],
+    config: TradingStrategyConfig,
+) -> list[SentimentScore]:
+    """Stamp each score with its scorer's knowledge cutoff and ``is_post_cutoff``.
+
+    Pure metadata — does not change labels or returns. A consensus scorer takes
+    the most-conservative (latest) cutoff across the model roster; dictionary/ML
+    baselines have no cutoff (``None``). Returns a new list; inputs are unchanged.
+    """
+    overrides = config.cutoff.overrides
+    consensus_cut = roster_cutoff(config.models, overrides)
+    annotated: list[SentimentScore] = []
+    for score in scores:
+        if score.scorer_id.startswith("consensus"):
+            cutoff = consensus_cut
+        elif score.scorer_id.startswith("baseline/"):
+            cutoff = None
+        else:
+            cutoff = knowledge_cutoff(score.scorer_id, overrides)
+        try:
+            event = date.fromisoformat(score.news_date)
+        except ValueError:
+            event = None
+        annotated.append(
+            replace(
+                score,
+                model_knowledge_cutoff=cutoff.isoformat() if cutoff is not None else None,
+                is_post_cutoff=is_post_cutoff(event, cutoff),
+            )
+        )
+    return annotated
+
+
 def daily_signals(
     articles: list[MergedArticle],
     scores: list[SentimentScore],
@@ -1682,14 +1744,23 @@ async def run_trading_strategy(
     )
     consensus = article_consensus(scores, config.models) if config.consensus_enabled else []
     all_scores = sorted(scores + consensus, key=lambda row: (row.news_date, row.symbol, row.article_id, row.scorer_id))
+    if config.cutoff.policy != "ignore":
+        all_scores = annotate_scores_with_cutoff(all_scores, config)
     scorer_ids = (
         *config.models,
         *(('consensus/majority',) if config.consensus_enabled else ()),
         *(f"baseline/{name}" for name in config.baselines),
     )
+    # post_only restricts the *traded* signal to contamination-free scores; the
+    # full annotated set is still written to outputs for auditing/stratification.
+    signal_scores = (
+        [score for score in all_scores if score.is_post_cutoff is not False]
+        if config.cutoff.policy == "post_only"
+        else all_scores
+    )
     signals = daily_signals(
         articles,
-        all_scores,
+        signal_scores,
         scorer_ids,
         config.dates,
         tuple(company.symbol for company in config.companies),
