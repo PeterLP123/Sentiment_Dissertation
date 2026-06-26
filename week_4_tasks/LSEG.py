@@ -15,7 +15,6 @@ import pandas as pd
 
 DEFAULT_QUERY = "R:MSFT.O and Language:LEN"
 DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parent / "outputs"
-DEFAULT_COMPANIES_CSV = Path(__file__).resolve().parent / "week4_companies.csv"
 DEFAULT_WINDOW_DAYS = 14
 
 OUTPUT_COLUMNS = [
@@ -126,31 +125,6 @@ def built_in_companies() -> list[tuple[str, str, str]]:
     return [query_for_company(symbol) for symbol in sorted(COMPANY_RICS)]
 
 
-def load_companies(path: Path | None = None) -> list[tuple[str, str, str]]:
-    path = path or DEFAULT_COMPANIES_CSV
-    if not path.exists():
-        if path == DEFAULT_COMPANIES_CSV:
-            return built_in_companies()
-        raise FileNotFoundError(path)
-
-    dataframe = pd.read_csv(path)
-    required = {"symbol", "ric", "query"}
-    missing = required - set(dataframe.columns)
-    if missing:
-        raise ValueError(f"Companies CSV missing columns: {sorted(missing)}")
-
-    companies: list[tuple[str, str, str]] = []
-    for _, row in dataframe.iterrows():
-        symbol = str(row["symbol"]).strip().upper()
-        if not symbol or symbol.lower() == "nan":
-            continue
-        companies.append((symbol, str(row["ric"]).strip(), str(row["query"]).strip()))
-
-    if not companies:
-        raise ValueError(f"No companies found in {path}")
-    return companies
-
-
 def fetch_news(
     query: str,
     count: int,
@@ -194,29 +168,6 @@ def fetch_news(
         )
 
     return pd.DataFrame(records, columns=OUTPUT_COLUMNS)
-
-
-def get_news(
-    query: str,
-    count: int,
-    start: str,
-    end: str,
-    output: Path,
-    *,
-    company_symbol: str = "",
-    ric: str = "",
-) -> pd.DataFrame:
-    output.parent.mkdir(parents=True, exist_ok=True)
-    client = lseg_data()
-    client.open_session()
-    try:
-        dataframe = fetch_news(query, count, start, end, company_symbol=company_symbol, ric=ric)
-        dataframe.to_csv(output, index=False)
-        return dataframe
-    finally:
-        close_session = getattr(client, "close_session", None)
-        if callable(close_session):
-            close_session()
 
 
 def fetch_daily_news(
@@ -324,13 +275,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--all-companies",
         action="store_true",
-        help="Week 4 batch mode: download every row in --companies-csv.",
-    )
-    parser.add_argument(
-        "--companies-csv",
-        type=Path,
-        default=DEFAULT_COMPANIES_CSV,
-        help="CSV with symbol, ric, and query columns for --all-companies.",
+        help="Week 4 batch mode: download the built-in company list.",
     )
     parser.add_argument(
         "--count",
@@ -376,11 +321,8 @@ def main() -> None:
         )
 
     if args.all_companies:
-        jobs = [
-            (symbol, ric, query, default_output_path(symbol, args.start, args.end))
-            for symbol, ric, query in load_companies(args.companies_csv)
-        ]
-        print(f"Downloading news for {len(jobs)} companies from {args.companies_csv}")
+        jobs = [(symbol, ric, query, default_output_path(symbol, args.start, args.end)) for symbol, ric, query in built_in_companies()]
+        print(f"Downloading news for {len(jobs)} built-in companies")
     elif args.company:
         symbol, ric, query = query_for_company(args.company)
         jobs = [(symbol, ric, query, args.output or default_output_path(symbol, args.start, args.end))]

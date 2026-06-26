@@ -48,12 +48,10 @@ def test_story_type_from_id(monkeypatch) -> None:
     assert module.story_type_from_id(pd.NA) == "unknown"
 
 
-def test_load_companies_uses_built_ins_when_default_csv_missing(monkeypatch, tmp_path: Path) -> None:
+def test_built_in_companies_include_week4_targets(monkeypatch) -> None:
     module = _load_week4_lseg(monkeypatch)
-    missing_default = tmp_path / "week4_companies.csv"
-    monkeypatch.setattr(module, "DEFAULT_COMPANIES_CSV", missing_default)
 
-    companies = module.load_companies()
+    companies = module.built_in_companies()
 
     assert ("MSFT", "MSFT.O", "R:MSFT.O and Language:LEN") in companies
     assert ("AAPL", "AAPL.O", "R:AAPL.O and Language:LEN") in companies

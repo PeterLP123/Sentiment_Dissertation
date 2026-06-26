@@ -93,7 +93,7 @@ You can also pass a direct LSEG query:
   --per-day-count 5
 ```
 
-To work through the reference CSV, use all-company batch mode:
+To work through the built-in Week 4 company list, use all-company batch mode:
 
 ```bash
 .venv/bin/python week_4_tasks/LSEG.py \
@@ -131,7 +131,7 @@ Useful options:
 ## Notes
 
 - Generated outputs are ignored by Git. Do not commit licensed story CSVs by accident.
-- `week4_companies.csv` is the reference list used by `--all-companies`.
+- `--all-companies` uses the company list embedded in `LSEG.py`, so the downloader is self-contained for sharing.
 - `story_type` is derived from `storyId` so later cleaning can separate `newsroom`, `reuters`, `webnews`, and `social` rows.
 - `webnews` rows often have no downloaded story text and `social` rows should usually be cleaned as a separate dataset from article stories.
 - If you do not have LSEG/Eikon login access, use received CSV outputs for cleaning in a separate script later.
