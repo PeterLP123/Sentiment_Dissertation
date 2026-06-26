@@ -47,13 +47,11 @@ Keep all rows for audit:
 python clean_lseg_articles.py --overwrite
 ```
 
-Write only usable article rows (`newsroom` or `reuters`, with valid clean text):
+Write only usable article rows (`newsroom` or `reuters`, with valid clean text) to
+`outputs/cleaned_articles/`:
 
 ```bash
-python clean_lseg_articles.py \
-  --articles-only \
-  --output-dir outputs/cleaned_articles \
-  --overwrite
+python clean_lseg_articles.py --articles-only --overwrite
 ```
 
 Cleaned CSVs include `clean_text`, `cleaning_quality`, `story_type`, `article_story_type`, and `usable_article`.

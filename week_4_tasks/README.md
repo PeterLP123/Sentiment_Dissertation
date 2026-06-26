@@ -112,9 +112,9 @@ After reviewing the raw download CSVs, build derived cleaned CSVs:
 .venv/bin/python week_4_tasks/clean_lseg_articles.py
 ```
 
-By default, this reads `week_4_tasks/outputs/*.csv` and writes `week_4_tasks/outputs/cleaned/*_cleaned.csv` plus `cleaning_summary.csv`. It accepts both old raw files with a `story` column and newer raw files with a `story_html` column. The cleaned CSVs keep metadata, derive `story_type` when missing, add `clean_text`, `cleaning_quality`, character counts, `clean_text_sha256`, `article_story_type`, and `usable_article`, and drop raw HTML unless `--keep-raw-html` is passed. The script refuses to replace existing cleaned files unless `--overwrite` is passed.
+By default, this reads `week_4_tasks/outputs/*.csv` and writes `week_4_tasks/outputs/cleaned/*_cleaned.csv` plus `cleaning_summary.csv`. Relative `--output-dir` paths are resolved under `week_4_tasks/`, not the shell cwd. It accepts both old raw files with a `story` column and newer raw files with a `story_html` column. The cleaned CSVs keep metadata, derive `story_type` when missing, add `clean_text`, `cleaning_quality`, character counts, `clean_text_sha256`, `article_story_type`, and `usable_article`, and drop raw HTML unless `--keep-raw-html` is passed. The script refuses to replace existing cleaned files unless `--overwrite` is passed.
 
-The default keeps all rows so missing `webnews` rows and non-article `social` rows remain auditable. To write only usable cleaned article rows, use:
+The default keeps all rows so missing `webnews` rows and non-article `social` rows remain auditable. To write only usable cleaned article rows to `week_4_tasks/outputs/cleaned_articles/`, use:
 
 ```bash
 .venv/bin/python week_4_tasks/clean_lseg_articles.py --articles-only --overwrite

@@ -16,8 +16,10 @@ from typing import Any
 
 import pandas as pd
 
-DEFAULT_INPUT = Path(__file__).resolve().parent / "outputs"
-DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parent / "outputs" / "cleaned"
+SCRIPT_DIR = Path(__file__).resolve().parent
+DEFAULT_INPUT = SCRIPT_DIR / "outputs"
+DEFAULT_OUTPUT_DIR = SCRIPT_DIR / "outputs" / "cleaned"
+DEFAULT_ARTICLES_OUTPUT_DIR = SCRIPT_DIR / "outputs" / "cleaned_articles"
 RAW_STORY_COLUMNS = ("story_html", "story")
 SUMMARY_NAME = "cleaning_summary.csv"
 DEFAULT_ARTICLE_TYPES = ("newsroom", "reuters")
@@ -238,6 +240,13 @@ def parse_story_types(value: str) -> tuple[str, ...]:
     return story_types
 
 
+def resolve_output_dir(path: Path) -> Path:
+    """Resolve relative output paths against week_4_tasks/, not the shell cwd."""
+    if path.is_absolute():
+        return path
+    return SCRIPT_DIR / path
+
+
 def output_path_for(input_path: Path, output_dir: Path) -> Path:
     return output_dir / f"{input_path.stem}_cleaned.csv"
 
@@ -366,7 +375,15 @@ def write_summary(summary_rows: list[dict[str, object]], output_dir: Path, *, ov
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Clean Week 4 LSEG story HTML into plain-text article CSVs.")
     parser.add_argument("--input", type=Path, default=DEFAULT_INPUT, help="Input CSV file or directory.")
-    parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR, help="Directory for derived cleaned CSVs.")
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=None,
+        help=(
+            "Directory for derived cleaned CSVs. Relative paths are resolved under week_4_tasks/. "
+            "Defaults to outputs/cleaned, or outputs/cleaned_articles with --articles-only."
+        ),
+    )
     parser.add_argument("--pattern", default="*.csv", help="Glob pattern used when --input is a directory.")
     parser.add_argument("--min-chars", type=int, default=100, help="Minimum cleaned text length for quality=ok.")
     parser.add_argument("--ok-only", action="store_true", help="Write only rows with cleaning_quality=ok.")
@@ -390,10 +407,14 @@ def main() -> None:
     if args.min_chars < 0:
         raise ValueError("--min-chars must be zero or greater")
     article_types = parse_story_types(args.article_types)
+    if args.output_dir is None:
+        output_dir = DEFAULT_ARTICLES_OUTPUT_DIR if args.articles_only else DEFAULT_OUTPUT_DIR
+    else:
+        output_dir = resolve_output_dir(args.output_dir)
 
     summaries = []
     for source_path in input_files(args.input, args.pattern):
-        destination = output_path_for(source_path, args.output_dir)
+        destination = output_path_for(source_path, output_dir)
         summary = clean_file(
             source_path,
             destination,
@@ -412,7 +433,7 @@ def main() -> None:
             f"usable_articles={summary['usable_article_rows']})"
         )
 
-    summary_path = write_summary(summaries, args.output_dir, overwrite=args.overwrite)
+    summary_path = write_summary(summaries, output_dir, overwrite=args.overwrite)
     print(f"Wrote cleaning summary to {summary_path}")
 
 
