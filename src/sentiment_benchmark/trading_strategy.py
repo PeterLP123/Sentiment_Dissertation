@@ -25,6 +25,7 @@ from .backtest import (
     ReturnRow,
     TradingDecision,
     TradingStrategyError,
+    build_equity_curve,
     calculate_returns,
     make_trading_decisions,
 )
@@ -40,6 +41,7 @@ from .newsapi_source import make_newsapi_fetch_config, write_newsapi_corpus
 from .prices import PriceProviderError, PriceRow, make_price_provider
 from .prompts import load_prompts
 from .runtime_metadata import collect_run_environment
+from .trading_plots import plot_equity_curve, write_sensitivity_csvs
 
 LABEL_VALUES = {"positive": 1, "neutral": 0, "negative": -1}
 TRACKING_QUERY_KEYS = {
@@ -1514,6 +1516,18 @@ def write_charts(config: TradingStrategyConfig, articles: list[MergedArticle], r
     fig.savefig(path, dpi=180)
     plt.close(fig)
     paths.append(path)
+
+    # Equity curve for the primary scorer at the longest horizon.
+    primary_returns = [row for row in returns if row.scorer_id == config.primary_model]
+    if primary_returns:
+        equity = build_equity_curve(primary_returns, horizon=max(config.horizons))
+        equity_path = plot_equity_curve(
+            equity,
+            config.results_dir / "equity_curve.png",
+            title=f"Equity curve — {config.primary_model} (H{max(config.horizons)})",
+        )
+        if equity_path is not None:
+            paths.append(equity_path)
     return paths
 
 
@@ -1547,6 +1561,9 @@ def write_run_outputs(
     _write_csv(decision_csv, [asdict(row) for row in decisions])
     _write_csv(price_csv, [asdict(row) for row in prices])
     _write_csv(return_csv, [asdict(row) for row in returns])
+    # Contamination sensitivity tables (layered on top of the frozen primary):
+    # cutoff stratification always; masked-vs-unmasked only when a masked arm ran.
+    write_sensitivity_csvs(config.results_dir, returns, config.models, config.cutoff.overrides)
     summary_path = write_summary(config, articles, signals, decisions, returns)
     charts = write_charts(config, articles, returns)
     lseg_source_manifest: dict[str, Any] | None = None

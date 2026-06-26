@@ -116,6 +116,7 @@ from .strategy_sweep import (
     write_sweep_csv,
 )
 from .trading_analysis import TradingAnalysisError, analyze_trading_run
+from .trading_plots import plot_sweep_heatmap
 from .trading_strategy import (
     TradingStrategyError,
     describe_trading_plan,
@@ -824,6 +825,12 @@ def sweep_trading_strategy_command(
         raise typer.BadParameter(str(exc)) from exc
     destination = output or (run_dir / "sweep.csv")
     write_sweep_csv(results, destination)
+    heatmap_path = plot_sweep_heatmap(
+        results,
+        destination.with_name("sweep_heatmap.png"),
+        attr="test_metric",
+        title=f"Sweep test {metric} — {scorer}",
+    )
 
     table = Table(title=f"Parameter sweep — {metric}, scorer={scorer} (train split before {split_date})")
     for column in ("threshold", "horizon", "n_train", "n_test", "train", "test", "selected"):
@@ -840,6 +847,8 @@ def sweep_trading_strategy_command(
         )
     console.print(table)
     console.print(f"[green]Wrote[/green] {destination}")
+    if heatmap_path is not None:
+        console.print(f"[green]Wrote[/green] {heatmap_path}")
 
 
 @app.command("package-news")
