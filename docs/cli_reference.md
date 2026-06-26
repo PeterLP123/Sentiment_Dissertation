@@ -514,12 +514,14 @@ Launches the Textual terminal UI. See [TUI guide](tui_guide.md).
 These commands require `python -m pip install -e ".[lseg]"` only on the collection machine. Full details are in [LSEG to Ollama pipeline](lseg_ollama_pipeline.md).
 
 ```bash
+sentiment-bench lseg-init-config --collection-id my_lseg_collection --output configs/my_lseg_collection.toml
 sentiment-bench lseg-news-check --config configs/lseg_workspace_example.toml
 sentiment-bench fetch-lseg-news --config configs/lseg_workspace_example.toml
 sentiment-bench build-lseg-corpus --source Data/news/lseg_lseg_workspace_example
+sentiment-bench lseg-catalog
 ```
 
-`lseg-news-check` tests the desktop session plus headline and story entitlements without writing data. `fetch-lseg-news` atomically checkpoints an immutable collection. `build-lseg-corpus` verifies raw hashes and deterministically rebuilds clean text offline.
+`lseg-init-config` writes a preset TOML config and refuses to replace an existing file unless `--overwrite` is passed. The default preset is the 8-company Week 4 universe over `2025-06-26T00:00:00Z` to `2026-06-26T00:00:00Z` with daily windows; `configs/lseg_us_mega_cap_1y.toml` is the checked-in template. `lseg-news-check` tests the desktop session plus headline and story entitlements without writing data. `fetch-lseg-news` atomically checkpoints an immutable collection. `build-lseg-corpus` verifies raw hashes and deterministically rebuilds clean text offline. `lseg-catalog` refreshes metadata-only `Data/derived/lseg/catalog.json` and `catalog.csv`.
 
 ```bash
 sentiment-bench sample-lseg-validation \

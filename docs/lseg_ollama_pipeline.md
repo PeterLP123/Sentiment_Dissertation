@@ -10,7 +10,13 @@ The normal installation does not include the Workspace SDK. Install the optional
 python -m pip install -e ".[dev,lseg,baselines,finbert]"
 ```
 
-Workspace Desktop must be running and the signed-in user must have headline and full-story entitlements. Copy `configs/lseg_workspace_example.toml`, choose a new stable collection ID, freeze the UTC interval and explicit per-company queries, and do not reuse an ID for different settings.
+Workspace Desktop must be running and the signed-in user must have headline and full-story entitlements. For the first comprehensive corpus, use the checked-in `configs/lseg_us_mega_cap_1y.toml`. To create a copy with a different collection ID, run:
+
+```bash
+sentiment-bench lseg-init-config --collection-id my_lseg_collection --output configs/my_lseg_collection.toml
+```
+
+The default preset covers `AAPL`, `AMZN`, `GOOGL`, `JPM`, `META`, `MSFT`, `NVDA`, and `TSLA` from `2025-06-26T00:00:00Z` to `2026-06-26T00:00:00Z` with `window_days = 1`. For other work, copy a config, choose a new stable collection ID, freeze the UTC interval and explicit per-company queries, and do not reuse an ID for different settings.
 
 ## Collect And Clean
 
@@ -24,9 +30,12 @@ sentiment-bench fetch-lseg-news --config configs/my_lseg_collection.toml
 # Offline deterministic rebuild from the raw manifest.
 sentiment-bench build-lseg-corpus \
   --source Data/news/lseg_<collection-id>
+
+# Metadata-only local catalog for completed clean corpora.
+sentiment-bench lseg-catalog
 ```
 
-The collector requests at most 100 headlines per page and follows `meta.next` through the content-layer cursor interface documented in [LSEG's news pagination guide](https://developers.lseg.com/en/article-catalog/article/lseg-data-library-for-python--news-pagination), for at most 50 pages per query. It deduplicates story IDs across queries, retains all ticker/query associations, and checkpoints every page and story with atomic replacement. Four story requests may be in flight; transient failures use exponential retry. A completed matching configuration returns unchanged. A changed configuration cannot overwrite the collection.
+The collector requests at most 100 headlines per page and follows `meta.next` through the content-layer cursor interface documented in [LSEG's news pagination guide](https://developers.lseg.com/en/article-catalog/article/lseg-data-library-for-python--news-pagination). If `collection.window_days` is set, each company query is split into fixed UTC windows and each page checkpoint includes the window identity; if omitted, the collector keeps the original whole-interval behavior. It deduplicates story IDs across queries and windows, retains all ticker/query associations, and checkpoints every page and story with atomic replacement. Four story requests may be in flight; transient failures use exponential retry. A completed matching configuration returns unchanged. A changed configuration cannot overwrite the collection.
 
 Raw data is written to `Data/news/lseg_<collection-id>/`; clean data is written to `Data/derived/lseg/<collection-id>/`. Both roots are ignored by Git. Manifests hash all aggregate files and record configuration, SDK/runtime versions, per-query page and row counts, deduplication, failures, and cleaning quality counts.
 

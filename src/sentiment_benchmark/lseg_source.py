@@ -8,7 +8,7 @@ import math
 import re
 import tomllib
 from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +33,7 @@ DEFAULT_LSEG_STORY_CONCURRENCY = 4
 DEFAULT_LSEG_RETRIES = 3
 DEFAULT_LSEG_MIN_TEXT_CHARS = 100
 DEFAULT_LSEG_MAX_SCORING_CHARS = 8_000
+DEFAULT_LSEG_WINDOW_DAYS: int | None = None
 
 
 class LsegNewsError(RuntimeError):
@@ -67,6 +68,7 @@ class LsegCollectionConfig:
     max_pages: int = DEFAULT_LSEG_MAX_PAGES
     story_concurrency: int = DEFAULT_LSEG_STORY_CONCURRENCY
     retries: int = DEFAULT_LSEG_RETRIES
+    window_days: int | None = DEFAULT_LSEG_WINDOW_DAYS
     min_text_chars: int = DEFAULT_LSEG_MIN_TEXT_CHARS
     max_scoring_chars: int = DEFAULT_LSEG_MAX_SCORING_CHARS
     raw_output_root: Path = DEFAULT_LSEG_RAW_ROOT
@@ -82,18 +84,21 @@ class LsegCollectionConfig:
         return self.derived_output_root / self.collection_id
 
     def to_payload(self) -> dict[str, Any]:
+        collection = {
+            "id": self.collection_id,
+            "start": self.start,
+            "end": self.end,
+            "language": self.language,
+            "session": self.session,
+            "page_size": self.page_size,
+            "max_pages": self.max_pages,
+            "story_concurrency": self.story_concurrency,
+            "retries": self.retries,
+        }
+        if self.window_days is not None:
+            collection["window_days"] = self.window_days
         return {
-            "collection": {
-                "id": self.collection_id,
-                "start": self.start,
-                "end": self.end,
-                "language": self.language,
-                "session": self.session,
-                "page_size": self.page_size,
-                "max_pages": self.max_pages,
-                "story_concurrency": self.story_concurrency,
-                "retries": self.retries,
-            },
+            "collection": collection,
             "cleaning": {
                 "min_text_chars": self.min_text_chars,
                 "max_scoring_chars": self.max_scoring_chars,
@@ -138,6 +143,19 @@ class LsegFetchResult:
     resumed: bool = False
 
 
+@dataclass(frozen=True)
+class LsegCollectionWindow:
+    index: int
+    start: str
+    end: str
+
+    @property
+    def checkpoint_label(self) -> str:
+        start = self.start.replace("-", "").replace(":", "").replace("Z", "z")
+        end = self.end.replace("-", "").replace(":", "").replace("Z", "z")
+        return f"window-{self.index:04d}-{start}-{end}"
+
+
 def _parse_utc(value: str, *, name: str) -> str:
     try:
         parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
@@ -163,6 +181,37 @@ def _int_setting(value: Any, *, name: str, minimum: int, maximum: int) -> int:
     if not minimum <= parsed <= maximum:
         raise LsegConfigurationError(f"{name} must be between {minimum} and {maximum}")
     return parsed
+
+
+def _optional_int_setting(value: Any, *, name: str, minimum: int, maximum: int) -> int | None:
+    if value is None:
+        return None
+    return _int_setting(value, name=name, minimum=minimum, maximum=maximum)
+
+
+def _format_utc(value: datetime) -> str:
+    return value.astimezone(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _parse_config_datetime(value: str, *, name: str) -> datetime:
+    normalized = _parse_utc(value, name=name)
+    return datetime.fromisoformat(normalized.replace("Z", "+00:00"))
+
+
+def collection_windows(config: LsegCollectionConfig) -> list[LsegCollectionWindow]:
+    """Return the query windows used for one LSEG collection."""
+    if config.window_days is None:
+        return [LsegCollectionWindow(1, config.start, config.end)]
+    start = _parse_config_datetime(config.start, name="collection.start")
+    end = _parse_config_datetime(config.end, name="collection.end")
+    step = timedelta(days=config.window_days)
+    windows: list[LsegCollectionWindow] = []
+    current = start
+    while current < end:
+        window_end = min(current + step, end)
+        windows.append(LsegCollectionWindow(len(windows) + 1, _format_utc(current), _format_utc(window_end)))
+        current = window_end
+    return windows
 
 
 def config_from_payload(payload: dict[str, Any]) -> LsegCollectionConfig:
@@ -245,6 +294,12 @@ def config_from_payload(payload: dict[str, Any]) -> LsegCollectionConfig:
             name="collection.retries",
             minimum=0,
             maximum=10,
+        ),
+        window_days=_optional_int_setting(
+            collection.get("window_days"),
+            name="collection.window_days",
+            minimum=1,
+            maximum=3660,
         ),
         min_text_chars=_int_setting(
             cleaning.get("min_text_chars", DEFAULT_LSEG_MIN_TEXT_CHARS),
@@ -585,9 +640,7 @@ def _load_completed_result(config: LsegCollectionConfig, manifest_path: Path) ->
         return None
     manifest = read_json(manifest_path)
     if manifest.get("config_sha256") != config.config_sha256:
-        raise LsegNewsError(
-            f"collection {config.collection_id} already exists with a different configuration; choose a new collection.id"
-        )
+        raise LsegNewsError(f"collection {config.collection_id} already exists with a different configuration; choose a new collection.id")
     if manifest.get("status") != "completed":
         return None
     files_value = manifest.get("files")
@@ -613,11 +666,12 @@ def _load_completed_result(config: LsegCollectionConfig, manifest_path: Path) ->
 
 async def check_lseg_news(config: LsegCollectionConfig, client: LsegNewsClient) -> dict[str, Any]:
     company = config.companies[0]
+    window = collection_windows(config)[0]
     page = await _retry(
         lambda: client.fetch_headline_page(
             query=company.news_query,
-            start=config.start,
-            end=config.end,
+            start=window.start,
+            end=window.end,
             count=1,
             cursor=None,
         ),
@@ -670,69 +724,82 @@ async def fetch_lseg_news(config: LsegCollectionConfig, client: LsegNewsClient) 
     page_paths: list[Path] = []
     query_stats: dict[str, dict[str, Any]] = {}
     raw_headline_rows = 0
+    windows = collection_windows(config)
     for company_index, company in enumerate(config.companies, start=1):
-        query_stats[company.symbol] = {"query": company.news_query, "ric": company.ric, "pages": 0, "rows": 0}
-        cursor: str | None = None
-        seen_cursors: set[str] = set()
-        for page_number in range(1, config.max_pages + 1):
-            page_path = pages_dir / f"{company_index:03d}-{company.symbol}-page-{page_number:04d}.json"
-            if page_path.exists():
-                payload = read_json(page_path)
-                if payload.get("query") != company.news_query or payload.get("cursor_in") != cursor:
-                    raise LsegNewsError(f"checkpoint does not match requested page: {page_path}")
-            else:
-                page = await _retry(
-                    lambda company=company, cursor=cursor: client.fetch_headline_page(
-                        query=company.news_query,
-                        start=config.start,
-                        end=config.end,
-                        count=config.page_size,
-                        cursor=cursor,
-                    ),
-                    config.retries,
-                )
-                payload = {
-                    "query": company.news_query,
-                    "symbol": company.symbol,
-                    "ric": company.ric,
-                    "page_number": page_number,
-                    "cursor_in": cursor,
-                    "cursor_out": page.next_cursor,
-                    "fetched_at": utc_now(),
-                    "rows": [_to_jsonable(row) for row in page.rows],
-                    "raw_response": _to_jsonable(page.raw_response),
-                }
-                atomic_write_json(page_path, payload)
-            page_paths.append(page_path)
-            rows_value = payload.get("rows")
-            rows: list[Any] = rows_value if isinstance(rows_value, list) else []
-            query_stats[company.symbol]["pages"] += 1
-            query_stats[company.symbol]["rows"] += len(rows)
-            raw_headline_rows += len(rows)
-            for raw_row in rows:
-                if not isinstance(raw_row, dict):
-                    continue
-                normalized = _normalize_headline(raw_row, company)
-                if normalized is None:
-                    continue
-                story_id = str(normalized["story_id"])
-                if story_id in headlines:
-                    _merge_headline(headlines[story_id], normalized)
+        query_stats[company.symbol] = {"query": company.news_query, "ric": company.ric, "pages": 0, "rows": 0, "windows": len(windows)}
+        for window in windows:
+            cursor: str | None = None
+            seen_cursors: set[str] = set()
+            for page_number in range(1, config.max_pages + 1):
+                if config.window_days is None:
+                    page_path = pages_dir / f"{company_index:03d}-{company.symbol}-page-{page_number:04d}.json"
                 else:
-                    headlines[story_id] = normalized
-            next_cursor = _string(payload.get("cursor_out"))
-            if not next_cursor:
-                cursor = None
-                break
-            if next_cursor == cursor or next_cursor in seen_cursors:
-                raise LsegNewsError(f"LSEG pagination returned a repeated cursor for {company.news_query!r}")
-            seen_cursors.add(next_cursor)
-            cursor = next_cursor
-        if cursor:
-            raise LsegNewsError(
-                f"LSEG query {company.news_query!r} exceeded collection.max_pages={config.max_pages}; "
-                "increase the limit or narrow the date range"
-            )
+                    page_path = pages_dir / f"{company_index:03d}-{company.symbol}-{window.checkpoint_label}-page-{page_number:04d}.json"
+                if page_path.exists():
+                    payload = read_json(page_path)
+                    checkpoint_matches = payload.get("query") == company.news_query and payload.get("cursor_in") == cursor
+                    if config.window_days is not None:
+                        checkpoint_matches = (
+                            checkpoint_matches and payload.get("window_start") == window.start and payload.get("window_end") == window.end
+                        )
+                    if not checkpoint_matches:
+                        raise LsegNewsError(f"checkpoint does not match requested page: {page_path}")
+                else:
+                    page = await _retry(
+                        lambda company=company, cursor=cursor, window=window: client.fetch_headline_page(
+                            query=company.news_query,
+                            start=window.start,
+                            end=window.end,
+                            count=config.page_size,
+                            cursor=cursor,
+                        ),
+                        config.retries,
+                    )
+                    payload = {
+                        "query": company.news_query,
+                        "symbol": company.symbol,
+                        "ric": company.ric,
+                        "window_index": window.index,
+                        "window_start": window.start,
+                        "window_end": window.end,
+                        "page_number": page_number,
+                        "cursor_in": cursor,
+                        "cursor_out": page.next_cursor,
+                        "fetched_at": utc_now(),
+                        "rows": [_to_jsonable(row) for row in page.rows],
+                        "raw_response": _to_jsonable(page.raw_response),
+                    }
+                    atomic_write_json(page_path, payload)
+                page_paths.append(page_path)
+                rows_value = payload.get("rows")
+                rows: list[Any] = rows_value if isinstance(rows_value, list) else []
+                query_stats[company.symbol]["pages"] += 1
+                query_stats[company.symbol]["rows"] += len(rows)
+                raw_headline_rows += len(rows)
+                for raw_row in rows:
+                    if not isinstance(raw_row, dict):
+                        continue
+                    normalized = _normalize_headline(raw_row, company)
+                    if normalized is None:
+                        continue
+                    story_id = str(normalized["story_id"])
+                    if story_id in headlines:
+                        _merge_headline(headlines[story_id], normalized)
+                    else:
+                        headlines[story_id] = normalized
+                next_cursor = _string(payload.get("cursor_out"))
+                if not next_cursor:
+                    cursor = None
+                    break
+                if next_cursor == cursor or next_cursor in seen_cursors:
+                    raise LsegNewsError(f"LSEG pagination returned a repeated cursor for {company.news_query!r}")
+                seen_cursors.add(next_cursor)
+                cursor = next_cursor
+            if cursor:
+                raise LsegNewsError(
+                    f"LSEG query {company.news_query!r} exceeded collection.max_pages={config.max_pages} "
+                    f"for {window.start} to {window.end}; increase the limit or narrow the date range"
+                )
 
     headline_rows = [headlines[key] for key in sorted(headlines)]
     headlines_path = atomic_write_jsonl(raw_dir / "headlines.jsonl", headline_rows)

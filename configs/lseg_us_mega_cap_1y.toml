@@ -1,0 +1,78 @@
+# Canonical LSEG Workspace collection config for the first comprehensive corpus.
+# Raw and clean outputs remain local and ignored by Git.
+
+[collection]
+id = "lseg_us_mega_cap_1y"
+start = "2025-06-26T00:00:00Z"
+end = "2026-06-26T00:00:00Z"
+language = "en"
+session = "desktop"
+page_size = 100
+max_pages = 3
+story_concurrency = 4
+retries = 3
+window_days = 1
+
+[cleaning]
+min_text_chars = 100
+max_scoring_chars = 8000
+
+[outputs]
+raw_output_root = "Data/news"
+derived_output_root = "Data/derived/lseg"
+
+[[companies]]
+symbol = "AAPL"
+name = "Apple Inc."
+ric = "AAPL.O"
+news_query = "R:AAPL.O and Language:LEN"
+aliases = ["Apple", "AAPL"]
+
+[[companies]]
+symbol = "AMZN"
+name = "Amazon.com Inc."
+ric = "AMZN.O"
+news_query = "R:AMZN.O and Language:LEN"
+aliases = ["Amazon", "Amazon.com", "AMZN"]
+
+[[companies]]
+symbol = "GOOGL"
+name = "Alphabet Inc."
+ric = "GOOGL.O"
+news_query = "R:GOOGL.O and Language:LEN"
+aliases = ["Alphabet", "Google", "GOOGL"]
+
+[[companies]]
+symbol = "JPM"
+name = "JPMorgan Chase & Co."
+ric = "JPM.N"
+news_query = "R:JPM.N and Language:LEN"
+aliases = ["JPMorgan", "JPMorgan Chase", "JPM"]
+
+[[companies]]
+symbol = "META"
+name = "Meta Platforms Inc."
+ric = "META.O"
+news_query = "R:META.O and Language:LEN"
+aliases = ["Meta", "Facebook", "META"]
+
+[[companies]]
+symbol = "MSFT"
+name = "Microsoft Corporation"
+ric = "MSFT.O"
+news_query = "R:MSFT.O and Language:LEN"
+aliases = ["Microsoft", "MSFT"]
+
+[[companies]]
+symbol = "NVDA"
+name = "NVIDIA Corporation"
+ric = "NVDA.O"
+news_query = "R:NVDA.O and Language:LEN"
+aliases = ["Nvidia", "NVIDIA", "NVDA"]
+
+[[companies]]
+symbol = "TSLA"
+name = "Tesla Inc."
+ric = "TSLA.O"
+news_query = "R:TSLA.O and Language:LEN"
+aliases = ["Tesla", "TSLA"]

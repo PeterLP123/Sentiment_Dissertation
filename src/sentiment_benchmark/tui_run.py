@@ -48,9 +48,7 @@ class RunMixin(AppMixin):
             self.selected_models = [str(value) for value in selected if isinstance(value, str)]
         names = data.get("model_names")
         if isinstance(names, dict):
-            self._model_names = {
-                str(key): str(value) for key, value in names.items() if isinstance(key, str) and isinstance(value, str)
-            }
+            self._model_names = {str(key): str(value) for key, value in names.items() if isinstance(key, str) and isinstance(value, str)}
         provider = data.get("provider")
         if isinstance(provider, str):
             with suppress(ValueError):
@@ -87,6 +85,9 @@ class RunMixin(AppMixin):
         news_output_dir = data.get("news_output_dir")
         if isinstance(news_output_dir, str) and news_output_dir:
             self.news_output_dir = Path(news_output_dir)
+        lseg_config_path = data.get("lseg_config_path")
+        if isinstance(lseg_config_path, str) and lseg_config_path:
+            self.lseg_config_path = Path(lseg_config_path)
         theme = data.get("theme")
         if isinstance(theme, str) and theme in self.available_themes:
             self._theme_name = theme
@@ -139,6 +140,7 @@ class RunMixin(AppMixin):
             "news_extract": self.news_extract,
             "disable_ollama_thinking": self.disable_ollama_thinking,
             "news_output_dir": str(self.news_output_dir),
+            "lseg_config_path": str(self.lseg_config_path),
             "theme": self.theme,
             **self._run_settings,
         }
@@ -170,11 +172,7 @@ class RunMixin(AppMixin):
         model_count = len(self.selected_models)
         try:
             sample_per_class = int(sample_text)
-            rows_per_model = (
-                sample_per_class * 3
-                if mode == "pilot"
-                else compute_stats(load_dataset(self.dataset_path)).row_count
-            )
+            rows_per_model = sample_per_class * 3 if mode == "pilot" else compute_stats(load_dataset(self.dataset_path)).row_count
             total_calls = rows_per_model * model_count
             if model_count == 0:
                 detail = f"{mode} is configured, but no models are selected yet."
@@ -186,11 +184,7 @@ class RunMixin(AppMixin):
             run_estimate = self.query_one("#run-estimate", Static)
         except Exception:
             return
-        run_estimate.update(
-            "Run estimate\n"
-            f"{detail}\n"
-            "Primary accuracy excludes rows whose duplicate sentence has conflicting labels."
-        )
+        run_estimate.update(f"Run estimate\n{detail}\nPrimary accuracy excludes rows whose duplicate sentence has conflicting labels.")
         self._refresh_status_bar()
 
     def _refresh_results_help(self) -> None:
@@ -256,11 +250,7 @@ class RunMixin(AppMixin):
             priced_models += 1
         if priced_models == 0:
             return None
-        suffix = (
-            ""
-            if priced_models == len(models)
-            else f" Pricing unavailable for {len(models) - priced_models} model(s)."
-        )
+        suffix = "" if priced_models == len(models) else f" Pricing unavailable for {len(models) - priced_models} model(s)."
         return f"Estimated completion-token cost ceiling: ${total_completion_cost:.4f}.{suffix}"
 
     def _settings_valid(self) -> bool:
@@ -314,8 +304,7 @@ class RunMixin(AppMixin):
 
     def _reset_progress(self, models: list[str], rows_per_model: int) -> None:
         self._progress = {
-            model_id: {"done": 0, "errors": 0, "latency_total": 0.0, "latency_count": 0, "status": "queued"}
-            for model_id in models
+            model_id: {"done": 0, "errors": 0, "latency_total": 0.0, "latency_count": 0, "status": "queued"} for model_id in models
         }
         self._rows_per_model = rows_per_model
         try:
@@ -343,11 +332,7 @@ class RunMixin(AppMixin):
             row_index = table.get_row_index(model_id)
         except Exception:
             return
-        avg = (
-            f"{state['latency_total'] / state['latency_count']:.0f} ms"
-            if state["latency_count"] > 0
-            else "-"
-        )
+        avg = f"{state['latency_total'] / state['latency_count']:.0f} ms" if state["latency_count"] > 0 else "-"
         cells = [
             model_id,
             f"{state['done']}/{self._rows_per_model}",
@@ -454,9 +439,7 @@ class RunMixin(AppMixin):
             return
 
         rows_per_model = (
-            config.sample_per_class * 3
-            if config.mode == "pilot"
-            else compute_stats(load_dataset(config.dataset_path)).row_count
+            config.sample_per_class * 3 if config.mode == "pilot" else compute_stats(load_dataset(config.dataset_path)).row_count
         )
         confirm = self._confirm_message(config.mode, rows_per_model, config.models, config.max_completion_tokens)
         if confirm is not None:
@@ -530,9 +513,7 @@ class RunMixin(AppMixin):
     async def _run_benchmark(self, config: RunConfig) -> None:
         try:
             summary = await self._execute_config(config)
-            self._set_monitor(
-                f"Run {summary.run_id} {summary.status} ({summary.selected_row_count} rows x {summary.model_count} models)."
-            )
+            self._set_monitor(f"Run {summary.run_id} {summary.status} ({summary.selected_row_count} rows x {summary.model_count} models).")
         except Exception as exc:
             self._notify_error(f"Run failed: {exc}", title="Run failed")
         finally:

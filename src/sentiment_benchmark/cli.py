@@ -36,7 +36,17 @@ from .dataset import compute_stats, load_dataset
 from .env import load_env_file
 from .exporter import export_run
 from .latex_tables import sensitivity_table_latex
+from .lseg_catalog import build_lseg_catalog
 from .lseg_corpus import build_lseg_corpus
+from .lseg_presets import (
+    LSEG_PRESET_WEEK4_EIGHT,
+    LSEG_PRESETS,
+    LSEG_US_MEGA_CAP_1Y_END,
+    LSEG_US_MEGA_CAP_1Y_ID,
+    LSEG_US_MEGA_CAP_1Y_START,
+    lseg_config_from_preset,
+    write_lseg_config,
+)
 from .lseg_source import (
     LsegNewsClient,
     LsegNewsError,
@@ -373,6 +383,52 @@ def newsapi_check(
         raise typer.BadParameter(str(exc)) from exc
 
 
+@app.command("lseg-init-config")
+def lseg_init_config(
+    preset: Annotated[
+        str,
+        typer.Option("--preset", help=f"LSEG config preset: {', '.join(LSEG_PRESETS)}."),
+    ] = LSEG_PRESET_WEEK4_EIGHT,
+    collection_id: Annotated[
+        str,
+        typer.Option("--collection-id", help="Stable collection id. Do not reuse for different settings."),
+    ] = LSEG_US_MEGA_CAP_1Y_ID,
+    start: Annotated[
+        str,
+        typer.Option("--start", help="UTC collection start timestamp."),
+    ] = LSEG_US_MEGA_CAP_1Y_START,
+    end: Annotated[
+        str,
+        typer.Option("--end", help="UTC collection end timestamp."),
+    ] = LSEG_US_MEGA_CAP_1Y_END,
+    output: Annotated[
+        Path,
+        typer.Option("--output", help="TOML config path to create."),
+    ] = Path("configs/lseg_us_mega_cap_1y.toml"),
+    overwrite: Annotated[
+        bool,
+        typer.Option("--overwrite", help="Replace an existing config file."),
+    ] = False,
+) -> None:
+    """Create a reproducible LSEG Workspace collection config from a preset."""
+    try:
+        config = lseg_config_from_preset(preset=preset, collection_id=collection_id, start=start, end=end)
+        path = write_lseg_config(config, output, overwrite=overwrite)
+    except LsegNewsError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+    table = Table(title="LSEG Config Created")
+    table.add_column("Metric")
+    table.add_column("Value")
+    table.add_row("Preset", preset)
+    table.add_row("Collection ID", config.collection_id)
+    table.add_row("Date range", f"{config.start} to {config.end}")
+    table.add_row("Window days", str(config.window_days or "whole interval"))
+    table.add_row("Companies", ", ".join(company.symbol for company in config.companies))
+    table.add_row("Output", str(path))
+    console.print(table)
+
+
 @app.command("lseg-news-check")
 def lseg_news_check(
     config_path: Annotated[
@@ -428,6 +484,7 @@ def fetch_lseg_news_command(
         table.add_row("Stories", str(result.story_count))
         table.add_row("Unavailable/failed stories", str(result.failed_story_count))
         table.add_row("Resumed", str(result.resumed))
+        table.add_row("Window days", str(config.window_days or "whole interval"))
         table.add_row("Raw collection", str(result.raw_dir))
         table.add_row("Manifest", str(result.manifest_path))
         console.print(table)
@@ -460,6 +517,28 @@ def build_lseg_corpus_command(
     table.add_row("Articles JSONL", str(result.articles_path))
     table.add_row("Screening index", str(result.screening_path))
     table.add_row("Manifest", str(result.manifest_path))
+    console.print(table)
+
+
+@app.command("lseg-catalog")
+def lseg_catalog(
+    derived_root: Annotated[
+        Path,
+        typer.Option("--derived-root", help="Root containing derived LSEG corpora."),
+    ] = Path("Data/derived/lseg"),
+) -> None:
+    """Refresh the local metadata-only LSEG corpus catalog."""
+    try:
+        result = build_lseg_catalog(derived_root)
+    except LsegNewsError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    table = Table(title="LSEG Corpus Catalog")
+    table.add_column("Metric")
+    table.add_column("Value")
+    table.add_row("Corpora", str(result.corpus_count))
+    table.add_row("Eligible articles", str(result.eligible_count))
+    table.add_row("Catalog JSON", str(result.catalog_json))
+    table.add_row("Catalog CSV", str(result.catalog_csv))
     console.print(table)
 
 
@@ -608,12 +687,8 @@ def run_trading_strategy_command(
 
     async def main() -> None:
         async with AsyncExitStack() as stack:
-            newsapi_client = (
-                await stack.enter_async_context(_make_newsapi_client()) if config.newsapi_enabled else None
-            )
-            tavily_client = (
-                await stack.enter_async_context(_make_tavily_news_client()) if config.tavily_gap_fetch else None
-            )
+            newsapi_client = await stack.enter_async_context(_make_newsapi_client()) if config.newsapi_enabled else None
+            tavily_client = await stack.enter_async_context(_make_tavily_news_client()) if config.tavily_gap_fetch else None
             llm_client = await stack.enter_async_context(
                 make_llm_client(
                     _resolve_provider(config.provider),
@@ -873,9 +948,7 @@ async def _fetch_plan_with_retries(client: Any, plan: Any, window: str, progress
         except Exception as exc:
             if attempt == FETCH_ATTEMPTS:
                 progress.console.print(
-                    "[red]✗[/red] "
-                    f"{plan.query_entry.id} [dim]{window}[/dim] "
-                    f"-> failed after {FETCH_ATTEMPTS} attempts: {exc}"
+                    f"[red]✗[/red] {plan.query_entry.id} [dim]{window}[/dim] -> failed after {FETCH_ATTEMPTS} attempts: {exc}"
                 )
             else:
                 delay = FETCH_RETRY_BASE_DELAY_SECONDS * attempt
@@ -988,9 +1061,7 @@ def fetch_news_batch(
             raise typer.BadParameter(str(exc)) from exc
         package_target = package_output_dir / resolved_package_id
         if package_target.exists() and not overwrite_package:
-            raise typer.BadParameter(
-                f"output directory already exists: {package_target} (pass --overwrite-package to rebuild it)"
-            )
+            raise typer.BadParameter(f"output directory already exists: {package_target} (pass --overwrite-package to rebuild it)")
 
     async def main() -> None:
         corpus_dirs: list[Path] = []

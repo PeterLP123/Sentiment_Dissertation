@@ -32,6 +32,57 @@ def test_cli_newsapi_check_reports_missing_key(monkeypatch) -> None:
     assert "NEWSAPI_API_KEY is required" in result.output
 
 
+def test_cli_lseg_init_config_writes_preset(tmp_path: Path) -> None:
+    output = tmp_path / "lseg.toml"
+
+    result = runner.invoke(
+        app,
+        [
+            "lseg-init-config",
+            "--collection-id",
+            "cli_lseg",
+            "--start",
+            "2025-06-26T00:00:00Z",
+            "--end",
+            "2026-06-26T00:00:00Z",
+            "--output",
+            str(output),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "LSEG Config Created" in result.output
+    text = output.read_text()
+    assert 'symbol = "GOOGL"' in text
+    assert 'ric = "JPM.N"' in text
+    assert "window_days = 1" in text
+
+
+def test_cli_lseg_catalog_writes_metadata(tmp_path: Path) -> None:
+    corpus = tmp_path / "lseg" / "corpus"
+    corpus.mkdir(parents=True)
+    (corpus / "manifest.json").write_text(
+        json.dumps(
+            {
+                "status": "completed",
+                "config": {
+                    "collection": {"id": "corpus", "start": "2025-06-26T00:00:00Z", "end": "2026-06-26T00:00:00Z"},
+                    "companies": [{"symbol": "AAPL"}],
+                },
+                "counts": {"articles": 3, "eligible": 2, "ineligible": 1, "text_quality": {"ok": 2}},
+                "sharing": {"redistribute": False, "licensed_full_text": True},
+            }
+        )
+    )
+
+    result = runner.invoke(app, ["lseg-catalog", "--derived-root", str(tmp_path / "lseg")])
+
+    assert result.exit_code == 0
+    assert "LSEG Corpus Catalog" in result.output
+    assert (tmp_path / "lseg" / "catalog.json").exists()
+    assert (tmp_path / "lseg" / "catalog.csv").exists()
+
+
 def _record(prompt_hash: str, row_number: int, model_id: str, label: str) -> LLMResponseRecord:
     return LLMResponseRecord(
         row_number=row_number,

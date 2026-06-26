@@ -3,12 +3,14 @@ import json
 import sqlite3
 import threading
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from rich.text import Text
 from textual.widgets import Button, Checkbox, DataTable, Input, ProgressBar, Select, Static
 
 from sentiment_benchmark.baseline_runner import BaselineRunSummary
+from sentiment_benchmark.lseg_presets import LSEG_PRESET_WEEK4_EIGHT, lseg_config_from_preset, write_lseg_config
 from sentiment_benchmark.models import DatasetRow, EvaluationResult, LLMResponseRecord, ModelConfig, PromptConfig
 from sentiment_benchmark.news_source import NewsArticleRecord, NewsFetchResult, article_record_id, make_news_fetch_config, normalize_url
 from sentiment_benchmark.storage import BenchmarkStore
@@ -159,9 +161,7 @@ def test_tui_model_table_toggles_selection(tmp_path: Path) -> None:
         app = _make_app(tmp_path)
         async with app.run_test() as pilot:
             await pilot.pause(0.1)
-            app._all_models = [
-                ModelConfig(model_id="provider/model", name="Readable Name", context_length=4096)
-            ]
+            app._all_models = [ModelConfig(model_id="provider/model", name="Readable Name", context_length=4096)]
             app._render_model_table()
 
             table = app.query_one("#model-table", DataTable)
@@ -637,20 +637,24 @@ def test_tui_handles_run_events_into_progress_table(tmp_path: Path) -> None:
             assert isinstance(running_status, Text)
             assert running_status.plain == "running"
             assert str(running_status.style) == "yellow"
-            app._handle_run_event({
-                "type": "row_completed",
-                "model_id": "m1",
-                "row_number": 1,
-                "status": "success",
-                "latency_ms": 50.0,
-            })
-            app._handle_run_event({
-                "type": "row_completed",
-                "model_id": "m1",
-                "row_number": 2,
-                "status": "api_error",
-                "latency_ms": 100.0,
-            })
+            app._handle_run_event(
+                {
+                    "type": "row_completed",
+                    "model_id": "m1",
+                    "row_number": 1,
+                    "status": "success",
+                    "latency_ms": 50.0,
+                }
+            )
+            app._handle_run_event(
+                {
+                    "type": "row_completed",
+                    "model_id": "m1",
+                    "row_number": 2,
+                    "status": "api_error",
+                    "latency_ms": 100.0,
+                }
+            )
             assert app._progress["m1"]["done"] == 2
             assert app._progress["m1"]["errors"] == 1
             assert app._progress["m1"]["latency_count"] == 2
@@ -691,10 +695,7 @@ def test_tui_export_run_requires_active_run(tmp_path: Path) -> None:
             await pilot.pause(0.1)
             app._active_run_id = None
             app._export_run()
-            assert any(
-                severity == "error" and "Select a run" in message
-                for severity, message in app.notifications
-            )
+            assert any(severity == "error" and "Select a run" in message for severity, message in app.notifications)
 
     asyncio.run(scenario())
 
@@ -706,10 +707,7 @@ def test_tui_view_figures_requires_active_run(tmp_path: Path) -> None:
             await pilot.pause(0.1)
             app._active_run_id = None
             app._view_figures()
-            assert any(
-                severity == "error" and "Select a run" in message
-                for severity, message in app.notifications
-            )
+            assert any(severity == "error" and "Select a run" in message for severity, message in app.notifications)
 
     asyncio.run(scenario())
 
@@ -742,10 +740,7 @@ def test_tui_view_figures_opens_generated_figures(tmp_path: Path, monkeypatch: p
             await pilot.pause()
 
             assert opened.get("path") == figures_dir
-            assert any(
-                severity == "information" and "figure" in message.lower()
-                for severity, message in app.notifications
-            )
+            assert any(severity == "information" and "figure" in message.lower() for severity, message in app.notifications)
 
     asyncio.run(scenario())
 
@@ -764,10 +759,7 @@ def test_tui_view_figures_without_plots_hints_install(tmp_path: Path, monkeypatc
             app._view_figures()
             await app.workers.wait_for_complete()
             await pilot.pause()
-            assert any(
-                severity == "error" and ".[figures]" in message
-                for severity, message in app.notifications
-            )
+            assert any(severity == "error" and ".[figures]" in message for severity, message in app.notifications)
 
     asyncio.run(scenario())
 
@@ -813,10 +805,7 @@ def test_tui_refresh_action_notifies(tmp_path: Path) -> None:
         async with app.run_test() as pilot:
             await pilot.pause(0.1)
             app.action_refresh()
-            assert any(
-                severity == "information" and "Refreshed" in message
-                for severity, message in app.notifications
-            )
+            assert any(severity == "information" and "Refreshed" in message for severity, message in app.notifications)
 
     asyncio.run(scenario())
 
@@ -904,9 +893,28 @@ class FakeTuiNewsClient:
         return _tui_news_result(config.query, failed=self.failed)
 
 
+def _write_lseg_tui_config(path: Path) -> Path:
+    config = lseg_config_from_preset(
+        preset=LSEG_PRESET_WEEK4_EIGHT,
+        collection_id="tui_lseg",
+        start="2025-06-26T00:00:00Z",
+        end="2026-06-26T00:00:00Z",
+    )
+    return write_lseg_config(config, path)
+
+
+class FakeTuiLsegClient:
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, traceback) -> None:
+        return None
+
+
 def test_tui_news_tab_renders_controls(tmp_path: Path) -> None:
     async def scenario() -> None:
         app = _make_app(tmp_path)
+        app.lseg_config_path = _write_lseg_tui_config(tmp_path / "lseg.toml")
         async with app.run_test() as pilot:
             await pilot.pause(0.1)
             from textual.widgets import TabbedContent
@@ -919,6 +927,8 @@ def test_tui_news_tab_renders_controls(tmp_path: Path) -> None:
             assert app.query_one("#news-query", Input).value == "financial markets"
             assert app.query_one("#news-extract", Checkbox).value is True
             assert "Tavily API key" in str(app.query_one("#news-summary", Static).content)
+            assert app.query_one("#lseg-config-path", Input).value == str(app.lseg_config_path)
+            assert "Collection: tui_lseg" in str(app.query_one("#lseg-summary", Static).content)
 
     asyncio.run(scenario())
 
@@ -935,6 +945,68 @@ def test_tui_news_check_uses_client_and_logs_status(tmp_path: Path, monkeypatch:
             assert fake.configs[0].extract is False
             assert any("Tavily check OK" in line for line in app.news_lines)
             assert any("succeeded" in message for _, message in app.notifications)
+
+    asyncio.run(scenario())
+
+
+def test_tui_lseg_check_uses_config_and_logs_status(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def fake_check(config, client):
+        assert config.collection_id == "tui_lseg"
+        assert isinstance(client, FakeTuiLsegClient)
+        return {"query": config.companies[0].news_query, "headline_count": 1, "story_id": "story-1", "story_status": "success"}
+
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        app.lseg_config_path = _write_lseg_tui_config(tmp_path / "lseg.toml")
+        monkeypatch.setattr(app, "_make_lseg_news_client", lambda: FakeTuiLsegClient())
+        monkeypatch.setattr("sentiment_benchmark.tui_news.check_lseg_news", fake_check)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            await app._check_lseg()
+
+            assert any("LSEG check OK" in line for line in app.news_lines)
+            assert any("succeeded" in message for _, message in app.notifications)
+
+    asyncio.run(scenario())
+
+
+def test_tui_lseg_build_refreshes_catalog_and_logs_outputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_build(raw_dir):
+        return SimpleNamespace(
+            article_count=5,
+            eligible_count=4,
+            resumed=False,
+            derived_dir=tmp_path / "derived" / "tui_lseg",
+            manifest_path=tmp_path / "derived" / "tui_lseg" / "manifest.json",
+        )
+
+    def fake_catalog(derived_root):
+        return SimpleNamespace(corpus_count=1, eligible_count=4, catalog_json=tmp_path / "derived" / "catalog.json")
+
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        app.lseg_config_path = _write_lseg_tui_config(tmp_path / "lseg.toml")
+        monkeypatch.setattr("sentiment_benchmark.tui_news.build_lseg_corpus", fake_build)
+        monkeypatch.setattr("sentiment_benchmark.tui_news.build_lseg_catalog", fake_catalog)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            await app._build_lseg()
+
+            assert any("LSEG clean corpus built" in line for line in app.news_lines)
+            assert any("Catalog:" in line for line in app.news_lines)
+
+    asyncio.run(scenario())
+
+
+def test_tui_lseg_busy_state_does_not_disable_tavily_buttons(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            app._set_lseg_busy(True)
+
+            assert app.query_one("#lseg-check", Button).disabled is True
+            assert app.query_one("#news-check", Button).disabled is False
 
     asyncio.run(scenario())
 
@@ -1586,10 +1658,7 @@ def test_tui_cloud_catalog_requires_ollama_provider(tmp_path: Path) -> None:
             await pilot.pause(0.1)
             await app._show_cloud_catalog()
             assert not app._all_models
-            assert any(
-                severity == "error" and "Ollama provider" in message
-                for severity, message in app.notifications
-            )
+            assert any(severity == "error" and "Ollama provider" in message for severity, message in app.notifications)
 
     asyncio.run(scenario())
 
@@ -1671,20 +1740,44 @@ def test_tui_leaderboard_ranks_best_run_per_model(tmp_path: Path) -> None:
     store.save_metrics(
         run_a1,
         EvaluationResult(
-            model_id="model/a", scope="primary", row_count=90, accuracy=0.80,
-            balanced_accuracy=0.78, mcc=0.7, macro_f1=0.79, weighted_f1=0.81,
-            per_class={}, confusion_matrix={}, invalid_output_count=0, api_error_count=0,
-            mean_latency_ms=100.0, total_prompt_tokens=0, total_completion_tokens=0, total_tokens=0,
+            model_id="model/a",
+            scope="primary",
+            row_count=90,
+            accuracy=0.80,
+            balanced_accuracy=0.78,
+            mcc=0.7,
+            macro_f1=0.79,
+            weighted_f1=0.81,
+            per_class={},
+            confusion_matrix={},
+            invalid_output_count=0,
+            api_error_count=0,
+            mean_latency_ms=100.0,
+            total_prompt_tokens=0,
+            total_completion_tokens=0,
+            total_tokens=0,
         ),
     )
     run_a2 = _seed_run_with_metrics(db_path, model_id="model/a")
     store.save_metrics(
         run_a2,
         EvaluationResult(
-            model_id="model/a", scope="primary", row_count=90, accuracy=0.90,
-            balanced_accuracy=0.88, mcc=0.8, macro_f1=0.89, weighted_f1=0.91,
-            per_class={}, confusion_matrix={}, invalid_output_count=0, api_error_count=0,
-            mean_latency_ms=100.0, total_prompt_tokens=0, total_completion_tokens=0, total_tokens=0,
+            model_id="model/a",
+            scope="primary",
+            row_count=90,
+            accuracy=0.90,
+            balanced_accuracy=0.88,
+            mcc=0.8,
+            macro_f1=0.89,
+            weighted_f1=0.91,
+            per_class={},
+            confusion_matrix={},
+            invalid_output_count=0,
+            api_error_count=0,
+            mean_latency_ms=100.0,
+            total_prompt_tokens=0,
+            total_completion_tokens=0,
+            total_tokens=0,
         ),
     )
     _seed_run_with_metrics(db_path, model_id="model/b")  # 0.80 primary from helper
@@ -1735,10 +1828,22 @@ def test_tui_leaderboard_scope_switch(tmp_path: Path) -> None:
     BenchmarkStore(db_path).save_metrics(
         run_id,
         EvaluationResult(
-            model_id="model/zonly", scope="all", row_count=90, accuracy=0.5,
-            balanced_accuracy=0.5, mcc=0.0, macro_f1=0.5, weighted_f1=0.5,
-            per_class={}, confusion_matrix={}, invalid_output_count=0, api_error_count=0,
-            mean_latency_ms=100.0, total_prompt_tokens=0, total_completion_tokens=0, total_tokens=0,
+            model_id="model/zonly",
+            scope="all",
+            row_count=90,
+            accuracy=0.5,
+            balanced_accuracy=0.5,
+            mcc=0.0,
+            macro_f1=0.5,
+            weighted_f1=0.5,
+            per_class={},
+            confusion_matrix={},
+            invalid_output_count=0,
+            api_error_count=0,
+            mean_latency_ms=100.0,
+            total_prompt_tokens=0,
+            total_completion_tokens=0,
+            total_tokens=0,
         ),
     )
 

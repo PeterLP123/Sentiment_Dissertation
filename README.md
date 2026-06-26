@@ -40,7 +40,7 @@ See [Research protocol](docs/research_protocol.md) and the [Week 4 pre-registrat
 | Tavily news sourcing | Search and extract current articles into reproducible derived corpora. | `sentiment-bench fetch-news` |
 | Tavily dataset packaging | Batch-fetch query families and package shareable source datasets. | `sentiment-bench fetch-news-batch`, `package-news` |
 | NewsAPI sourcing | Page through dated article titles and descriptions with source manifests. | `sentiment-bench newsapi-check`, `fetch-newsapi` |
-| LSEG Workspace research corpus | Collect entitled stories immutably, clean them offline, and create seeded local validation sheets. | `lseg-news-check`, `fetch-lseg-news`, `build-lseg-corpus` |
+| LSEG Workspace research corpus | Create preset collection configs, collect entitled stories immutably, clean them offline, catalog corpora, and create seeded local validation sheets. | `lseg-init-config`, `fetch-lseg-news`, `build-lseg-corpus`, `lseg-catalog` |
 | Trading pilot | Merge and screen news, score three LLMs plus VADER, and calculate next-session event returns. | `sentiment-bench run-trading-strategy` |
 | Trading robustness report | Bootstrap event means, compare scorers, test company sensitivity, and render meeting-ready plots. | `sentiment-bench analyze-trading-run` |
 | Terminal UI | Run the same workflows interactively with tabs for models, prompts, runs, results, and news. | `sentiment-bench tui` |
@@ -145,9 +145,10 @@ Collect an entitled LSEG corpus and run the local-model policy:
 
 ```bash
 python -m pip install -e ".[dev,lseg,baselines,finbert]"
-sentiment-bench lseg-news-check --config configs/lseg_workspace_example.toml
-sentiment-bench fetch-lseg-news --config configs/lseg_workspace_example.toml
-sentiment-bench build-lseg-corpus --source Data/news/lseg_lseg_workspace_example
+sentiment-bench lseg-news-check --config configs/lseg_us_mega_cap_1y.toml
+sentiment-bench fetch-lseg-news --config configs/lseg_us_mega_cap_1y.toml
+sentiment-bench build-lseg-corpus --source Data/news/lseg_lseg_us_mega_cap_1y
+sentiment-bench lseg-catalog
 sentiment-bench run-trading-strategy --config configs/lseg_ollama_trading_example.toml
 ```
 

@@ -1,6 +1,6 @@
 # How To Use The Terminal UI
 
-The TUI is the interactive front end for the same benchmark, provider, results, and Tavily workflows exposed by the CLI.
+The TUI is the interactive front end for the same benchmark, provider, results, Tavily, and LSEG workflows exposed by the CLI.
 
 ![TUI screenshot](assets/tui-news-tab.svg)
 
@@ -9,7 +9,8 @@ The TUI is the interactive front end for the same benchmark, provider, results, 
 - Project installed with `python -m pip install -e ".[dev]"`.
 - `Data/derived/labeled/financial_sentiment_v2.csv` available.
 - Provider credentials or Ollama host configured if you plan to run models.
-- `TAVILY_API_KEY` configured if you plan to use the News tab.
+- `TAVILY_API_KEY` configured if you plan to fetch Tavily articles from the News tab.
+- Optional LSEG collection support requires `python -m pip install -e ".[lseg]"`, LSEG Workspace Desktop running, and a collection config such as `configs/lseg_us_mega_cap_1y.toml`.
 - Optional: `nvidia-smi` on PATH if you want GPU utilization, VRAM, power, and temperature in the local resource monitor.
 
 ## Open The TUI
@@ -54,7 +55,7 @@ sentiment-bench tui
 | Prompt | Edits prompt configuration. | Pick prompt preset, review prompt text, save a custom TUI prompt. |
 | Run | Configures experiment settings. | Choose pilot/full mode, seed, temperature, tokens, few-shot settings, baselines, and Ollama thinking behavior. |
 | Results | Loads stored run metrics. | Inspect metrics, machine labels, confusion matrices, misclassifications, exports, and figures. |
-| News | Sources Tavily article corpora. | Check API, fetch articles, review output path and extraction failures. |
+| News | Sources Tavily article corpora and runs guided LSEG collection actions. | Check APIs, fetch articles, run LSEG raw collection, build clean corpora, and refresh the LSEG catalog. |
 
 ## Run A Benchmark
 

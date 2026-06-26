@@ -12,6 +12,7 @@ from sentiment_benchmark.lseg_source import (
     LsegNewsClient,
     LsegNewsError,
     LsegStoryResponse,
+    collection_windows,
     fetch_lseg_news,
     load_lseg_collection_config,
 )
@@ -117,6 +118,32 @@ aliases = ["Apple"]
     assert config.start.endswith("Z")
 
 
+def test_load_lseg_config_accepts_window_days(tmp_path: Path) -> None:
+    path = tmp_path / "lseg.toml"
+    path.write_text(
+        """
+[collection]
+id = "x"
+start = "2026-06-01T00:00:00Z"
+end = "2026-06-03T00:00:00Z"
+window_days = 1
+[[companies]]
+symbol = "AAPL"
+name = "Apple"
+ric = "AAPL.O"
+aliases = ["Apple"]
+"""
+    )
+
+    config = load_lseg_collection_config(path)
+
+    assert config.window_days == 1
+    assert collection_windows(config) == [
+        lseg_source.LsegCollectionWindow(1, "2026-06-01T00:00:00Z", "2026-06-02T00:00:00Z"),
+        lseg_source.LsegCollectionWindow(2, "2026-06-02T00:00:00Z", "2026-06-03T00:00:00Z"),
+    ]
+
+
 def test_story_content_reads_lseg_sdk_story_content() -> None:
     class Content:
         html = "<p>Full story body.</p>"
@@ -144,6 +171,7 @@ def test_fetch_paginates_deduplicates_and_resumes_without_calls(tmp_path: Path) 
     assert result.headline_count == 3
     assert result.story_count == 3
     assert result.failed_story_count == 1
+    assert (result.raw_dir / "headline_pages" / "001-AAPL-page-0001.json").exists()
     assert backend.story_calls.count("urn:test:shared:1") == 1
     headlines = [json.loads(line) for line in (result.raw_dir / "headlines.jsonl").read_text().splitlines()]
     shared = next(row for row in headlines if row["story_id"] == "urn:test:shared:1")
@@ -159,6 +187,43 @@ def test_fetch_paginates_deduplicates_and_resumes_without_calls(tmp_path: Path) 
 
     resumed = asyncio.run(fetch_lseg_news(config, LsegNewsClient(NoCalls())))
     assert resumed.resumed is True
+
+
+def test_fetch_windowed_collection_checkpoint_names_and_counts(tmp_path: Path) -> None:
+    class WindowBackend:
+        def __init__(self) -> None:
+            self.page_calls: list[tuple[str, str, str, str | None]] = []
+            self.story_calls: list[str] = []
+
+        async def headline_page(self, *, query, start, end, count, cursor):
+            self.page_calls.append((query, start, end, cursor))
+            day = start[:10]
+            return LsegHeadlinePage(
+                [
+                    {
+                        "storyId": f"urn:test:{query}:{day}",
+                        "headline": f"{query} headline {day}",
+                        "versionCreated": start,
+                        "language": "en",
+                    }
+                ],
+                None,
+            )
+
+        async def story(self, story_id):
+            self.story_calls.append(story_id)
+            return LsegStoryResponse(story_id, "success", f"<p>{story_id} body text with enough content.</p>", "html")
+
+    config = LsegCollectionConfig(**{**_config(tmp_path).__dict__, "window_days": 1, "companies": (_config(tmp_path).companies[0],)})
+    result = asyncio.run(fetch_lseg_news(config, LsegNewsClient(WindowBackend())))
+
+    assert result.headline_count == 2
+    assert result.story_count == 2
+    assert (result.raw_dir / "headline_pages" / "001-AAPL-window-0001-20260601T000000z-20260602T000000z-page-0001.json").exists()
+    assert (result.raw_dir / "headline_pages" / "001-AAPL-window-0002-20260602T000000z-20260603T000000z-page-0001.json").exists()
+    manifest = json.loads(result.manifest_path.read_text())
+    assert manifest["counts"]["headline_pages"] == 2
+    assert manifest["queries"]["AAPL"]["windows"] == 2
 
 
 def test_completed_collection_rejects_changed_configuration(tmp_path: Path) -> None:

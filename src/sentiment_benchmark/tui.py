@@ -99,10 +99,7 @@ _CRASH_LOG_PATH = Path("results/tui_crash.log")
 logger = logging.getLogger(__name__)
 
 
-
-class SentimentBenchmarkApp(
-    BaselinesMixin, ModelsMixin, MonitorMixin, NewsMixin, QueueMixin, ResultsMixin, RunMixin, App
-):
+class SentimentBenchmarkApp(BaselinesMixin, ModelsMixin, MonitorMixin, NewsMixin, QueueMixin, ResultsMixin, RunMixin, App):
     TITLE = "Sentiment Benchmark"
     SUB_TITLE = "LLM sentiment evaluation"
     CSS = """
@@ -153,7 +150,7 @@ class SentimentBenchmarkApp(
         color: $error;
     }
     #dashboard, #dashboard-resource-monitor, #run-resource-monitor, #prompt-preview,
-    #run-estimate, #results-help, #selected-summary, #news-summary, #compare-result, #ollama-loaded {
+    #run-estimate, #results-help, #selected-summary, #news-summary, #lseg-summary, #compare-result, #ollama-loaded {
         border: solid $accent;
         padding: 1;
         margin-bottom: 1;
@@ -333,12 +330,11 @@ class SentimentBenchmarkApp(
         self.news_max_results = DEFAULT_NEWS_MAX_RESULTS
         self.news_extract = True
         self.news_output_dir = DEFAULT_NEWS_OUTPUT_DIR
+        self.lseg_config_path = Path("configs/lseg_us_mega_cap_1y.toml")
         self.disable_ollama_thinking = True
         self.selected_models: list[str] = []
         self.prompts = load_prompts(DEFAULT_PROMPTS_PATH)
-        self._default_prompt_id = (
-            "default_label_only" if "default_label_only" in self.prompts else next(iter(self.prompts))
-        )
+        self._default_prompt_id = "default_label_only" if "default_label_only" in self.prompts else next(iter(self.prompts))
         self.prompt = self.prompts[self._default_prompt_id]
         self.run_mode: str = "pilot"
         self.monitor_lines: list[str] = []
@@ -354,6 +350,7 @@ class SentimentBenchmarkApp(
         self._run_in_progress: bool = False
         self._baseline_in_progress: bool = False
         self._news_in_progress: bool = False
+        self._lseg_in_progress: bool = False
         self._confirmation_pending: bool = False
         self._progress: dict[str, dict] = {}
         self._rows_per_model: int = 0
@@ -719,16 +716,14 @@ class SentimentBenchmarkApp(
                             yield DataTable(id="perclass-table")
                         with Collapsible(title="Confusion matrix", collapsed=True, id="confusion-section"):
                             yield Static(
-                                "Rows = actual label, columns = predicted (incl. invalid/error). "
-                                "Select a metric row above to populate.",
+                                "Rows = actual label, columns = predicted (incl. invalid/error). Select a metric row above to populate.",
                                 classes="help",
                             )
                             yield DataTable(id="confusion-table")
 
                     with Collapsible(title="Misclassified and failed rows", collapsed=True, id="misclassified-section"):
                         yield Static(
-                            "Load a run to see mismatches. Select a metric row to filter by model/scope; "
-                            "press Enter on a row for details.",
+                            "Load a run to see mismatches. Select a metric row to filter by model/scope; press Enter on a row for details.",
                             classes="help",
                         )
                         yield DataTable(id="misclassified-table")
@@ -770,9 +765,10 @@ class SentimentBenchmarkApp(
                         yield Static("Pick two targets and press Compare.", id="compare-result")
             with TabPane("News", id="news-tab"):
                 yield Static(
-                    "Source unlabeled news articles from Tavily into derived files. This does not modify benchmark datasets.",
+                    "Source unlabeled news articles into derived files. This does not modify benchmark datasets.",
                     classes="help",
                 )
+                yield Static("Tavily", classes="section-title")
                 yield Static("Search query", classes="field-label")
                 yield Input(value=self.news_query, placeholder="bank earnings sentiment", id="news-query")
                 yield Static("Topic", classes="field-label")
@@ -804,6 +800,15 @@ class SentimentBenchmarkApp(
                 with Horizontal(id="news-controls"):
                     yield Button("Check Tavily", id="news-check")
                     yield Button("Fetch News", id="news-fetch", variant="primary")
+                yield Static("LSEG Workspace", classes="section-title")
+                yield Static("Config path", classes="field-label")
+                yield Input(value=str(self.lseg_config_path), placeholder="configs/lseg_us_mega_cap_1y.toml", id="lseg-config-path")
+                yield Static(id="lseg-summary")
+                with Horizontal(id="lseg-controls"):
+                    yield Button("Check LSEG", id="lseg-check")
+                    yield Button("Fetch Raw", id="lseg-fetch", variant="primary")
+                    yield Button("Build Clean", id="lseg-build")
+                    yield Button("Refresh Catalog", id="lseg-catalog")
                 yield Static("News log", classes="section-title")
                 yield RichLog(id="news-log", highlight=True, markup=False, wrap=True)
         yield Footer()
@@ -865,6 +870,7 @@ class SentimentBenchmarkApp(
             ("#prompt-preview", "Active prompt"),
             ("#misclassified-detail", "Row detail"),
             ("#news-summary", "Tavily sourcing"),
+            ("#lseg-summary", "LSEG Workspace"),
             ("#compare-result", "Statistical comparison"),
             ("#ollama-loaded", "Loaded in Ollama (VRAM)"),
         ):
@@ -881,6 +887,7 @@ class SentimentBenchmarkApp(
         self._refresh_results_help()
         self._refresh_runs_table()  # also refreshes the compare targets and leaderboard
         self._refresh_news_summary()
+        self._refresh_lseg_summary()
         self._refresh_status_bar()
         self._refresh_stepper()
         self._refresh_resource_monitor()
@@ -1097,6 +1104,14 @@ class SentimentBenchmarkApp(
             await self._check_news()
         elif button_id == "news-fetch":
             await self._fetch_news()
+        elif button_id == "lseg-check":
+            await self._check_lseg()
+        elif button_id == "lseg-fetch":
+            await self._fetch_lseg()
+        elif button_id == "lseg-build":
+            await self._build_lseg()
+        elif button_id == "lseg-catalog":
+            await self._refresh_lseg_catalog_action()
 
     def on_input_changed(self, event: Input.Changed) -> None:
         if event.input.id == "sample-per-class":
@@ -1119,6 +1134,11 @@ class SentimentBenchmarkApp(
             value = event.input.value.strip() or str(DEFAULT_NEWS_OUTPUT_DIR)
             self.news_output_dir = Path(value)
             self._refresh_news_summary()
+            self._save_session()
+        if event.input.id == "lseg-config-path":
+            value = event.input.value.strip() or "configs/lseg_us_mega_cap_1y.toml"
+            self.lseg_config_path = Path(value)
+            self._refresh_lseg_summary()
             self._save_session()
         if event.input.id == "news-max-results":
             with suppress(ValueError):
