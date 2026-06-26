@@ -9,7 +9,7 @@ import re
 import tomllib
 from collections import Counter, defaultdict
 from collections.abc import Callable
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field, replace
 from datetime import UTC, date, datetime, time, timedelta
 from email.utils import parsedate_to_datetime
 from pathlib import Path
@@ -18,15 +18,30 @@ from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 from zoneinfo import ZoneInfo
 
 from .artifact_io import canonical_json, sha256_text
+from .backtest import (
+    DailySignal,
+    DecisionPolicyConfig,
+    IndexFallback,
+    ReturnRow,
+    TradingDecision,
+    TradingStrategyError,
+    build_equity_curve,
+    calculate_returns,
+    make_trading_decisions,
+)
 from .baselines import classify_finbert_texts, classify_vader_text
 from .constants import DEFAULT_OLLAMA_HOST
+from .entity_masking import mask_entities
 from .lseg_corpus import load_verified_lseg_corpus
 from .lseg_source import LsegNewsError
+from .model_roster import is_post_cutoff, knowledge_cutoff, roster_cutoff
 from .models import BlindExample, LLMResponseRecord, PromptConfig
 from .news_source import NewsArticleRecord, make_news_fetch_config, write_news_corpus
 from .newsapi_source import make_newsapi_fetch_config, write_newsapi_corpus
+from .prices import PriceProviderError, PriceRow, make_price_provider
 from .prompts import load_prompts
 from .runtime_metadata import collect_run_environment
+from .trading_plots import plot_equity_curve, write_sensitivity_csvs
 
 LABEL_VALUES = {"positive": 1, "neutral": 0, "negative": -1}
 TRACKING_QUERY_KEYS = {
@@ -44,8 +59,8 @@ PROMOTION_PATTERN = re.compile(
 )
 
 
-class TradingStrategyError(RuntimeError):
-    """Raised when the trading pilot cannot be configured or completed."""
+# ``TradingStrategyError`` and the backtest-core types/functions now live in
+# ``backtest``; imported above and re-exported here for backwards compatibility.
 
 
 @dataclass(frozen=True)
@@ -59,26 +74,27 @@ class TradingCompany:
 
 
 @dataclass(frozen=True)
-class IndexFallback:
-    """Trade a broad index on company-days too thin to support an individual stock.
+class PricesConfig:
+    """Price-source settings. ``cache_dir`` is opt-in; ``None`` disables caching."""
 
-    When a company-day has fewer than ``min_texts`` accepted articles, its (noisy)
-    sentiment signal is executed against ``symbol`` instead of the company's own
-    stock, following the supervisor's "use a US index if you can't get enough
-    texts" guidance. Disabled unless a config supplies ``enabled = true``.
-    """
-
-    symbol: str
-    min_texts: int
+    provider: str = "yfinance"
+    cache_dir: Path | None = None
+    adjusted: bool = True
 
 
 @dataclass(frozen=True)
-class DecisionPolicyConfig:
-    min_valid_stories: int = 1
-    threshold: float = 0.0
-    transaction_cost_bps_per_side: float = 0.0
-    short_borrow_bps_per_day: float = 0.0
-    policy_version: str = "sentiment_threshold_v1"
+class CutoffConfig:
+    """LLM knowledge-cutoff contamination policy.
+
+    ``stratify`` (default) only annotates scores so results can be split pre/post
+    cutoff downstream — the frozen primary cell is untouched. ``post_only``
+    additionally restricts the traded signal to post-cutoff (contamination-free)
+    scores. ``ignore`` disables annotation. ``overrides`` maps a model id (or its
+    provider-suffix) to an authoritative ISO cutoff date.
+    """
+
+    policy: str = "stratify"
+    overrides: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -94,6 +110,7 @@ class TradingStrategyConfig:
     primary_model: str
     baselines: tuple[str, ...]
     consensus_enabled: bool
+    masking_mode: str
     prompt_id: str
     prompts_path: Path
     temperature: float
@@ -119,6 +136,8 @@ class TradingStrategyConfig:
     index_fallback: IndexFallback | None
     decision_policy_enabled: bool
     decision_policy: DecisionPolicyConfig
+    prices: PricesConfig
+    cutoff: CutoffConfig
     companies: tuple[TradingCompany, ...]
 
     @property
@@ -194,77 +213,18 @@ class SentimentScore:
     request_sha256: str | None = None
     model_digest: str | None = None
     scoring_text_truncated: bool = False
+    # Contamination metadata, filled by annotate_scores_with_cutoff (see model_roster).
+    model_knowledge_cutoff: str | None = None
+    is_post_cutoff: bool | None = None
+    # Entity-masking ablation metadata (see entity_masking).
+    masking_mode: str = "off"
+    entity_masked: bool = False
+    n_masked_tokens: int | None = None
 
 
-@dataclass(frozen=True)
-class DailySignal:
-    symbol: str
-    news_date: str
-    scorer_id: str
-    article_count: int
-    valid_count: int
-    mean_score: float | None
-    signal: str | None
-    signal_value: int | None
-    availability_timestamp: str | None = None
-
-
-@dataclass(frozen=True)
-class TradingDecision:
-    symbol: str
-    news_date: str
-    scorer_id: str
-    article_count: int
-    valid_count: int
-    mean_score: float | None
-    action: str
-    action_value: int
-    threshold: float
-    min_valid_stories: int
-    policy_version: str
-    reason: str
-    availability_timestamp: str | None = None
-
-
-@dataclass(frozen=True)
-class PriceRow:
-    symbol: str
-    session_date: str
-    open: float
-    high: float
-    low: float
-    close: float
-    volume: float
-    repaired: bool
-
-
-@dataclass(frozen=True)
-class ReturnRow:
-    symbol: str
-    traded_symbol: str
-    index_fallback: bool
-    news_date: str
-    scorer_id: str
-    mean_score: float
-    signal: str
-    signal_value: int
-    d_adjusted_close: float | None
-    entry_date: str
-    entry_adjusted_open: float
-    horizon: int
-    exit_date: str
-    exit_adjusted_close: float
-    market_return: float
-    strategy_return: float
-    strategy_return_pct: float
-    pnl_usd: float
-    notional_usd: float
-    action: str
-    transaction_cost: float
-    net_strategy_return: float
-    net_strategy_return_pct: float
-    net_pnl_usd: float
-    availability_timestamp: str | None = None
+# ``DailySignal``, ``TradingDecision`` and ``ReturnRow`` now live in ``backtest``
+# (``PriceRow`` in ``prices``); imported above and re-exported here for
+# backwards compatibility with existing call sites/tests.
 
 
 @dataclass(frozen=True)
@@ -357,6 +317,17 @@ def _build_trading_config(raw: dict[str, Any], config_path: Path) -> TradingStra
             if index_fallback_raw.get("enabled")
             else None
         )
+        prices_raw = raw.get("prices") or {}
+        prices = PricesConfig(
+            provider=str(prices_raw.get("provider", "yfinance")).strip().lower(),
+            cache_dir=Path(prices_raw["cache_dir"]) if prices_raw.get("cache_dir") else None,
+            adjusted=bool(prices_raw.get("adjusted", True)),
+        )
+        cutoff_raw = raw.get("cutoff") or {}
+        cutoff = CutoffConfig(
+            policy=str(cutoff_raw.get("policy", "stratify")).strip().lower(),
+            overrides={str(key): str(value) for key, value in (cutoff_raw.get("overrides") or {}).items()},
+        )
         config = TradingStrategyConfig(
             run_id=str(run["id"]).strip(),
             title=str(run["title"]).strip(),
@@ -369,6 +340,7 @@ def _build_trading_config(raw: dict[str, Any], config_path: Path) -> TradingStra
             primary_model=primary_model,
             baselines=baselines,
             consensus_enabled=consensus_enabled,
+            masking_mode=str(scoring.get("masking_mode", "off")).strip().lower(),
             prompt_id=str(scoring["prompt_id"]).strip(),
             prompts_path=Path(scoring.get("prompts_path", "configs/default_prompts.toml")),
             temperature=float(scoring.get("temperature", 0.0)),
@@ -396,6 +368,8 @@ def _build_trading_config(raw: dict[str, Any], config_path: Path) -> TradingStra
             index_fallback=index_fallback,
             decision_policy_enabled=decision_policy_enabled,
             decision_policy=decision_policy,
+            prices=prices,
+            cutoff=cutoff,
             companies=companies,
         )
     except (KeyError, TypeError, ValueError) as exc:
@@ -421,6 +395,10 @@ def _validate_trading_config(config: TradingStrategyConfig) -> None:
         raise TradingStrategyError("run.id must contain only letters, numbers, dots, underscores, or hyphens")
     if not config.companies:
         raise TradingStrategyError("at least one [[companies]] entry is required")
+    if config.cutoff.policy not in {"ignore", "stratify", "post_only"}:
+        raise TradingStrategyError("cutoff.policy must be ignore, stratify, or post_only")
+    if config.masking_mode not in {"off", "on", "both"}:
+        raise TradingStrategyError("scoring.masking_mode must be off, on, or both")
     if len({company.symbol for company in config.companies}) != len(config.companies):
         raise TradingStrategyError("company symbols must be unique")
     if config.provider not in {"openrouter", "ollama"}:
@@ -926,19 +904,22 @@ def _desired_score_key(
 
 def _sentiment_from_response(
     article: MergedArticle,
-    model_id: str,
+    scorer_id: str,
     record: LLMResponseRecord,
     cost: float | None,
     *,
     request_sha256: str,
     model_digest: str | None,
+    masking_mode: str = "off",
+    entity_masked: bool = False,
+    n_masked_tokens: int | None = None,
 ) -> SentimentScore:
     label = record.normalized_label if record.normalized_label in LABEL_VALUES else None
     return SentimentScore(
         article_id=article.article_id,
         symbol=article.symbol,
         news_date=article.published_date_local,
-        scorer_id=model_id,
+        scorer_id=scorer_id,
         scorer_kind="llm",
         label=label,
         label_value=LABEL_VALUES.get(label) if label else None,
@@ -959,6 +940,9 @@ def _sentiment_from_response(
         request_sha256=request_sha256,
         model_digest=model_digest,
         scoring_text_truncated=article.scoring_text_truncated,
+        masking_mode=masking_mode,
+        entity_masked=entity_masked,
+        n_masked_tokens=n_masked_tokens,
     )
 
 
@@ -991,6 +975,10 @@ async def score_articles(
     model_digests: dict[str, str | None] | None = None,
     request_settings: dict[str, Any] | None = None,
     strict_resume_identity: bool = False,
+    scorer_suffix: str = "",
+    masking_mode: str = "off",
+    entity_masked: bool = False,
+    masked_token_counts: dict[str, int] | None = None,
 ) -> list[SentimentScore]:
     accepted = [article for article in articles if article.screening_decision == "include"]
     existing_scores = _load_existing_scores(resume_path) if resume_path else []
@@ -1007,17 +995,20 @@ async def score_articles(
     resolved_model_digests = model_digests or {}
 
     async def classify(index: int, article: MergedArticle, model_id: str) -> SentimentScore:
+        # API call uses the bare model id; the score is tagged with the (possibly
+        # suffixed) scorer id so masked/unmasked arms resume independently.
+        scorer_id = f"{model_id}{scorer_suffix}"
         if strict_resume_identity:
             key = _desired_score_key(
                 article,
-                model_id,
+                scorer_id,
                 prompt.prompt_hash,
                 request_sha256,
                 resolved_model_digests.get(model_id),
             )
             existing = existing_identity.get(key)
         else:
-            existing = existing_legacy.get(_score_key(article.article_id, model_id))
+            existing = existing_legacy.get(_score_key(article.article_id, scorer_id))
         if existing is not None and existing.status == "success":
             return existing
         example = BlindExample(row_number=index, sentence=article.scoring_text)
@@ -1041,11 +1032,14 @@ async def score_articles(
                     cost = None
             return _sentiment_from_response(
                 article,
-                model_id,
+                scorer_id,
                 response,
                 cost,
                 request_sha256=request_sha256,
                 model_digest=resolved_model_digests.get(model_id),
+                masking_mode=masking_mode,
+                entity_masked=entity_masked,
+                n_masked_tokens=(masked_token_counts or {}).get(article.article_id),
             )
 
     tasks = [
@@ -1070,8 +1064,11 @@ async def score_articles(
                     article_id=article.article_id,
                     symbol=article.symbol,
                     news_date=article.published_date_local,
-                    scorer_id="baseline/vader",
+                    scorer_id=f"baseline/vader{scorer_suffix}",
                     scorer_kind="baseline",
+                    masking_mode=masking_mode,
+                    entity_masked=entity_masked,
+                    n_masked_tokens=(masked_token_counts or {}).get(article.article_id),
                     label=result.label,
                     label_value=LABEL_VALUES[result.label],
                     status="success",
@@ -1098,8 +1095,11 @@ async def score_articles(
                     article_id=article.article_id,
                     symbol=article.symbol,
                     news_date=article.published_date_local,
-                    scorer_id="baseline/finbert",
+                    scorer_id=f"baseline/finbert{scorer_suffix}",
                     scorer_kind="baseline",
+                    masking_mode=masking_mode,
+                    entity_masked=entity_masked,
+                    n_masked_tokens=(masked_token_counts or {}).get(article.article_id),
                     label=label,
                     label_value=LABEL_VALUES.get(label) if label else None,
                     status="success" if label else "malformed_response",
@@ -1170,6 +1170,71 @@ def article_consensus(scores: list[SentimentScore], models: tuple[str, ...]) -> 
     return sorted(consensus, key=lambda row: (row.news_date, row.symbol, row.article_id))
 
 
+def annotate_scores_with_cutoff(
+    scores: list[SentimentScore],
+    config: TradingStrategyConfig,
+) -> list[SentimentScore]:
+    """Stamp each score with its scorer's knowledge cutoff and ``is_post_cutoff``.
+
+    Pure metadata — does not change labels or returns. A consensus scorer takes
+    the most-conservative (latest) cutoff across the model roster; dictionary/ML
+    baselines have no cutoff (``None``). Returns a new list; inputs are unchanged.
+    """
+    overrides = config.cutoff.overrides
+    consensus_cut = roster_cutoff(config.models, overrides)
+    annotated: list[SentimentScore] = []
+    for score in scores:
+        if score.scorer_id.startswith("consensus"):
+            cutoff = consensus_cut
+        elif score.scorer_id.startswith("baseline/"):
+            cutoff = None
+        else:
+            cutoff = knowledge_cutoff(score.scorer_id, overrides)
+        try:
+            event = date.fromisoformat(score.news_date)
+        except ValueError:
+            event = None
+        annotated.append(
+            replace(
+                score,
+                model_knowledge_cutoff=cutoff.isoformat() if cutoff is not None else None,
+                is_post_cutoff=is_post_cutoff(event, cutoff),
+            )
+        )
+    return annotated
+
+
+def _mask_articles(
+    articles: list[MergedArticle],
+    companies: dict[str, TradingCompany],
+) -> tuple[list[MergedArticle], dict[str, int]]:
+    """Entity-masked copies of ``articles`` (anonymised ``scoring_text`` and a
+    refreshed hash) plus a per-article count of masked mentions. Articles whose
+    symbol has no company entry pass through unmasked."""
+    masked: list[MergedArticle] = []
+    counts: dict[str, int] = {}
+    for article in articles:
+        company = companies.get(article.symbol)
+        if company is None:
+            masked.append(article)
+            continue
+        result = mask_entities(
+            article.scoring_text,
+            name=company.name,
+            ticker=company.symbol,
+            aliases=company.aliases,
+        )
+        counts[article.article_id] = result.n_masked
+        masked.append(
+            replace(
+                article,
+                scoring_text=result.masked_text,
+                scoring_text_sha256=hashlib.sha256(result.masked_text.encode()).hexdigest(),
+            )
+        )
+    return masked, counts
+
+
 def daily_signals(
     articles: list[MergedArticle],
     scores: list[SentimentScore],
@@ -1229,184 +1294,31 @@ def daily_signals(
     return results
 
 
-def make_trading_decisions(
-    signals: list[DailySignal],
-    policy: DecisionPolicyConfig,
-) -> list[TradingDecision]:
-    decisions: list[TradingDecision] = []
-    for signal in signals:
-        if signal.mean_score is None or signal.valid_count == 0:
-            action, action_value, reason = "hold", 0, "no_valid_sentiment"
-        elif signal.valid_count < policy.min_valid_stories:
-            action, action_value, reason = "hold", 0, "insufficient_valid_stories"
-        elif signal.mean_score > 0 and signal.mean_score >= policy.threshold:
-            action, action_value, reason = "buy", 1, "positive_mean_meets_threshold"
-        elif signal.mean_score < 0 and signal.mean_score <= -policy.threshold:
-            action, action_value, reason = "sell", -1, "negative_mean_meets_threshold"
-        else:
-            action, action_value, reason = "hold", 0, "inside_no_trade_band"
-        decisions.append(
-            TradingDecision(
-                symbol=signal.symbol,
-                news_date=signal.news_date,
-                scorer_id=signal.scorer_id,
-                article_count=signal.article_count,
-                valid_count=signal.valid_count,
-                mean_score=signal.mean_score,
-                action=action,
-                action_value=action_value,
-                threshold=policy.threshold,
-                min_valid_stories=policy.min_valid_stories,
-                policy_version=policy.policy_version,
-                reason=reason,
-                availability_timestamp=signal.availability_timestamp,
-            )
-        )
-    return decisions
-
-
-def fetch_price_rows(config: TradingStrategyConfig) -> list[PriceRow]:
-    try:
-        import yfinance as yf
-    except ImportError as exc:
-        raise TradingStrategyError("yfinance is required for trading price data") from exc
+def _price_window(config: TradingStrategyConfig) -> tuple[str, str]:
+    """Inclusive start / exclusive end (ISO dates) covering every news date plus
+    enough forward sessions to realise the longest horizon."""
     start = min(config.dates)
     requested_end = max(date.fromisoformat(value) for value in config.dates) + timedelta(days=max(config.horizons) * 3 + 7)
     end = min(requested_end, date.today() + timedelta(days=1)).isoformat()
+    return start, end
+
+
+def fetch_price_rows(config: TradingStrategyConfig) -> list[PriceRow]:
+    """Adapter from config to the injectable ``price_loader`` seam: builds a
+    :class:`~sentiment_benchmark.prices.PriceProvider` and fetches the window."""
     symbols = [company.symbol for company in config.companies]
     if config.index_fallback is not None and config.index_fallback.symbol not in symbols:
         symbols.append(config.index_fallback.symbol)
-    rows: list[PriceRow] = []
-    for symbol in symbols:
-        frame = yf.download(
-            symbol,
-            start=start,
-            end=end,
-            interval="1d",
-            auto_adjust=True,
-            actions=False,
-            repair=True,
-            keepna=False,
-            progress=False,
-            threads=False,
-            multi_level_index=False,
-        )
-        if frame is None or frame.empty:
-            raise TradingStrategyError(f"no Yahoo Finance prices returned for {symbol}")
-        for index, value in frame.iterrows():
-            session_date = index.date().isoformat()
-            repaired_value = value.get("Repaired?", False)
-            rows.append(
-                PriceRow(
-                    symbol=symbol,
-                    session_date=session_date,
-                    open=float(value["Open"]),
-                    high=float(value["High"]),
-                    low=float(value["Low"]),
-                    close=float(value["Close"]),
-                    volume=float(value["Volume"]),
-                    repaired=bool(repaired_value),
-                )
-            )
-    return sorted(rows, key=lambda row: (row.symbol, row.session_date))
-
-
-def calculate_returns(
-    signals: list[DailySignal] | list[TradingDecision],
-    prices: list[PriceRow],
-    *,
-    horizons: tuple[int, ...],
-    notional_usd: float,
-    index_fallback: IndexFallback | None = None,
-    transaction_cost_bps_per_side: float = 0.0,
-    short_borrow_bps_per_day: float = 0.0,
-    timezone: str = "America/New_York",
-) -> list[ReturnRow]:
-    prices_by_symbol: dict[str, list[PriceRow]] = defaultdict(list)
-    for row in prices:
-        prices_by_symbol[row.symbol].append(row)
-    returns: list[ReturnRow] = []
-    for signal in signals:
-        if isinstance(signal, TradingDecision):
-            if signal.action == "hold" or signal.mean_score is None:
-                continue
-            signal_name = "positive" if signal.action == "buy" else "negative"
-            signal_value = signal.action_value
-            action = signal.action
-        else:
-            if signal.signal is None or signal.signal_value is None or signal.mean_score is None:
-                continue
-            signal_name = signal.signal
-            signal_value = signal.signal_value
-            action = "buy" if signal_value > 0 else "sell" if signal_value < 0 else "hold"
-        use_fallback = index_fallback is not None and signal.article_count < index_fallback.min_texts
-        traded_symbol = index_fallback.symbol if index_fallback is not None and use_fallback else signal.symbol
-        symbol_prices = prices_by_symbol.get(traded_symbol, [])
-        d_price = next((row for row in symbol_prices if row.session_date == signal.news_date), None)
-        if signal.availability_timestamp:
-            try:
-                available_at = datetime.fromisoformat(signal.availability_timestamp.replace("Z", "+00:00"))
-            except ValueError as exc:
-                raise TradingStrategyError(
-                    f"invalid availability timestamp for {signal.symbol}: {signal.availability_timestamp}"
-                ) from exc
-            if available_at.tzinfo is None:
-                raise TradingStrategyError(
-                    f"availability timestamp must include an offset: {signal.availability_timestamp}"
-                )
-            exchange_zone = ZoneInfo(timezone)
-            future = [
-                row
-                for row in symbol_prices
-                if datetime.combine(date.fromisoformat(row.session_date), time(9, 30), exchange_zone) > available_at
-            ]
-        else:
-            future = [row for row in symbol_prices if row.session_date > signal.news_date]
-        if len(future) < max(horizons):
-            raise TradingStrategyError(
-                f"incomplete price horizon for {traded_symbol} on {signal.news_date}: "
-                f"need {max(horizons)} future sessions, found {len(future)}"
-            )
-        entry = future[0]
-        if entry.open <= 0:
-            raise TradingStrategyError(f"invalid entry price for {traded_symbol} on {entry.session_date}")
-        for horizon in horizons:
-            exit_row = future[horizon - 1]
-            market_return = exit_row.close / entry.open - 1
-            strategy_return = signal_value * market_return
-            transaction_cost = transaction_cost_bps_per_side * 2 / 10_000
-            short_borrow_cost = short_borrow_bps_per_day * horizon / 10_000 if signal_value < 0 else 0.0
-            net_strategy_return = strategy_return - transaction_cost - short_borrow_cost
-            returns.append(
-                ReturnRow(
-                    symbol=signal.symbol,
-                    traded_symbol=traded_symbol,
-                    index_fallback=use_fallback,
-                    news_date=signal.news_date,
-                    scorer_id=signal.scorer_id,
-                    mean_score=signal.mean_score,
-                    signal=signal_name,
-                    signal_value=signal_value,
-                    d_adjusted_close=d_price.close if d_price else None,
-                    entry_date=entry.session_date,
-                    entry_adjusted_open=entry.open,
-                    horizon=horizon,
-                    exit_date=exit_row.session_date,
-                    exit_adjusted_close=exit_row.close,
-                    market_return=market_return,
-                    strategy_return=strategy_return,
-                    strategy_return_pct=strategy_return * 100,
-                    pnl_usd=strategy_return * notional_usd,
-                    notional_usd=notional_usd,
-                    action=action,
-                    transaction_cost=transaction_cost + short_borrow_cost,
-                    net_strategy_return=net_strategy_return,
-                    net_strategy_return_pct=net_strategy_return * 100,
-                    net_pnl_usd=net_strategy_return * notional_usd,
-                    availability_timestamp=signal.availability_timestamp,
-                )
-            )
-    return returns
+    start, end = _price_window(config)
+    provider = make_price_provider(
+        config.prices.provider,
+        cache_dir=config.prices.cache_dir,
+        adjusted=config.prices.adjusted,
+    )
+    try:
+        return provider.fetch(symbols, start, end)
+    except PriceProviderError as exc:
+        raise TradingStrategyError(str(exc)) from exc
 
 
 def _write_csv(path: Path, rows: list[dict[str, Any]], fieldnames: list[str] | None = None) -> None:
@@ -1604,6 +1516,18 @@ def write_charts(config: TradingStrategyConfig, articles: list[MergedArticle], r
     fig.savefig(path, dpi=180)
     plt.close(fig)
     paths.append(path)
+
+    # Equity curve for the primary scorer at the longest horizon.
+    primary_returns = [row for row in returns if row.scorer_id == config.primary_model]
+    if primary_returns:
+        equity = build_equity_curve(primary_returns, horizon=max(config.horizons))
+        equity_path = plot_equity_curve(
+            equity,
+            config.results_dir / "equity_curve.png",
+            title=f"Equity curve — {config.primary_model} (H{max(config.horizons)})",
+        )
+        if equity_path is not None:
+            paths.append(equity_path)
     return paths
 
 
@@ -1637,6 +1561,9 @@ def write_run_outputs(
     _write_csv(decision_csv, [asdict(row) for row in decisions])
     _write_csv(price_csv, [asdict(row) for row in prices])
     _write_csv(return_csv, [asdict(row) for row in returns])
+    # Contamination sensitivity tables (layered on top of the frozen primary):
+    # cutoff stratification always; masked-vs-unmasked only when a masked arm ran.
+    write_sensitivity_csvs(config.results_dir, returns, config.models, config.cutoff.overrides)
     summary_path = write_summary(config, articles, signals, decisions, returns)
     charts = write_charts(config, articles, returns)
     lseg_source_manifest: dict[str, Any] | None = None
@@ -1878,32 +1805,72 @@ async def run_trading_strategy(
         "structured_output": config.structured_output if config.provider == "ollama" else False,
     }
     score_jsonl = config.results_dir / "sentiment_scores.jsonl"
-    scores = await score_articles(
-        articles,
-        models=config.models,
-        prompt=prompts[config.prompt_id],
-        client=llm_client,
-        output_path=score_jsonl,
-        resume_path=config.resume_scores_path,
-        temperature=config.temperature,
-        max_completion_tokens=config.max_completion_tokens,
-        concurrency=config.concurrency,
-        retries=config.retries,
-        baselines=config.baselines,
-        model_digests=model_digests,
-        request_settings=request_settings,
-        strict_resume_identity=config.lseg_corpus_manifest is not None,
-    )
+    common_kwargs: dict[str, Any] = {
+        "models": config.models,
+        "prompt": prompts[config.prompt_id],
+        "client": llm_client,
+        "resume_path": config.resume_scores_path,
+        "temperature": config.temperature,
+        "max_completion_tokens": config.max_completion_tokens,
+        "concurrency": config.concurrency,
+        "retries": config.retries,
+        "baselines": config.baselines,
+        "model_digests": model_digests,
+        "request_settings": request_settings,
+        "strict_resume_identity": config.lseg_corpus_manifest is not None,
+    }
+    companies_by_symbol = {company.symbol: company for company in config.companies}
+    masked_scores: list[SentimentScore] = []
+    if config.masking_mode == "on":
+        # Fully masked run: base scorer ids, anonymised text.
+        masked_articles, masked_counts = _mask_articles(articles, companies_by_symbol)
+        scores = await score_articles(
+            masked_articles,
+            output_path=score_jsonl,
+            masking_mode="on",
+            entity_masked=True,
+            masked_token_counts=masked_counts,
+            **common_kwargs,
+        )
+    else:
+        scores = await score_articles(articles, output_path=score_jsonl, masking_mode=config.masking_mode, **common_kwargs)
+        if config.masking_mode == "both":
+            # Parallel masked arm under "#masked" scorer ids for the ablation.
+            masked_articles, masked_counts = _mask_articles(articles, companies_by_symbol)
+            masked_scores = await score_articles(
+                masked_articles,
+                output_path=config.results_dir / "sentiment_scores_masked.jsonl",
+                scorer_suffix="#masked",
+                masking_mode="both",
+                entity_masked=True,
+                masked_token_counts=masked_counts,
+                **common_kwargs,
+            )
     consensus = article_consensus(scores, config.models) if config.consensus_enabled else []
-    all_scores = sorted(scores + consensus, key=lambda row: (row.news_date, row.symbol, row.article_id, row.scorer_id))
+    all_scores = sorted(
+        scores + masked_scores + consensus,
+        key=lambda row: (row.news_date, row.symbol, row.article_id, row.scorer_id),
+    )
+    if config.cutoff.policy != "ignore":
+        all_scores = annotate_scores_with_cutoff(all_scores, config)
+    masked_arm = config.masking_mode == "both"
     scorer_ids = (
         *config.models,
         *(('consensus/majority',) if config.consensus_enabled else ()),
         *(f"baseline/{name}" for name in config.baselines),
+        *((f"{model}#masked" for model in config.models) if masked_arm else ()),
+        *((f"baseline/{name}#masked" for name in config.baselines) if masked_arm else ()),
+    )
+    # post_only restricts the *traded* signal to contamination-free scores; the
+    # full annotated set is still written to outputs for auditing/stratification.
+    signal_scores = (
+        [score for score in all_scores if score.is_post_cutoff is not False]
+        if config.cutoff.policy == "post_only"
+        else all_scores
     )
     signals = daily_signals(
         articles,
-        all_scores,
+        signal_scores,
         scorer_ids,
         config.dates,
         tuple(company.symbol for company in config.companies),

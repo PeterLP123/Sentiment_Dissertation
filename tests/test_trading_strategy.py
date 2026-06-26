@@ -20,6 +20,7 @@ from sentiment_benchmark.trading_strategy import (
     TradingCompany,
     TradingDecision,
     TradingStrategyError,
+    _mask_articles,
     apply_screening_overrides,
     article_consensus,
     calculate_returns,
@@ -669,3 +670,80 @@ def test_index_fallback_enabled_requires_symbol(tmp_path: Path) -> None:
     config_path.write_text(base + "\n[index_fallback]\nenabled = true\nmin_texts = 2\n")
     with pytest.raises(TradingStrategyError, match="index_fallback.symbol is required"):
         load_trading_config(config_path)
+
+
+class CapturingLlm:
+    """Fake LLM that records the text it was asked to score."""
+
+    def __init__(self) -> None:
+        self.sentences: list[str] = []
+
+    async def classify(self, model_id, prompt, example, **_kwargs):
+        self.sentences.append(example.sentence)
+        return LLMResponseRecord(
+            row_number=example.row_number,
+            model_id=model_id,
+            prompt_hash=prompt.prompt_hash,
+            raw_content="positive",
+            normalized_label="positive",
+            parse_status="valid",
+            status="success",
+            latency_ms=1,
+            total_tokens=2,
+        )
+
+
+def _apple_article():
+    return merge_article_candidates(
+        [_candidate("newsapi", _record("https://x.test/apple", "Apple wins large contract", "2026-06-10"))],
+        timezone="America/New_York",
+        selected_dates=("2026-06-10",),
+    )
+
+
+def test_mask_articles_anonymises_scoring_text_and_counts() -> None:
+    articles = _apple_article()
+    masked, counts = _mask_articles(articles, {"AAPL": COMPANY})
+
+    assert "Apple" not in masked[0].scoring_text
+    assert "[COMPANY]" in masked[0].scoring_text
+    assert counts[articles[0].article_id] >= 1
+    # The masked copy carries a refreshed content hash.
+    assert masked[0].scoring_text_sha256 != articles[0].scoring_text_sha256
+
+
+def test_score_articles_masked_arm_tags_scores_and_sends_masked_text(tmp_path: Path) -> None:
+    articles = _apple_article()
+    masked, counts = _mask_articles(articles, {"AAPL": COMPANY})
+    client = CapturingLlm()
+    prompt = load_prompts(Path("configs/default_prompts.toml"))["target_company_news_label_only"]
+
+    scores = asyncio.run(
+        score_articles(
+            masked,
+            models=("a",),
+            prompt=prompt,
+            client=client,
+            output_path=tmp_path / "masked.jsonl",
+            resume_path=None,
+            temperature=0.0,
+            max_completion_tokens=64,
+            concurrency=1,
+            retries=0,
+            baselines=(),
+            scorer_suffix="#masked",
+            masking_mode="both",
+            entity_masked=True,
+            masked_token_counts=counts,
+        )
+    )
+
+    # The masked arm actually sent anonymised text to the model.
+    assert "[COMPANY]" in client.sentences[0]
+    assert "Apple" not in client.sentences[0]
+    # Scores are tagged for the ablation under a distinct scorer id.
+    assert len(scores) == 1
+    assert scores[0].scorer_id == "a#masked"
+    assert scores[0].entity_masked is True
+    assert scores[0].masking_mode == "both"
+    assert scores[0].n_masked_tokens == counts[articles[0].article_id]

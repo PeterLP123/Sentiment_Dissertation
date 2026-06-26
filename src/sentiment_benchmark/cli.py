@@ -107,7 +107,16 @@ from .runner import BenchmarkRunner
 from .sc_runner import SelfConsistencyRunner
 from .self_consistency import SelfConsistencyResult
 from .storage import BenchmarkStore
+from .strategy_sweep import (
+    ParameterGrid,
+    chronological_split_date,
+    load_prices_csv,
+    load_signals_csv,
+    sweep,
+    write_sweep_csv,
+)
 from .trading_analysis import TradingAnalysisError, analyze_trading_run
+from .trading_plots import plot_sweep_heatmap
 from .trading_strategy import (
     TradingStrategyError,
     describe_trading_plan,
@@ -763,6 +772,83 @@ def analyze_trading_run_command(
     table.add_row("Analysis manifest", str(result.manifest_path))
     table.add_row("Generated files", str(len(result.generated_files)))
     console.print(table)
+
+
+@app.command("sweep-trading-strategy")
+def sweep_trading_strategy_command(
+    run_dir: Annotated[
+        Path,
+        typer.Option("--run-dir", help="Completed trading run directory (reads daily_signals.csv + prices.csv)."),
+    ],
+    scorer: Annotated[
+        str,
+        typer.Option("--scorer", help="scorer_id to tune, e.g. consensus/majority or openai/gpt-4o-mini."),
+    ] = "consensus/majority",
+    thresholds: Annotated[
+        str,
+        typer.Option("--thresholds", help="Comma-separated decision thresholds."),
+    ] = "0.0,0.1,0.2,0.3",
+    horizons: Annotated[
+        str,
+        typer.Option("--horizons", help="Comma-separated holding horizons (trading sessions)."),
+    ] = "1,3,5",
+    metric: Annotated[
+        str,
+        typer.Option("--metric", help="Selection metric: mean_return, hit_rate, or sharpe."),
+    ] = "sharpe",
+    train_fraction: Annotated[
+        float,
+        typer.Option("--train-fraction", min=0.05, max=0.95, help="Fraction of distinct dates used to tune."),
+    ] = 0.6,
+    output: Annotated[
+        Path | None,
+        typer.Option("--output", help="Where to write sweep.csv (default: <run-dir>/sweep.csv)."),
+    ] = None,
+) -> None:
+    """Tune decision-policy parameters on a completed run, selecting on a training
+    split only and reporting held-out test metrics (no look-ahead in tuning)."""
+    try:
+        signals = [s for s in load_signals_csv(run_dir / "daily_signals.csv") if s.scorer_id == scorer]
+        prices = load_prices_csv(run_dir / "prices.csv")
+    except OSError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    if not signals:
+        raise typer.BadParameter(f"no daily signals for scorer {scorer!r} in {run_dir}")
+    grid = ParameterGrid(
+        thresholds=tuple(float(value) for value in thresholds.split(",") if value.strip()),
+        horizons=tuple(int(value) for value in horizons.split(",") if value.strip()),
+    )
+    try:
+        split_date = chronological_split_date([s.news_date for s in signals], train_fraction)
+        results = sweep(signals, prices, grid, split_date=split_date, notional_usd=10_000.0, metric=metric)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    destination = output or (run_dir / "sweep.csv")
+    write_sweep_csv(results, destination)
+    heatmap_path = plot_sweep_heatmap(
+        results,
+        destination.with_name("sweep_heatmap.png"),
+        attr="test_metric",
+        title=f"Sweep test {metric} — {scorer}",
+    )
+
+    table = Table(title=f"Parameter sweep — {metric}, scorer={scorer} (train split before {split_date})")
+    for column in ("threshold", "horizon", "n_train", "n_test", "train", "test", "selected"):
+        table.add_column(column)
+    for result in results:
+        table.add_row(
+            f"{result.threshold:g}",
+            str(result.horizon),
+            str(result.n_train),
+            str(result.n_test),
+            "—" if result.train_metric is None else f"{result.train_metric:.4f}",
+            "—" if result.test_metric is None else f"{result.test_metric:.4f}",
+            "★" if result.selected else "",
+        )
+    console.print(table)
+    console.print(f"[green]Wrote[/green] {destination}")
+    if heatmap_path is not None:
+        console.print(f"[green]Wrote[/green] {heatmap_path}")
 
 
 @app.command("package-news")
