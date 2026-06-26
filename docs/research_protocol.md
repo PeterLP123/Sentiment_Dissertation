@@ -283,8 +283,18 @@ documented in the dissertation text.
   threshold *L* and any sizing parameters are tuned on the training split only.
 - News-before-decision timestamp rule: a trading decision may only use news with
   timestamps strictly before the decision point.
-- Memorization caveat: models may have memorized outcomes for pre-training-cutoff text;
-  this look-ahead risk is acknowledged and cited rather than instrumented.
+- Memorization / look-ahead is now instrumented, not just acknowledged. Each sentiment
+  score is stamped with its scorer's training knowledge cutoff and an `is_post_cutoff`
+  flag, so event returns are stratified into contamination-free (event after cutoff) vs
+  potentially contaminated (event at/before cutoff). The `[cutoff]` policy defaults to
+  `stratify` — it only annotates and reports (`sensitivity_cutoff.csv`), leaving the
+  frozen primary cell untouched — while `post_only` restricts the traded signal to
+  contamination-free scores. A complementary entity-masking ablation
+  (`[scoring].masking_mode = both`) re-scores each item with the company name, ticker,
+  and aliases replaced by `[COMPANY]`/`[TICKER]` placeholders, isolating the model's
+  memorized name-prior from text-driven sentiment (`sensitivity_masking.csv`). Note these
+  are two distinct axes: the LLM knowledge cutoff (model training date vs event date) is
+  separate from the analyst out-of-time holdout.
 
 ### LSEG Local-Model Evaluation
 

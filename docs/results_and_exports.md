@@ -13,7 +13,7 @@ This reference explains where benchmark evidence is stored, what gets exported, 
 | `Data/news/tavily_news_*/` | `fetch-news` or TUI News tab | Unlabeled Tavily article corpora. | Ignored except `.gitkeep`. |
 | `Data/news/newsapi_news_*/` | `fetch-newsapi` or the trading runner | NewsAPI titles, descriptions, timestamps, and provenance. | Ignored except `.gitkeep`. |
 | `Data/derived/trading/<run-id>/` | `run-trading-strategy` | Provider-neutral articles, screening decisions, and data manifest. | Ignored. |
-| `results/trading/<run-id>/` | `run-trading-strategy` | Sentiment outputs, daily signals, adjusted prices, horizon returns, figures, summary, and run manifest. | Ignored. |
+| `results/trading/<run-id>/` | `run-trading-strategy` | Sentiment outputs, daily signals, adjusted prices, horizon returns, contamination sensitivity tables, figures (incl. the equity curve), summary, and run manifest. | Ignored. |
 | `results/trading/<analysis-id>/` | `analyze-trading-run` | Robustness CSVs, plots, technical summary, source map, and hashed analysis manifest. | Ignored. |
 | `experiments/manifest.toml` | Manual curation | Formal dissertation experiment registry. | Source-controlled. |
 
@@ -234,4 +234,10 @@ For formal results:
 
 `Data/news/lseg_<collection-id>/manifest.json` hashes raw aggregate files and checkpoint state. `Data/derived/lseg/<collection-id>/manifest.json` hashes cleaned article revisions and records cleaner/package versions and quality counts. Both directories contain licensed local-only content and remain ignored.
 
-Completed trading runs add `trading_decisions.csv` alongside `sentiment_scores.csv`, `daily_signals.csv`, `prices.csv`, and `returns.csv`. Decisions retain holds and their reasons; return rows include trades only when the signal policy is enabled. Return exports contain gross and net return/P&L columns, availability timestamp, two-sided transaction costs, and the disclosed short-borrow assumption. The run manifest records corpus hashes, model tags/digests, prompt and request identity, policy settings, and traded-decision counts.
+Completed trading runs add `trading_decisions.csv` alongside `sentiment_scores.csv`, `daily_signals.csv`, `prices.csv`, and `returns.csv`. Decisions retain holds and their reasons; return rows include trades only when the signal policy is enabled. Return exports contain gross and net return/P&L columns, availability timestamp, two-sided transaction costs, and the disclosed short-borrow assumption. Each sentiment score also carries its scorer's `model_knowledge_cutoff`/`is_post_cutoff` and `masking_mode`/`entity_masked`/`n_masked_tokens`. The run manifest records corpus hashes, model tags/digests, prompt and request identity, policy settings, and traded-decision counts.
+
+### Contamination sensitivity and tuning artifacts
+
+Runs also write `sensitivity_cutoff.csv` (mean net return and hit rate split by post- vs pre-knowledge-cutoff per scorer and horizon) and, when a masked arm ran (`[scoring].masking_mode = both`), `sensitivity_masking.csv` (masked vs unmasked). `equity_curve.png` plots cumulative net P&L for the primary scorer. These are descriptive sensitivity layers and do not alter the pre-registered primary cell.
+
+`sweep-trading-strategy` reads a completed run's `daily_signals.csv` and `prices.csv` and writes `sweep.csv` (every grid point with train/test metrics and the selected row) plus `sweep_heatmap.png` (threshold × horizon). Parameters are selected on the training split only.

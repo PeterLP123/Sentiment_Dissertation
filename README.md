@@ -41,8 +41,9 @@ See [Research protocol](docs/research_protocol.md) and the [Week 4 pre-registrat
 | Tavily dataset packaging | Batch-fetch query families and package shareable source datasets. | `sentiment-bench fetch-news-batch`, `package-news` |
 | NewsAPI sourcing | Page through dated article titles and descriptions with source manifests. | `sentiment-bench newsapi-check`, `fetch-newsapi` |
 | LSEG Workspace research corpus | Create preset collection configs, collect entitled stories immutably, clean them offline, catalog corpora, and create seeded local validation sheets. | `lseg-init-config`, `fetch-lseg-news`, `build-lseg-corpus`, `lseg-catalog` |
-| Trading pilot | Merge and screen news, score three LLMs plus VADER, and calculate next-session event returns. | `sentiment-bench run-trading-strategy` |
+| Trading pilot | Merge and screen news, score three LLMs plus VADER, optionally run an entity-masked arm and knowledge-cutoff stratification, and calculate next-session event returns. | `sentiment-bench run-trading-strategy` |
 | Trading robustness report | Bootstrap event means, compare scorers, test company sensitivity, and render meeting-ready plots. | `sentiment-bench analyze-trading-run` |
+| Parameter sweep | Tune decision threshold and horizon on a completed run, selecting on a training split only. | `sentiment-bench sweep-trading-strategy` |
 | Terminal UI | Run the same workflows interactively with tabs for models, prompts, runs, results, and news. | `sentiment-bench tui` |
 
 ## Quick Start
@@ -139,6 +140,8 @@ sentiment-bench run-trading-strategy --config configs/week3_trading_pilot.toml
 sentiment-bench analyze-trading-run \
   --run-dir results/trading/<run-id> \
   --output-dir results/trading/<analysis-id>
+sentiment-bench sweep-trading-strategy \
+  --run-dir results/trading/<run-id> --scorer consensus/majority
 ```
 
 Collect an entitled LSEG corpus and run the local-model policy:
@@ -209,7 +212,7 @@ Generated artifacts are intentionally separated:
 | `Data/news/` | Tavily and NewsAPI article corpora for later review or trading inputs. | Ignored except `.gitkeep`. |
 | `Data/derived/lseg/` | Clean, manifest-backed LSEG corpora and local annotation sheets. | Ignored. |
 | `Data/derived/trading/` | Provider-neutral merged articles and screening decisions. | Ignored. |
-| `results/trading/` | Trading scores, signals, prices, returns, charts, and run manifests. | Ignored. |
+| `results/trading/` | Trading scores, signals, prices, returns, sensitivity tables, charts, and run manifests. | Ignored. |
 | `results/sentiment_benchmark.sqlite` | Local run database when using SQLite. | Ignored. |
 | `results/turso_replica.db` | Local embedded libSQL replica when using Turso. | Ignored. |
 | `results/exports/run_<id>/` | Reproducible run exports and optional figures. | Ignored. |
