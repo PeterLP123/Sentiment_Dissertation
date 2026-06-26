@@ -18,6 +18,16 @@ from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 from zoneinfo import ZoneInfo
 
 from .artifact_io import canonical_json, sha256_text
+from .backtest import (
+    DailySignal,
+    DecisionPolicyConfig,
+    IndexFallback,
+    ReturnRow,
+    TradingDecision,
+    TradingStrategyError,
+    calculate_returns,
+    make_trading_decisions,
+)
 from .baselines import classify_finbert_texts, classify_vader_text
 from .constants import DEFAULT_OLLAMA_HOST
 from .lseg_corpus import load_verified_lseg_corpus
@@ -25,6 +35,7 @@ from .lseg_source import LsegNewsError
 from .models import BlindExample, LLMResponseRecord, PromptConfig
 from .news_source import NewsArticleRecord, make_news_fetch_config, write_news_corpus
 from .newsapi_source import make_newsapi_fetch_config, write_newsapi_corpus
+from .prices import PriceProviderError, PriceRow, make_price_provider
 from .prompts import load_prompts
 from .runtime_metadata import collect_run_environment
 
@@ -44,8 +55,8 @@ PROMOTION_PATTERN = re.compile(
 )
 
 
-class TradingStrategyError(RuntimeError):
-    """Raised when the trading pilot cannot be configured or completed."""
+# ``TradingStrategyError`` and the backtest-core types/functions now live in
+# ``backtest``; imported above and re-exported here for backwards compatibility.
 
 
 @dataclass(frozen=True)
@@ -59,26 +70,12 @@ class TradingCompany:
 
 
 @dataclass(frozen=True)
-class IndexFallback:
-    """Trade a broad index on company-days too thin to support an individual stock.
+class PricesConfig:
+    """Price-source settings. ``cache_dir`` is opt-in; ``None`` disables caching."""
 
-    When a company-day has fewer than ``min_texts`` accepted articles, its (noisy)
-    sentiment signal is executed against ``symbol`` instead of the company's own
-    stock, following the supervisor's "use a US index if you can't get enough
-    texts" guidance. Disabled unless a config supplies ``enabled = true``.
-    """
-
-    symbol: str
-    min_texts: int
-
-
-@dataclass(frozen=True)
-class DecisionPolicyConfig:
-    min_valid_stories: int = 1
-    threshold: float = 0.0
-    transaction_cost_bps_per_side: float = 0.0
-    short_borrow_bps_per_day: float = 0.0
-    policy_version: str = "sentiment_threshold_v1"
+    provider: str = "yfinance"
+    cache_dir: Path | None = None
+    adjusted: bool = True
 
 
 @dataclass(frozen=True)
@@ -119,6 +116,7 @@ class TradingStrategyConfig:
     index_fallback: IndexFallback | None
     decision_policy_enabled: bool
     decision_policy: DecisionPolicyConfig
+    prices: PricesConfig
     companies: tuple[TradingCompany, ...]
 
     @property
@@ -196,75 +194,9 @@ class SentimentScore:
     scoring_text_truncated: bool = False
 
 
-@dataclass(frozen=True)
-class DailySignal:
-    symbol: str
-    news_date: str
-    scorer_id: str
-    article_count: int
-    valid_count: int
-    mean_score: float | None
-    signal: str | None
-    signal_value: int | None
-    availability_timestamp: str | None = None
-
-
-@dataclass(frozen=True)
-class TradingDecision:
-    symbol: str
-    news_date: str
-    scorer_id: str
-    article_count: int
-    valid_count: int
-    mean_score: float | None
-    action: str
-    action_value: int
-    threshold: float
-    min_valid_stories: int
-    policy_version: str
-    reason: str
-    availability_timestamp: str | None = None
-
-
-@dataclass(frozen=True)
-class PriceRow:
-    symbol: str
-    session_date: str
-    open: float
-    high: float
-    low: float
-    close: float
-    volume: float
-    repaired: bool
-
-
-@dataclass(frozen=True)
-class ReturnRow:
-    symbol: str
-    traded_symbol: str
-    index_fallback: bool
-    news_date: str
-    scorer_id: str
-    mean_score: float
-    signal: str
-    signal_value: int
-    d_adjusted_close: float | None
-    entry_date: str
-    entry_adjusted_open: float
-    horizon: int
-    exit_date: str
-    exit_adjusted_close: float
-    market_return: float
-    strategy_return: float
-    strategy_return_pct: float
-    pnl_usd: float
-    notional_usd: float
-    action: str
-    transaction_cost: float
-    net_strategy_return: float
-    net_strategy_return_pct: float
-    net_pnl_usd: float
-    availability_timestamp: str | None = None
+# ``DailySignal``, ``TradingDecision`` and ``ReturnRow`` now live in ``backtest``
+# (``PriceRow`` in ``prices``); imported above and re-exported here for
+# backwards compatibility with existing call sites/tests.
 
 
 @dataclass(frozen=True)
@@ -357,6 +289,12 @@ def _build_trading_config(raw: dict[str, Any], config_path: Path) -> TradingStra
             if index_fallback_raw.get("enabled")
             else None
         )
+        prices_raw = raw.get("prices") or {}
+        prices = PricesConfig(
+            provider=str(prices_raw.get("provider", "yfinance")).strip().lower(),
+            cache_dir=Path(prices_raw["cache_dir"]) if prices_raw.get("cache_dir") else None,
+            adjusted=bool(prices_raw.get("adjusted", True)),
+        )
         config = TradingStrategyConfig(
             run_id=str(run["id"]).strip(),
             title=str(run["title"]).strip(),
@@ -396,6 +334,7 @@ def _build_trading_config(raw: dict[str, Any], config_path: Path) -> TradingStra
             index_fallback=index_fallback,
             decision_policy_enabled=decision_policy_enabled,
             decision_policy=decision_policy,
+            prices=prices,
             companies=companies,
         )
     except (KeyError, TypeError, ValueError) as exc:
@@ -1229,184 +1168,31 @@ def daily_signals(
     return results
 
 
-def make_trading_decisions(
-    signals: list[DailySignal],
-    policy: DecisionPolicyConfig,
-) -> list[TradingDecision]:
-    decisions: list[TradingDecision] = []
-    for signal in signals:
-        if signal.mean_score is None or signal.valid_count == 0:
-            action, action_value, reason = "hold", 0, "no_valid_sentiment"
-        elif signal.valid_count < policy.min_valid_stories:
-            action, action_value, reason = "hold", 0, "insufficient_valid_stories"
-        elif signal.mean_score > 0 and signal.mean_score >= policy.threshold:
-            action, action_value, reason = "buy", 1, "positive_mean_meets_threshold"
-        elif signal.mean_score < 0 and signal.mean_score <= -policy.threshold:
-            action, action_value, reason = "sell", -1, "negative_mean_meets_threshold"
-        else:
-            action, action_value, reason = "hold", 0, "inside_no_trade_band"
-        decisions.append(
-            TradingDecision(
-                symbol=signal.symbol,
-                news_date=signal.news_date,
-                scorer_id=signal.scorer_id,
-                article_count=signal.article_count,
-                valid_count=signal.valid_count,
-                mean_score=signal.mean_score,
-                action=action,
-                action_value=action_value,
-                threshold=policy.threshold,
-                min_valid_stories=policy.min_valid_stories,
-                policy_version=policy.policy_version,
-                reason=reason,
-                availability_timestamp=signal.availability_timestamp,
-            )
-        )
-    return decisions
-
-
-def fetch_price_rows(config: TradingStrategyConfig) -> list[PriceRow]:
-    try:
-        import yfinance as yf
-    except ImportError as exc:
-        raise TradingStrategyError("yfinance is required for trading price data") from exc
+def _price_window(config: TradingStrategyConfig) -> tuple[str, str]:
+    """Inclusive start / exclusive end (ISO dates) covering every news date plus
+    enough forward sessions to realise the longest horizon."""
     start = min(config.dates)
     requested_end = max(date.fromisoformat(value) for value in config.dates) + timedelta(days=max(config.horizons) * 3 + 7)
     end = min(requested_end, date.today() + timedelta(days=1)).isoformat()
+    return start, end
+
+
+def fetch_price_rows(config: TradingStrategyConfig) -> list[PriceRow]:
+    """Adapter from config to the injectable ``price_loader`` seam: builds a
+    :class:`~sentiment_benchmark.prices.PriceProvider` and fetches the window."""
     symbols = [company.symbol for company in config.companies]
     if config.index_fallback is not None and config.index_fallback.symbol not in symbols:
         symbols.append(config.index_fallback.symbol)
-    rows: list[PriceRow] = []
-    for symbol in symbols:
-        frame = yf.download(
-            symbol,
-            start=start,
-            end=end,
-            interval="1d",
-            auto_adjust=True,
-            actions=False,
-            repair=True,
-            keepna=False,
-            progress=False,
-            threads=False,
-            multi_level_index=False,
-        )
-        if frame is None or frame.empty:
-            raise TradingStrategyError(f"no Yahoo Finance prices returned for {symbol}")
-        for index, value in frame.iterrows():
-            session_date = index.date().isoformat()
-            repaired_value = value.get("Repaired?", False)
-            rows.append(
-                PriceRow(
-                    symbol=symbol,
-                    session_date=session_date,
-                    open=float(value["Open"]),
-                    high=float(value["High"]),
-                    low=float(value["Low"]),
-                    close=float(value["Close"]),
-                    volume=float(value["Volume"]),
-                    repaired=bool(repaired_value),
-                )
-            )
-    return sorted(rows, key=lambda row: (row.symbol, row.session_date))
-
-
-def calculate_returns(
-    signals: list[DailySignal] | list[TradingDecision],
-    prices: list[PriceRow],
-    *,
-    horizons: tuple[int, ...],
-    notional_usd: float,
-    index_fallback: IndexFallback | None = None,
-    transaction_cost_bps_per_side: float = 0.0,
-    short_borrow_bps_per_day: float = 0.0,
-    timezone: str = "America/New_York",
-) -> list[ReturnRow]:
-    prices_by_symbol: dict[str, list[PriceRow]] = defaultdict(list)
-    for row in prices:
-        prices_by_symbol[row.symbol].append(row)
-    returns: list[ReturnRow] = []
-    for signal in signals:
-        if isinstance(signal, TradingDecision):
-            if signal.action == "hold" or signal.mean_score is None:
-                continue
-            signal_name = "positive" if signal.action == "buy" else "negative"
-            signal_value = signal.action_value
-            action = signal.action
-        else:
-            if signal.signal is None or signal.signal_value is None or signal.mean_score is None:
-                continue
-            signal_name = signal.signal
-            signal_value = signal.signal_value
-            action = "buy" if signal_value > 0 else "sell" if signal_value < 0 else "hold"
-        use_fallback = index_fallback is not None and signal.article_count < index_fallback.min_texts
-        traded_symbol = index_fallback.symbol if index_fallback is not None and use_fallback else signal.symbol
-        symbol_prices = prices_by_symbol.get(traded_symbol, [])
-        d_price = next((row for row in symbol_prices if row.session_date == signal.news_date), None)
-        if signal.availability_timestamp:
-            try:
-                available_at = datetime.fromisoformat(signal.availability_timestamp.replace("Z", "+00:00"))
-            except ValueError as exc:
-                raise TradingStrategyError(
-                    f"invalid availability timestamp for {signal.symbol}: {signal.availability_timestamp}"
-                ) from exc
-            if available_at.tzinfo is None:
-                raise TradingStrategyError(
-                    f"availability timestamp must include an offset: {signal.availability_timestamp}"
-                )
-            exchange_zone = ZoneInfo(timezone)
-            future = [
-                row
-                for row in symbol_prices
-                if datetime.combine(date.fromisoformat(row.session_date), time(9, 30), exchange_zone) > available_at
-            ]
-        else:
-            future = [row for row in symbol_prices if row.session_date > signal.news_date]
-        if len(future) < max(horizons):
-            raise TradingStrategyError(
-                f"incomplete price horizon for {traded_symbol} on {signal.news_date}: "
-                f"need {max(horizons)} future sessions, found {len(future)}"
-            )
-        entry = future[0]
-        if entry.open <= 0:
-            raise TradingStrategyError(f"invalid entry price for {traded_symbol} on {entry.session_date}")
-        for horizon in horizons:
-            exit_row = future[horizon - 1]
-            market_return = exit_row.close / entry.open - 1
-            strategy_return = signal_value * market_return
-            transaction_cost = transaction_cost_bps_per_side * 2 / 10_000
-            short_borrow_cost = short_borrow_bps_per_day * horizon / 10_000 if signal_value < 0 else 0.0
-            net_strategy_return = strategy_return - transaction_cost - short_borrow_cost
-            returns.append(
-                ReturnRow(
-                    symbol=signal.symbol,
-                    traded_symbol=traded_symbol,
-                    index_fallback=use_fallback,
-                    news_date=signal.news_date,
-                    scorer_id=signal.scorer_id,
-                    mean_score=signal.mean_score,
-                    signal=signal_name,
-                    signal_value=signal_value,
-                    d_adjusted_close=d_price.close if d_price else None,
-                    entry_date=entry.session_date,
-                    entry_adjusted_open=entry.open,
-                    horizon=horizon,
-                    exit_date=exit_row.session_date,
-                    exit_adjusted_close=exit_row.close,
-                    market_return=market_return,
-                    strategy_return=strategy_return,
-                    strategy_return_pct=strategy_return * 100,
-                    pnl_usd=strategy_return * notional_usd,
-                    notional_usd=notional_usd,
-                    action=action,
-                    transaction_cost=transaction_cost + short_borrow_cost,
-                    net_strategy_return=net_strategy_return,
-                    net_strategy_return_pct=net_strategy_return * 100,
-                    net_pnl_usd=net_strategy_return * notional_usd,
-                    availability_timestamp=signal.availability_timestamp,
-                )
-            )
-    return returns
+    start, end = _price_window(config)
+    provider = make_price_provider(
+        config.prices.provider,
+        cache_dir=config.prices.cache_dir,
+        adjusted=config.prices.adjusted,
+    )
+    try:
+        return provider.fetch(symbols, start, end)
+    except PriceProviderError as exc:
+        raise TradingStrategyError(str(exc)) from exc
 
 
 def _write_csv(path: Path, rows: list[dict[str, Any]], fieldnames: list[str] | None = None) -> None:
