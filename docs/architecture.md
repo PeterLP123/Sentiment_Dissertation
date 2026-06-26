@@ -60,7 +60,13 @@ Core boundaries:
 | `src/sentiment_benchmark/exporter.py` | Writes reproducible run export bundles. |
 | `src/sentiment_benchmark/news_source.py` | Sources Tavily article corpora without touching benchmark labels. |
 | `src/sentiment_benchmark/newsapi_source.py` | Pages through NewsAPI discovery results and writes provenance-rich snippet corpora. |
-| `src/sentiment_benchmark/trading_strategy.py` | Merges provider records, screens target relevance, scores sentiment, aligns sessions, and exports event returns. |
+| `src/sentiment_benchmark/trading_strategy.py` | Orchestrates a trading run: merges provider records, screens target relevance, scores sentiment (with optional entity-masking arm and cutoff annotation), aligns sessions, and exports event returns plus sensitivity tables. |
+| `src/sentiment_benchmark/prices.py` | Price-data seam: `PriceProvider` protocol, yfinance provider, and a per-(symbol,window) cache so backtests are deterministic and offline-replayable. Owns `PriceRow`. |
+| `src/sentiment_benchmark/backtest.py` | Pure backtest core (no I/O): decision policy, per-event return calculation, and equity-curve aggregation. A leaf module that `trading_strategy` re-exports. |
+| `src/sentiment_benchmark/model_roster.py` | Knowledge-cutoff registry and `is_post_cutoff` logic for contamination stratification. |
+| `src/sentiment_benchmark/entity_masking.py` | Replaces company name/ticker/aliases with placeholders for the masked-vs-unmasked ablation. |
+| `src/sentiment_benchmark/strategy_sweep.py` | Parameter sweep over the decision policy/horizon, selecting on the training split only and reporting held-out test metrics. |
+| `src/sentiment_benchmark/trading_plots.py` | Cutoff/masking sensitivity summaries and the equity-curve and parameter-sweep-heatmap figures (matplotlib optional). |
 | `src/sentiment_benchmark/tui.py` + `tui_*.py` | Interactive Textual interface over the same services: an app shell (`tui.py`) that composes per-feature mixins (`tui_run`, `tui_results`, `tui_queue`, `tui_models`, `tui_monitor`, `tui_news`, `tui_baselines`) on a shared `tui_base` foundation, with `tui_format`/`tui_screens` helpers. |
 
 ## Why Two Scoring Scopes Exist

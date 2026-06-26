@@ -66,6 +66,7 @@ sentiment-bench --help
 | `news-quality` | Summarize text quality across fetched Tavily corpora without calling Tavily. |
 | `run-trading-strategy` | Run or preview the fixed source-to-sentiment-to-return pilot. |
 | `analyze-trading-run` | Create robustness tables, plots, and a technical report for a completed trading run. |
+| `sweep-trading-strategy` | Tune decision-policy parameters on a completed run, selecting on a training split only. |
 | `list-models` | List models from OpenRouter or Ollama. |
 | `run` | Run LLM sentiment classification benchmarks. |
 | `run-baselines` | Run non-LLM baseline classifiers. |
@@ -363,6 +364,28 @@ intervals are descriptive because company-day events overlap and are not indepen
 | `--bootstrap-resamples` | `10000` | Number of percentile-bootstrap event resamples. |
 | `--seed` | `42` | Random seed used by the bootstrap. |
 
+## `sweep-trading-strategy`
+
+```bash
+sentiment-bench sweep-trading-strategy \
+  --run-dir results/trading/week3_trading_pilot_20260624_reviewed \
+  --scorer consensus/majority \
+  --thresholds 0.0,0.1,0.2,0.3 --horizons 1,3,5 \
+  --metric sharpe --train-fraction 0.6
+```
+
+Tunes the decision policy on a completed run without re-scoring. It reloads `daily_signals.csv` and `prices.csv`, filters to one `--scorer`, and evaluates every threshold × horizon point on a chronological train/test split. The single point with the best **training** metric is selected; **held-out** test metrics are reported alongside, so tuning cannot leak. Writes `sweep.csv` (all grid points, with the selected row flagged) and `sweep_heatmap.png` (threshold × horizon test metric) into the run directory, and prints the grid with the selected point starred. Selection metrics are notional-independent ratios, so no portfolio assumptions enter the tuning.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `--run-dir` | required | Completed run with `daily_signals.csv` and `prices.csv`. |
+| `--scorer` | `consensus/majority` | `scorer_id` to tune (e.g. `openai/gpt-4o-mini`, or a `#masked` arm). |
+| `--thresholds` | `0.0,0.1,0.2,0.3` | Comma-separated decision thresholds. |
+| `--horizons` | `1,3,5` | Comma-separated holding horizons (trading sessions). |
+| `--metric` | `sharpe` | Selection metric: `mean_return`, `hit_rate`, or `sharpe`. |
+| `--train-fraction` | `0.6` | Fraction of distinct news dates used to tune (split is by date, not row). |
+| `--output` | `<run-dir>/sweep.csv` | Where to write the sweep CSV. |
+
 ## `news-quality`
 
 ```bash
@@ -536,3 +559,24 @@ sentiment-bench evaluate-lseg-annotations \
 Sampling defaults to 150 ticker/date-stratified stories with seed 42 and 30 double-coded stories with seed 43. Annotation evaluation requires allowed labels and adjudication of every disagreement.
 
 For `run-trading-strategy`, `[scoring].provider` defaults to `openrouter` for existing configs. A pure-LSEG Ollama config supplies `sources.lseg_corpus_manifest`, exact tagged `models`, `primary_model`, optional `baselines`, Ollama host/keep-alive/thinking/structured-output settings, and `[signal_policy]`. See `configs/lseg_ollama_trading_example.toml`.
+
+Three optional tables add the reproducibility and contamination controls (all default to existing behaviour, so current configs are unaffected):
+
+```toml
+[prices]
+provider = "yfinance"            # price backend
+cache_dir = "Data/derived/prices" # opt-in per-(symbol,window) cache; omit to disable
+adjusted = true                   # adjusted (auto_adjust) prices
+
+[cutoff]
+policy = "stratify"               # ignore | stratify (default) | post_only
+[cutoff.overrides]                # optional authoritative cutoffs, by model id or suffix
+"openai/gpt-4o-mini" = "2023-10-01"
+
+[scoring]
+masking_mode = "both"             # off (default) | on | both
+```
+
+- `[prices]` makes runs deterministic and offline-replayable when `cache_dir` is set.
+- `[cutoff].policy = stratify` only annotates scores and emits `sensitivity_cutoff.csv`, leaving the frozen primary cell untouched; `post_only` additionally restricts the traded signal to contamination-free (post-cutoff) scores; `ignore` disables annotation. Cutoffs are best-effort — verify against provider model cards or pin them via `[cutoff.overrides]`.
+- `[scoring].masking_mode = both` runs an extra anonymised arm under `#masked` scorer ids and writes `sensitivity_masking.csv`; `on` scores only masked text; `off` is the default.
