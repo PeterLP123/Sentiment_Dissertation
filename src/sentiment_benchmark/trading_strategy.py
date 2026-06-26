@@ -30,6 +30,7 @@ from .backtest import (
 )
 from .baselines import classify_finbert_texts, classify_vader_text
 from .constants import DEFAULT_OLLAMA_HOST
+from .entity_masking import mask_entities
 from .lseg_corpus import load_verified_lseg_corpus
 from .lseg_source import LsegNewsError
 from .model_roster import is_post_cutoff, knowledge_cutoff, roster_cutoff
@@ -901,19 +902,22 @@ def _desired_score_key(
 
 def _sentiment_from_response(
     article: MergedArticle,
-    model_id: str,
+    scorer_id: str,
     record: LLMResponseRecord,
     cost: float | None,
     *,
     request_sha256: str,
     model_digest: str | None,
+    masking_mode: str = "off",
+    entity_masked: bool = False,
+    n_masked_tokens: int | None = None,
 ) -> SentimentScore:
     label = record.normalized_label if record.normalized_label in LABEL_VALUES else None
     return SentimentScore(
         article_id=article.article_id,
         symbol=article.symbol,
         news_date=article.published_date_local,
-        scorer_id=model_id,
+        scorer_id=scorer_id,
         scorer_kind="llm",
         label=label,
         label_value=LABEL_VALUES.get(label) if label else None,
@@ -934,6 +938,9 @@ def _sentiment_from_response(
         request_sha256=request_sha256,
         model_digest=model_digest,
         scoring_text_truncated=article.scoring_text_truncated,
+        masking_mode=masking_mode,
+        entity_masked=entity_masked,
+        n_masked_tokens=n_masked_tokens,
     )
 
 
@@ -966,6 +973,10 @@ async def score_articles(
     model_digests: dict[str, str | None] | None = None,
     request_settings: dict[str, Any] | None = None,
     strict_resume_identity: bool = False,
+    scorer_suffix: str = "",
+    masking_mode: str = "off",
+    entity_masked: bool = False,
+    masked_token_counts: dict[str, int] | None = None,
 ) -> list[SentimentScore]:
     accepted = [article for article in articles if article.screening_decision == "include"]
     existing_scores = _load_existing_scores(resume_path) if resume_path else []
@@ -982,17 +993,20 @@ async def score_articles(
     resolved_model_digests = model_digests or {}
 
     async def classify(index: int, article: MergedArticle, model_id: str) -> SentimentScore:
+        # API call uses the bare model id; the score is tagged with the (possibly
+        # suffixed) scorer id so masked/unmasked arms resume independently.
+        scorer_id = f"{model_id}{scorer_suffix}"
         if strict_resume_identity:
             key = _desired_score_key(
                 article,
-                model_id,
+                scorer_id,
                 prompt.prompt_hash,
                 request_sha256,
                 resolved_model_digests.get(model_id),
             )
             existing = existing_identity.get(key)
         else:
-            existing = existing_legacy.get(_score_key(article.article_id, model_id))
+            existing = existing_legacy.get(_score_key(article.article_id, scorer_id))
         if existing is not None and existing.status == "success":
             return existing
         example = BlindExample(row_number=index, sentence=article.scoring_text)
@@ -1016,11 +1030,14 @@ async def score_articles(
                     cost = None
             return _sentiment_from_response(
                 article,
-                model_id,
+                scorer_id,
                 response,
                 cost,
                 request_sha256=request_sha256,
                 model_digest=resolved_model_digests.get(model_id),
+                masking_mode=masking_mode,
+                entity_masked=entity_masked,
+                n_masked_tokens=(masked_token_counts or {}).get(article.article_id),
             )
 
     tasks = [
@@ -1045,8 +1062,11 @@ async def score_articles(
                     article_id=article.article_id,
                     symbol=article.symbol,
                     news_date=article.published_date_local,
-                    scorer_id="baseline/vader",
+                    scorer_id=f"baseline/vader{scorer_suffix}",
                     scorer_kind="baseline",
+                    masking_mode=masking_mode,
+                    entity_masked=entity_masked,
+                    n_masked_tokens=(masked_token_counts or {}).get(article.article_id),
                     label=result.label,
                     label_value=LABEL_VALUES[result.label],
                     status="success",
@@ -1073,8 +1093,11 @@ async def score_articles(
                     article_id=article.article_id,
                     symbol=article.symbol,
                     news_date=article.published_date_local,
-                    scorer_id="baseline/finbert",
+                    scorer_id=f"baseline/finbert{scorer_suffix}",
                     scorer_kind="baseline",
+                    masking_mode=masking_mode,
+                    entity_masked=entity_masked,
+                    n_masked_tokens=(masked_token_counts or {}).get(article.article_id),
                     label=label,
                     label_value=LABEL_VALUES.get(label) if label else None,
                     status="success" if label else "malformed_response",
@@ -1177,6 +1200,37 @@ def annotate_scores_with_cutoff(
             )
         )
     return annotated
+
+
+def _mask_articles(
+    articles: list[MergedArticle],
+    companies: dict[str, TradingCompany],
+) -> tuple[list[MergedArticle], dict[str, int]]:
+    """Entity-masked copies of ``articles`` (anonymised ``scoring_text`` and a
+    refreshed hash) plus a per-article count of masked mentions. Articles whose
+    symbol has no company entry pass through unmasked."""
+    masked: list[MergedArticle] = []
+    counts: dict[str, int] = {}
+    for article in articles:
+        company = companies.get(article.symbol)
+        if company is None:
+            masked.append(article)
+            continue
+        result = mask_entities(
+            article.scoring_text,
+            name=company.name,
+            ticker=company.symbol,
+            aliases=company.aliases,
+        )
+        counts[article.article_id] = result.n_masked
+        masked.append(
+            replace(
+                article,
+                scoring_text=result.masked_text,
+                scoring_text_sha256=hashlib.sha256(result.masked_text.encode()).hexdigest(),
+            )
+        )
+    return masked, counts
 
 
 def daily_signals(
@@ -1734,30 +1788,61 @@ async def run_trading_strategy(
         "structured_output": config.structured_output if config.provider == "ollama" else False,
     }
     score_jsonl = config.results_dir / "sentiment_scores.jsonl"
-    scores = await score_articles(
-        articles,
-        models=config.models,
-        prompt=prompts[config.prompt_id],
-        client=llm_client,
-        output_path=score_jsonl,
-        resume_path=config.resume_scores_path,
-        temperature=config.temperature,
-        max_completion_tokens=config.max_completion_tokens,
-        concurrency=config.concurrency,
-        retries=config.retries,
-        baselines=config.baselines,
-        model_digests=model_digests,
-        request_settings=request_settings,
-        strict_resume_identity=config.lseg_corpus_manifest is not None,
-    )
+    common_kwargs: dict[str, Any] = {
+        "models": config.models,
+        "prompt": prompts[config.prompt_id],
+        "client": llm_client,
+        "resume_path": config.resume_scores_path,
+        "temperature": config.temperature,
+        "max_completion_tokens": config.max_completion_tokens,
+        "concurrency": config.concurrency,
+        "retries": config.retries,
+        "baselines": config.baselines,
+        "model_digests": model_digests,
+        "request_settings": request_settings,
+        "strict_resume_identity": config.lseg_corpus_manifest is not None,
+    }
+    companies_by_symbol = {company.symbol: company for company in config.companies}
+    masked_scores: list[SentimentScore] = []
+    if config.masking_mode == "on":
+        # Fully masked run: base scorer ids, anonymised text.
+        masked_articles, masked_counts = _mask_articles(articles, companies_by_symbol)
+        scores = await score_articles(
+            masked_articles,
+            output_path=score_jsonl,
+            masking_mode="on",
+            entity_masked=True,
+            masked_token_counts=masked_counts,
+            **common_kwargs,
+        )
+    else:
+        scores = await score_articles(articles, output_path=score_jsonl, masking_mode=config.masking_mode, **common_kwargs)
+        if config.masking_mode == "both":
+            # Parallel masked arm under "#masked" scorer ids for the ablation.
+            masked_articles, masked_counts = _mask_articles(articles, companies_by_symbol)
+            masked_scores = await score_articles(
+                masked_articles,
+                output_path=config.results_dir / "sentiment_scores_masked.jsonl",
+                scorer_suffix="#masked",
+                masking_mode="both",
+                entity_masked=True,
+                masked_token_counts=masked_counts,
+                **common_kwargs,
+            )
     consensus = article_consensus(scores, config.models) if config.consensus_enabled else []
-    all_scores = sorted(scores + consensus, key=lambda row: (row.news_date, row.symbol, row.article_id, row.scorer_id))
+    all_scores = sorted(
+        scores + masked_scores + consensus,
+        key=lambda row: (row.news_date, row.symbol, row.article_id, row.scorer_id),
+    )
     if config.cutoff.policy != "ignore":
         all_scores = annotate_scores_with_cutoff(all_scores, config)
+    masked_arm = config.masking_mode == "both"
     scorer_ids = (
         *config.models,
         *(('consensus/majority',) if config.consensus_enabled else ()),
         *(f"baseline/{name}" for name in config.baselines),
+        *((f"{model}#masked" for model in config.models) if masked_arm else ()),
+        *((f"baseline/{name}#masked" for name in config.baselines) if masked_arm else ()),
     )
     # post_only restricts the *traded* signal to contamination-free scores; the
     # full annotated set is still written to outputs for auditing/stratification.
