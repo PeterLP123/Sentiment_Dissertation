@@ -13,6 +13,7 @@ from threading import Event as ThreadEvent
 from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal, Vertical, VerticalScroll
+from textual.content import ContentText
 from textual.validation import Integer, Number, ValidationResult
 from textual.widgets import (
     Button,
@@ -376,7 +377,7 @@ class SentimentBenchmarkApp(
         self._queue_running: bool = False
         self._queue_cancel: bool = False
         self._theme_name = "textual-dark"
-        self._button_labels: dict[str, object] = {}
+        self._button_labels: dict[str, ContentText] = {}
         self._runs_sort: tuple[int, bool] | None = None
         self._leaderboard_sort: tuple[int, bool] | None = None
         self._load_session()

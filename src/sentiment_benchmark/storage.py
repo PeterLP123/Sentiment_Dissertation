@@ -74,6 +74,7 @@ class BenchmarkStore:
         if use_lock:
             _LIBSQL_LOCK.acquire()
         try:
+            connection: Any
             if self.backend in {"libsql", "turso"}:
                 connection = LibsqlConnection.from_env()
             elif self.backend in {"sqlite", ""}:
@@ -374,7 +375,8 @@ class BenchmarkStore:
 
     def create_run(self, config: RunConfig, selected_row_numbers: list[int]) -> int:
         environment = collect_run_environment()
-        machine = environment.get("machine") if isinstance(environment.get("machine"), dict) else {}
+        machine_info = environment.get("machine")
+        machine = machine_info if isinstance(machine_info, dict) else {}
         request = {
             "provider": config.provider,
             "temperature": config.temperature,

@@ -35,7 +35,7 @@ class QueueMixin(AppMixin):
         )
         self.push_screen(QueueResumeScreen(message), callback=self._handle_queue_resume)
 
-    def _handle_queue_resume(self, resume: bool) -> None:
+    def _handle_queue_resume(self, resume: bool | None) -> None:
         if resume:
             self._set_monitor(f"Resumed saved experiment queue ({len(self._experiment_queue)} experiment(s)).")
             return
@@ -92,7 +92,7 @@ class QueueMixin(AppMixin):
         return RunConfig(
             models=list(item["models"]),
             prompt=prompt,
-            mode=item["mode"],  # type: ignore[arg-type]
+            mode=item["mode"],
             dataset_path=str(self.dataset_path),
             db_path=str(self.db_path),
             base_url=item["base_url"],
@@ -375,7 +375,7 @@ class QueueMixin(AppMixin):
             return
         self._begin_queue()
 
-    def _handle_queue_confirmation(self, proceed: bool) -> None:
+    def _handle_queue_confirmation(self, proceed: bool | None) -> None:
         self._confirmation_pending = False
         self._refresh_stepper()
         if not proceed:

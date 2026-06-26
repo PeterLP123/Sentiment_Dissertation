@@ -24,6 +24,7 @@ from .models import ModelConfig, Provider
 
 if TYPE_CHECKING:
     from textual.app import App as _AppBase
+    from textual.content import ContentText
 
     from .models import RunConfig
     from .runner import RunSummary
@@ -86,7 +87,7 @@ class AppMixin(_AppBase):
         _queue_running: bool
         _queue_cancel: bool
         _theme_name: str
-        _button_labels: dict[str, object]
+        _button_labels: dict[str, ContentText]
         _runs_sort: tuple[int, bool] | None
         _leaderboard_sort: tuple[int, bool] | None
 

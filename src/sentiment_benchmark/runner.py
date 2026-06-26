@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, replace
-from typing import Any
+from typing import Any, Protocol
 
 from .budgets import resolve_max_completion_tokens
 from .constants import SOFT_LABEL_MIN_COMPLETION_TOKENS
@@ -17,6 +17,17 @@ from .storage import BenchmarkStore
 ProgressCallback = Callable[[str], None | Awaitable[None]]
 RunEvent = dict[str, Any]
 EventCallback = Callable[[RunEvent], None | Awaitable[None]]
+
+
+class CancelEvent(Protocol):
+    """Anything that can report cancellation via ``is_set()``.
+
+    The runner is driven from the TUI in a worker thread, so the concrete type
+    is a thread-safe ``threading.Event`` rather than ``asyncio.Event``; only
+    ``is_set()`` is ever read here.
+    """
+
+    def is_set(self) -> bool: ...
 
 
 @dataclass(frozen=True)
@@ -37,7 +48,7 @@ class _RunContext:
     selected_rows: list[DatasetRow]
     selected_by_number: dict[int, DatasetRow]
     semaphore: asyncio.Semaphore
-    cancel_event: asyncio.Event | None
+    cancel_event: CancelEvent | None
     callback: ProgressCallback | None
     event_callback: EventCallback | None
 
@@ -287,7 +298,7 @@ class BenchmarkRunner:
         resume_run_id: int | None = None,
         callback: ProgressCallback | None = None,
         event_callback: EventCallback | None = None,
-        cancel_event: asyncio.Event | None = None,
+        cancel_event: CancelEvent | None = None,
     ) -> RunSummary:
         await self._notify(callback, "Preparing run database...")
         self.store.initialize()

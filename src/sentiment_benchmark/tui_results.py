@@ -126,8 +126,9 @@ class ResultsMixin(AppMixin):
             index, ascending = self._leaderboard_sort
             meta = _LEADERBOARD_SORT_COLUMNS.get(index)
             if meta is not None:
+                sort_field = meta[2]
                 with suppress(Exception):
-                    rows.sort(key=lambda data, field=meta[2]: data[field], reverse=not ascending)
+                    rows.sort(key=lambda data: data[sort_field], reverse=not ascending)
         self._update_sort_help("leaderboard-help", _LEADERBOARD_HELP_BASE, self._leaderboard_sort, _LEADERBOARD_SORT_COLUMNS)
         for data in rows:
             self._leaderboard_best_run[data["model_id"]] = data["run_id"]
