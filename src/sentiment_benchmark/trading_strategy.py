@@ -107,6 +107,7 @@ class TradingStrategyConfig:
     primary_model: str
     baselines: tuple[str, ...]
     consensus_enabled: bool
+    masking_mode: str
     prompt_id: str
     prompts_path: Path
     temperature: float
@@ -212,6 +213,10 @@ class SentimentScore:
     # Contamination metadata, filled by annotate_scores_with_cutoff (see model_roster).
     model_knowledge_cutoff: str | None = None
     is_post_cutoff: bool | None = None
+    # Entity-masking ablation metadata (see entity_masking).
+    masking_mode: str = "off"
+    entity_masked: bool = False
+    n_masked_tokens: int | None = None
 
 
 # ``DailySignal``, ``TradingDecision`` and ``ReturnRow`` now live in ``backtest``
@@ -332,6 +337,7 @@ def _build_trading_config(raw: dict[str, Any], config_path: Path) -> TradingStra
             primary_model=primary_model,
             baselines=baselines,
             consensus_enabled=consensus_enabled,
+            masking_mode=str(scoring.get("masking_mode", "off")).strip().lower(),
             prompt_id=str(scoring["prompt_id"]).strip(),
             prompts_path=Path(scoring.get("prompts_path", "configs/default_prompts.toml")),
             temperature=float(scoring.get("temperature", 0.0)),
@@ -388,6 +394,8 @@ def _validate_trading_config(config: TradingStrategyConfig) -> None:
         raise TradingStrategyError("at least one [[companies]] entry is required")
     if config.cutoff.policy not in {"ignore", "stratify", "post_only"}:
         raise TradingStrategyError("cutoff.policy must be ignore, stratify, or post_only")
+    if config.masking_mode not in {"off", "on", "both"}:
+        raise TradingStrategyError("scoring.masking_mode must be off, on, or both")
     if len({company.symbol for company in config.companies}) != len(config.companies):
         raise TradingStrategyError("company symbols must be unique")
     if config.provider not in {"openrouter", "ollama"}:
