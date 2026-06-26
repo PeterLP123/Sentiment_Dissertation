@@ -23,5 +23,10 @@ models/
 checkpoints/
 artifacts/
 exports/
+# Stray root-level outputs/ from older Week 4 gist commands that used cwd-relative
+# --output-dir before clean_lseg_articles.py resolved paths under week_4_tasks/.
+# so it never shadows the tracked week_4_tasks/outputs/.gitignore. Keeps
+# licensed LSEG story text out of version control.
+/outputs/
 # Tavily shared news packages are out-of-band deliverables, not source.
 tavily_shared_*.zip
