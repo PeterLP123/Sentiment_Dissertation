@@ -1,5 +1,6 @@
 import asyncio
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -210,6 +211,196 @@ def test_fetch_paginates_deduplicates_and_resumes_without_calls(tmp_path: Path) 
 
     resumed = asyncio.run(fetch_lseg_news(config, LsegNewsClient(NoCalls())))
     assert resumed.resumed is True
+
+
+def test_retry_treats_lseg_code_429_as_transient(monkeypatch) -> None:
+    # LSEG's LDError exposes the HTTP code as `.code`, not `.status_code`.
+    class ThrottleError(Exception):
+        def __init__(self) -> None:
+            super().__init__("Error code 429 | Too many requests, please try again later.")
+            self.code = 429
+
+    async def no_sleep(_delay: float) -> None:
+        return None
+
+    monkeypatch.setattr(lseg_source.asyncio, "sleep", no_sleep)
+    attempts = {"n": 0}
+
+    async def factory() -> str:
+        attempts["n"] += 1
+        if attempts["n"] < 3:
+            raise ThrottleError()
+        return "ok"
+
+    assert asyncio.run(lseg_source._retry(factory, 3)) == "ok"
+    assert attempts["n"] == 3
+
+
+class _FakeHttpResponse:
+    def __init__(self, headers: dict[str, str]) -> None:
+        self.headers = headers
+
+
+class _FakeSdkResponse:
+    def __init__(self, headers: dict[str, str]) -> None:
+        self.raw = _FakeHttpResponse(headers)
+
+
+class FakeThrottleError(Exception):
+    """Mimics LSEG's LDError: `.code` (not `.status_code`) plus an attached response."""
+
+    def __init__(self, headers: dict[str, str] | None = None) -> None:
+        super().__init__("Error code 429 | Too many requests, please try again later.")
+        self.code = 429
+        if headers is not None:
+            self.response = _FakeSdkResponse(headers)
+
+
+def test_rate_limit_summary_extracts_retry_after_and_usage() -> None:
+    exc = FakeThrottleError(
+        {
+            "Retry-After": "30",
+            "X-RateLimit-Limit": "10000",
+            "X-RateLimit-Remaining": "0",
+        }
+    )
+    summary = lseg_source._rate_limit_summary(exc)
+    assert summary is not None
+    assert "wait 30s" in summary
+    assert "resets ~" in summary
+    assert "10000/10000 used" in summary
+    assert "0 remaining" in summary
+
+    # No attached response -> nothing to report.
+    assert lseg_source._rate_limit_summary(FakeThrottleError()) is None
+
+
+def test_rate_limit_summary_renders_ietf_policy() -> None:
+    # The real headers an LSEG desktop session returns on a 429.
+    exc = FakeThrottleError(
+        {
+            "RateLimit-Remaining": "0",
+            "RateLimit-Policy": "5;w=1, 10000;w=86400",
+            "RateLimit-Resource": "*",
+        }
+    )
+    summary = lseg_source._rate_limit_summary(exc)
+    assert summary is not None
+    assert "5/sec" in summary
+    assert "10000/day" in summary
+    assert "0 remaining" in summary
+
+
+def test_retry_raises_clean_actionable_message_on_persistent_429(monkeypatch) -> None:
+    async def no_sleep(_delay: float) -> None:
+        return None
+
+    monkeypatch.setattr(lseg_source.asyncio, "sleep", no_sleep)
+
+    async def factory() -> str:
+        raise FakeThrottleError({"Retry-After": "45"})
+
+    with pytest.raises(LsegNewsError) as excinfo:
+        asyncio.run(lseg_source._retry(factory, 2))
+    message = str(excinfo.value)
+    assert "429" in message
+    assert "wait 45s" in message
+    assert "resume" in message.lower()
+
+
+def test_retry_does_not_retry_non_transient_error(monkeypatch) -> None:
+    class ClientError(Exception):
+        def __init__(self) -> None:
+            super().__init__("Error code 400 | Bad request")
+            self.code = 400
+
+    async def no_sleep(_delay: float) -> None:
+        return None
+
+    monkeypatch.setattr(lseg_source.asyncio, "sleep", no_sleep)
+    attempts = {"n": 0}
+
+    async def factory() -> str:
+        attempts["n"] += 1
+        raise ClientError()
+
+    with pytest.raises(ClientError):
+        asyncio.run(lseg_source._retry(factory, 3))
+    assert attempts["n"] == 1
+
+
+def test_completed_collection_prunes_story_shards_when_enabled(tmp_path: Path) -> None:
+    config = replace(_config(tmp_path), prune_story_shards_on_completion=True)
+    result = asyncio.run(fetch_lseg_news(config, LsegNewsClient(FakeBackend())))
+
+    stories_dir = result.raw_dir / "stories"
+    # Consolidated artifact and headline provenance retained; duplicate shards removed.
+    assert (result.raw_dir / "stories.jsonl").exists()
+    assert (result.raw_dir / "headline_pages").is_dir()
+    assert not stories_dir.exists()
+    assert result.story_count == 3
+    manifest = json.loads((result.raw_dir / "manifest.json").read_text())
+    assert manifest["checkpoint_retention"]["story_shards"] == "pruned_on_completion"
+
+    class NoCalls:
+        async def headline_page(self, **kwargs):
+            raise AssertionError(kwargs)
+
+        async def story(self, story_id):
+            raise AssertionError(story_id)
+
+    # Re-running the pruned, completed collection still short-circuits with no calls.
+    resumed = asyncio.run(fetch_lseg_news(config, LsegNewsClient(NoCalls())))
+    assert resumed.resumed is True
+    assert not stories_dir.exists()
+
+
+def test_story_source_allowlist_fetches_only_matching_sources(tmp_path: Path) -> None:
+    config = replace(_config(tmp_path), story_source_allowlist=("NS:RTRS",))
+    backend = FakeBackend()
+    result = asyncio.run(fetch_lseg_news(config, LsegNewsClient(backend)))
+
+    # Every headline is still collected, but only the Reuters story body is fetched.
+    assert result.headline_count == 3
+    assert result.story_count == 1
+    assert backend.story_calls == ["urn:test:apple:1"]
+    manifest = json.loads((result.raw_dir / "manifest.json").read_text())
+    assert manifest["counts"]["story_source_allowlist"] == ["NS:RTRS"]
+    assert manifest["counts"]["headlines_without_story_fetch"] == 2
+
+    class NoCalls:
+        async def headline_page(self, **kwargs):
+            raise AssertionError(kwargs)
+
+        async def story(self, story_id):
+            raise AssertionError(story_id)
+
+    resumed = asyncio.run(fetch_lseg_news(config, LsegNewsClient(NoCalls())))
+    assert resumed.resumed is True
+
+
+def test_story_allowlist_is_a_safe_in_progress_change(tmp_path: Path) -> None:
+    base = _config(tmp_path)
+    in_progress_manifest = {"status": "in_progress", "config": base.to_payload()}
+
+    # Adopting a story-source allowlist on an in-progress collection is accepted...
+    reuters_only = replace(base, story_source_allowlist=("NS:RTRS",))
+    assert lseg_source._safe_in_progress_operational_change(in_progress_manifest, reuters_only) is True
+
+    # ...but a real identity change (different universe) is still rejected.
+    altered = replace(base, companies=base.companies[:1])
+    assert lseg_source._safe_in_progress_operational_change(in_progress_manifest, altered) is False
+
+
+def test_completed_collection_retains_story_shards_by_default(tmp_path: Path) -> None:
+    config = _config(tmp_path)
+    result = asyncio.run(fetch_lseg_news(config, LsegNewsClient(FakeBackend())))
+
+    stories_dir = result.raw_dir / "stories"
+    assert stories_dir.is_dir()
+    assert any(stories_dir.glob("*.json"))
+    manifest = json.loads((result.raw_dir / "manifest.json").read_text())
+    assert manifest["checkpoint_retention"]["story_shards"] == "retained"
 
 
 def test_fetch_windowed_collection_checkpoint_names_and_counts(tmp_path: Path) -> None:

@@ -23,6 +23,20 @@ retries = 3
 # approximately five-requests-per-second Workspace session limit.
 requests_per_second = 3.0
 window_days = 1
+# Reclaim the per-story checkpoint shards once the collection finishes. They are
+# byte-for-byte duplicates of stories.jsonl (the consolidated, hash-verified
+# artifact downstream actually reads), so deleting them on completion roughly
+# halves the on-disk footprint. Shards remain during collection, so an
+# interrupted run still resumes seamlessly. Operational-only: not part of the
+# config identity hash, so enabling it does not disturb an in-progress resume.
+prune_story_shards_on_completion = true
+# Collect ALL English-language headlines (full news-volume coverage), but only
+# fetch full story bodies for Reuters items. This keeps the expensive Phase 2
+# within the 10,000-requests/day LSEG quota (~38k Reuters stories ≈ ~4 days)
+# while preserving the complete cross-source headline record. Safe to enable on
+# the in-flight collection: the headline phase is unaffected and resume continues
+# from the existing checkpoints. Empty/omitted = fetch every story.
+story_source_allowlist = ["NS:RTRS"]
 
 [cleaning]
 min_text_chars = 100

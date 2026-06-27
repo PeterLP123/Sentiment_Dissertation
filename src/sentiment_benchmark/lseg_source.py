@@ -4,13 +4,16 @@ import asyncio
 import importlib
 import importlib.metadata
 import inspect
+import logging
 import math
 import re
+import shutil
 import tomllib
 import warnings
 from collections.abc import Awaitable, Callable
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime, timedelta
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +28,8 @@ from .artifact_io import (
 )
 from .runtime_metadata import collect_run_environment
 from .utils import utc_now
+
+logger = logging.getLogger(__name__)
 
 LSEG_RAW_SCHEMA_VERSION = 1
 DEFAULT_LSEG_RAW_ROOT = Path("Data/news")
@@ -77,6 +82,17 @@ class LsegCollectionConfig:
     max_scoring_chars: int = DEFAULT_LSEG_MAX_SCORING_CHARS
     raw_output_root: Path = DEFAULT_LSEG_RAW_ROOT
     derived_output_root: Path = DEFAULT_LSEG_DERIVED_ROOT
+    # Operational-only: when true, the per-story checkpoint shards under stories/
+    # are deleted once the collection completes (they byte-for-byte duplicate
+    # stories.jsonl). Deliberately excluded from to_payload()/config_sha256 so
+    # toggling it never changes collection identity or disturbs an in-progress
+    # resume.
+    prune_story_shards_on_completion: bool = False
+    # When non-empty, the story-fetch phase only retrieves bodies for headlines
+    # whose source_code is in this allowlist (e.g. ["NS:RTRS"] for Reuters-only
+    # stories). All headlines are still collected regardless; this narrows only
+    # the expensive Phase 2. Empty means fetch every story.
+    story_source_allowlist: tuple[str, ...] = ()
     companies: tuple[LsegCompanyConfig, ...] = ()
 
     @property
@@ -102,6 +118,8 @@ class LsegCollectionConfig:
         }
         if self.window_days is not None:
             collection["window_days"] = self.window_days
+        if self.story_source_allowlist:
+            collection["story_source_allowlist"] = list(self.story_source_allowlist)
         return {
             "collection": collection,
             "cleaning": {
@@ -287,6 +305,20 @@ def _optional_int_setting(value: Any, *, name: str, minimum: int, maximum: int) 
     return _int_setting(value, name=name, minimum=minimum, maximum=maximum)
 
 
+def _bool_setting(value: Any, *, name: str) -> bool:
+    if isinstance(value, bool):
+        return value
+    raise LsegConfigurationError(f"{name} must be a boolean")
+
+
+def _string_list_setting(value: Any, *, name: str) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise LsegConfigurationError(f"{name} must be a list of strings")
+    return tuple(dict.fromkeys(item.strip() for item in value if item.strip()))
+
+
 def _format_utc(value: datetime) -> str:
     return value.astimezone(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
@@ -419,6 +451,14 @@ def config_from_payload(payload: dict[str, Any]) -> LsegCollectionConfig:
         ),
         raw_output_root=Path(outputs.get("raw_output_root", DEFAULT_LSEG_RAW_ROOT)),
         derived_output_root=Path(outputs.get("derived_output_root", DEFAULT_LSEG_DERIVED_ROOT)),
+        prune_story_shards_on_completion=_bool_setting(
+            collection.get("prune_story_shards_on_completion", False),
+            name="collection.prune_story_shards_on_completion",
+        ),
+        story_source_allowlist=_string_list_setting(
+            collection.get("story_source_allowlist"),
+            name="collection.story_source_allowlist",
+        ),
         companies=tuple(companies),
     )
 
@@ -693,6 +733,162 @@ class LsegNewsClient:
         return await self._backend.story(story_id)
 
 
+def _status_code_of(exc: Exception) -> int | None:
+    """Best-effort HTTP status for an exception.
+
+    LSEG's LDError exposes the code as ``.code``; most other libraries use
+    ``.status_code``. Check both and coerce to int so 429/5xx stay detectable.
+    """
+
+    raw = getattr(exc, "status_code", None)
+    if raw is None:
+        raw = getattr(exc, "code", None)
+    try:
+        return int(raw) if raw is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _http_headers_from_exc(exc: Exception) -> dict[str, str] | None:
+    """Lower-cased HTTP headers from a raised LDError, if reachable.
+
+    The SDK attaches the originating ``Response`` to the error (``error.response``)
+    and that response carries the underlying ``httpx.Response`` (or a list of them)
+    on ``.raw``, whose ``.headers`` hold any rate-limit metadata LSEG returned.
+    """
+
+    response = getattr(exc, "response", None)
+    raw = getattr(response, "raw", None)
+    if isinstance(raw, list):
+        raw = raw[-1] if raw else None
+    headers = getattr(raw, "headers", None)
+    if headers is None:
+        return None
+    try:
+        return {str(key).lower(): str(value) for key, value in headers.items()}
+    except Exception:
+        return None
+
+
+def _parse_retry_after(value: str) -> float | None:
+    """Seconds to wait from a Retry-After header (numeric seconds or HTTP-date)."""
+
+    value = value.strip()
+    try:
+        return max(0.0, float(value))
+    except ValueError:
+        pass
+    try:
+        parsed = parsedate_to_datetime(value)
+    except (TypeError, ValueError):
+        return None
+    if parsed is None:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return max(0.0, (parsed - datetime.now(UTC)).total_seconds())
+
+
+def _format_reset_clock(value: str) -> str | None:
+    """Wall-clock for a RateLimit-Reset header (epoch seconds or seconds-from-now)."""
+
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if number > 1_000_000_000:  # looks like an absolute epoch timestamp
+        reset_at = datetime.fromtimestamp(number, UTC)
+    else:  # a relative seconds-until-reset value
+        reset_at = datetime.now(UTC) + timedelta(seconds=number)
+    return reset_at.strftime("%H:%M:%S UTC")
+
+
+_RATELIMIT_WINDOW_UNITS = {1: "sec", 60: "min", 3600: "hour", 86400: "day", 604800: "week"}
+
+
+def _format_ratelimit_policy(value: str) -> str | None:
+    """Render an IETF RateLimit-Policy (e.g. ``5;w=1, 10000;w=86400``) readably."""
+
+    rendered: list[str] = []
+    for item in value.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        quota, _, params = item.partition(";")
+        quota = quota.strip()
+        window: int | None = None
+        for param in params.split(";"):
+            param = param.strip()
+            if param.startswith("w="):
+                try:
+                    window = int(param[2:])
+                except ValueError:
+                    window = None
+        unit = _RATELIMIT_WINDOW_UNITS.get(window, f"{window}s" if window else "window")
+        rendered.append(f"{quota}/{unit}")
+    return ", ".join(rendered) if rendered else None
+
+
+def _rate_limit_summary(exc: Exception) -> str | None:
+    """Human-readable throttle detail extracted from a 429's HTTP headers.
+
+    Surfaces whatever LSEG actually returns — Retry-After and/or standard
+    RateLimit-* headers — so the otherwise-invisible limit, remaining budget,
+    and reset time become visible. Returns None when no rate-limit headers exist.
+    """
+
+    headers = _http_headers_from_exc(exc)
+    if not headers:
+        return None
+    parts: list[str] = []
+
+    retry_after = headers.get("retry-after")
+    if retry_after:
+        wait_seconds = _parse_retry_after(retry_after)
+        if wait_seconds is not None:
+            reset_at = (datetime.now(UTC) + timedelta(seconds=wait_seconds)).strftime("%H:%M:%S UTC")
+            parts.append(f"wait {wait_seconds:.0f}s (Retry-After) — resets ~{reset_at}")
+        else:
+            parts.append(f"Retry-After: {retry_after}")
+
+    policy = headers.get("ratelimit-policy") or headers.get("x-ratelimit-policy")
+    if policy:
+        formatted_policy = _format_ratelimit_policy(policy)
+        parts.append(f"limits {formatted_policy}" if formatted_policy else f"policy {policy}")
+
+    limit = headers.get("x-ratelimit-limit") or headers.get("ratelimit-limit")
+    remaining = headers.get("x-ratelimit-remaining") or headers.get("ratelimit-remaining")
+    reset = headers.get("x-ratelimit-reset") or headers.get("ratelimit-reset")
+    if limit is not None or remaining is not None:
+        usage = f"{remaining} remaining" if remaining is not None else "limit reached"
+        try:
+            if limit is not None and remaining is not None:
+                usage = f"{int(limit) - int(remaining)}/{int(limit)} used, {remaining} remaining"
+        except ValueError:
+            pass
+        parts.append(usage)
+    if reset is not None:
+        clock = _format_reset_clock(reset)
+        parts.append(f"resets ~{clock}" if clock else f"reset={reset}")
+
+    known = {
+        "retry-after",
+        "ratelimit-policy",
+        "x-ratelimit-policy",
+        "x-ratelimit-limit",
+        "ratelimit-limit",
+        "x-ratelimit-remaining",
+        "ratelimit-remaining",
+        "x-ratelimit-reset",
+        "ratelimit-reset",
+    }
+    for key, value in headers.items():
+        if key not in known and any(hint in key for hint in ("ratelimit", "rate-limit", "quota")):
+            parts.append(f"{key}={value}")
+
+    return "; ".join(parts) if parts else None
+
+
 async def _retry(
     factory: Any,
     retries: int,
@@ -705,7 +901,7 @@ async def _retry(
             return await factory()
         except Exception as exc:
             last_error = exc
-            status_code = getattr(exc, "status_code", None)
+            status_code = _status_code_of(exc)
             error_name = type(exc).__name__.lower()
             transient = (
                 isinstance(exc, TimeoutError | ConnectionError)
@@ -715,11 +911,30 @@ async def _retry(
             )
             if attempt >= retries or not transient:
                 break
-            delay = min(2**attempt, 8)
+            # Rate-limit throttles (429) need a longer cooldown than a transient
+            # network blip, so give them more breathing room within the same
+            # retry budget.
+            delay = min(5 * 2**attempt, 60) if status_code == 429 else min(2**attempt, 8)
+            if status_code == 429:
+                logger.warning(
+                    "LSEG rate limit (HTTP 429): %s — backing off %.0fs (retry %d of %d)",
+                    _rate_limit_summary(exc) or "no rate-limit headers returned by LSEG",
+                    delay,
+                    attempt + 1,
+                    retries,
+                )
             if on_retry is not None:
                 on_retry(delay, exc)
             await asyncio.sleep(delay)
     if last_error is not None:
+        if _status_code_of(last_error) == 429:
+            summary = _rate_limit_summary(last_error)
+            detail = f" {summary}." if summary else " LSEG returned no rate-limit headers."
+            raise LsegNewsError(
+                f"LSEG rate limit hit (HTTP 429) and did not clear after {retries} "
+                f"retr{'y' if retries == 1 else 'ies'}.{detail} Wait for the limit to reset, "
+                "then re-run the same command to resume from the last checkpoint."
+            ) from last_error
         raise last_error
     raise LsegNewsError("LSEG retry loop ended unexpectedly")
 
@@ -795,6 +1010,39 @@ def _load_completed_result(config: LsegCollectionConfig, manifest_path: Path) ->
     )
 
 
+def _prune_story_shards(config: LsegCollectionConfig, manifest_path: Path) -> int:
+    """Delete per-story checkpoint shards once their content is durably consolidated.
+
+    The files under ``stories/`` are byte-for-byte duplicates of ``stories.jsonl``;
+    they exist only to make the multi-day story phase resumable. Once a collection
+    is completed they are pure redundancy. Deletion is gated on the consolidated
+    ``stories.jsonl`` existing and hash-matching the manifest, so the authoritative
+    copy is always verified intact before any shard is removed. Idempotent: a no-op
+    on a collection that is not completed or has already been pruned. Returns the
+    number of shard files removed.
+    """
+
+    if not manifest_path.exists():
+        return 0
+    manifest = read_json(manifest_path)
+    if manifest.get("status") != "completed":
+        return 0
+    files_value = manifest.get("files")
+    files = files_value if isinstance(files_value, dict) else {}
+    entry = files.get("stories_jsonl")
+    if not isinstance(entry, dict) or not entry.get("path") or not entry.get("sha256"):
+        return 0
+    stories_jsonl = config.raw_dir / str(entry["path"])
+    if not stories_jsonl.exists() or sha256_file(stories_jsonl) != entry["sha256"]:
+        return 0
+    stories_dir = config.raw_dir / "stories"
+    if not stories_dir.is_dir():
+        return 0
+    removed = sum(1 for _ in stories_dir.glob("*.json"))
+    shutil.rmtree(stories_dir)
+    return removed
+
+
 def _safe_in_progress_operational_change(manifest: dict[str, Any], config: LsegCollectionConfig) -> bool:
     """Allow safe pacing changes and page-cap increases on an unfinished collection."""
 
@@ -812,15 +1060,22 @@ def _safe_in_progress_operational_change(manifest: dict[str, Any], config: LsegC
         return False
     if config.max_pages < old_max_pages:
         return False
-    normalized_stored = {
-        **stored,
-        "collection": {
-            **stored_collection,
-            "max_pages": config.max_pages,
-            "requests_per_second": config.requests_per_second,
-        },
+    config_payload = config.to_payload()
+    collection_overrides = {
+        **stored_collection,
+        "max_pages": config.max_pages,
+        "requests_per_second": config.requests_per_second,
     }
-    return canonical_json(normalized_stored) == canonical_json(config.to_payload())
+    # Narrowing or adopting the story-source allowlist is safe mid-collection: it
+    # only affects which stories get bodies in the not-yet-run story phase and
+    # leaves the headline checkpoints untouched.
+    config_collection = config_payload["collection"]
+    if "story_source_allowlist" in config_collection:
+        collection_overrides["story_source_allowlist"] = config_collection["story_source_allowlist"]
+    else:
+        collection_overrides.pop("story_source_allowlist", None)
+    normalized_stored = {**stored, "collection": collection_overrides}
+    return canonical_json(normalized_stored) == canonical_json(config_payload)
 
 
 async def check_lseg_news(config: LsegCollectionConfig, client: LsegNewsClient) -> dict[str, Any]:
@@ -912,6 +1167,8 @@ async def fetch_lseg_news(
     manifest_path = raw_dir / "manifest.json"
     completed = _load_completed_result(config, manifest_path)
     if completed is not None:
+        if config.prune_story_shards_on_completion:
+            _prune_story_shards(config, manifest_path)
         return completed
     if raw_dir.exists() and any(raw_dir.iterdir()) and not manifest_path.exists():
         raise LsegNewsError(f"refusing to use non-empty collection directory without a manifest: {raw_dir}")
@@ -1087,9 +1344,23 @@ async def fetch_lseg_news(
     headline_rows = [headlines[key] for key in sorted(headlines)]
     headlines_path = atomic_write_jsonl(raw_dir / "headlines.jsonl", headline_rows)
 
+    # All headlines are kept; the story-fetch phase can be narrowed to specific
+    # sources (e.g. Reuters-only) to stay within the request budget while still
+    # preserving full headline coverage.
+    if config.story_source_allowlist:
+        allowed_sources = set(config.story_source_allowlist)
+        story_targets = [
+            story_id for story_id in sorted(headlines) if (headlines[story_id].get("source_code") or "") in allowed_sources
+        ]
+    else:
+        story_targets = sorted(headlines)
+    story_target_count = len(story_targets)
+
     semaphore = asyncio.Semaphore(config.story_concurrency)
     existing_story_records = {
-        story_id: read_json(story_path) for story_id in headlines if (story_path := stories_dir / f"{sha256_text(story_id)}.json").exists()
+        story_id: read_json(story_path)
+        for story_id in story_targets
+        if (story_path := stories_dir / f"{sha256_text(story_id)}.json").exists()
     }
     existing_story_ids = set(existing_story_records)
     completed_stories = len(existing_story_ids)
@@ -1099,7 +1370,7 @@ async def fetch_lseg_news(
         LsegProgressUpdate(
             phase="stories",
             completed=completed_stories,
-            total=len(headlines),
+            total=story_target_count,
             current="Loading saved stories" if existing_story_ids else "Starting full-story retrieval",
             raw_headline_rows=raw_headline_rows,
             unique_headlines=len(headlines),
@@ -1151,7 +1422,7 @@ async def fetch_lseg_news(
                 LsegProgressUpdate(
                     phase="stories",
                     completed=completed_stories,
-                    total=len(headlines),
+                    total=story_target_count,
                     current="Retrieving full stories",
                     raw_headline_rows=raw_headline_rows,
                     unique_headlines=len(headlines),
@@ -1162,7 +1433,7 @@ async def fetch_lseg_news(
             )
             return payload
 
-    story_rows = await asyncio.gather(*(fetch_story_record(story_id) for story_id in sorted(headlines)))
+    story_rows = await asyncio.gather(*(fetch_story_record(story_id) for story_id in story_targets))
     stories_path = atomic_write_jsonl(raw_dir / "stories.jsonl", story_rows)
     failed_story_count = sum(row.get("status") != "success" for row in story_rows)
     final_request_metrics = client.request_metrics
@@ -1185,6 +1456,8 @@ async def fetch_lseg_news(
             "headline_pages": len(page_paths),
             "headlines": len(headline_rows),
             "stories": len(story_rows),
+            "story_source_allowlist": list(config.story_source_allowlist),
+            "headlines_without_story_fetch": len(headline_rows) - len(story_rows),
             "failed_stories": failed_story_count,
             "successful_stories": len(story_rows) - failed_story_count,
             "raw_headline_rows": raw_headline_rows,
@@ -1217,8 +1490,19 @@ async def fetch_lseg_news(
             "redistribute": False,
             "note": "Workspace story content is local research material and must not be committed or shared.",
         },
+        "checkpoint_retention": {
+            "story_shards": "pruned_on_completion" if config.prune_story_shards_on_completion else "retained",
+            "authoritative_story_artifact": stories_path.name,
+            "note": (
+                "Per-story shards under stories/ duplicate stories.jsonl. When pruning is enabled they are "
+                "deleted after this manifest is written; in-progress resume is unaffected because shards are "
+                "only removed once status is completed."
+            ),
+        },
     }
     atomic_write_json(manifest_path, manifest)
+    if config.prune_story_shards_on_completion:
+        _prune_story_shards(config, manifest_path)
     return LsegFetchResult(
         raw_dir=raw_dir,
         manifest_path=manifest_path,
