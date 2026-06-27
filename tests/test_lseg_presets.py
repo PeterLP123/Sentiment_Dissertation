@@ -58,7 +58,7 @@ def test_sector_33_config_is_balanced_and_not_reuters_only() -> None:
     assert config.start == "2025-12-26T00:00:00Z"
     assert config.end == "2026-06-26T00:00:00Z"
     assert config.window_days == 1
-    assert config.max_pages == 10
+    assert config.max_pages == 50
     assert len(config.companies) == 33
     assert len({company.symbol for company in config.companies}) == 33
     assert len({company.ric for company in config.companies}) == 33

@@ -12,9 +12,11 @@ end = "2026-06-26T00:00:00Z"
 language = "en"
 session = "desktop"
 page_size = 100
-# Raised from 3 after the in-progress all-source pilot found an AAPL day with
-# more than 300 matching headlines. Existing query/window checkpoints remain valid.
-max_pages = 10
+# Raised after the in-progress all-source collection found full 100-row pages
+# beyond page 10 for an NVDA day. This supports up to 5,000 headlines per
+# company/day while retaining a finite pagination guard. Existing checkpoints
+# remain valid because unfinished collections allow monotonic cap increases.
+max_pages = 50
 story_concurrency = 4
 retries = 3
 # Smooth all headline, story, and retry request starts below LSEG's documented
