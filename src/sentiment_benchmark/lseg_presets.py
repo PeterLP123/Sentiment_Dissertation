@@ -10,6 +10,7 @@ from .lseg_source import (
     DEFAULT_LSEG_MAX_SCORING_CHARS,
     DEFAULT_LSEG_MIN_TEXT_CHARS,
     DEFAULT_LSEG_RAW_ROOT,
+    DEFAULT_LSEG_REQUESTS_PER_SECOND,
     DEFAULT_LSEG_RETRIES,
     DEFAULT_LSEG_STORY_CONCURRENCY,
     LsegCollectionConfig,
@@ -72,6 +73,7 @@ def lseg_config_from_preset(
     max_pages: int = 3,
     story_concurrency: int = DEFAULT_LSEG_STORY_CONCURRENCY,
     retries: int = DEFAULT_LSEG_RETRIES,
+    requests_per_second: float = DEFAULT_LSEG_REQUESTS_PER_SECOND,
     min_text_chars: int = DEFAULT_LSEG_MIN_TEXT_CHARS,
     max_scoring_chars: int = DEFAULT_LSEG_MAX_SCORING_CHARS,
     raw_output_root: Path = DEFAULT_LSEG_RAW_ROOT,
@@ -88,6 +90,7 @@ def lseg_config_from_preset(
             "max_pages": max_pages,
             "story_concurrency": story_concurrency,
             "retries": retries,
+            "requests_per_second": requests_per_second,
         },
         "cleaning": {
             "min_text_chars": min_text_chars,
@@ -136,6 +139,7 @@ def render_lseg_collection_config(config: LsegCollectionConfig) -> str:
         f"max_pages = {config.max_pages}",
         f"story_concurrency = {config.story_concurrency}",
         f"retries = {config.retries}",
+        f"requests_per_second = {config.requests_per_second:g}",
     ]
     if config.window_days is not None:
         lines.append(f"window_days = {config.window_days}")

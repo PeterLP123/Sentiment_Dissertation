@@ -8,9 +8,20 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import typer
-from rich.console import Console
-from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
+from rich.console import Console, Group
+from rich.live import Live
+from rich.panel import Panel
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+)
 from rich.table import Table
+from rich.text import Text
 
 from .baseline_runner import run_baselines
 from .baselines import BASELINE_SPECS
@@ -50,6 +61,7 @@ from .lseg_presets import (
 from .lseg_source import (
     LsegNewsClient,
     LsegNewsError,
+    LsegProgressUpdate,
     check_lseg_news,
     fetch_lseg_news,
     load_lseg_collection_config,
@@ -483,8 +495,90 @@ def fetch_lseg_news_command(
         raise typer.BadParameter(str(exc)) from exc
 
     async def main() -> None:
-        async with _make_lseg_news_client() as client:
-            result = await fetch_lseg_news(config, client)
+        console.print(
+            Panel.fit(
+                "\n".join(
+                    [
+                        f"[bold]{config.collection_id}[/bold]",
+                        f"[cyan]{len(config.companies)} companies[/cyan]  •  {config.start[:10]} → {config.end[:10]}",
+                        f"[cyan]API pace: {config.requests_per_second:g} requests/second[/cyan]",
+                        f"[dim]Output: {config.raw_dir}[/dim]",
+                        "[dim]Saved checkpoints are reused. ETA stabilizes after a few live requests.[/dim]",
+                    ]
+                ),
+                title="[bold cyan]LSEG Collection Monitor[/bold cyan]",
+                border_style="cyan",
+                padding=(0, 1),
+            )
+        )
+        progress = Progress(
+            SpinnerColumn(style="cyan"),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(bar_width=20, complete_style="cyan", finished_style="green"),
+            MofNCompleteColumn(),
+            TextColumn("[dim]ETA[/dim]"),
+            TimeRemainingColumn(),
+            console=console,
+            expand=True,
+            auto_refresh=False,
+        )
+        api_status_line = Text("API control: waiting for first request", style="dim")
+        headline_task = progress.add_task(
+            "[cyan]Headline windows[/cyan]",
+            total=1,
+            start=False,
+        )
+        story_task = progress.add_task(
+            "[magenta]Full stories[/magenta]",
+            total=1,
+            start=False,
+            visible=False,
+        )
+        initialized_phases: set[str] = set()
+
+        def update_progress(update: LsegProgressUpdate) -> None:
+            api_status_line.plain = (
+                f"API {update.requests_per_second:g}/s cap  |  {update.requests_started:,} requests"
+                f"  |  paced {update.paced_waits:,} / {update.paced_wait_seconds:.1f}s"
+                f"  |  retries {update.retries:,}  |  safe cursors {update.pagination_anomalies:,}"
+            )
+            if update.phase == "headlines":
+                task_id = headline_task
+                description = (
+                    f"[cyan]Headlines[/cyan] {update.current} [dim]• {update.unique_headlines:,} unique • ↻{update.checkpointed:,}[/dim]"
+                )
+            else:
+                task_id = story_task
+                progress.update(story_task, visible=True)
+                progress.update(
+                    headline_task,
+                    description="[green]✓ Headlines collected[/green]",
+                )
+                detail = f"• {update.failed_stories:,} unavailable • ↻{update.checkpointed:,}"
+                description = f"[magenta]Stories[/magenta] [dim]{detail}[/dim]"
+            display_total = max(update.total, 1)
+            display_completed = display_total if update.total == 0 else update.completed
+            progress.update(
+                task_id,
+                total=display_total,
+                completed=display_completed,
+                description=description,
+            )
+            if update.phase not in initialized_phases:
+                initialized_phases.add(update.phase)
+                progress.start_task(task_id)
+
+        with Live(
+            Group(progress, api_status_line),
+            console=console,
+            refresh_per_second=4,
+            transient=False,
+        ):
+            async with _make_lseg_news_client() as client:
+                result = await fetch_lseg_news(config, client, progress_callback=update_progress)
+            if not initialized_phases:
+                progress.update(headline_task, visible=False)
+                progress.update(story_task, visible=False)
         table = Table(title="LSEG Workspace News Fetch")
         table.add_column("Metric")
         table.add_column("Value")
@@ -492,6 +586,9 @@ def fetch_lseg_news_command(
         table.add_row("Headlines", str(result.headline_count))
         table.add_row("Stories", str(result.story_count))
         table.add_row("Unavailable/failed stories", str(result.failed_story_count))
+        table.add_row("Requests this session", str(result.request_count))
+        table.add_row("Retries this session", str(result.retry_count))
+        table.add_row("Safe cursor terminations", str(result.pagination_anomaly_count))
         table.add_row("Resumed", str(result.resumed))
         table.add_row("Window days", str(config.window_days or "whole interval"))
         table.add_row("Raw collection", str(result.raw_dir))

@@ -7,6 +7,8 @@ import inspect
 import math
 import re
 import tomllib
+import warnings
+from collections.abc import Awaitable, Callable
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -31,6 +33,7 @@ DEFAULT_LSEG_PAGE_SIZE = 100
 DEFAULT_LSEG_MAX_PAGES = 50
 DEFAULT_LSEG_STORY_CONCURRENCY = 4
 DEFAULT_LSEG_RETRIES = 3
+DEFAULT_LSEG_REQUESTS_PER_SECOND = 3.0
 DEFAULT_LSEG_MIN_TEXT_CHARS = 100
 DEFAULT_LSEG_MAX_SCORING_CHARS = 8_000
 DEFAULT_LSEG_WINDOW_DAYS: int | None = None
@@ -68,6 +71,7 @@ class LsegCollectionConfig:
     max_pages: int = DEFAULT_LSEG_MAX_PAGES
     story_concurrency: int = DEFAULT_LSEG_STORY_CONCURRENCY
     retries: int = DEFAULT_LSEG_RETRIES
+    requests_per_second: float = DEFAULT_LSEG_REQUESTS_PER_SECOND
     window_days: int | None = DEFAULT_LSEG_WINDOW_DAYS
     min_text_chars: int = DEFAULT_LSEG_MIN_TEXT_CHARS
     max_scoring_chars: int = DEFAULT_LSEG_MAX_SCORING_CHARS
@@ -94,6 +98,7 @@ class LsegCollectionConfig:
             "max_pages": self.max_pages,
             "story_concurrency": self.story_concurrency,
             "retries": self.retries,
+            "requests_per_second": self.requests_per_second,
         }
         if self.window_days is not None:
             collection["window_days"] = self.window_days
@@ -141,6 +146,89 @@ class LsegFetchResult:
     story_count: int
     failed_story_count: int
     resumed: bool = False
+    request_count: int = 0
+    retry_count: int = 0
+    pagination_anomaly_count: int = 0
+
+
+@dataclass(frozen=True)
+class LsegProgressUpdate:
+    """Resume-aware progress snapshot emitted during an LSEG collection."""
+
+    phase: str
+    completed: int
+    total: int
+    current: str
+    raw_headline_rows: int = 0
+    unique_headlines: int = 0
+    checkpointed: int = 0
+    failed_stories: int = 0
+    requests_started: int = 0
+    paced_waits: int = 0
+    paced_wait_seconds: float = 0.0
+    requests_per_second: float = DEFAULT_LSEG_REQUESTS_PER_SECOND
+    retries: int = 0
+    retry_backoff_seconds: float = 0.0
+    pagination_anomalies: int = 0
+
+
+LsegProgressCallback = Callable[[LsegProgressUpdate], None]
+
+
+@dataclass(frozen=True)
+class LsegRequestMetrics:
+    requests_started: int
+    paced_waits: int
+    paced_wait_seconds: float
+    requests_per_second: float
+
+
+class _RequestPacer:
+    """Smooth request starts across concurrent headline and story calls."""
+
+    def __init__(
+        self,
+        requests_per_second: float,
+        *,
+        clock: Callable[[], float] | None = None,
+        sleeper: Callable[[float], Awaitable[None]] | None = None,
+    ) -> None:
+        if requests_per_second <= 0:
+            raise ValueError("requests_per_second must be positive")
+        self.requests_per_second = requests_per_second
+        self._interval = 1.0 / requests_per_second
+        self._clock = clock
+        self._sleeper = sleeper or asyncio.sleep
+        self._lock = asyncio.Lock()
+        self._next_start = 0.0
+        self._requests_started = 0
+        self._paced_waits = 0
+        self._paced_wait_seconds = 0.0
+
+    def _now(self) -> float:
+        if self._clock is not None:
+            return self._clock()
+        return asyncio.get_running_loop().time()
+
+    async def acquire(self) -> None:
+        async with self._lock:
+            now = self._now()
+            delay = max(0.0, self._next_start - now)
+            if delay > 0.001:
+                self._paced_waits += 1
+                self._paced_wait_seconds += delay
+                await self._sleeper(delay)
+                now = self._now()
+            self._next_start = max(self._next_start, now) + self._interval
+            self._requests_started += 1
+
+    def snapshot(self) -> LsegRequestMetrics:
+        return LsegRequestMetrics(
+            requests_started=self._requests_started,
+            paced_waits=self._paced_waits,
+            paced_wait_seconds=self._paced_wait_seconds,
+            requests_per_second=self.requests_per_second,
+        )
 
 
 @dataclass(frozen=True)
@@ -180,6 +268,16 @@ def _int_setting(value: Any, *, name: str, minimum: int, maximum: int) -> int:
         raise LsegConfigurationError(f"{name} must be an integer") from exc
     if not minimum <= parsed <= maximum:
         raise LsegConfigurationError(f"{name} must be between {minimum} and {maximum}")
+    return parsed
+
+
+def _float_setting(value: Any, *, name: str, minimum: float, maximum: float) -> float:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError) as exc:
+        raise LsegConfigurationError(f"{name} must be a number") from exc
+    if not minimum <= parsed <= maximum:
+        raise LsegConfigurationError(f"{name} must be between {minimum:g} and {maximum:g}")
     return parsed
 
 
@@ -294,6 +392,12 @@ def config_from_payload(payload: dict[str, Any]) -> LsegCollectionConfig:
             name="collection.retries",
             minimum=0,
             maximum=10,
+        ),
+        requests_per_second=_float_setting(
+            collection.get("requests_per_second", DEFAULT_LSEG_REQUESTS_PER_SECOND),
+            name="collection.requests_per_second",
+            minimum=0.1,
+            maximum=5.0,
         ),
         window_days=_optional_int_setting(
             collection.get("window_days"),
@@ -460,6 +564,12 @@ class _LsegSdkBackend:
         self.news: Any | None = None
 
     async def open(self) -> None:
+        warnings.filterwarnings(
+            "ignore",
+            message=r"The behavior of (?:array|DataFrame) concatenation with empty.*",
+            category=FutureWarning,
+            module=r"lseg\.data\.content\.news\._df_builder",
+        )
         try:
             self.ld = importlib.import_module("lseg.data")
             self.news = importlib.import_module("lseg.data.content.news")
@@ -546,6 +656,14 @@ class LsegNewsClient:
 
     def __init__(self, backend: Any | None = None) -> None:
         self._backend = backend or _LsegSdkBackend()
+        self._pacer = _RequestPacer(DEFAULT_LSEG_REQUESTS_PER_SECOND)
+
+    def configure_request_pacing(self, requests_per_second: float) -> None:
+        self._pacer = _RequestPacer(requests_per_second)
+
+    @property
+    def request_metrics(self) -> LsegRequestMetrics:
+        return self._pacer.snapshot()
 
     async def __aenter__(self) -> LsegNewsClient:
         opener = getattr(self._backend, "open", None)
@@ -567,13 +685,20 @@ class LsegNewsClient:
         count: int,
         cursor: str | None,
     ) -> LsegHeadlinePage:
+        await self._pacer.acquire()
         return await self._backend.headline_page(query=query, start=start, end=end, count=count, cursor=cursor)
 
     async def fetch_story(self, story_id: str) -> LsegStoryResponse:
+        await self._pacer.acquire()
         return await self._backend.story(story_id)
 
 
-async def _retry(factory: Any, retries: int) -> Any:
+async def _retry(
+    factory: Any,
+    retries: int,
+    *,
+    on_retry: Callable[[float, Exception], None] | None = None,
+) -> Any:
     last_error: Exception | None = None
     for attempt in range(retries + 1):
         try:
@@ -590,7 +715,10 @@ async def _retry(factory: Any, retries: int) -> Any:
             )
             if attempt >= retries or not transient:
                 break
-            await asyncio.sleep(min(2**attempt, 8))
+            delay = min(2**attempt, 8)
+            if on_retry is not None:
+                on_retry(delay, exc)
+            await asyncio.sleep(delay)
     if last_error is not None:
         raise last_error
     raise LsegNewsError("LSEG retry loop ended unexpectedly")
@@ -639,7 +767,7 @@ def _load_completed_result(config: LsegCollectionConfig, manifest_path: Path) ->
     if not manifest_path.exists():
         return None
     manifest = read_json(manifest_path)
-    if manifest.get("config_sha256") != config.config_sha256:
+    if manifest.get("config_sha256") != config.config_sha256 and not _safe_in_progress_operational_change(manifest, config):
         raise LsegNewsError(f"collection {config.collection_id} already exists with a different configuration; choose a new collection.id")
     if manifest.get("status") != "completed":
         return None
@@ -661,10 +789,42 @@ def _load_completed_result(config: LsegCollectionConfig, manifest_path: Path) ->
         story_count=int(counts.get("stories", 0)),
         failed_story_count=int(counts.get("failed_stories", 0)),
         resumed=True,
+        request_count=0,
+        retry_count=0,
+        pagination_anomaly_count=int(counts.get("pagination_anomalies", 0)),
     )
 
 
+def _safe_in_progress_operational_change(manifest: dict[str, Any], config: LsegCollectionConfig) -> bool:
+    """Allow safe pacing changes and page-cap increases on an unfinished collection."""
+
+    if manifest.get("status") != "in_progress":
+        return False
+    stored = manifest.get("config")
+    if not isinstance(stored, dict):
+        return False
+    stored_collection = stored.get("collection")
+    if not isinstance(stored_collection, dict):
+        return False
+    try:
+        old_max_pages = int(stored_collection.get("max_pages"))
+    except (TypeError, ValueError):
+        return False
+    if config.max_pages < old_max_pages:
+        return False
+    normalized_stored = {
+        **stored,
+        "collection": {
+            **stored_collection,
+            "max_pages": config.max_pages,
+            "requests_per_second": config.requests_per_second,
+        },
+    }
+    return canonical_json(normalized_stored) == canonical_json(config.to_payload())
+
+
 async def check_lseg_news(config: LsegCollectionConfig, client: LsegNewsClient) -> dict[str, Any]:
+    client.configure_request_pacing(config.requests_per_second)
     company = config.companies[0]
     window = collection_windows(config)[0]
     page = await _retry(
@@ -695,7 +855,59 @@ async def check_lseg_news(config: LsegCollectionConfig, client: LsegNewsClient) 
     }
 
 
-async def fetch_lseg_news(config: LsegCollectionConfig, client: LsegNewsClient) -> LsegFetchResult:
+def _completed_window_checkpoints(pages_dir: Path, config: LsegCollectionConfig) -> set[tuple[str, int]]:
+    expected_symbols = {company.symbol for company in config.companies}
+    max_window_index = len(collection_windows(config))
+    completed: set[tuple[str, int]] = set()
+    for page_path in pages_dir.glob("*.json"):
+        payload = read_json(page_path)
+        symbol = str(payload.get("symbol") or "")
+        try:
+            window_index = int(payload.get("window_index", 1))
+        except (TypeError, ValueError):
+            continue
+        if (
+            symbol in expected_symbols
+            and 1 <= window_index <= max_window_index
+            and (not _string(payload.get("cursor_out")) or payload.get("pagination_terminal_reason"))
+        ):
+            completed.add((symbol, window_index))
+    return completed
+
+
+def _emit_progress(callback: LsegProgressCallback | None, update: LsegProgressUpdate) -> None:
+    if callback is not None:
+        callback(update)
+
+
+async def fetch_lseg_news(
+    config: LsegCollectionConfig,
+    client: LsegNewsClient,
+    *,
+    progress_callback: LsegProgressCallback | None = None,
+) -> LsegFetchResult:
+    client.configure_request_pacing(config.requests_per_second)
+    retry_count = 0
+    retry_backoff_seconds = 0.0
+    pagination_anomalies: list[dict[str, Any]] = []
+
+    def record_retry(delay: float, _exc: Exception) -> None:
+        nonlocal retry_count, retry_backoff_seconds
+        retry_count += 1
+        retry_backoff_seconds += delay
+
+    def request_progress() -> dict[str, int | float]:
+        metrics = client.request_metrics
+        return {
+            "requests_started": metrics.requests_started,
+            "paced_waits": metrics.paced_waits,
+            "paced_wait_seconds": metrics.paced_wait_seconds,
+            "requests_per_second": metrics.requests_per_second,
+            "retries": retry_count,
+            "retry_backoff_seconds": retry_backoff_seconds,
+            "pagination_anomalies": len(pagination_anomalies),
+        }
+
     raw_dir = config.raw_dir
     manifest_path = raw_dir / "manifest.json"
     completed = _load_completed_result(config, manifest_path)
@@ -725,11 +937,26 @@ async def fetch_lseg_news(config: LsegCollectionConfig, client: LsegNewsClient) 
     query_stats: dict[str, dict[str, Any]] = {}
     raw_headline_rows = 0
     windows = collection_windows(config)
+    total_windows = len(config.companies) * len(windows)
+    checkpointed_windows = _completed_window_checkpoints(pages_dir, config)
+    completed_windows = len(checkpointed_windows)
+    _emit_progress(
+        progress_callback,
+        LsegProgressUpdate(
+            phase="headlines",
+            completed=completed_windows,
+            total=total_windows,
+            current="Loading saved checkpoints" if checkpointed_windows else "Starting headline collection",
+            checkpointed=len(checkpointed_windows),
+            **request_progress(),
+        ),
+    )
     for company_index, company in enumerate(config.companies, start=1):
         query_stats[company.symbol] = {"query": company.news_query, "ric": company.ric, "pages": 0, "rows": 0, "windows": len(windows)}
         for window in windows:
             cursor: str | None = None
             seen_cursors: set[str] = set()
+            window_story_ids: set[str] = set()
             for page_number in range(1, config.max_pages + 1):
                 if config.window_days is None:
                     page_path = pages_dir / f"{company_index:03d}-{company.symbol}-page-{page_number:04d}.json"
@@ -754,6 +981,7 @@ async def fetch_lseg_news(config: LsegCollectionConfig, client: LsegNewsClient) 
                             cursor=cursor,
                         ),
                         config.retries,
+                        on_retry=record_retry,
                     )
                     payload = {
                         "query": company.news_query,
@@ -776,6 +1004,7 @@ async def fetch_lseg_news(config: LsegCollectionConfig, client: LsegNewsClient) 
                 query_stats[company.symbol]["pages"] += 1
                 query_stats[company.symbol]["rows"] += len(rows)
                 raw_headline_rows += len(rows)
+                page_story_ids: set[str] = set()
                 for raw_row in rows:
                     if not isinstance(raw_row, dict):
                         continue
@@ -783,16 +1012,54 @@ async def fetch_lseg_news(config: LsegCollectionConfig, client: LsegNewsClient) 
                     if normalized is None:
                         continue
                     story_id = str(normalized["story_id"])
+                    page_story_ids.add(story_id)
                     if story_id in headlines:
                         _merge_headline(headlines[story_id], normalized)
                     else:
                         headlines[story_id] = normalized
-                next_cursor = _string(payload.get("cursor_out"))
+                new_window_story_ids = page_story_ids - window_story_ids
+                window_story_ids.update(page_story_ids)
+                terminal_reason = _string(payload.get("pagination_terminal_reason"))
+                if terminal_reason:
+                    pagination_anomalies.append(
+                        {
+                            "symbol": company.symbol,
+                            "query": company.news_query,
+                            "window_index": window.index,
+                            "window_start": window.start,
+                            "window_end": window.end,
+                            "page_number": page_number,
+                            "reason": terminal_reason,
+                            "duplicate_rows": len(rows),
+                        }
+                    )
+                next_cursor = None if terminal_reason else _string(payload.get("cursor_out"))
                 if not next_cursor:
                     cursor = None
                     break
                 if next_cursor == cursor or next_cursor in seen_cursors:
-                    raise LsegNewsError(f"LSEG pagination returned a repeated cursor for {company.news_query!r}")
+                    if new_window_story_ids:
+                        raise LsegNewsError(
+                            f"LSEG pagination returned a repeated cursor with {len(new_window_story_ids)} new stories "
+                            f"for {company.news_query!r}"
+                        )
+                    terminal_reason = "repeated_cursor_duplicate_page"
+                    payload["pagination_terminal_reason"] = terminal_reason
+                    atomic_write_json(page_path, payload)
+                    pagination_anomalies.append(
+                        {
+                            "symbol": company.symbol,
+                            "query": company.news_query,
+                            "window_index": window.index,
+                            "window_start": window.start,
+                            "window_end": window.end,
+                            "page_number": page_number,
+                            "reason": terminal_reason,
+                            "duplicate_rows": len(rows),
+                        }
+                    )
+                    cursor = None
+                    break
                 seen_cursors.add(next_cursor)
                 cursor = next_cursor
             if cursor:
@@ -800,19 +1067,60 @@ async def fetch_lseg_news(config: LsegCollectionConfig, client: LsegNewsClient) 
                     f"LSEG query {company.news_query!r} exceeded collection.max_pages={config.max_pages} "
                     f"for {window.start} to {window.end}; increase the limit or narrow the date range"
                 )
+            checkpoint_key = (company.symbol, window.index)
+            if checkpoint_key not in checkpointed_windows:
+                completed_windows += 1
+            _emit_progress(
+                progress_callback,
+                LsegProgressUpdate(
+                    phase="headlines",
+                    completed=completed_windows,
+                    total=total_windows,
+                    current=f"{company.symbol} {window.index}/{len(windows)}",
+                    raw_headline_rows=raw_headline_rows,
+                    unique_headlines=len(headlines),
+                    checkpointed=len(checkpointed_windows),
+                    **request_progress(),
+                ),
+            )
 
     headline_rows = [headlines[key] for key in sorted(headlines)]
     headlines_path = atomic_write_jsonl(raw_dir / "headlines.jsonl", headline_rows)
 
     semaphore = asyncio.Semaphore(config.story_concurrency)
+    existing_story_records = {
+        story_id: read_json(story_path) for story_id in headlines if (story_path := stories_dir / f"{sha256_text(story_id)}.json").exists()
+    }
+    existing_story_ids = set(existing_story_records)
+    completed_stories = len(existing_story_ids)
+    failed_stories_in_progress = sum(payload.get("status") != "success" for payload in existing_story_records.values())
+    _emit_progress(
+        progress_callback,
+        LsegProgressUpdate(
+            phase="stories",
+            completed=completed_stories,
+            total=len(headlines),
+            current="Loading saved stories" if existing_story_ids else "Starting full-story retrieval",
+            raw_headline_rows=raw_headline_rows,
+            unique_headlines=len(headlines),
+            checkpointed=len(existing_story_ids),
+            failed_stories=failed_stories_in_progress,
+            **request_progress(),
+        ),
+    )
 
     async def fetch_story_record(story_id: str) -> dict[str, Any]:
+        nonlocal completed_stories, failed_stories_in_progress
         story_path = stories_dir / f"{sha256_text(story_id)}.json"
         if story_path.exists():
-            return read_json(story_path)
+            return existing_story_records[story_id]
         async with semaphore:
             try:
-                response = await _retry(lambda: client.fetch_story(story_id), config.retries)
+                response = await _retry(
+                    lambda: client.fetch_story(story_id),
+                    config.retries,
+                    on_retry=record_retry,
+                )
                 payload = {
                     "story_id": story_id,
                     "status": response.status,
@@ -835,11 +1143,29 @@ async def fetch_lseg_news(config: LsegCollectionConfig, client: LsegNewsClient) 
                     "raw_response": {},
                 }
             atomic_write_json(story_path, payload)
+            completed_stories += 1
+            if payload.get("status") != "success":
+                failed_stories_in_progress += 1
+            _emit_progress(
+                progress_callback,
+                LsegProgressUpdate(
+                    phase="stories",
+                    completed=completed_stories,
+                    total=len(headlines),
+                    current="Retrieving full stories",
+                    raw_headline_rows=raw_headline_rows,
+                    unique_headlines=len(headlines),
+                    checkpointed=len(existing_story_ids),
+                    failed_stories=failed_stories_in_progress,
+                    **request_progress(),
+                ),
+            )
             return payload
 
     story_rows = await asyncio.gather(*(fetch_story_record(story_id) for story_id in sorted(headlines)))
     stories_path = atomic_write_jsonl(raw_dir / "stories.jsonl", story_rows)
     failed_story_count = sum(row.get("status") != "success" for row in story_rows)
+    final_request_metrics = client.request_metrics
     checkpoint_paths = [*page_paths, *sorted(stories_dir.glob("*.json"))]
     try:
         sdk_version = importlib.metadata.version("lseg-data")
@@ -864,8 +1190,18 @@ async def fetch_lseg_news(config: LsegCollectionConfig, client: LsegNewsClient) 
             "raw_headline_rows": raw_headline_rows,
             "deduplicated_story_occurrences": raw_headline_rows - len(headline_rows),
             "ticker_query_associations": sum(len(row.get("matched_symbols") or []) for row in headline_rows),
+            "pagination_anomalies": len(pagination_anomalies),
         },
         "queries": query_stats,
+        "request_control": {
+            "requests_per_second": final_request_metrics.requests_per_second,
+            "requests_started": final_request_metrics.requests_started,
+            "paced_waits": final_request_metrics.paced_waits,
+            "paced_wait_seconds": final_request_metrics.paced_wait_seconds,
+            "retries": retry_count,
+            "retry_backoff_seconds": retry_backoff_seconds,
+        },
+        "pagination_anomalies": pagination_anomalies,
         "failures": [
             {"story_id": row.get("story_id"), "status": row.get("status"), "error": row.get("error")}
             for row in story_rows
@@ -889,4 +1225,7 @@ async def fetch_lseg_news(config: LsegCollectionConfig, client: LsegNewsClient) 
         headline_count=len(headline_rows),
         story_count=len(story_rows),
         failed_story_count=failed_story_count,
+        request_count=final_request_metrics.requests_started,
+        retry_count=retry_count,
+        pagination_anomaly_count=len(pagination_anomalies),
     )
