@@ -1,0 +1,9 @@
+# Licensed and generated collection artifacts stay local.
+raw/*
+!raw/.gitkeep
+derived/*
+!derived/.gitkeep
+reports/*
+!reports/.gitkeep
+packages/*
+!packages/.gitkeep

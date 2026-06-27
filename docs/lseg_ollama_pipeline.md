@@ -18,6 +18,8 @@ sentiment-bench lseg-init-config --collection-id my_lseg_collection --output con
 
 The default preset covers `AAPL`, `AMZN`, `GOOGL`, `JPM`, `META`, `MSFT`, `NVDA`, and `TSLA` from `2025-06-26T00:00:00Z` to `2026-06-26T00:00:00Z` with `window_days = 1`. For other work, copy a config, choose a new stable collection ID, freeze the UTC interval and explicit per-company queries, and do not reuse an ID for different settings.
 
+For a larger cross-sector corpus, `configs/lseg_us_sector_33_6m.toml` defines three US-listed companies in each of 11 sectors over the fixed interval `2025-12-26T00:00:00Z` to `2026-06-26T00:00:00Z`. Its per-company queries use `R:<RIC> and Language:LEN` without a Reuters-only source filter, so the collection retains all English-language sources available under the active Workspace entitlements. Raw, derived, and reporting artifacts are grouped under `Data/collections/lseg_us_sector_33_6m/`; see its README for the exact layout and commands. Validate the configured RICs and headline/story entitlements with `lseg-news-check` before starting the full collection.
+
 ## Collect And Clean
 
 ```bash
@@ -35,7 +37,9 @@ sentiment-bench build-lseg-corpus \
 sentiment-bench lseg-catalog
 ```
 
-The collector requests at most 100 headlines per page and follows `meta.next` through the content-layer cursor interface documented in [LSEG's news pagination guide](https://developers.lseg.com/en/article-catalog/article/lseg-data-library-for-python--news-pagination). If `collection.window_days` is set, each company query is split into fixed UTC windows and each page checkpoint includes the window identity; if omitted, the collector keeps the original whole-interval behavior. It deduplicates story IDs across queries and windows, retains all ticker/query associations, and checkpoints every page and story with atomic replacement. Four story requests may be in flight; transient failures use exponential retry. A completed matching configuration returns unchanged. A changed configuration cannot overwrite the collection.
+The collector requests at most 100 headlines per page and follows `meta.next` through the content-layer cursor interface documented in [LSEG's news pagination guide](https://developers.lseg.com/en/article-catalog/article/lseg-data-library-for-python--news-pagination). If `collection.window_days` is set, each company query is split into fixed UTC windows and each page checkpoint includes the window identity; if omitted, the collector keeps the original whole-interval behavior. It deduplicates story IDs across queries and windows, retains all ticker/query associations, and checkpoints every page and story with atomic replacement. Four story requests may be in flight; transient failures use exponential retry. A completed matching configuration returns unchanged. A changed configuration cannot overwrite the collection, except that an unfinished run may safely increase `max_pages` without invalidating compatible page checkpoints.
+
+The CLI fetch command shows a live resume-aware dashboard with separate headline-window and full-story phases, saved-checkpoint counts, progress bars, and ETA estimates. The headline ETA covers the current collection phase; once headline pagination completes, the story ETA is the estimate to final completion.
 
 Raw data is written to `Data/news/lseg_<collection-id>/`; clean data is written to `Data/derived/lseg/<collection-id>/`. Both roots are ignored by Git. Manifests hash all aggregate files and record configuration, SDK/runtime versions, per-query page and row counts, deduplication, failures, and cleaning quality counts.
 

@@ -49,3 +49,20 @@ def test_lseg_config_writer_refuses_overwrite(tmp_path: Path) -> None:
         write_lseg_config(config, output)
 
     write_lseg_config(config, output, overwrite=True)
+
+
+def test_sector_33_config_is_balanced_and_not_reuters_only() -> None:
+    config = load_lseg_collection_config("configs/lseg_us_sector_33_6m.toml")
+
+    assert config.collection_id == "us_sector_33_6m"
+    assert config.start == "2025-12-26T00:00:00Z"
+    assert config.end == "2026-06-26T00:00:00Z"
+    assert config.window_days == 1
+    assert config.max_pages == 10
+    assert len(config.companies) == 33
+    assert len({company.symbol for company in config.companies}) == 33
+    assert len({company.ric for company in config.companies}) == 33
+    assert all(company.news_query == f"R:{company.ric} and Language:LEN" for company in config.companies)
+    assert all("NS:RTRS" not in company.news_query.upper() for company in config.companies)
+    assert config.raw_dir == Path("Data/collections/lseg_us_sector_33_6m/raw/lseg_us_sector_33_6m")
+    assert config.derived_dir == Path("Data/collections/lseg_us_sector_33_6m/derived/us_sector_33_6m")
