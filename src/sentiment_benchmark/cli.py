@@ -674,22 +674,32 @@ def lseg_catalog(
 
 @app.command("sample-lseg-validation")
 def sample_lseg_validation_command(
-    corpus_manifest: Annotated[Path, typer.Option("--corpus-manifest", help="Verified derived LSEG corpus manifest.")],
     output_dir: Annotated[Path, typer.Option("--output-dir", help="New local-only annotation directory.")],
+    corpus_manifest: Annotated[
+        Path | None,
+        typer.Option("--corpus-manifest", help="Verified derived LSEG corpus manifest."),
+    ] = None,
+    cohort_manifest: Annotated[
+        Path | None,
+        typer.Option("--cohort-manifest", help="Verified LSEG analysis cohort manifest."),
+    ] = None,
     sample_size: Annotated[int, typer.Option("--sample-size")] = 150,
     double_code_size: Annotated[int, typer.Option("--double-code-size")] = 30,
     seed: Annotated[int, typer.Option("--seed")] = 42,
     double_code_seed: Annotated[int, typer.Option("--double-code-seed")] = 43,
 ) -> None:
     """Create deterministic primary and double-code LSEG annotation sheets."""
+    if (corpus_manifest is None) == (cohort_manifest is None):
+        raise typer.BadParameter("provide exactly one of --corpus-manifest or --cohort-manifest")
     try:
         result = create_lseg_validation_sample(
-            corpus_manifest,
+            corpus_manifest or cohort_manifest,  # type: ignore[arg-type]
             output_dir,
             sample_size=sample_size,
             double_code_size=double_code_size,
             seed=seed,
             double_code_seed=double_code_seed,
+            cohort_manifest=cohort_manifest,
         )
     except LsegNewsError as exc:
         raise typer.BadParameter(str(exc)) from exc
@@ -721,6 +731,8 @@ def evaluate_lseg_annotations_command(
     table.add_row("Double-coded", str(result.double_code_count))
     table.add_row("Percent agreement", f"{result.percent_agreement:.1%}")
     table.add_row("Cohen's kappa", f"{result.cohen_kappa:.4f}")
+    table.add_row("Relevance agreement", f"{result.relevance_percent_agreement:.1%}")
+    table.add_row("Relevance kappa", f"{result.relevance_cohen_kappa:.4f}")
     table.add_row("Adjudicated dataset", str(result.labeled_dataset_path))
     table.add_row("Metrics", str(result.metrics_path))
     console.print(table)

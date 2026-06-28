@@ -551,7 +551,7 @@ sentiment-bench lseg-catalog
 
 ```bash
 sentiment-bench sample-lseg-validation \
-  --corpus-manifest Data/derived/lseg/<id>/manifest.json \
+  --cohort-manifest Data/collections/lseg_us_sector_33_6m/derived/us_sector_33_6m_analysis/manifest.json \
   --output-dir Data/derived/lseg/<id>/validation_seed42
 
 sentiment-bench evaluate-lseg-annotations \
@@ -559,7 +559,7 @@ sentiment-bench evaluate-lseg-annotations \
   --output-dir Data/derived/lseg/<id>/validation_evaluated
 ```
 
-Sampling defaults to 150 ticker/date-stratified stories with seed 42 and 30 double-coded stories with seed 43. Annotation evaluation requires allowed labels and adjudication of every disagreement.
+Sampling defaults to 150 ticker/date-stratified stories with seed 42 and 30 double-coded stories with seed 43. The sheets collect company relevance and sentiment separately; annotation evaluation requires allowed values and adjudication of every disagreement. `--corpus-manifest` remains available for validation work that intentionally precedes cohort construction.
 
 For `run-trading-strategy`, `[scoring].provider` defaults to `openrouter` for existing configs. A pure-LSEG Ollama config supplies `sources.lseg_corpus_manifest`, exact tagged `models`, `primary_model`, optional `baselines`, Ollama host/keep-alive/thinking/structured-output settings, and `[signal_policy]`. See `configs/lseg_ollama_trading_example.toml`.
 

@@ -45,7 +45,8 @@ def _rewrite_labels(path: Path, field: str, labels: list[str], adjudicated: list
     for index, row in enumerate(rows):
         row[field] = labels[index]
         if adjudicated is not None:
-            row["adjudicated_label"] = adjudicated[index]
+            adjudication_field = "sentiment_adjudication" if "sentiment_adjudication" in row else "adjudicated_label"
+            row[adjudication_field] = adjudicated[index]
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields, lineterminator="\n")
         writer.writeheader()
@@ -69,18 +70,18 @@ def test_validation_sampling_and_annotation_agreement_are_reproducible(tmp_path:
     with result.secondary_path.open(encoding="utf-8", newline="") as handle:
         secondary_rows = list(csv.DictReader(handle))
     secondary_ids = {row["revision_id"] for row in secondary_rows}
+    _rewrite_labels(result.primary_path, "primary_relevance", ["relevant"] * len(primary_rows))
     primary_labels = ["positive" if index % 2 else "neutral" for index in range(len(primary_rows))]
-    adjudicated = [
-        "negative" if row["revision_id"] in secondary_ids else ""
-        for row in primary_rows
-    ]
-    _rewrite_labels(result.primary_path, "primary_label", primary_labels, adjudicated)
-    _rewrite_labels(result.secondary_path, "secondary_label", ["negative", "negative"])
+    adjudicated = ["negative" if row["revision_id"] in secondary_ids else "" for row in primary_rows]
+    _rewrite_labels(result.primary_path, "primary_sentiment", primary_labels, adjudicated)
+    _rewrite_labels(result.secondary_path, "secondary_relevance", ["relevant", "relevant"])
+    _rewrite_labels(result.secondary_path, "secondary_sentiment", ["negative", "negative"])
 
     evaluation = evaluate_lseg_annotations(result.primary_path, result.secondary_path, tmp_path / "evaluation")
 
     assert evaluation.double_code_count == 2
     assert 0 <= evaluation.percent_agreement <= 1
+    assert evaluation.relevance_percent_agreement == 1
     assert evaluation.labeled_dataset_path.exists()
 
 

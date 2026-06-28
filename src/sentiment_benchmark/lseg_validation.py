@@ -11,6 +11,7 @@ from typing import Any
 from .agreement import cohen_kappa
 from .artifact_io import atomic_write_json, atomic_write_text, sha256_file, sha256_text
 from .constants import VALID_LABELS
+from .lseg_cohort import load_verified_lseg_cohort
 from .lseg_corpus import load_verified_lseg_corpus
 from .lseg_source import LsegNewsError, utc_now
 
@@ -33,6 +34,8 @@ class LsegAnnotationEvaluation:
     percent_agreement: float
     cohen_kappa: float
     double_code_count: int
+    relevance_percent_agreement: float = 1.0
+    relevance_cohen_kappa: float = 1.0
 
 
 def _write_csv(path: Path, rows: list[dict[str, Any]], fields: list[str]) -> Path:
@@ -84,6 +87,7 @@ def create_lseg_validation_sample(
     double_code_size: int = 30,
     seed: int = 42,
     double_code_seed: int = 43,
+    cohort_manifest: str | Path | None = None,
 ) -> LsegValidationSample:
     """Create local-only, deterministic annotation sheets from a verified LSEG corpus."""
     if double_code_size < 1 or double_code_size > sample_size:
@@ -91,7 +95,11 @@ def create_lseg_validation_sample(
     destination = Path(output_dir)
     if destination.exists():
         raise LsegNewsError(f"refusing to overwrite validation sample directory: {destination}")
-    _, articles = load_verified_lseg_corpus(corpus_manifest)
+    source_manifest = Path(cohort_manifest or corpus_manifest)
+    if cohort_manifest is not None:
+        _, articles = load_verified_lseg_cohort(cohort_manifest)
+    else:
+        _, articles = load_verified_lseg_corpus(corpus_manifest)
     eligible: list[dict[str, Any]] = []
     for article in articles:
         if not article.get("scoring_eligible") or not article.get("version_created"):
@@ -101,13 +109,15 @@ def create_lseg_validation_sample(
                 "article_id": article["article_id"],
                 "revision_id": article["revision_id"],
                 "story_id": article["story_id"],
-                "sample_symbol": _assigned_symbol(article),
-                "news_date": str(article["version_created"])[:10],
+                "sample_symbol": str(article.get("symbol") or _assigned_symbol(article)),
+                "news_date": str(article.get("news_date") or article["version_created"])[:10],
                 "version_created": article["version_created"],
                 "headline": article.get("headline") or "",
                 "clean_text": article.get("clean_text") or "",
-                "primary_label": "",
-                "adjudicated_label": "",
+                "primary_relevance": "",
+                "relevance_adjudication": "",
+                "primary_sentiment": "",
+                "sentiment_adjudication": "",
             }
         )
     selected = _stratified_sample(eligible, sample_size, seed)
@@ -123,7 +133,8 @@ def create_lseg_validation_sample(
             "version_created": row["version_created"],
             "headline": row["headline"],
             "clean_text": row["clean_text"],
-            "secondary_label": "",
+            "secondary_relevance": "",
+            "secondary_sentiment": "",
         }
         for row in selected
         if str(row["revision_id"]) in double_ids
@@ -139,8 +150,22 @@ def create_lseg_validation_sample(
         "headline",
         "clean_text",
     ]
-    primary_path = _write_csv(destination / "annotation_primary.csv", selected, [*common, "primary_label", "adjudicated_label"])
-    secondary_path = _write_csv(destination / "annotation_secondary.csv", secondary, [*common, "secondary_label"])
+    primary_path = _write_csv(
+        destination / "annotation_primary.csv",
+        selected,
+        [
+            *common,
+            "primary_relevance",
+            "relevance_adjudication",
+            "primary_sentiment",
+            "sentiment_adjudication",
+        ],
+    )
+    secondary_path = _write_csv(
+        destination / "annotation_secondary.csv",
+        secondary,
+        [*common, "secondary_relevance", "secondary_sentiment"],
+    )
     manifest_path = destination / "manifest.json"
     atomic_write_json(
         manifest_path,
@@ -148,8 +173,9 @@ def create_lseg_validation_sample(
             "schema_version": 1,
             "status": "annotation_pending",
             "created_at": utc_now(),
-            "corpus_manifest": str(Path(corpus_manifest)),
-            "corpus_manifest_sha256": sha256_file(corpus_manifest),
+            "source_manifest": str(source_manifest),
+            "source_manifest_sha256": sha256_file(source_manifest),
+            "source_kind": "cohort" if cohort_manifest is not None else "corpus",
             "sampling": {
                 "method": "round_robin_ticker_date_strata",
                 "sample_size": sample_size,
@@ -186,12 +212,19 @@ def _validated_label(value: str, *, field: str, revision_id: str) -> str:
     return label
 
 
+def _validated_relevance(value: str, *, field: str, revision_id: str) -> str:
+    relevance = value.strip().lower()
+    if relevance not in {"relevant", "irrelevant"}:
+        raise LsegNewsError(f"{field} for revision {revision_id} must be relevant or irrelevant")
+    return relevance
+
+
 def evaluate_lseg_annotations(
     primary_path: str | Path,
     secondary_path: str | Path,
     output_dir: str | Path,
 ) -> LsegAnnotationEvaluation:
-    """Validate double coding, require adjudication on disagreements, and export a local benchmark CSV."""
+    """Validate joint double coding and export adjudicated relevant stories."""
     primary_file = Path(primary_path)
     secondary_file = Path(secondary_path)
     destination = Path(output_dir)
@@ -199,42 +232,99 @@ def evaluate_lseg_annotations(
         raise LsegNewsError(f"refusing to overwrite annotation evaluation directory: {destination}")
     primary = _read_csv(primary_file)
     secondary = {row["revision_id"]: row for row in _read_csv(secondary_file)}
-    primary_labels: list[str] = []
-    secondary_labels: list[str] = []
+    sentiment_pairs: list[tuple[str, str]] = []
+    relevance_pairs: list[tuple[str, str]] = []
     benchmark_rows: list[dict[str, str]] = []
+    joint_schema = bool(primary and "primary_relevance" in primary[0])
     for row in primary:
         revision_id = row["revision_id"]
-        first = _validated_label(row.get("primary_label", ""), field="primary_label", revision_id=revision_id)
-        final = first
-        if revision_id in secondary:
-            second = _validated_label(
-                secondary[revision_id].get("secondary_label", ""),
-                field="secondary_label",
+        if joint_schema:
+            first_relevance = _validated_relevance(
+                row.get("primary_relevance", ""),
+                field="primary_relevance",
                 revision_id=revision_id,
             )
-            primary_labels.append(first)
-            secondary_labels.append(second)
-            if first != second:
-                final = _validated_label(
-                    row.get("adjudicated_label", ""),
-                    field="adjudicated_label",
+            first_sentiment = (
+                _validated_label(
+                    row.get("primary_sentiment", ""),
+                    field="primary_sentiment",
                     revision_id=revision_id,
                 )
+                if first_relevance == "relevant"
+                else ""
+            )
+        else:
+            first_relevance = "relevant"
+            first_sentiment = _validated_label(
+                row.get("primary_label", ""),
+                field="primary_label",
+                revision_id=revision_id,
+            )
+        final_relevance = first_relevance
+        final_sentiment = first_sentiment
+        if revision_id in secondary:
+            if joint_schema:
+                second_relevance = _validated_relevance(
+                    secondary[revision_id].get("secondary_relevance", ""),
+                    field="secondary_relevance",
+                    revision_id=revision_id,
+                )
+                second_sentiment = (
+                    _validated_label(
+                        secondary[revision_id].get("secondary_sentiment", ""),
+                        field="secondary_sentiment",
+                        revision_id=revision_id,
+                    )
+                    if second_relevance == "relevant"
+                    else ""
+                )
+                if first_relevance != second_relevance:
+                    final_relevance = _validated_relevance(
+                        row.get("relevance_adjudication", ""),
+                        field="relevance_adjudication",
+                        revision_id=revision_id,
+                    )
+            else:
+                second_relevance = "relevant"
+                second_sentiment = _validated_label(
+                    secondary[revision_id].get("secondary_label", ""),
+                    field="secondary_label",
+                    revision_id=revision_id,
+                )
+            relevance_pairs.append((first_relevance, second_relevance))
+            if first_sentiment and second_sentiment:
+                sentiment_pairs.append((first_sentiment, second_sentiment))
+            if final_relevance == "relevant" and first_sentiment != second_sentiment:
+                final_sentiment = _validated_label(
+                    row.get("sentiment_adjudication" if joint_schema else "adjudicated_label", ""),
+                    field="sentiment_adjudication" if joint_schema else "adjudicated_label",
+                    revision_id=revision_id,
+                )
+        if final_relevance != "relevant":
+            continue
         sentence = f"{row.get('headline', '').strip()}\n\n{row.get('clean_text', '').strip()}".strip()
         benchmark_rows.append(
             {
                 "Sentence": sentence,
-                "Sentiment": final,
+                "Sentiment": final_sentiment,
                 "article_id": row["article_id"],
                 "revision_id": revision_id,
                 "symbol": row["sample_symbol"],
                 "news_date": row["news_date"],
             }
         )
-    if not primary_labels:
+    if not relevance_pairs:
         raise LsegNewsError("secondary annotation file contains no revisions from the primary sample")
-    percent = sum(a == b for a, b in zip(primary_labels, secondary_labels, strict=True)) / len(primary_labels)
-    kappa = cohen_kappa(primary_labels, secondary_labels)
+    percent = sum(a == b for a, b in sentiment_pairs) / len(sentiment_pairs) if sentiment_pairs else 0.0
+    kappa = cohen_kappa(
+        [a for a, _ in sentiment_pairs],
+        [b for _, b in sentiment_pairs],
+    ) if sentiment_pairs else 0.0
+    relevance_percent = sum(a == b for a, b in relevance_pairs) / len(relevance_pairs)
+    relevance_kappa = cohen_kappa(
+        [a for a, _ in relevance_pairs],
+        [b for _, b in relevance_pairs],
+    )
     unique_dates = sorted({row["news_date"] for row in benchmark_rows})
     if len(unique_dates) >= 2:
         development_dates, holdout_dates = chronological_date_split(unique_dates)
@@ -255,9 +345,11 @@ def evaluate_lseg_annotations(
         {
             "schema_version": 1,
             "created_at": utc_now(),
-            "double_coded_items": len(primary_labels),
+            "double_coded_items": len(relevance_pairs),
             "percent_agreement": percent,
             "cohen_kappa": kappa,
+            "relevance_percent_agreement": relevance_percent,
+            "relevance_cohen_kappa": relevance_kappa,
             "adjudication_required_for_disagreements": True,
             "chronological_split": {
                 "method": "sorted_unique_dates_70_30",
@@ -280,7 +372,16 @@ def evaluate_lseg_annotations(
             "sharing": {"redistribute": False, "licensed_full_text": True},
         },
     )
-    return LsegAnnotationEvaluation(destination, labeled_path, metrics_path, percent, kappa, len(primary_labels))
+    return LsegAnnotationEvaluation(
+        destination,
+        labeled_path,
+        metrics_path,
+        percent,
+        kappa,
+        len(relevance_pairs),
+        relevance_percent,
+        relevance_kappa,
+    )
 
 
 def chronological_date_split(dates: list[str], development_fraction: float = 0.7) -> tuple[tuple[str, ...], tuple[str, ...]]:
