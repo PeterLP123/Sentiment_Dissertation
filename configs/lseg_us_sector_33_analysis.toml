@@ -1,0 +1,11 @@
+[cohort]
+output_dir = "Data/collections/lseg_us_sector_33_6m/derived/us_sector_33_6m_analysis"
+timezone = "America/New_York"
+development_fraction = 0.7
+development_size = 2100
+holdout_size = 900
+l3_size = 500
+seed = 42
+lead_window_chars = 2000
+min_body_mentions = 2
+# overrides_path = "configs/lseg_us_sector_33_screening_overrides.toml"

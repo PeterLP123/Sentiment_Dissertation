@@ -48,6 +48,7 @@ from .env import load_env_file
 from .exporter import export_run
 from .latex_tables import sensitivity_table_latex
 from .lseg_catalog import build_lseg_catalog
+from .lseg_cohort import build_lseg_analysis_cohort
 from .lseg_corpus import build_lseg_corpus
 from .lseg_presets import (
     LSEG_PRESET_WEEK4_EIGHT,
@@ -623,6 +624,29 @@ def build_lseg_corpus_command(
     table.add_row("Articles JSONL", str(result.articles_path))
     table.add_row("Screening index", str(result.screening_path))
     table.add_row("Manifest", str(result.manifest_path))
+    console.print(table)
+
+
+@app.command("build-lseg-analysis-cohort")
+def build_lseg_analysis_cohort_command(
+    corpus_manifest: Annotated[Path, typer.Option("--corpus-manifest", help="Completed derived LSEG corpus manifest.")],
+    config: Annotated[
+        Path,
+        typer.Option("--config", help="Analysis cohort TOML configuration."),
+    ] = Path("configs/lseg_us_sector_33_analysis.toml"),
+) -> None:
+    """Build a deterministic, relevance-screened, family-deduplicated LSEG cohort."""
+    try:
+        result = build_lseg_analysis_cohort(corpus_manifest, config)
+    except LsegNewsError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    table = Table(title="LSEG Analysis Cohort")
+    table.add_column("Metric")
+    table.add_column("Value")
+    table.add_row("Cohort rows", str(result.cohort_count))
+    table.add_row("Manifest", str(result.manifest_path))
+    table.add_row("Screening index", str(result.screening_path))
+    table.add_row("Coverage", str(result.coverage_path))
     console.print(table)
 
 
