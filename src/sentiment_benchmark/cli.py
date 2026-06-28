@@ -47,6 +47,7 @@ from .corpus_scoring import frozen_design_call_counts, load_matrix_config, load_
 from .dataset import compute_stats, load_dataset
 from .env import load_env_file
 from .exporter import export_run
+from .l2_event_study import L2AnalysisError, analyze_l2
 from .latex_tables import sensitivity_table_latex
 from .lseg_catalog import build_lseg_catalog
 from .lseg_cohort import build_lseg_analysis_cohort
@@ -205,6 +206,20 @@ def score_corpus_matrix_command(
             )
 
     asyncio.run(main())
+
+
+@app.command("analyze-l2")
+def analyze_l2_command(
+    scores: Annotated[Path, typer.Option("--scores", help="Completed crossed-score JSONL.")],
+    prices: Annotated[Path, typer.Option("--prices", help="Cached stock and ^GSPC daily prices CSV.")],
+    output_dir: Annotated[Path, typer.Option("--output-dir")],
+) -> None:
+    """Run the frozen agreement/ambiguity event study."""
+    try:
+        result = analyze_l2(scores, prices, output_dir)
+    except L2AnalysisError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    console.print(f"L2 event study written to {result.output_dir}")
 
 
 def _make_tavily_news_client() -> TavilyNewsClient:

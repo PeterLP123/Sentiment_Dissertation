@@ -556,6 +556,15 @@ sentiment-bench lseg-catalog
 `score-corpus-matrix` runs the frozen five-model, three-prompt, five-sample design. Scores are append-only and resumable by item content, model digest, prompt hash, and sample index. `--dry-run` validates inputs and prints both the current call count and the frozen 147,500-call LSEG-plus-benchmark total without contacting a provider.
 
 ```bash
+sentiment-bench analyze-l2 \
+  --scores results/scoring/lseg_us_sector_33_formal/scores.jsonl \
+  --prices Data/derived/prices/l2_market_model.csv \
+  --output-dir results/l2/us_sector_33
+```
+
+`analyze-l2` derives five-model majority readings, pairwise agreement, self-consistency entropy, company-day weights, 120-session market-model CARs at 1/5/10 sessions, two-way clustered tests, and BH-adjusted H2 results. The price CSV must contain `symbol`, `session_date`, and `close` rows for every company and `^GSPC`.
+
+```bash
 sentiment-bench sample-lseg-validation \
   --cohort-manifest Data/collections/lseg_us_sector_33_6m/derived/us_sector_33_6m_analysis/manifest.json \
   --output-dir Data/derived/lseg/<id>/validation_seed42
