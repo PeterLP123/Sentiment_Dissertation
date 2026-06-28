@@ -565,6 +565,17 @@ sentiment-bench analyze-l2 \
 `analyze-l2` derives five-model majority readings, pairwise agreement, self-consistency entropy, company-day weights, 120-session market-model CARs at 1/5/10 sessions, two-way clustered tests, and BH-adjusted H2 results. The price CSV must contain `symbol`, `session_date`, and `close` rows for every company and `^GSPC`.
 
 ```bash
+sentiment-bench analyze-l3 \
+  --scores results/scoring/lseg_us_sector_33_formal/scores.jsonl \
+  --benchmark-scores results/scoring/financial_sentiment_formal/scores.jsonl \
+  --event-returns results/l2/us_sector_33/event_returns.csv \
+  --l2-hypotheses results/l2/us_sector_33/hypotheses.csv \
+  --output-dir results/l3/us_sector_33
+```
+
+`analyze-l3` fits the crossed variance-component model, reports the G and dependability coefficients, derives item/day reliability, tunes the fixed threshold on development data, compares all three rules on holdout with 10 bps per side, validates PhraseBank tiers, and recomputes one BH family across the supplied H2 and H3 tests.
+
+```bash
 sentiment-bench sample-lseg-validation \
   --cohort-manifest Data/collections/lseg_us_sector_33_6m/derived/us_sector_33_6m_analysis/manifest.json \
   --output-dir Data/derived/lseg/<id>/validation_seed42
