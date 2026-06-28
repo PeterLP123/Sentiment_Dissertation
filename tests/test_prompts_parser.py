@@ -1,8 +1,10 @@
+from pathlib import Path
+
 import pytest
 
 from sentiment_benchmark.models import BlindExample, DatasetRow
 from sentiment_benchmark.parser import parse_model_response
-from sentiment_benchmark.prompts import make_prompt, render_messages
+from sentiment_benchmark.prompts import load_prompts, make_prompt, render_messages
 
 
 def test_render_messages_accepts_only_blind_examples() -> None:
@@ -109,3 +111,13 @@ def test_make_prompt_accepts_soft_label_mode() -> None:
         "soft_label",
     )
     assert prompt.output_mode == "soft_label"
+
+
+def test_crossed_soft_label_prompt_suites_are_distinct() -> None:
+    prompts = load_prompts(Path("configs/default_prompts.toml"))
+    financial = [prompts[f"financial_soft_label_{name}"] for name in ("base", "label_order", "paraphrase")]
+    target = [prompts[f"target_company_soft_label_{name}"] for name in ("base", "label_order", "paraphrase")]
+
+    assert all(prompt.output_mode == "soft_label" for prompt in [*financial, *target])
+    assert len({prompt.prompt_hash for prompt in financial}) == 3
+    assert len({prompt.prompt_hash for prompt in target}) == 3
