@@ -71,7 +71,8 @@ class NewsMixin(AppMixin):
             )
             try:
                 catalog = read_lseg_catalog(config.derived_output_root / "catalog.json")
-                corpora = catalog.get("corpora") if isinstance(catalog.get("corpora"), list) else []
+                corpora_value = catalog.get("corpora")
+                corpora = corpora_value if isinstance(corpora_value, list) else []
                 match = next(
                     (row for row in corpora if isinstance(row, dict) and row.get("collection_id") == config.collection_id),
                     None,

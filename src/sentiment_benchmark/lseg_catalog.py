@@ -37,12 +37,19 @@ def _manifest_entries(root: Path) -> list[tuple[Path, dict[str, Any]]]:
 
 
 def _catalog_entry(root: Path, manifest_path: Path, manifest: dict[str, Any]) -> dict[str, Any]:
-    config = manifest.get("config") if isinstance(manifest.get("config"), dict) else {}
-    collection = config.get("collection") if isinstance(config.get("collection"), dict) else {}
-    companies = config.get("companies") if isinstance(config.get("companies"), list) else []
+    config_value = manifest.get("config")
+    config: dict[str, Any] = config_value if isinstance(config_value, dict) else {}
+    collection_value = config.get("collection")
+    collection: dict[str, Any] = collection_value if isinstance(collection_value, dict) else {}
+    companies_value = config.get("companies")
+    companies: list[Any] = companies_value if isinstance(companies_value, list) else []
     symbols = sorted(str(company.get("symbol")) for company in companies if isinstance(company, dict) and company.get("symbol"))
-    counts = manifest.get("counts") if isinstance(manifest.get("counts"), dict) else {}
-    text_quality = counts.get("text_quality") if isinstance(counts.get("text_quality"), dict) else {}
+    counts_value = manifest.get("counts")
+    counts: dict[str, Any] = counts_value if isinstance(counts_value, dict) else {}
+    text_quality_value = counts.get("text_quality")
+    text_quality: dict[str, Any] = text_quality_value if isinstance(text_quality_value, dict) else {}
+    sharing_value = manifest.get("sharing")
+    sharing: dict[str, Any] = sharing_value if isinstance(sharing_value, dict) else {}
     return {
         "collection_id": str(collection.get("id") or manifest_path.parent.name),
         "start": str(collection.get("start") or ""),
@@ -59,10 +66,8 @@ def _catalog_entry(root: Path, manifest_path: Path, manifest: dict[str, Any]) ->
         "manifest_path": str(manifest_path),
         "manifest_sha256": sha256_file(manifest_path),
         "relative_manifest_path": str(manifest_path.relative_to(root)) if manifest_path.is_relative_to(root) else str(manifest_path),
-        "redistribute": bool((manifest.get("sharing") if isinstance(manifest.get("sharing"), dict) else {}).get("redistribute", False)),
-        "licensed_full_text": bool(
-            (manifest.get("sharing") if isinstance(manifest.get("sharing"), dict) else {}).get("licensed_full_text", False)
-        ),
+        "redistribute": bool(sharing.get("redistribute", False)),
+        "licensed_full_text": bool(sharing.get("licensed_full_text", False)),
     }
 
 

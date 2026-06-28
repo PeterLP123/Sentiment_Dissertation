@@ -15,7 +15,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime, timedelta
 from email.utils import parsedate_to_datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 from .artifact_io import (
     atomic_write_json,
@@ -199,6 +199,16 @@ class LsegRequestMetrics:
     paced_waits: int
     paced_wait_seconds: float
     requests_per_second: float
+
+
+class _RequestProgress(TypedDict):
+    requests_started: int
+    paced_waits: int
+    paced_wait_seconds: float
+    requests_per_second: float
+    retries: int
+    retry_backoff_seconds: float
+    pagination_anomalies: int
 
 
 class _RequestPacer:
@@ -824,7 +834,9 @@ def _format_ratelimit_policy(value: str) -> str | None:
                     window = int(param[2:])
                 except ValueError:
                     window = None
-        unit = _RATELIMIT_WINDOW_UNITS.get(window, f"{window}s" if window else "window")
+        unit = _RATELIMIT_WINDOW_UNITS.get(window) if window is not None else None
+        if unit is None:
+            unit = f"{window}s" if window else "window"
         rendered.append(f"{quota}/{unit}")
     return ", ".join(rendered) if rendered else None
 
@@ -1054,8 +1066,11 @@ def _safe_in_progress_operational_change(manifest: dict[str, Any], config: LsegC
     stored_collection = stored.get("collection")
     if not isinstance(stored_collection, dict):
         return False
+    stored_max_pages = stored_collection.get("max_pages")
+    if stored_max_pages is None:
+        return False
     try:
-        old_max_pages = int(stored_collection.get("max_pages"))
+        old_max_pages = int(stored_max_pages)
     except (TypeError, ValueError):
         return False
     if config.max_pages < old_max_pages:
@@ -1151,7 +1166,7 @@ async def fetch_lseg_news(
         retry_count += 1
         retry_backoff_seconds += delay
 
-    def request_progress() -> dict[str, int | float]:
+    def request_progress() -> _RequestProgress:
         metrics = client.request_metrics
         return {
             "requests_started": metrics.requests_started,
