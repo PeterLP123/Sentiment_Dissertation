@@ -43,6 +43,7 @@ from .constants import (
     DEFAULT_SEED,
     DEFAULT_TEMPERATURE,
 )
+from .corpus_scoring import frozen_design_call_counts, load_matrix_config, load_matrix_items, matrix_plan, score_corpus_matrix
 from .dataset import compute_stats, load_dataset
 from .env import load_env_file
 from .exporter import export_run
@@ -147,6 +148,63 @@ load_env_file()
 # before recording a fetch as failed and moving on.
 FETCH_ATTEMPTS = 3
 FETCH_RETRY_BASE_DELAY_SECONDS = 5.0
+
+
+@app.command("score-corpus-matrix")
+def score_corpus_matrix_command(
+    input_path: Annotated[Path, typer.Option("--input", help="Main cohort JSONL or benchmark CSV.")],
+    subset_path: Annotated[Path, typer.Option("--subset", help="L3 prompt-facet subset in the same format.")],
+    output_dir: Annotated[Path, typer.Option("--output-dir")],
+    kind: Annotated[str, typer.Option("--kind", help="lseg or benchmark.")],
+    config: Annotated[Path, typer.Option("--config")] = Path("configs/crossed_scoring.toml"),
+    prompts_path: Annotated[Path, typer.Option("--prompts-path")] = DEFAULT_PROMPTS_PATH,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Show call counts without contacting providers.")] = False,
+) -> None:
+    """Run or size the resumable crossed-model corpus scoring matrix."""
+    try:
+        matrix_config = load_matrix_config(config)
+        items = load_matrix_items(input_path, kind)
+        subset_ids = {item.item_id for item in load_matrix_items(subset_path, kind)}
+        plan = matrix_plan(matrix_config, items, subset_ids)
+    except LsegNewsError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    table = Table(title="Crossed Corpus Scoring Plan")
+    table.add_column("Metric")
+    table.add_column("Calls", justify="right")
+    table.add_row("This run", f"{plan.total_calls:,}")
+    table.add_row("Hosted", f"{plan.hosted_calls:,}")
+    table.add_row("Local", f"{plan.local_calls:,}")
+    frozen = frozen_design_call_counts()
+    table.add_row("Frozen LSEG + benchmark total", f"{frozen['total']:,}")
+    console.print(table)
+    if dry_run:
+        return
+
+    async def main() -> None:
+        async with AsyncExitStack() as stack:
+            clients = {
+                "openrouter": await stack.enter_async_context(
+                    make_llm_client("openrouter", base_url=os.getenv("OPENROUTER_BASE_URL", DEFAULT_BASE_URL))
+                ),
+                "ollama": await stack.enter_async_context(
+                    make_llm_client(
+                        "ollama",
+                        ollama_host=os.getenv("OLLAMA_HOST", DEFAULT_OLLAMA_HOST),
+                        structured_label_output=False,
+                    )
+                ),
+            }
+            await score_corpus_matrix(
+                input_path=input_path,
+                subset_path=subset_path,
+                input_kind=kind,
+                config_path=config,
+                prompts_path=prompts_path,
+                output_dir=output_dir,
+                clients=clients,
+            )
+
+    asyncio.run(main())
 
 
 def _make_tavily_news_client() -> TavilyNewsClient:

@@ -542,12 +542,18 @@ sentiment-bench lseg-news-check --config configs/lseg_workspace_example.toml
 sentiment-bench fetch-lseg-news --config configs/lseg_workspace_example.toml
 sentiment-bench build-lseg-corpus --source Data/news/lseg_lseg_workspace_example
 sentiment-bench build-lseg-analysis-cohort --corpus-manifest Data/derived/lseg/<id>/manifest.json
+sentiment-bench score-corpus-matrix \
+  --input Data/collections/lseg_us_sector_33_6m/derived/us_sector_33_6m_analysis/cohort.jsonl \
+  --subset Data/collections/lseg_us_sector_33_6m/derived/us_sector_33_6m_analysis/l3_subset.jsonl \
+  --kind lseg --output-dir results/scoring/lseg_us_sector_33_formal --dry-run
 sentiment-bench lseg-catalog
 ```
 
 `lseg-init-config` writes a preset TOML config and refuses to replace an existing file unless `--overwrite` is passed. The default preset is the 8-company Week 4 universe over `2025-06-26T00:00:00Z` to `2026-06-26T00:00:00Z` with daily windows; `configs/lseg_us_mega_cap_1y.toml` is the checked-in template. `lseg-news-check` tests the desktop session plus headline and story entitlements without writing data. `fetch-lseg-news` atomically checkpoints an immutable collection. `build-lseg-corpus` verifies raw hashes and deterministically rebuilds clean text offline. `lseg-catalog` refreshes metadata-only `Data/derived/lseg/catalog.json` and `catalog.csv`.
 
 `build-lseg-analysis-cohort` leaves the verified corpus unchanged, applies the frozen relevance and earliest-revision rules, and writes hashed development, holdout, and L3 cohort artifacts. It refuses incomplete corpora, undersized splits, and existing output directories.
+
+`score-corpus-matrix` runs the frozen five-model, three-prompt, five-sample design. Scores are append-only and resumable by item content, model digest, prompt hash, and sample index. `--dry-run` validates inputs and prints both the current call count and the frozen 147,500-call LSEG-plus-benchmark total without contacting a provider.
 
 ```bash
 sentiment-bench sample-lseg-validation \
