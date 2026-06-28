@@ -4,14 +4,18 @@
 
 ```mermaid
 flowchart LR
-    W["Workspace desktop session"] --> R["Data/news/lseg_<id><br/>immutable raw checkpoints"]
-    R --> C["Data/derived/lseg/<id><br/>verified clean revisions"]
-    C --> O["Ollama primary + secondary<br/>VADER + FinBERT"]
-    O --> D["TradingDecision<br/>buy / sell / hold"]
-    D --> P["next observed session<br/>gross + net returns"]
+    W["Workspace desktop session"] --> R["Data/collections/.../raw<br/>resumable licensed checkpoints"]
+    R --> C["Verified clean revisions"]
+    C --> Q["Quality gate + first relevant family revision"]
+    Q --> F["2,100 development + 900 holdout<br/>500 development-only L3 subset"]
+    F --> S["Five models × prompts × samples<br/>VADER + FinBERT contrasts"]
+    S --> L2["L2 clustered event study"]
+    S --> L3["L3 reliability + holdout rules"]
+    L2 --> BH["Shared H2/H3 BH correction"]
+    L3 --> BH
 ```
 
-Collection and cleaning are separate commands so a corpus can be rebuilt and audited without another licensed API call. Native story and revision identifiers cross the trading boundary; URL-based web records retain their existing representation. Sentiment records and trading decisions are separate artifacts so model behavior can be inspected independently from policy thresholds. Python owns the orchestration because network and model inference dominate latency; a C++ component would not improve those boundaries.
+Collection, cleaning, cohort freezing, validation, scoring, and analysis are separate commands so downstream evidence can be rebuilt and audited without another licensed API call. Manifests and content/configuration hashes enforce those boundaries. Native story and revision identifiers cross the analysis boundary; URL-based web records retain their existing representation. Sentiment records and trading decisions are separate artifacts so model behavior can be inspected independently from policy thresholds. Python owns the orchestration because network and model inference dominate latency; a C++ component would not improve those boundaries.
 
 This project keeps source data, external article sourcing, model execution, scoring, and export evidence separated so dissertation results can be reproduced and audited.
 
@@ -60,6 +64,10 @@ Core boundaries:
 | `src/sentiment_benchmark/exporter.py` | Writes reproducible run export bundles. |
 | `src/sentiment_benchmark/news_source.py` | Sources Tavily article corpora without touching benchmark labels. |
 | `src/sentiment_benchmark/newsapi_source.py` | Pages through NewsAPI discovery results and writes provenance-rich snippet corpora. |
+| `src/sentiment_benchmark/lseg_cohort.py` | Screens target relevance, collapses story revisions, freezes development/holdout/L3 subsets, and hashes cohort evidence. |
+| `src/sentiment_benchmark/corpus_scoring.py` | Plans and resumes the provider-aware crossed LSEG/labeled scoring matrix using exact response identities. |
+| `src/sentiment_benchmark/l2_event_study.py` | Builds consensus/ambiguity measures, market-model CARs, clustered inference, and declared H2 tests. |
+| `src/sentiment_benchmark/l3_reliability.py` | Fits crossed variance components, derives reliability, compares holdout rules, and combines H2/H3 correction. |
 | `src/sentiment_benchmark/trading_strategy.py` | Orchestrates a trading run: merges provider records, screens target relevance, scores sentiment (with optional entity-masking arm and cutoff annotation), aligns sessions, and exports event returns plus sensitivity tables. |
 | `src/sentiment_benchmark/prices.py` | Price-data seam: `PriceProvider` protocol, yfinance provider, and a per-(symbol,window) cache so backtests are deterministic and offline-replayable. Owns `PriceRow`. |
 | `src/sentiment_benchmark/backtest.py` | Pure backtest core (no I/O): decision policy, per-event return calculation, and equity-curve aggregation. A leaf module that `trading_strategy` re-exports. |

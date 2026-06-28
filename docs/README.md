@@ -13,6 +13,7 @@ This documentation is organized by reader task. Use the tutorial when you are ne
 | Share run history across machines with Turso/libSQL. | [Results and exports](results_and_exports.md) |
 | Fetch articles from Tavily into `Data/news`. | [Tavily news sourcing](news_sourcing.md) |
 | Build the licensed Workspace-to-local-model pipeline. | [LSEG to Ollama pipeline](lseg_ollama_pipeline.md) |
+| Execute the frozen 33-company LSEG cohort, scoring, L2, and L3 workflow. | [Frozen LSEG analysis workflow](lseg_analysis_workflow.md) |
 | Batch-fetch and package a shareable Tavily source dataset. | [Tavily news sourcing](news_sourcing.md) |
 | Plan a shareable Tavily-derived source dataset. | [Tavily dataset strategy](tavily_dataset_plan.html) |
 | Work through the terminal UI. | [TUI guide](tui_guide.md) |
@@ -26,7 +27,7 @@ This documentation is organized by reader task. Use the tutorial when you are ne
 | Quadrant | Documents |
 | --- | --- |
 | Tutorial | [Getting started](getting_started.md) |
-| How-to | [Model providers](model_providers.md), [Tavily news sourcing](news_sourcing.md), [LSEG to Ollama pipeline](lseg_ollama_pipeline.md), [TUI guide](tui_guide.md) |
+| How-to | [Model providers](model_providers.md), [Tavily news sourcing](news_sourcing.md), [LSEG to Ollama pipeline](lseg_ollama_pipeline.md), [Frozen LSEG analysis workflow](lseg_analysis_workflow.md), [TUI guide](tui_guide.md) |
 | Reference | [CLI reference](cli_reference.md), [Results and exports](results_and_exports.md), [Dataset card](dataset_card.md) |
 | Explanation | [Architecture](architecture.md), [Research protocol](research_protocol.md) |
 
@@ -69,7 +70,7 @@ Source-controlled files should explain how an experiment was produced. Local gen
 | --- | --- |
 | Code under `src/` and tests under `tests/`. | SQLite run database and Turso local replica under `results/`. |
 | `Data/derived/labeled/financial_sentiment_v2.csv` default benchmark dataset. | Export folders under `results/exports/`. |
-| `Data/data.csv` legacy Kaggle source dataset. | Tavily article corpora under `Data/news/`. |
+| `Data/data.csv` legacy Kaggle source dataset. | Tavily corpora and licensed LSEG checkpoints under `Data/news/` or `Data/collections/`. |
 | Prompt configs under `configs/`. | Local credentials in `.env`. |
 | Experiment registry under `experiments/manifest.toml`. | Temporary or ad hoc derived datasets outside the tracked labeled default. |
 

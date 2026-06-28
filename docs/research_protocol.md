@@ -1,6 +1,6 @@
 # Research Protocol
 
-Last updated: 2026-06-12
+Last updated: 2026-06-28
 
 Operational documentation:
 
@@ -8,6 +8,7 @@ Operational documentation:
 - [CLI reference](cli_reference.md)
 - [Model providers](model_providers.md)
 - [Tavily news sourcing](news_sourcing.md)
+- [Frozen LSEG analysis workflow](lseg_analysis_workflow.md)
 - [Results and exports](results_and_exports.md)
 - [Architecture](architecture.md)
 
@@ -149,13 +150,25 @@ mapping, split logic, and random seed.
 
 ### News corpus
 
-News articles sourced through Tavily or NewsAPI are unlabeled, timestamped derived source
-material. Their dissertation role is to supply event-time text for L1 daily aggregation
-and the L2 event study; ingestion must remain source-agnostic so FNSPID or GDELT can
-substitute if Tavily coverage proves inadequate (tripwire 28 Jun: no working
-timestamped source → drop the L2 futures arm, run the L2 single-stock arm on FNSPID
-historical, promote L4). News articles must not be treated as benchmark labels until a
-separate labeling protocol is defined and documented.
+The primary event-study corpus is the fixed 33-company US LSEG panel from 2025-12-26
+through 2026-06-26. It supplies the L2 single-stock arm and the event-level signal used
+by L3. Futures remain a secondary overlay. The design makes no pre/post-2023 claim.
+Tavily and NewsAPI remain exploratory/pilot sources, while FNSPID or GDELT are
+documented fallbacks rather than inputs silently pooled into the frozen primary cohort.
+
+LSEG raw checkpoints are licensed local material. The cleaned corpus remains ineligible
+for formal scoring until its raw manifest is completed and verified. The analysis
+cohort then selects the first relevance-passing eligible revision per
+`(story_family, symbol)`, records `include`/`review`/`exclude` screening decisions, and
+uses only `include` events in the primary analysis. A headline alias match passes; a
+lead alias match also requires at least two body mentions. Curated aliases and TOML
+overrides are versioned and auditable.
+
+Seed 42 freezes 2,100 development and 900 chronological-holdout events in New York
+time. The 500-item L3 prompt-facet subset is development-only. The cohort builder
+refuses incomplete corpora, undersized samples, overwrites, and configuration drift.
+News records do not become gold benchmark labels without the separate joint-validation
+protocol below.
 
 ### Price data
 
@@ -171,7 +184,16 @@ explicit pilot limitation.
 
 ## Model Selection
 
-Formal comparisons may include:
+The frozen LSEG crossed-scoring roster is:
+
+- GPT-4o mini
+- Gemini 2.5 Flash Lite
+- Llama 3.3 70B Instruct
+- `gemma3:12b`
+- `qwen3:8b`
+
+FinBERT and VADER remain deterministic contrasts. Formal execution fails unless local
+model tags and digests can be verified. Other formal benchmark comparisons may include:
 
 - OpenRouter-accessed LLMs selected for relevance, availability, cost, and diversity of
   provider/model family (4–5 hosted models, including Gemini given its role in the
@@ -219,11 +241,13 @@ package:
 Few-shot runs must record `few_shot_k`, `few_shot_seed`, selected demonstration logic,
 and prompt hash. Demonstration rows must not overlap with evaluation rows.
 
-**Crossed-design requirement (L3).** Formal scoring runs are planned as a crossed
-design — item × model × prompt-variant × stochastic sample — so that the same runs that
-produce the extraction comparison (M3) also supply the G-study variance components.
-Facet levels (which prompt variants, how many stochastic samples) must be fixed and
-registered before the run.
+**Crossed-design requirement (L3).** Formal scoring is item × model × prompt-variant ×
+stochastic sample. Target-company and general-financial soft-label prompt families each
+have a base, label-order, and semantic-paraphrase variant. Five samples are recorded per
+cell. The frozen plan is 100,000 LSEG calls plus 47,500 labeled-benchmark calls: 147,500
+total, of which 88,500 are hosted and 59,000 local. Each stored response is keyed by
+item/content hash, model/digest, prompt/hash, and sample index; resume accepts exact
+matches only.
 
 **Calibration prerequisite (blocking).** A soft-label prompt variant (per-class
 probability output) plus Brier score and expected calibration error (ECE) metrics must
@@ -265,11 +289,18 @@ Uncertainty, agreement, and comparison statistics:
 
 Layer-level analysis (computed from repository outputs, reported in the dissertation):
 
-- L2: per-item inter-model agreement (pairwise correlation, Fleiss' kappa on
-  discretized labels, score variance); CAR(0,h) event-study sorts at h = 1, 5, 10 days
-- L3: G-study variance components (mixed-effects), G-coefficient, per-item and per-day
-  reliability; three-rule backtest comparison (fixed threshold vs shrinkage vs
-  signal-to-noise sizing, plus an abstention variant)
+- L2: five-sample majority reading per model; pairwise agreement classified as
+  unanimous/high, 4–1/medium, or at most 0.4/low; mean normalized self-consistency
+  entropy as H2c ambiguity; company-day weights summing to one; and CAR(0,h) at h = 1,
+  5, and 10. The primary return model uses 120 sessions against `^GSPC` and ends 21
+  sessions before the event; market-adjusted returns are a sensitivity. Inference uses
+  company/date effects and two-way clustered uncertainty.
+- L3: crossed item, model, prompt, interaction, and sample-residual variance components;
+  variance shares, G/dependability coefficients, bounded item reliability, and
+  equal-weight daily reliability. Fixed-threshold, shrunk-signal, and signal-to-noise
+  rules are tuned on development only and compared on the identical holdout with 10 bps
+  per side and date-block bootstrap inference. PhraseBank agreement tiers provide the
+  independent validation.
 - Benjamini–Hochberg correction across the pre-registered H2/H3 family; transaction-cost
   sensitivity on every P/L claim
 
@@ -298,8 +329,9 @@ documented in the dissertation text.
 
 ### LSEG Local-Model Evaluation
 
-- Build a 150-story sample stratified by ticker and exchange-local news date with seed 42.
-- Double-code 30 sampled stories selected with seed 43; report percent agreement and Cohen's kappa, then adjudicate every disagreement before calculating model metrics.
+- Sample 150 `include` events from the frozen cohort, stratified by ticker and exchange-local news date.
+- Double-code 30 sampled events selected with seed 43. Both annotators record relevance and sentiment; report percent agreement and Cohen's kappa for each field separately, then adjudicate every disagreement separately before calculating model metrics.
+- Export only adjudicated-relevant records.
 - Report accuracy, macro-F1, MCC, per-class precision/recall/F1, confusion matrices, and invalid-output coverage against both the existing financial benchmark and the adjudicated local LSEG sample.
 - Sort unique dates and make a chronological 70/30 development/holdout split. Tune on the first 70% only. Freeze exact model tags/digests, prompt hash, cleaning version, scoring representation, and decision policy before evaluating the final 30% once.
 - Predictive reporting includes coverage, traded-event count, hit rate, gross/net mean returns, confidence intervals, and Benjamini-Hochberg-adjusted results. Overlapping events are screening evidence, not independent causal observations.
