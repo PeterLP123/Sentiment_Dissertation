@@ -9,7 +9,7 @@
 
 [[experiments]]
 id = "pilot-baselines-run-12"
-title = "Pilot baseline comparison on balanced primary sample"
+title = "Legacy corrupted-dataset pilot baseline comparison"
 status = "completed"
 dissertation_relevance = "Establishes non-LLM baseline performance for the benchmark chapter and provides context before LLM comparisons."
 run_ids = [12]
@@ -67,7 +67,7 @@ metrics_focus = [
   "mcnemar",
 ]
 cost_notes = "No OpenRouter API cost; baselines ran locally. FinBERT may require local model download and compute time."
-interpretation_notes = "Use as contextual baseline evidence only. Pilot sample is balanced by design and should not be treated as full-dataset prevalence."
+interpretation_notes = "Legacy pilot context only. This run used Data/data.csv, which contains 514 duplicated PhraseBank negatives carrying an incorrect neutral label, and must not be cited as the formal clean benchmark. The pilot sample is balanced by design and should not be treated as full-dataset prevalence."
 
 [[experiments]]
 id = "week3_trading_pilot_20260624"
@@ -102,6 +102,64 @@ exploratory = true
 preregistered = false
 causal_claim = false
 interpretation_notes = "Event-level and equal-weight mean returns only; overlapping events are not a funded portfolio."
+
+[[experiments]]
+id = "clean-baselines-full-20260628"
+title = "Clean full-dataset baseline comparison"
+status = "completed"
+dissertation_relevance = "Formal independent baseline benchmark on every row of the provenance-clean labeled dataset."
+run_ids = [1]
+commit_sha = "14658389b48adbab2ed90895d89701f74e56be6f"
+export_path = "results/exports/clean_baselines_20260628_run_1"
+created_at = "2026-06-28T21:00:29.753036+00:00"
+completed_at = "2026-06-28T21:03:32.237999+00:00"
+
+[experiments.dataset]
+path = "Data/derived/labeled/financial_sentiment_v2.csv"
+sha256 = "514dfc90316ec43617b7d59ac89a29d1063549ed91b08ef21cd11f5a8ac9ea9e"
+rows = 5947
+source = "Financial PhraseBank v1.0 and FiQA 2018 Task 1 provenance-clean rebuild"
+build_script = "scripts/build_labeled_dataset.py"
+
+[experiments.prompt]
+id = "baseline"
+hash = "1644b9ed46da5eaf"
+output_mode = "label_only"
+notes = "Non-LLM baseline classifiers; no LLM prompt is used."
+
+[experiments.models]
+ids = [
+  "baseline/majority",
+  "baseline/tfidf_logreg",
+  "baseline/vader",
+  "baseline/finbert",
+]
+selection_notes = "Includes the trivial class-prior baseline, supervised TF-IDF logistic regression, VADER, and ProsusAI FinBERT."
+
+[experiments.settings]
+mode = "full"
+seed = 42
+folds = 5
+sample_logic = "All 5,947 clean rows; no sampling."
+temperature = 0.0
+concurrency = 1
+retries = 0
+
+[experiments.analysis]
+primary_scope = "primary"
+audit_scope = "all"
+metrics_focus = [
+  "accuracy",
+  "macro_f1",
+  "weighted_f1",
+  "balanced_accuracy",
+  "mcc",
+  "confusion_matrix",
+  "bootstrap_ci",
+  "mcnemar",
+]
+cost_notes = "All four baselines ran locally; no hosted API cost."
+interpretation_notes = "This supersedes pilot-baselines-run-12 for formal baseline comparisons. FiQA has no neutral annotations, so source-specific neutral-sensitive interpretation follows the dataset card."
 
 [[experiments]]
 id = "week3_trading_pilot_20260624_reviewed"
