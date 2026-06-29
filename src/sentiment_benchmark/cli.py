@@ -47,6 +47,7 @@ from .corpus_scoring import frozen_design_call_counts, load_matrix_config, load_
 from .dataset import compute_stats, load_dataset
 from .env import load_env_file
 from .exporter import export_run
+from .headline_value import HeadlineValueError, analyze_headline_value
 from .l2_event_study import L2AnalysisError, analyze_l2
 from .l3_reliability import L3AnalysisError, analyze_l3
 from .latex_tables import sensitivity_table_latex
@@ -993,6 +994,66 @@ def analyze_trading_run_command(
     table.add_column("Path")
     table.add_row("Technical report", str(result.summary_path))
     table.add_row("Analysis manifest", str(result.manifest_path))
+    table.add_row("Generated files", str(len(result.generated_files)))
+    console.print(table)
+
+
+@app.command("analyze-headline-value")
+def analyze_headline_value_command(
+    collection_root: Annotated[
+        Path,
+        typer.Option("--collection-root", help="Collection folder or raw LSEG directory containing headlines.jsonl."),
+    ] = Path("Data/collections/lseg_us_sector_33_6m"),
+    prices: Annotated[
+        Path | None,
+        typer.Option("--prices", help="Optional daily prices CSV. If omitted/missing, trading value is reported as blocked."),
+    ] = Path("Data/derived/prices/lseg_us_sector_33.csv"),
+    output_dir: Annotated[
+        Path,
+        typer.Option("--output-dir", help="Output directory for local headline-value artifacts."),
+    ] = Path("Data/collections/lseg_us_sector_33_6m/derived/headline_value_analysis"),
+    sample_size: Annotated[
+        int,
+        typer.Option("--sample-size", min=0, help="Rows to include in the local raw-headline calibration template."),
+    ] = 2_000,
+    seed: Annotated[int, typer.Option("--seed", help="Deterministic sample seed.")] = 42,
+    timezone: Annotated[str, typer.Option("--timezone", help="Exchange timezone used by the backtest core.")] = "America/New_York",
+    horizons: Annotated[str, typer.Option("--horizons", help="Comma-separated holding horizons in trading sessions.")] = "1,5,10",
+    transaction_cost_bps_per_side: Annotated[
+        float,
+        typer.Option("--transaction-cost-bps-per-side", min=0.0, help="Per-side trading cost applied to headline signals."),
+    ] = 10.0,
+    notional_usd: Annotated[float, typer.Option("--notional-usd", min=1.0, help="Per-signal notional for P&L summaries.")] = 10_000.0,
+    overwrite: Annotated[bool, typer.Option("--overwrite", help="Replace files in an existing non-empty output directory.")] = False,
+) -> None:
+    """Analyze headline-only coverage, taxonomy, and trading value without requiring story bodies."""
+    try:
+        parsed_horizons = tuple(int(part.strip()) for part in horizons.split(",") if part.strip())
+        if not parsed_horizons or any(value < 1 for value in parsed_horizons):
+            raise ValueError
+    except ValueError as exc:
+        raise typer.BadParameter("--horizons must contain positive integers, e.g. 1,5,10") from exc
+    try:
+        result = analyze_headline_value(
+            collection_root,
+            prices=prices,
+            output_dir=output_dir,
+            sample_size=sample_size,
+            seed=seed,
+            timezone=timezone,
+            horizons=parsed_horizons,
+            transaction_cost_bps_per_side=transaction_cost_bps_per_side,
+            notional_usd=notional_usd,
+            overwrite=overwrite,
+        )
+    except HeadlineValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    table = Table(title="Headline Value Analysis Complete")
+    table.add_column("Artifact")
+    table.add_column("Path")
+    table.add_row("Summary", str(result.summary_path))
+    table.add_row("Manifest", str(result.manifest_path))
+    table.add_row("Trading status", result.trading_status)
     table.add_row("Generated files", str(len(result.generated_files)))
     console.print(table)
 
