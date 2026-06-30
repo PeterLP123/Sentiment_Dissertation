@@ -1,0 +1,175 @@
+% =====================================================================
+%  main.tex — Dissertation master file
+%  Project: Sentiment Stock Analysis (predicting/explaining stock
+%           behaviour from text sentiment)
+%
+%  HOW TO COMPILE
+%    latexmk -pdf main.tex          (runs pdflatex + biber automatically)
+%    latexmk -c                     (clean auxiliary files)
+%
+%  HOW THIS TEMPLATE IS ORGANISED
+%    main.tex            — this file: packages, metadata, document skeleton
+%    frontmatter/        — abstract, acknowledgements, declaration
+%    chapters/           — one .tex file per chapter (keeps git diffs clean)
+%    references.bib      — BibTeX database (seeded with papers from .raw/)
+%    figures/            — put PDFs/PNGs here; \includegraphics finds them
+%
+%  TIP: comment out \include lines below to compile only the chapter
+%  you are working on — much faster while drafting.
+% =====================================================================
+
+\documentclass[12pt, a4paper, twoside]{report}
+% `report` gives you \chapter. If your university mandates a class
+% (e.g. a thesis .cls file), swap it in here — the rest should survive.
+% Use `oneside` if you will only ever submit a PDF (no printed copy).
+
+% ----------------------- Encoding & fonts ---------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}            % crisper than default Computer Modern
+\usepackage{microtype}          % subtle spacing improvements; just leave it on
+
+% ----------------------- Page layout --------------------------------
+% The supplied Dissertation Instructions require margins around 25mm
+% and enough binding clearance; this 35mm inner margin satisfies that.
+\usepackage[a4paper, top=25mm, bottom=25mm, inner=35mm, outer=25mm]{geometry}
+\usepackage{setspace}
+\onehalfspacing                 % 1.5 spacing is the usual requirement
+                                % (\doublespacing also available)
+
+% ----------------------- Maths & tables -----------------------------
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{bm}                 % \bm{} for bold maths (vectors)
+\usepackage{booktabs}           % \toprule/\midrule/\bottomrule — never \hline
+\usepackage{siunitx}            % aligned decimal columns in results tables
+\usepackage{multirow}
+
+% ----------------------- Figures ------------------------------------
+\usepackage{graphicx}
+\graphicspath{{figures/}}
+\usepackage{subcaption}         % side-by-side subfigures
+\usepackage[font=small, labelfont=bf]{caption}
+
+% ----------------------- Code listings ------------------------------
+% You will likely want to show a prompt template or a model config.
+\usepackage{listings}
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  captionpos=b
+}
+\usepackage{xcolor}
+
+% ----------------------- Bibliography -------------------------------
+% biblatex + biber, author-year style (the norm for finance/CS-adjacent
+% dissertations). If your department wants numeric, change style=numeric.
+\usepackage[style=authoryear, backend=biber, maxcitenames=2, uniquelist=false]{biblatex}
+\addbibresource{references.bib}
+% Cite with: \textcite{araci2019finbert} -> "Araci (2019)"
+%            \parencite{hutto2014vader}  -> "(Hutto and Gilbert, 2014)"
+
+% ----------------------- Cross-referencing --------------------------
+\usepackage[hidelinks]{hyperref}   % hidelinks = no ugly coloured boxes
+\usepackage[capitalise, noabbrev]{cleveref}
+% Use \cref{fig:pipeline} -> "Figure 3.1"; never hard-code "Figure 3.1".
+
+% ----------------------- Glossary / acronyms ------------------------
+% Sentiment-finance work is acronym-heavy (LLM, VADER, NLP, GARCH...).
+% \gls{llm} expands to "large language model (LLM)" on first use,
+% "LLM" afterwards. Define acronyms just below.
+\usepackage[acronym, nomain, nonumberlist]{glossaries}
+\makeglossaries
+\newacronym{llm}{LLM}{large language model}
+\newacronym{nlp}{NLP}{natural language processing}
+\newacronym{vader}{VADER}{Valence Aware Dictionary and sEntiment Reasoner}
+\newacronym{api}{API}{application programming interface}
+\newacronym{car}{CAR}{cumulative abnormal return}
+\newacronym{ece}{ECE}{expected calibration error}
+% Add more here as you write.
+
+% ----------------------- Draft conveniences -------------------------
+% \todo{...} prints an orange margin note. Delete the package (and all
+% your todos) before submission; compiling with `final` hides them:
+% \usepackage[colorinlistoftodos, textsize=footnotesize, final]{todonotes}
+\usepackage[colorinlistoftodos, textsize=footnotesize]{todonotes}
+
+% ----------------------- Metadata -----------------------------------
+% Working title — aligns with the "Beyond the Score" thesis: the
+% scalar S_t is not a sufficient statistic; trade the distribution.
+\title{Beyond the Score: Trading the Distribution of\\
+       Machine-Read Financial Sentiment}            % <-- refine late
+\author{Peter Prendergast}
+\date{September 2026}                               % <-- submission month
+
+% =====================================================================
+\begin{document}
+
+% ----------------------- Front matter -------------------------------
+\pagenumbering{roman}           % i, ii, iii ... until Chapter 1
+
+\begin{titlepage}
+  \centering
+  \vspace*{2cm}
+  {\LARGE\bfseries Beyond the Score: Trading the Distribution\\of Machine-Read Financial Sentiment\par}
+  \vspace{0.5cm}
+  {\large Consensus, Reliability, and the Limits of a Scalar Sentiment Signal\par}
+  \vspace{2cm}
+  {\large\bfseries Peter Prendergast\par}
+  \vspace{1cm}
+  {\large Supervisor: Prof.\ Peter Mitic\par}
+  \vfill
+  % REQUIRED before submission: replace this block with the exact title-page
+  % disclaimer and distribution statement in Dissertation Instructions,
+  % after confirming Computational Finance vs Financial Risk Management and
+  % free vs restricted distribution with the supervisor.
+  {\large A dissertation submitted in partial fulfilment of the\\
+   requirements for the degree of [DEGREE NAME]\par}
+  \vspace{1cm}
+  % NB: a literal [ right after \\ must be braced, or LaTeX reads it
+  % as the optional argument of \\ :
+  {\large [University Name]\\ {[Department]}\par}
+  \vspace{1cm}
+  {\large September 2026\par}
+  % CHECK: most universities prescribe exact title-page wording.
+\end{titlepage}
+
+\include{frontmatter/declaration}
+\include{frontmatter/abstract}
+\include{frontmatter/acknowledgements}
+
+\tableofcontents
+\listoffigures                  % drop these two if you have < ~5 of each
+\listoftables
+\printglossary[type=\acronymtype, title=List of Acronyms]
+\cleardoublepage
+
+% ----------------------- Main matter --------------------------------
+\pagenumbering{arabic}
+
+% Chapter map mirrors the Beyond the Score research plan:
+% L1 = baseline threshold strategy (supervisor's design, retained)
+% L2 = consensus -> crowding/reversal (headline novel chapter)
+% L3 = reliability -> shrinkage/sizing (second novel chapter)
+% L4 = echo experiment — GATED at M2 (28 Jun): if the gate stayed
+%      closed, delete the include AND the chapter file, and close RQ4
+%      in the conclusion instead.
+\include{chapters/01-introduction}
+\include{chapters/02-literature-review}
+\include{chapters/03-data-pipeline}
+\include{chapters/04-layer1-baseline}
+\include{chapters/05-layer2-consensus}
+\include{chapters/06-layer3-reliability}
+\include{chapters/07-layer4-echo}
+\include{chapters/08-discussion}
+\include{chapters/09-conclusion}
+
+% ----------------------- Back matter --------------------------------
+\printbibliography[heading=bibintoc]   % bibintoc = appears in ToC
+
+\appendix
+\include{chapters/appendix-a}          % prompts + pre-registration record
+
+\end{document}

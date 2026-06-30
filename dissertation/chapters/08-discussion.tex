@@ -1,0 +1,60 @@
+% =====================================================================
+% CHAPTER 8 — DISCUSSION (~10% of total length)
+%
+% Job: assemble the layers into the one claim. The organising question
+% (straight from the plan): WHAT DID THE DISTRIBUTION KNOW THAT THE
+% SCORE DIDN'T? Answer it moment by moment: mean (L1), agreement (L2),
+% reliability (L3) — which discarded property turned out to be priced,
+% which didn't, and what does the pattern say about the
+% insufficient-statistic thesis?
+%
+% Structure:
+%   8.1 The insufficient-statistic claim, revisited against evidence
+%   8.2 Relation to prior work (incl. the consensus-as-confidence
+%       opposition — did your evidence side with crowding?)
+%   8.3 Limitations
+%   8.4 The live-deployment gap   <- named in the plan; don't skip it:
+%       backtest ≠ deployable alpha (capacity, latency, regime shift,
+%       and the reflexivity L4 gestures at)
+%
+% TIP: a single figure here that overlays the three layers' economic
+% value (e.g. Sharpe of L1 vs L2-conditioned vs L3-sized rules on the
+% same axis) is worth more than two pages of prose.
+% =====================================================================
+\chapter{Discussion}
+\label{ch:discussion}
+
+\section{What the Distribution Knew}
+\label{sec:disc-claim}
+
+[Walk the moments: did agreement (L2) and reliability (L3) carry
+priced information beyond the mean (L1)? Partial verdicts are fine ---
+state which half of the claim survived. Tie each verdict back to its
+theory shelf: data-processing inequality framing, differences-of-
+opinion, G-theory.]
+
+\section{Relation to Prior Work}
+\label{sec:disc-prior}
+
+[Consistency with \textcite{tetlock2007}'s reversal result and
+\textcite{mitic2026llm}'s pipeline findings; and the verdict on
+consensus-as-confidence vs consensus-as-crowding --- which did the
+data support?]
+
+\section{Limitations}
+\label{sec:disc-limitations}
+
+[Daily granularity; single-period sample; model-version drift in
+hosted \glspl{llm}; benchmark contamination of the labeled set; the
+ambiguity proxy is a proxy; power constraints in the event study.
+Each limitation gets either (a) why it doesn't overturn the
+conclusion, or (b) a pointer to future work.]
+
+\section{The Live-Deployment Gap}
+\label{sec:disc-deployment}
+
+[A leakage-controlled backtest is still not deployable alpha:
+capacity, latency, costs beyond the sensitivity grid, regime
+dependence, and the endogeneity loop --- if machine consensus becomes
+a traded signal, the act of trading it changes it (the L4 question,
+whether or not Chapter 7 exists).]

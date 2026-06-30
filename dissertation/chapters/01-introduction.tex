@@ -1,0 +1,106 @@
+% =====================================================================
+% CHAPTER 1 — INTRODUCTION (~8% of total length)
+%
+% Job: by the end, the reader believes (a) the insufficient-statistic
+% claim is a real, testable question, and (b) trading P/L is the right
+% test of it. Everything else hangs off that.
+%
+% Structure:
+%   1.1 Motivation — pipelines compress text to a scalar; compression
+%       destroys information (data-processing inequality); is what's
+%       destroyed PRICED? That one-paragraph arc is the whole thesis.
+%   1.2 Research questions — RQ1–RQ4 below mirror layers L1–L4 of the
+%       research plan. Keep the numbering stable: Chapters 4–7 each
+%       answer one, and the conclusion closes them one by one.
+%   1.3 Contributions
+%   1.4 Scope & limitations
+%   1.5 Outline
+%
+% PITFALL: don't oversell L1. It is the supervisor's baseline and the
+% testbed — the novelty lives in L2 (consensus→crowding) and L3
+% (reliability→sizing). Frame it that way from page 1.
+% =====================================================================
+\chapter{Introduction}
+\label{ch:introduction}
+
+\section{Motivation}
+\label{sec:motivation}
+
+\todo{Open with the compression arc: news $\to$ one number $\to$ trade. What did the one number throw away?}
+A sentiment trading pipeline compresses each day's news into a single
+scalar $S_t$ and trades on it. When multiple models, prompts, and
+stochastic samples score the same text, they produce a
+\emph{distribution} of readings, and distinct properties of that
+distribution --- the mean, the cross-model agreement, the measurement
+reliability --- may carry distinct, economically meaningful
+information that the scalar destroys. [Develop in 2--3 paragraphs:
+(i) the rise of \gls{llm} sentiment pipelines and the industry's
+convergence on a few foundation models; (ii) why machine consensus may
+proxy for \emph{crowded positioning} rather than confidence; (iii) why
+profit-and-loss, not classification accuracy, is the decisive test.]
+
+\section{Research Questions}
+\label{sec:research-questions}
+
+% These are the pre-registered RQs from the research plan — keep the
+% wording aligned with what was registered; deviations invite the
+% "did you move the goalposts?" question.
+This dissertation addresses four questions, one per analysis layer:
+\begin{enumerate}
+  \item \textbf{RQ1 (L1, baseline):} Can a daily aggregated sentiment
+        signal, traded via a tuned threshold rule, generate profit on
+        index futures against price-only and buy-and-hold baselines?
+  \item \textbf{RQ2 (L2, consensus $\to$ crowding):} Does the level of
+        agreement among independent models about a news item predict
+        how its initial price reaction resolves --- reversal after
+        high-consensus readings versus drift after low-consensus
+        readings?
+  \item \textbf{RQ3 (L3, reliability $\to$ sizing):} Does a trading
+        rule that knows the measurement error of its sentiment signal
+        --- shrinking unreliable scores and sizing positions by
+        signal-to-noise --- outperform the fixed-threshold rule on the
+        same signal?
+  \item \textbf{RQ4 (L4, conditional):} Do sentiment scorers shift
+        systematically on machine-written versions of the same news?
+        % If the L4 gate closed, demote this to a future-work
+        % paragraph in the conclusion and delete Chapter 7.
+\end{enumerate}
+
+\section{Contributions}
+\label{sec:contributions}
+
+% Each bullet should map to evidence in a specific chapter.
+The main contributions are:
+\begin{itemize}
+  \item [A leakage-controlled replication of the threshold strategy of
+        \textcite{mitic2026llm} on index futures (\cref{ch:layer1}).]
+  \item [The first event-study evidence on whether cross-model
+        sentiment consensus predicts reversal vs.\ drift
+        (\cref{ch:layer2}).]
+  \item [The first generalizability-theory variance decomposition of
+        \gls{llm} sentiment measurement in finance, and a test of its
+        economic value via reliability-weighted position sizing
+        (\cref{ch:layer3}).]
+  \item [\dots]
+\end{itemize}
+
+\section{Scope and Limitations}
+\label{sec:scope}
+
+[Declare upfront: daily horizon; FTSE/DOW/Hang Seng futures plus
+index-constituent single names for the event study; news sources and
+period; no intraday execution; transaction costs as sensitivity, not
+microstructure realism. Also state the publishable-null stance: a
+clean negative on RQ2 or RQ3 is a finding about machine-read
+efficiency, not a failure.]
+
+\section{Outline}
+\label{sec:outline}
+
+\Cref{ch:literature} reviews the four literatures this work draws on.
+\Cref{ch:data} describes data, pipeline, and the rigor protocol.
+\Cref{ch:layer1,ch:layer2,ch:layer3} present the baseline strategy,
+the consensus--crowding study, and the reliability--sizing study
+respectively. [\Cref{ch:layer4} reports the echo experiment ---
+delete if gated.] \Cref{ch:discussion} interprets the results and
+\cref{ch:conclusion} concludes.

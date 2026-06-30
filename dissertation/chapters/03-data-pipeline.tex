@@ -1,0 +1,118 @@
+% =====================================================================
+% CHAPTER 3 — DATA AND PIPELINE (~12% of total length)
+%
+% Job: one chapter that Chapters 4–6 can all point back to, so the
+% layer chapters stay about RESULTS, not plumbing. A reader should be
+% able to reproduce every scoring run from this chapter + Appendix A.
+%
+% Structure:
+%   3.1 Price data
+%   3.2 News data (incl. the source-fallback story)
+%   3.3 Labeled set and its provenance
+%   3.4 Model roster and scoring pipeline
+%   3.5 Aggregation (article -> S_t)
+%   3.6 Leakage controls
+%   3.7 Rigor protocol (pre-registration, corrections, costs)
+%
+% WRITE-AS-YOU-GO: sections 3.1–3.4 can be drafted NOW from the repo
+% and the wiki — they don't depend on results. Cheap words early.
+% =====================================================================
+\chapter{Data and Pipeline}
+\label{ch:data}
+
+\section{Price Data}
+\label{sec:data-prices}
+
+[Daily data from Yahoo Finance: FTSE, DOW, Hang Seng index futures for
+L1 and the L2 futures overlay; index-constituent single names (FTSE 100
+/ S\&P 100 with adequate news flow) for the L2 event study. Define the
+return convention once: $r_{t+1} = \ln(P_{t+1}/P_t)$.]
+
+\section{News Data}
+\label{sec:data-news}
+
+% Tell the fallback story honestly — design decisions under
+% uncertainty are methodology, and examiners reward them.
+[Primary source and what was verified about it (timestamps, per-name
+coverage density, rate limits). Fallbacks designed in from the start:
+FNSPID \parencite{dong2024fnspid} (timestamped, single-name, 1999--2023)
+and GDELT; the ingestion layer is source-agnostic. Report corpus
+statistics: articles/day, coverage per name, timestamp quality. If the
+28 Jun tripwire fired and the futures overlay was dropped, document
+that decision here, dated.]
+
+\section{Labeled Data and Provenance}
+\label{sec:data-labeled}
+
+[The merged PhraseBank + FiQA set: composition, the duplicate-group
+provenance check, and the agreement-tier structure
+\parencite{malo2014phrasebank} that provides graded human-disagreement
+ground truth. Record the license (CC BY-NC-SA) and the contamination
+caveat: these benchmarks predate the models' training cutoffs.]
+
+\section{Model Roster and Scoring}
+\label{sec:data-roster}
+
+% The roster freeze is a feature — state it as one.
+[The frozen roster: 4--5 hosted \glspl{llm} via OpenRouter, 1--2 local
+models via Ollama, plus FinBERT \parencite{araci2019finbert} and
+\gls{vader} \parencite{hutto2014vader} as non-LLM contrast. Roster was
+frozen before formal runs; additions would require re-running
+everything. Each item is scored by every roster member under every
+prompt variant with $k$ stochastic samples --- this crossed design is
+what makes the L3 G-study possible. Per-run provenance: prompt hashes
+and \texttt{commit\_sha} in the experiment manifest (full prompts in
+\cref{app:prompts}).]
+
+\begin{table}[htbp]
+  \centering
+  \caption{Model roster. [Placeholder --- fill from the frozen
+  manifest; include version identifiers and access route.]}
+  \label{tab:roster}
+  \begin{tabular}{@{}llll@{}}
+    \toprule
+    Model & Type & Route & Version pin \\
+    \midrule
+    {[Gemini \dots]}   & hosted LLM & OpenRouter & [\dots] \\
+    {[\dots]}          & local LLM  & Ollama     & [\dots] \\
+    FinBERT            & finetuned LM & local     & [\dots] \\
+    VADER              & lexicon    & local      & 3.3.2 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\section{Aggregation}
+\label{sec:data-aggregation}
+
+[Article scores $\to$ daily $S_t$: weighting, the after-close
+assignment rule, weekend handling. The scalar built here is L1's input
+--- and the information it destroys is L2/L3's subject, so document
+the compression precisely.]
+
+\begin{equation}
+  S_t = \frac{1}{N_t} \sum_{i=1}^{N_t} s_{i,t},
+  \label{eq:daily-sentiment}
+\end{equation}
+where $s_{i,t}$ is the (roster-mean) score of article $i$ mapped to
+trading day $t$ and $N_t$ is the article count.
+
+\section{Leakage Controls}
+\label{sec:data-leakage}
+
+% This section gets its own number because three chapters cite it.
+[The news-before-decision timestamp rule; chronological splits
+everywhere; no test-window tuning (threshold $L$ and sizing parameters
+tuned on train only); the memorization caveat for pre-cutoff text
+\parencite{glasserman2023lookahead}, acknowledged rather than claimed
+solved.]
+
+\section{Rigor Protocol}
+\label{sec:data-rigor}
+
+[Pre-registered hypotheses H2a--c and H3a--c with horizons fixed in
+advance (1, 5, 10 days); Benjamini--Hochberg correction across the
+hypothesis family \parencite{benjamini1995fdr} --- the
+multiple-testing critique of \textcite{harvey2016multiple} is the
+reason; soft-label scoring with Brier/\gls{ece} evaluated before any
+formal run; transaction-cost sensitivity on every P/L claim; AI use
+restricted to code and analysis, logged.]

@@ -1,0 +1,96 @@
+% =====================================================================
+% CHAPTER 2 — LITERATURE REVIEW (~1,500–1,800 words; 15–18% of the
+% supplied ~10,000-word planning total)
+%
+% Job: assemble the FOUR shelves the layers stand on, and show the gap
+% at their intersection. Organise by theme; end each section with one
+% sentence of synthesis (agreed / contested / missing).
+%
+%   2.1 Text sentiment and asset prices   -> grounds L1
+%   2.2 Sentiment extraction: lexicons -> FinBERT -> LLMs
+%   2.3 LLM measurement problems          -> grounds L2/L3
+%       (label flattening, calibration, look-ahead bias)
+%   2.4 Differences-of-opinion theory     -> grounds L2
+%   2.5 Generalizability theory           -> grounds L3
+%   2.6 Synthesis and gap
+%
+% KEY POSITIONING MOVE (from the research plan): the multi-agent
+% trading literature treats model consensus as CONFIDENCE; this
+% dissertation argues consensus proxies CROWDING. Make that opposition
+% explicit in 2.3/2.4 — it is the sharpest statement of novelty.
+%
+% NOTE: ~48 paper stubs are queued in the wiki under tag `bts-reading`
+% — work through the P0 list first (Hong & Stein, Tetlock, Malo,
+% Harris & Raviv, Shavelson & Webb ch.1–2, MacKinlay, Glasserman & Lin).
+% =====================================================================
+\chapter{Literature Review}
+\label{ch:literature}
+
+\section{Text Sentiment and Asset Prices}
+\label{sec:lit-sentiment-prices}
+
+[The canonical starting point is \textcite{tetlock2007}: media
+pessimism predicts price pressure and reversal --- note that reversal
+is already present in the very first paper, which foreshadows L2.
+Then the modern strand: \textcite{mitic2026llm} shows an
+\gls{llm}-augmented pipeline preserving 83\% autocorrelation / 93\%
+volatility consistency. Contrast with early null results on
+polarity-only sentiment --- the scalar being too thin from the other
+side.]
+
+\section{Sentiment Extraction: Lexicons to LLMs}
+\label{sec:lit-extraction}
+
+[\gls{vader} \parencite{hutto2014vader} and dictionary methods;
+FinBERT \parencite{araci2019finbert}; generative \glspl{llm}.
+Introduce the labeled-set lineage here too: PhraseBank
+\parencite{malo2014phrasebank} with its 50/66/75/100\% annotator
+agreement tiers --- those tiers are not a footnote, they are the
+human-disagreement ground truth that validates the L2 ambiguity proxy
+and the L3 tier check.]
+
+\section{LLM Measurement Problems}
+\label{sec:lit-llm-measurement}
+
+% This section carries the methodological stakes of the dissertation.
+Three strands matter. \emph{Label flattening:} \glspl{llm} compress
+human label variation toward consensus answers [cite the
+label-variation papers from the reading list] --- the erased
+disagreement is precisely what L2 trades on. \emph{Calibration:}
+modern networks are systematically overconfident
+\parencite{guo2017calibration}; soft-label scoring with Brier/\gls{ece}
+evaluation is the repo's response. \emph{Look-ahead bias:} models
+scoring pre-cutoff text may have memorized outcomes
+\parencite{glasserman2023lookahead, gao2025lookahead} --- this
+motivates the leakage protocol in \cref{sec:data-leakage}.
+
+\section{Differences of Opinion and Crowded Trades}
+\label{sec:lit-disagreement}
+
+[The theory shelf for L2: disagreement, not mean belief, drives volume
+\parencite{harris1993differences, kandel1995differential}; disagreement
+models of the market \parencite{hong2007disagreement}. Then the
+opposition: multi-agent \gls{llm} trading systems use consensus as a
+confidence signal, whereas if the industry converges on the same few
+foundation models, consensus marks a \emph{crowded interpretation} ---
+the same trade on the same reading. State this contrast explicitly.]
+
+\section{Generalizability Theory}
+\label{sec:lit-gtheory}
+
+[The measurement shelf for L3: \textcite{cronbach1972} and the primer
+treatment of \textcite{shavelson1991}. G-theory decomposes score
+variance into text, model, prompt, sample, and interaction facets,
+yielding per-item reliability --- something classification accuracy
+cannot express. Recent G-theory applications to \gls{llm} outputs are
+method imports, not competitors; the finance application is open.]
+
+\section{Synthesis and Gap}
+\label{sec:lit-gap}
+
+% One paragraph, stated plainly enough that Chapter 3 reads as the
+% obvious response.
+[No prior work treats the ensemble of machine readings as a
+measurement instrument: the sentiment--trading literature trades the
+mean; the measurement literature never reaches a P/L statement. The
+gap is the intersection, and RQ2/RQ3 occupy it.]

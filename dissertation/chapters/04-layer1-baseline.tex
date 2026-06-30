@@ -1,0 +1,63 @@
+% =====================================================================
+% CHAPTER 4 — THE BASELINE STRATEGY (L1)  (~12% of total length)
+%
+% Job: answer RQ1 cleanly and build the reference point Chapters 5–6
+% are measured against. Replication + honest evaluation — NOT the
+% novelty chapter, and it shouldn't strain to be.
+%
+% Structure:
+%   4.1 The threshold strategy (rule, tuning of L on train split)
+%   4.2 Results vs baselines (buy-and-hold, price-only momentum)
+%   4.3 Cost sensitivity
+%   4.4 Answer to RQ1
+%
+% REMEMBER the success criterion from the plan: a working,
+% leakage-controlled backtest with honest uncertainty. Profitability
+% is NOT required. If the strategy doesn't beat buy-and-hold, say so
+% plainly — L2/L3 do not depend on L1 being profitable.
+% =====================================================================
+\chapter{The Baseline Strategy (L1)}
+\label{ch:layer1}
+
+\section{The Threshold Strategy}
+\label{sec:l1-strategy}
+
+[The rule from \textcite{mitic2026llm}: trade when $|S_t| > L$, with
+$L$ tuned on the training split only. Spell out the position
+convention, holding period, and exact tuning grid.]
+
+\section{Results}
+\label{sec:l1-results}
+
+% Every P/L table: with AND without costs, per the rigor protocol.
+\begin{table}[htbp]
+  \centering
+  \caption{L1 backtest vs.\ baselines, out-of-sample. [Placeholder
+  values. Report each index separately; add a costs panel.]}
+  \label{tab:l1-results}
+  \begin{tabular}{@{}l S[table-format=2.1] S[table-format=1.2] S[table-format=2.1] S[table-format=2.1]@{}}
+    \toprule
+    Strategy & {Cum.\ P/L (\%)} & {Sharpe} & {Hit rate (\%)} & {Max DD (\%)} \\
+    \midrule
+    Buy-and-hold        & 4.2 & 0.31 & {---} & 12.4 \\
+    Price-only momentum & 3.1 & 0.24 & 51.2  & 10.8 \\
+    Threshold on $S_t$  & 6.8 & 0.52 & 53.0  &  9.6 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+[State the comparison in words; give uncertainty (e.g.\ bootstrap CIs
+on Sharpe differences) rather than a bare point estimate.]
+
+\section{Cost Sensitivity}
+\label{sec:l1-costs}
+
+[P/L as a function of assumed round-trip cost; the break-even cost is
+a more honest summary than any single net figure.]
+
+\section{Answer to RQ1}
+\label{sec:l1-answer}
+
+% One short section closing the question — mirrors the RQ wording
+% from Section 1.2. Repeat this pattern in Chapters 5 and 6.
+[Direct answer, with the caveats that survive Chapter 3's protocol.]

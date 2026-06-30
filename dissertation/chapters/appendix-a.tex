@@ -1,0 +1,34 @@
+% =====================================================================
+% APPENDICES — reproduction material. For this project specifically:
+%   A. Prompts & scoring configuration (below)
+%   B. Pre-registration record — the H2a–c / H3a–c statements and
+%      fixed horizons AS REGISTERED, dated; examiners can diff them
+%      against the results chapters
+%   C. Extra robustness tables (BH-corrected full grids)
+%   D. Labeled-set provenance detail (duplicate-group analysis)
+%   E. Code availability + AI-use log (per the supervisor constraint:
+%      AI for code and analysis, logged; no AI-written prose)
+% Appendices usually do NOT count toward the word limit — check yours.
+% =====================================================================
+\chapter{Prompts and Scoring Configuration}
+\label{app:prompts}
+
+% The reproducibility contract: someone with API access and this
+% appendix can re-run every scoring pass.
+[For every prompt variant: full text, its hash from the experiment
+manifest, the \texttt{commit\_sha} of the pipeline at run time, model
+identifiers with version pins, temperature/sampling parameters, $k$
+(stochastic samples per item), and the date range of API calls.]
+
+\begin{lstlisting}[caption={Scalar-label prompt variant. [Replace with the exact registered prompt; repeat for the soft-label variant.]}, label={lst:prompt-scalar}]
+[Exact prompt text, verbatim, including the output-format
+instruction. Do not paraphrase -- the hash must match.]
+\end{lstlisting}
+
+\chapter{Pre-Registration Record}
+\label{app:prereg}
+
+[H2a--c and H3a--c verbatim as registered, with the registration date
+and the fixed horizons (1, 5, 10 days). Note any deviation and its
+reason --- a dated deviation log reads as rigor, an unexplained
+mismatch reads as goalpost-moving.]
