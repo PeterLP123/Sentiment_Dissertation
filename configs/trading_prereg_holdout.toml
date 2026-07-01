@@ -3,7 +3,7 @@
 # ============================================================================
 #  ┌──────────────────────────────────────────────────────────────────────┐
 #  │  DO NOT RUN, SCREEN, OR INSPECT THIS SET until the MAIN run            │
-#  │  (configs/week4_trading_main.toml) is collected, screened, and its     │
+#  │  (configs/trading_prereg_main.toml) is collected, screened, and its     │
 #  │  pre-registered primary result (consensus @ D+5) is locked in writing. │
 #  └──────────────────────────────────────────────────────────────────────┘
 # This is a later, temporally-separated block reserved as a one-shot out-of-time
@@ -14,7 +14,7 @@
 # ============================================================================
 
 [run]
-id = "week4_trading_holdout"
+id = "trading_prereg_holdout"
 title = "Week 4 News-Sentiment Trading — Holdout (do not touch early)"
 timezone = "America/New_York"
 dates = [
@@ -29,7 +29,7 @@ primary_scorer = "consensus/majority"
 primary_horizon = 5
 role = "holdout"
 confirmation_rule = "Replicates if the consensus D+5 mean return has the same sign as the main set; report regardless of outcome."
-parent_config = "configs/week4_trading_main.toml"
+parent_config = "configs/trading_prereg_main.toml"
 frozen = true
 
 [scoring]

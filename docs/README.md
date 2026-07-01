@@ -20,7 +20,7 @@ This documentation is organized by reader task ([Diátaxis](https://diataxis.fr/
 | [Dataset card](dataset_card.md) | Reference | Dataset identity, provenance, label policy, limitations, and ethics. |
 | [Architecture](architecture.md) | Explanation | Why source data, providers, runs, corpora, and exports are separated. |
 | [Research protocol](research_protocol.md) | Explanation | "Beyond the Score" research questions, hypotheses, layers, and experiment rules. |
-| [Week 4 pre-registration](week4_preregistration.md) | Explanation | The frozen confirmatory trading test: hypothesis, design, and decision rule. |
+| [Trading pre-registration](trading_preregistration.md) | Explanation | The frozen confirmatory trading test: hypothesis, design, and decision rule. |
 
 ## Choose A Starting Point
 
@@ -34,7 +34,7 @@ This documentation is organized by reader task ([Diátaxis](https://diataxis.fr/
 | Build the licensed Workspace-to-local-model pipeline. | [LSEG to Ollama pipeline](lseg_ollama_pipeline.md) |
 | Execute the frozen 33-company LSEG cohort, scoring, L2, and L3 workflow. | [Frozen LSEG analysis workflow](lseg_analysis_workflow.md) |
 | Run, analyze, tune, or extend the trading strategy. | [Trading pipeline](trading_pipeline.md) |
-| Understand the confirmatory Week 4 trading test. | [Week 4 pre-registration](week4_preregistration.md) |
+| Understand the confirmatory Week 4 trading test. | [Trading pre-registration](trading_preregistration.md) |
 | Work through the terminal UI. | [TUI guide](tui_guide.md) |
 | Look up a command, option, or default. | [CLI reference](cli_reference.md) |
 | Understand exported files and metrics. | [Results and exports](results_and_exports.md) |

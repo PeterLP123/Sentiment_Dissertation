@@ -635,7 +635,7 @@ aliases = ["Apple", "AAPL"]
 
 
 def test_fixed_config_loads() -> None:
-    config = load_trading_config("configs/week3_trading_pilot.toml")
+    config = load_trading_config("configs/trading_pilot_3co.toml")
     assert [company.symbol for company in config.companies] == ["AAPL", "AMZN", "TSLA"]
     assert config.horizons == (1, 2, 3, 4, 5, 6, 7)
     assert config.provider == "openrouter"
@@ -644,19 +644,19 @@ def test_fixed_config_loads() -> None:
 
 
 def test_broadened_reviewed_config_loads_fixed_panel() -> None:
-    config = load_trading_config("configs/week3_trading_broad_reviewed.toml")
+    config = load_trading_config("configs/trading_pilot_8co_reviewed.toml")
 
     assert [company.symbol for company in config.companies] == ["AAPL", "MSFT", "NVDA", "AMZN", "TSLA", "JPM", "XOM", "BA"]
-    assert config.screening_overrides_path == Path("configs/week3_broad_screening_overrides.toml")
+    assert config.screening_overrides_path == Path("configs/trading_pilot_8co_screening_overrides.toml")
 
 
 def test_index_fallback_disabled_by_default() -> None:
-    assert load_trading_config("configs/week3_trading_pilot.toml").index_fallback is None
+    assert load_trading_config("configs/trading_pilot_3co.toml").index_fallback is None
 
 
 def test_index_fallback_config_parses(tmp_path: Path) -> None:
     config_path = tmp_path / "trade.toml"
-    base = Path("configs/week3_trading_pilot.toml").read_text()
+    base = Path("configs/trading_pilot_3co.toml").read_text()
     config_path.write_text(base + '\n[index_fallback]\nenabled = true\nsymbol = "^GSPC"\nmin_texts = 4\n')
     config = load_trading_config(config_path)
     assert config.index_fallback is not None
@@ -666,7 +666,7 @@ def test_index_fallback_config_parses(tmp_path: Path) -> None:
 
 def test_index_fallback_enabled_requires_symbol(tmp_path: Path) -> None:
     config_path = tmp_path / "trade.toml"
-    base = Path("configs/week3_trading_pilot.toml").read_text()
+    base = Path("configs/trading_pilot_3co.toml").read_text()
     config_path.write_text(base + "\n[index_fallback]\nenabled = true\nmin_texts = 2\n")
     with pytest.raises(TradingStrategyError, match="index_fallback.symbol is required"):
         load_trading_config(config_path)

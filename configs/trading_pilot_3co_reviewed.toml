@@ -23,7 +23,7 @@ resume_scores_path = "results/trading/week3_trading_pilot_20260624/sentiment_sco
 [sources]
 tavily_package_manifest = "Data/derived/tavily_ticker_panel_v1/package_manifest.json"
 newsapi_sources_file = "Data/derived/trading/week3_trading_pilot_20260624/newsapi_sources.json"
-screening_overrides_path = "configs/week3_screening_overrides.toml"
+screening_overrides_path = "configs/trading_pilot_3co_screening_overrides.toml"
 newsapi_max_pages = 10
 
 [outputs]

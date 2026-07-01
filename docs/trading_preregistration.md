@@ -1,10 +1,17 @@
-# Week 4+ Trading Test — Pre-registration
+# Confirmatory Trading Test — Pre-registration
 
 **Status:** frozen before collection · **Date filed:** 2026-06-24
 
-This document fixes the analysis plan *before* any Week 4 data is collected or
+> **Rename note (2026-07-01):** this file was `docs/week4_preregistration.md` and its
+> configs were `configs/week4_trading_main.toml` / `week4_trading_holdout.toml` (run ids
+> `week4_trading_main` / `week4_trading_holdout`), renamed to `trading_prereg_*` before
+> any collection. The analysis plan below is unchanged from the 2026-06-24 freeze;
+> only file/run names moved. Registered exploratory run ids under `results/trading/`
+> keep their original names as immutable evidence.
+
+This document fixes the analysis plan *before* any of its data is collected or
 seen, so the confirmatory result cannot be shaped by the data. The exploratory
-Week 3 run ([broad reviewed](../configs/week3_trading_broad_reviewed.toml)) is
+June pilot ([broad reviewed](../configs/trading_pilot_8co_reviewed.toml)) is
 retained separately as hypothesis-generating context and is **not** part of this
 test.
 
@@ -46,9 +53,9 @@ buy-and-hold benchmark, risk economics, company/date breakdowns — is **seconda
 - **Panel:** the 8-company Week 3 set (AAPL, MSFT, NVDA, AMZN, TSLA, JPM, XOM, BA).
 - **Main dates (6, non-adjacent, forward/rolling):** 2026-06-25, 07-02, 07-09,
   07-16, 07-23, 07-30 → ~48 planned company-day events.
-  ([week4_trading_main.toml](../configs/week4_trading_main.toml))
+  ([trading_prereg_main.toml](../configs/trading_prereg_main.toml))
 - **Holdout (2, later, untouched):** 2026-08-06, 08-13.
-  ([week4_trading_holdout.toml](../configs/week4_trading_holdout.toml))
+  ([trading_prereg_holdout.toml](../configs/trading_prereg_holdout.toml))
 - **Sourcing:** live NewsAPI + Tavily gap fetch per company-day; thin-coverage
   days (<3 texts) fall back to `^GSPC` rather than being dropped.
 
@@ -102,16 +109,16 @@ at the very end, after the main primary result is written down.
 
 ```bash
 # 1. Dry-run check (no API calls)
-sentiment-bench run-trading-strategy --config configs/week4_trading_main.toml --dry-run
+sentiment-bench run-trading-strategy --config configs/trading_prereg_main.toml --dry-run
 
 # 2. Collect + score + price + return (rolling; rerun as dates mature)
-sentiment-bench run-trading-strategy --config configs/week4_trading_main.toml
+sentiment-bench run-trading-strategy --config configs/trading_prereg_main.toml
 
 # 3. Effectiveness analysis (after the main set is complete)
 sentiment-bench analyze-trading-run \
-  --run-dir results/trading/week4_trading_main \
+  --run-dir results/trading/trading_prereg_main \
   --comparison-run-dir results/trading/week3_trading_broad_20260624_reviewed \
-  --output-dir results/trading/week4_trading_main_analysis
+  --output-dir results/trading/trading_prereg_main_analysis
 
 # 4. ONLY after the main primary result is locked: run the holdout, then analyse it.
 ```

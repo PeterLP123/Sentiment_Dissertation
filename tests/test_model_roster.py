@@ -16,7 +16,7 @@ from sentiment_benchmark.trading_strategy import (
     load_trading_config,
 )
 
-PILOT_CONFIG = Path("configs/week3_trading_pilot.toml")
+PILOT_CONFIG = Path("configs/trading_pilot_3co.toml")
 
 
 def _score(scorer_id: str, news_date: str) -> SentimentScore:

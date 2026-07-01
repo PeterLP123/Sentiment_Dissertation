@@ -88,9 +88,6 @@ Commands grouped by workflow. Every command is documented in a section below or 
 | --- | --- |
 | `news-check` | Run a small Tavily search to verify API connectivity. |
 | `fetch-news` | Fetch Tavily-sourced articles into a timestamped derived corpus. |
-| `fetch-news-batch` | Fetch a TOML query matrix across repeated date windows and optionally package the results. |
-| `package-news` | Package existing Tavily corpora into a colleague-shareable source dataset. |
-| `news-quality` | Summarize text quality across fetched Tavily corpora without calling Tavily. |
 | `newsapi-check` | Run a one-result NewsAPI Everything query. |
 | `fetch-newsapi` | Page through NewsAPI titles and descriptions into a timestamped corpus. |
 
@@ -268,95 +265,18 @@ sentiment-bench fetch-news --query "bank earnings sentiment" \
 
 Extracted text passes a quality gate before a record counts as usable: known error-page signatures (for example Yahoo Finance's "Oops, something went wrong") and bodies shorter than `--min-text-chars` are downgraded to `extraction_status = failed` with `text_quality` set to `error_page` or `too_short`. The raw extractor output is kept in `raw_extract_result` for auditing.
 
-## `fetch-news-batch`
-
-```bash
-sentiment-bench fetch-news-batch --weeks 5 --package-id tavily_shared_v3
-```
-
-`--weeks N` generates N contiguous 7-day windows ending today (or at `--end-date`). Explicit windows are also supported and can be combined with `--weeks`:
-
-```bash
-sentiment-bench fetch-news-batch \
-  --date-window 2026-05-07:2026-05-14 \
-  --date-window 2026-06-05:2026-06-11 \
-  --package-id tavily_shared_v3
-```
-
-Reads `configs/tavily_query_matrix.toml`, runs every query across every date window, writes timestamped corpora under `Data/news`, then packages those newly fetched corpora into `Data/derived/<package-id>` by default.
-
-During execution, the command prints a Rich progress display with the current fetch number, query id, date window, per-fetch record count, usable article count, failed extraction count, and output directory. Packaging has its own progress step after all fetches finish.
-
-Use dry run first to confirm the number of Tavily calls:
-
-```bash
-sentiment-bench fetch-news-batch --weeks 5 --dry-run
-```
-
-| Option | Default | Meaning |
-| --- | --- | --- |
-| `--date-window` | none | Date window as `YYYY-MM-DD:YYYY-MM-DD`; repeat for multiple batches. At least one window or `--weeks` is required. |
-| `--weeks` | none | Generate this many contiguous 7-day windows ending at `--end-date`. |
-| `--end-date` | today | Last day covered by `--weeks`, as `YYYY-MM-DD`. |
-| `--query-matrix` | `configs/tavily_query_matrix.toml` | TOML query matrix defining reusable Tavily queries. |
-| `--query-id` | all queries | Restrict to one matrix query id; repeat for multiple ids. |
-| `--extract / --no-extract` | `--extract` | Run Tavily Extract for each fetched result. |
-| `--extract-depth` | matrix value | Override the matrix `extract_depth` for every query: `basic` or `advanced`. |
-| `--output-dir` | `Data/news` | Root directory for fetched timestamped corpora. |
-| `--package / --no-package` | `--package` | Package newly fetched corpora after the batch completes. |
-| `--package-id` | `tavily_shared_v1` | Share package id used when packaging is enabled. |
-| `--package-output-dir` | `Data/derived` | Root directory for generated share package. |
-| `--text-policy` | `metadata` | Package text policy: `metadata` or `internal-extracts`. |
-| `--skip-existing / --refetch` | `--skip-existing` | Skip fetches whose exact parameters already produced a corpus under `--output-dir`; skipped corpora still join the package, so interrupted batches resume without paying for completed fetches again. Any parameter change (window, depth, domains, quality floor) triggers a refetch. |
-| `--dry-run` | off | Print planned fetches without calling Tavily or writing files, including how many would be skipped. |
-
-Each fetch is attempted up to 3 times with a short backoff before being recorded as failed, and the batch continues past persistent failures instead of aborting. When any fetch fails, packaging is skipped and the command exits non-zero — re-run the same command to retry only the failed fetches and build the package. Search and extract calls use 90s/120s timeouts — the SDK defaults are too tight for advanced extraction over 20 URLs, and 120s is the maximum the Tavily SDK accepts. Corpora whose search returned zero records are refetched on the next run rather than treated as complete.
-
-## `package-news`
-
-```bash
-sentiment-bench package-news \
-  --source Data/news/tavily_news_20260607T120000Z_bank-earnings-sentiment \
-  --package-id tavily_shared_v1 \
-  --output-dir Data/derived \
-  --query-matrix configs/tavily_query_matrix.toml \
-  --text-policy metadata
-```
-
-Packages existing Tavily corpus directories into a versioned source dataset for colleague review. This command does not call Tavily, label examples, run models, or modify benchmark datasets.
-
-Records from corpora fetched before the quality gate existed are re-assessed during packaging, so error pages and stub bodies in older corpora are reported with the correct `text_quality` and excluded from `extract_text_available` and `extracts.jsonl`.
-
-| Option | Default | Meaning |
-| --- | --- | --- |
-| `--source` | required | Existing Tavily corpus directory; repeat for multiple corpora. |
-| `--package-id` | `tavily_shared_v1` | Output package directory name under `--output-dir`; spaces are converted to hyphens. |
-| `--output-dir` | `Data/derived` | Root directory for generated share packages. |
-| `--query-matrix` | `configs/tavily_query_matrix.toml` | Optional TOML query matrix used to add query IDs and families. |
-| `--text-policy` | `metadata` | `metadata` writes no full article bodies; `internal-extracts` also writes `extracts.jsonl`. |
-
-Output files:
-
-| File | Purpose |
-| --- | --- |
-| `sources.csv` | Metadata-first source table with URLs, titles, snippets, provenance, hashes, text quality, and text availability. |
-| `screening_index.csv` | Editable review worksheet with screening fields, a `text_quality` column, and blank optional future label columns. |
-| `package_manifest.json` | Package metadata, source corpora, counts, duplicate URL count, file hashes, and sharing notes. |
-| `README.md` | Handoff notes for colleagues. |
-| `extracts.jsonl` | Optional internal full-text bundle, written only with `--text-policy internal-extracts`. |
-
 ## `run-trading-strategy`
 
 ```bash
 sentiment-bench run-trading-strategy --dry-run
-sentiment-bench run-trading-strategy --config configs/week3_trading_pilot.toml
+sentiment-bench run-trading-strategy --config configs/trading_pilot_3co.toml
 ```
 
 The fixed Week 3 config covers AAPL, AMZN, and TSLA on 8–10 June 2026. It reuses the Tavily ticker package, collects NewsAPI results, performs target-title screening and cross-provider deduplication, scores three OpenRouter models plus VADER, enters at the next observed adjusted open, and exports 1–7-session returns on $10,000 notional. Successful NewsAPI source pointers and LLM responses are resumable. A completed run cannot be overwritten with a changed config.
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `--config` | `configs/week3_trading_pilot.toml` | Fixed TOML run definition. |
+| `--config` | `configs/trading_pilot_3co.toml` | Fixed TOML run definition. |
 | `--dry-run` | off | Print calls, dates, models, horizons, and entry rule without writes or API calls. |
 
 ### Optional index fallback for thin-coverage company-days
@@ -458,23 +378,6 @@ sentiment-bench list-strategies
 ```
 
 Lists the registered trading strategies (ideas): id, the pipeline seams each customizes, its evaluation frame, its default sweepable parameter space, and a description. Use the id with `sweep-trading-strategy --strategy` or in a config `[strategy]` table. Built-ins: `sentiment_threshold_v1` (equal-weight ±1 default), `sentiment_magnitude_v1` (conviction-weighted sizing), and `headline_sentiment_threshold_v1` (headline information-value pipeline).
-
-## `news-quality`
-
-```bash
-sentiment-bench news-quality
-```
-
-Summarizes text quality across fetched Tavily corpora without making any API calls. Prints an overview table (records, unique URLs, usable unique URLs, `text_quality` breakdown, publication-date provenance), per-query-family counts, and the top source domains with usable shares. Query families whose corpora returned zero records remain visible as coverage gaps. Corpora that predate the quality gate are re-assessed on the fly.
-
-The domain table includes a `Shared prefix` column: the longest identical opening shared by at least two distinct usable articles from that domain. A large value (highlighted at 200+) means the extraction is carrying site boilerplate into article bodies or the domain published near-duplicate articles — both worth reviewing before labeling.
-
-| Option | Default | Meaning |
-| --- | --- | --- |
-| `--source` | all under `--news-dir` | Specific Tavily corpus directory; repeat for multiple. |
-| `--news-dir` | `Data/news` | Root directory scanned for corpora when `--source` is not given. |
-| `--query-matrix` | `configs/tavily_query_matrix.toml` | Optional TOML matrix used to group corpora by query family. |
-| `--top-domains` | `10` | Number of source domains to list. |
 
 ## `runs`
 

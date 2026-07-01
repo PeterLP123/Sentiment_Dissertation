@@ -1,7 +1,7 @@
 # ============================================================================
 # Week 4 BACKFILL — runnable-today expansion on recent PAST dates
 # ============================================================================
-# The pre-registered forward set (week4_trading_main.toml) cannot run yet (its
+# The pre-registered forward set (trading_prereg_main.toml) cannot run yet (its
 # dates are in the future). This backfill instead uses 6 non-adjacent trading
 # days that have already aged 7 sessions, to add real events now.
 #

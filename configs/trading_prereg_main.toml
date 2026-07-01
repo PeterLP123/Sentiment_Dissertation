@@ -5,12 +5,12 @@
 # temporally-spread days so the panel approaches the ~60 events/horizon needed
 # to detect the suggestive mid-horizon effect (D+3..D+6) at 80% power.
 #
-# PRE-REGISTRATION (frozen before collection — see docs/week4_preregistration.md):
+# PRE-REGISTRATION (frozen before collection — see docs/trading_preregistration.md):
 #   - Primary scorer ...... consensus/majority
 #   - Primary horizon ..... D+5 (5 trading sessions)
 #   - Primary metric ...... mean event return vs 0 (t-test), reported with the
 #                           BH-corrected q-value; everything else is sensitivity.
-#   - Holdout ............. configs/week4_trading_holdout.toml — DO NOT run or
+#   - Holdout ............. configs/trading_prereg_holdout.toml — DO NOT run or
 #                           inspect until this main set is collected, screened,
 #                           and its primary result is locked.
 #   - Inclusion rules ..... automatic_title_rule_v1 + documented manual review;
@@ -22,7 +22,7 @@
 # ============================================================================
 
 [run]
-id = "week4_trading_main"
+id = "trading_prereg_main"
 title = "Week 4 News-Sentiment Trading — Spread Panel (pre-registered)"
 timezone = "America/New_York"
 dates = [
@@ -42,7 +42,7 @@ primary_scorer = "consensus/majority"
 primary_horizon = 5
 hypothesis = "Daily news-sentiment signals produce a non-zero mean event return at D+5 for the consensus scorer."
 decision_rule = "Confirm only if the primary cell is significant after BH correction AND replicates with the same sign on the untouched holdout."
-holdout_config = "configs/week4_trading_holdout.toml"
+holdout_config = "configs/trading_prereg_holdout.toml"
 frozen = true
 
 [scoring]

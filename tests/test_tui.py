@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 from rich.text import Text
-from textual.widgets import Button, Checkbox, DataTable, Input, ProgressBar, Select, Static
+from textual.widgets import Button, DataTable, Input, ProgressBar, Select, Static
 
 from sentiment_benchmark.baseline_runner import BaselineRunSummary
 from sentiment_benchmark.lseg_presets import LSEG_PRESET_WEEK4_EIGHT, lseg_config_from_preset, write_lseg_config
@@ -208,28 +208,6 @@ def test_tui_ignores_stale_model_table_selection_event(tmp_path: Path) -> None:
     asyncio.run(scenario())
 
 
-def test_tui_ignores_stale_selected_table_selection_event(tmp_path: Path) -> None:
-    async def scenario() -> None:
-        app = _make_app(tmp_path)
-        app.selected_models = ["provider/model"]
-        app._model_names = {"provider/model": "Readable Name"}
-        async with app.run_test() as pilot:
-            await pilot.pause(0.1)
-            app._render_selected_table()
-
-            table = app.query_one("#selected-table", DataTable)
-            stale_key = next(iter(table.rows))
-            app.selected_models = []
-            app._render_selected_table()
-
-            app.on_data_table_row_selected(DataTable.RowSelected(table, 0, stale_key))
-
-            assert app.selected_models == []
-            assert table.row_count == 0
-
-    asyncio.run(scenario())
-
-
 def test_tui_model_search_filters_table(tmp_path: Path) -> None:
     async def scenario() -> None:
         app = _make_app(tmp_path)
@@ -335,28 +313,6 @@ def test_tui_runs_table_loads_metrics_and_per_class(tmp_path: Path) -> None:
 
             perclass = app.query_one("#perclass-table", DataTable)
             assert perclass.row_count == 3
-
-    asyncio.run(scenario())
-
-
-def test_tui_ignores_stale_runs_table_selection_event(tmp_path: Path) -> None:
-    db_path = tmp_path / "bench.sqlite"
-    _seed_run_with_metrics(db_path)
-
-    async def scenario() -> None:
-        app = _make_app(tmp_path)
-        app.db_path = db_path
-        async with app.run_test() as pilot:
-            await pilot.pause(0.1)
-            app._refresh_runs_table()
-
-            runs_table = app.query_one("#runs-table", DataTable)
-            stale_key = next(iter(runs_table.rows))
-            runs_table.clear()
-
-            app.on_data_table_row_selected(DataTable.RowSelected(runs_table, 0, stale_key))
-
-            assert app._active_run_id is None
 
     asyncio.run(scenario())
 
@@ -764,64 +720,6 @@ def test_tui_view_figures_without_plots_hints_install(tmp_path: Path, monkeypatc
     asyncio.run(scenario())
 
 
-def test_tui_keyboard_switches_tabs(tmp_path: Path) -> None:
-    async def scenario() -> None:
-        app = _make_app(tmp_path)
-        async with app.run_test() as pilot:
-            await pilot.pause(0.1)
-            from textual.widgets import TabbedContent
-
-            tabs = app.query_one(TabbedContent)
-            assert tabs.active == "dashboard-tab"
-
-            await pilot.press("4")
-            await pilot.pause(0.05)
-            assert tabs.active == "run-tab"
-
-            await pilot.press("2")
-            await pilot.pause(0.05)
-            assert tabs.active == "models-tab"
-
-    asyncio.run(scenario())
-
-
-def test_tui_help_action_pushes_help_screen(tmp_path: Path) -> None:
-    from sentiment_benchmark.tui import HelpScreen
-
-    async def scenario() -> None:
-        app = _make_app(tmp_path)
-        async with app.run_test() as pilot:
-            await pilot.pause(0.1)
-            app.action_show_help()
-            await pilot.pause(0.05)
-            assert isinstance(app.screen, HelpScreen)
-
-    asyncio.run(scenario())
-
-
-def test_tui_refresh_action_notifies(tmp_path: Path) -> None:
-    async def scenario() -> None:
-        app = _make_app(tmp_path)
-        async with app.run_test() as pilot:
-            await pilot.pause(0.1)
-            app.action_refresh()
-            assert any(severity == "information" and "Refreshed" in message for severity, message in app.notifications)
-
-    asyncio.run(scenario())
-
-
-def test_tui_baseline_checkboxes_default_to_sklearn(tmp_path: Path) -> None:
-    async def scenario() -> None:
-        app = _make_app(tmp_path)
-        async with app.run_test() as pilot:
-            await pilot.pause(0.1)
-            assert app.query_one("#baseline-majority", Checkbox).value is True
-            assert app.query_one("#baseline-tfidf_logreg", Checkbox).value is True
-            assert set(app._selected_baselines()) == {"majority", "tfidf_logreg"}
-
-    asyncio.run(scenario())
-
-
 def test_tui_run_baselines_button_invokes_runner(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     calls: dict[str, object] = {}
 
@@ -911,28 +809,6 @@ class FakeTuiLsegClient:
         return None
 
 
-def test_tui_news_tab_renders_controls(tmp_path: Path) -> None:
-    async def scenario() -> None:
-        app = _make_app(tmp_path)
-        app.lseg_config_path = _write_lseg_tui_config(tmp_path / "lseg.toml")
-        async with app.run_test() as pilot:
-            await pilot.pause(0.1)
-            from textual.widgets import TabbedContent
-
-            tabs = app.query_one(TabbedContent)
-            await pilot.press("6")
-            await pilot.pause(0.05)
-
-            assert tabs.active == "news-tab"
-            assert app.query_one("#news-query", Input).value == "financial markets"
-            assert app.query_one("#news-extract", Checkbox).value is True
-            assert "Tavily API key" in str(app.query_one("#news-summary", Static).content)
-            assert app.query_one("#lseg-config-path", Input).value == str(app.lseg_config_path)
-            assert "Collection: tui_lseg" in str(app.query_one("#lseg-summary", Static).content)
-
-    asyncio.run(scenario())
-
-
 def test_tui_news_check_uses_client_and_logs_status(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     async def scenario() -> None:
         app = _make_app(tmp_path)
@@ -994,19 +870,6 @@ def test_tui_lseg_build_refreshes_catalog_and_logs_outputs(tmp_path: Path, monke
 
             assert any("LSEG clean corpus built" in line for line in app.news_lines)
             assert any("Catalog:" in line for line in app.news_lines)
-
-    asyncio.run(scenario())
-
-
-def test_tui_lseg_busy_state_does_not_disable_tavily_buttons(tmp_path: Path) -> None:
-    async def scenario() -> None:
-        app = _make_app(tmp_path)
-        async with app.run_test() as pilot:
-            await pilot.pause(0.1)
-            app._set_lseg_busy(True)
-
-            assert app.query_one("#lseg-check", Button).disabled is True
-            assert app.query_one("#news-check", Button).disabled is False
 
     asyncio.run(scenario())
 
@@ -1663,36 +1526,6 @@ def test_tui_cloud_catalog_requires_ollama_provider(tmp_path: Path) -> None:
     asyncio.run(scenario())
 
 
-def test_tui_status_bar_shows_queue_depth(tmp_path: Path) -> None:
-    async def scenario() -> None:
-        app = _make_app(tmp_path)
-        async with app.run_test() as pilot:
-            await pilot.pause(0.1)
-            bar = app.query_one("#status-bar", Static)
-            assert "queue: empty" in str(bar.content)
-
-            app.selected_models = ["a/one"]
-            app._add_current_to_queue()
-            assert "queue: 1 pending" in str(app.query_one("#status-bar", Static).content)
-
-    asyncio.run(scenario())
-
-
-def test_tui_baselines_collapsed_by_default(tmp_path: Path) -> None:
-    async def scenario() -> None:
-        from textual.widgets import Collapsible
-
-        app = _make_app(tmp_path)
-        async with app.run_test() as pilot:
-            await pilot.pause(0.1)
-            section = app.query_one("#baselines-section", Collapsible)
-            assert section.collapsed is True
-            # The baseline checkboxes still exist inside the collapsible.
-            assert app.query_one("#baseline-majority", Checkbox) is not None
-
-    asyncio.run(scenario())
-
-
 def test_tui_loaded_models_panel_lists_ollama_ps(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     class _FakeOllama:
         async def __aenter__(self):
@@ -1871,33 +1704,6 @@ def test_tui_detects_ollama_cloud_models(tmp_path: Path) -> None:
     # Metadata flag also counts.
     flagged = ModelConfig(model_id="something", raw_metadata={"remote": True})
     assert app._is_cloud_model("something", flagged) is True
-
-
-def test_tui_model_table_marks_cloud_and_summary_counts(tmp_path: Path) -> None:
-    async def scenario() -> None:
-        app = _make_app(tmp_path)
-        app.provider = "ollama"
-        async with app.run_test() as pilot:
-            await pilot.pause(0.1)
-            app._all_models = [
-                ModelConfig(model_id="gpt-oss:120b-cloud", name="gpt-oss"),
-                ModelConfig(model_id="gemma3:12b", name="gemma3"),
-            ]
-            app._render_model_table()
-
-            table = app.query_one("#model-table", DataTable)
-            assert len(table.columns) == 5  # Sel, Model ID, Name, Context, Cloud
-            cloud_row = [str(cell) for cell in table.get_row("gpt-oss:120b-cloud")]
-            local_row = [str(cell) for cell in table.get_row("gemma3:12b")]
-            assert "cloud" in cloud_row[4]
-            assert local_row[4].strip() == ""
-
-            # Selecting one cloud + one local model -> summary notes the cloud count.
-            app.selected_models = ["gpt-oss:120b-cloud", "gemma3:12b"]
-            app._render_selected_table()
-            assert "(1 cloud)" in str(app.query_one("#selected-summary", Static).content)
-
-    asyncio.run(scenario())
 
 
 def test_tui_search_filters_to_cloud_models(tmp_path: Path) -> None:

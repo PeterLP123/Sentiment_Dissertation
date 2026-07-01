@@ -1,6 +1,6 @@
 [run]
-id = "week3_trading_broad_20260624_reviewed"
-title = "Week 3 News-Sentiment Trading Test — Broadened and Reviewed"
+id = "week3_trading_broad_20260624"
+title = "Week 3 News-Sentiment Trading Test — Broadened Panel"
 timezone = "America/New_York"
 dates = ["2026-06-08", "2026-06-09", "2026-06-10"]
 horizons = [1, 2, 3, 4, 5, 6, 7]
@@ -18,12 +18,12 @@ temperature = 0.0
 max_completion_tokens = 64
 concurrency = 3
 retries = 3
-resume_scores_path = "results/trading/week3_trading_broad_20260624/sentiment_scores.jsonl"
+resume_scores_path = "results/trading/week3_trading_pilot_20260624_reviewed/sentiment_scores.jsonl"
 
 [sources]
 tavily_package_manifest = "Data/derived/tavily_ticker_panel_v1/package_manifest.json"
-newsapi_sources_file = "Data/derived/trading/week3_trading_broad_20260624/newsapi_sources.json"
-screening_overrides_path = "configs/week3_broad_screening_overrides.toml"
+newsapi_sources_file = "Data/derived/trading/week3_trading_pilot_20260624/newsapi_sources.json"
+screening_overrides_path = "configs/trading_pilot_3co_screening_overrides.toml"
 newsapi_max_pages = 10
 
 [outputs]

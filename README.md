@@ -15,7 +15,7 @@ A reproducible CLI and terminal UI for dissertation experiments on financial sen
 - **L3:** measurement-reliability (G-theory) → position sizing.
 - **L4 (gated stretch):** writer×scorer robustness.
 
-See [Research protocol](docs/research_protocol.md) and the [Week 4 pre-registration](docs/week4_preregistration.md).
+See [Research protocol](docs/research_protocol.md) and the [Trading pre-registration](docs/trading_preregistration.md).
 
 **Where things stand (W4, early July 2026)**
 
@@ -39,7 +39,6 @@ See [Research protocol](docs/research_protocol.md) and the [Week 4 pre-registrat
 | Results analysis | Inspect stored metrics, paired tests, agreement, and prompt sensitivity. | `sentiment-bench results`, `compare`, `agreement` |
 | Self-consistency | Sample one model repeatedly to estimate sentiment ambiguity. | `sentiment-bench run-self-consistency` |
 | Tavily news sourcing | Search and extract current articles into reproducible derived corpora. | `sentiment-bench fetch-news` |
-| Tavily dataset packaging | Batch-fetch query families and package shareable source datasets. | `sentiment-bench fetch-news-batch`, `package-news` |
 | NewsAPI sourcing | Page through dated article titles and descriptions with source manifests. | `sentiment-bench newsapi-check`, `fetch-newsapi` |
 | LSEG Workspace research corpus | Create preset collection configs, collect entitled stories immutably, clean them offline, catalog corpora, and create seeded local validation sheets. | `lseg-init-config`, `fetch-lseg-news`, `build-lseg-corpus`, `lseg-catalog` |
 | Trading pilot | Merge and screen news, score three LLMs plus VADER, optionally run an entity-masked arm and knowledge-cutoff stratification, and calculate next-session event returns. | `sentiment-bench run-trading-strategy` |
@@ -140,7 +139,7 @@ Check NewsAPI and preview or run the fixed Week 3 strategy:
 ```bash
 sentiment-bench newsapi-check --query "Apple AAPL stock"
 sentiment-bench run-trading-strategy --dry-run
-sentiment-bench run-trading-strategy --config configs/week3_trading_pilot.toml
+sentiment-bench run-trading-strategy --config configs/trading_pilot_3co.toml
 sentiment-bench analyze-trading-run \
   --run-dir results/trading/<run-id> \
   --output-dir results/trading/<analysis-id>
@@ -184,7 +183,7 @@ Start here if you are setting up the project or writing the dissertation methods
 | [Architecture](docs/architecture.md) | Explanation | Why the project separates source data, runs, providers, news corpora, and exports. |
 | [Dataset card](docs/dataset_card.md) | Reference | Dataset identity, shape, label policy, limitations, and ethics. |
 | [Research protocol](docs/research_protocol.md) | Explanation | Dissertation research questions, hypotheses, metrics, and experiment rules. |
-| [Week 4 pre-registration](docs/week4_preregistration.md) | Explanation | The frozen confirmatory trading test: hypothesis, design, and decision rule. |
+| [Trading pre-registration](docs/trading_preregistration.md) | Explanation | The frozen confirmatory trading test: hypothesis, design, and decision rule. |
 
 ## System Map
 

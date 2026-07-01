@@ -8,21 +8,20 @@ Use the separate [LSEG to Ollama pipeline](lseg_ollama_pipeline.md) for entitled
 
 ![CLI Tavily fetch screenshot](assets/cli-news-fetch.svg)
 
-The sourcing pipeline, from query to shareable dataset:
+The sourcing pipeline, from query to trading input:
 
 ```mermaid
 flowchart LR
-    QM["configs/tavily_query_matrix.toml<br/>query families"] --> FB["fetch-news-batch<br/>queries × date windows"]
     Q["ad hoc query"] --> FN["fetch-news<br/>search + extract"]
     NA["NewsAPI query"] --> FNA["fetch-newsapi<br/>dated titles + snippets"]
-    FB --> C["Data/news/tavily_news_*<br/>timestamped corpora"]
-    FN --> C
+    FN --> C["Data/news/tavily_news_*<br/>timestamped corpora"]
     FNA --> CN["Data/news/newsapi_news_*"]
-    C --> NQ["news-quality<br/>offline quality audit"]
-    C --> PK["package-news<br/>Data/derived/&lt;package-id&gt;"]
     C --> TS["run-trading-strategy"]
     CN --> TS
 ```
+
+The batch-fetch/quality/packaging campaign tooling was retired after the v4 shared
+package was frozen — see [Retired Campaign Tooling](#retired-campaign-tooling).
 
 ## Prerequisites
 
@@ -58,7 +57,7 @@ sentiment-bench fetch-newsapi --query "Apple AAPL stock news" \
 
 Each request uses the `X-Api-Key` header, requests English results ordered by publication time, and pages in batches of 100 until `totalResults` is exhausted or `--max-pages` is reached. Output directories use the `newsapi_news_*` prefix and contain `articles.jsonl`, `articles.csv`, and `manifest.json`. API keys are never placed in URLs, manifests, or logs.
 
-## Week 3 Trading Pilot
+## Trading Pilot Sourcing
 
 Preview the fixed companies, dates, models, and price horizons without external calls:
 
@@ -69,7 +68,7 @@ sentiment-bench run-trading-strategy --dry-run
 Run it after configuring Tavily, NewsAPI, and OpenRouter credentials:
 
 ```bash
-sentiment-bench run-trading-strategy --config configs/week3_trading_pilot.toml
+sentiment-bench run-trading-strategy --config configs/trading_pilot_3co.toml
 ```
 
 The runner reuses `Data/derived/tavily_ticker_panel_v1`, collects one NewsAPI date-range corpus per company, merges by canonical URL and normalized headline, and records title-based screening decisions. A company-day with no accepted merged text triggers one targeted Tavily daily fetch. NewsAPI source pointers and successful LLM results are resumable; a completed run is returned unchanged and cannot be overwritten with a changed config.
@@ -152,66 +151,13 @@ sentiment-bench fetch-news --query "market volatility" \
   --start-date 2026-06-01 --end-date 2026-06-07
 ```
 
-## Fetch A Medium Corpus Smoothly
+## Retired Campaign Tooling
 
-Use `fetch-news-batch` when you want the reusable query matrix to run across several date windows. The default matrix in `configs/tavily_query_matrix.toml` contains 10 query families. Five date windows therefore plan up to 50 Tavily searches.
-
-The easiest form uses `--weeks`, which generates contiguous 7-day windows ending today. Preview the plan first, then run it:
-
-```bash
-sentiment-bench fetch-news-batch --weeks 5 --dry-run
-sentiment-bench fetch-news-batch --weeks 5 --package-id tavily_shared_v3
-```
-
-Batches are resumable: fetches whose exact parameters already produced a corpus under `Data/news` are skipped by default and the existing corpora still flow into the package, so rerunning after an interruption (or adding more weeks later) never pays Tavily credits twice. Changing any parameter — date window, extract depth, domain filters, quality floor — triggers a real refetch; pass `--refetch` to force one with identical parameters.
-
-Pass `--end-date` to anchor the windows somewhere other than today, or spell out explicit windows with repeated `--date-window` when the weeks are not contiguous:
-
-```bash
-sentiment-bench fetch-news-batch --weeks 5 --end-date 2026-06-11 --dry-run
-sentiment-bench fetch-news-batch \
-  --date-window 2026-05-07:2026-05-14 \
-  --date-window 2026-06-05:2026-06-11 \
-  --package-id tavily_shared_v3 \
-  --text-policy metadata
-```
-
-With the default 10 query families and `max_results = 20` in the query matrix, this targets up to 1,000 source records before deduplication and screening:
-
-```text
-10 query families x 5 date windows x 20 results = up to 1,000 source records
-```
-
-During a real run, the CLI shows a Rich progress bar with the current query family, date window, fetch number, records returned, failed extraction count, and output directory for each fetched corpus. After fetching, it shows a packaging progress step and reports unique source count plus duplicate URLs removed.
-
-Restrict a pilot to one or two query families with repeated `--query-id`:
-
-```bash
-sentiment-bench fetch-news-batch \
-  --query-id bank_earnings \
-  --query-id market_volatility \
-  --date-window 2026-06-05:2026-06-11 \
-  --dry-run
-```
-
-## Check Corpus Quality
-
-After any fetch, summarize what you actually collected without calling Tavily:
-
-```bash
-sentiment-bench news-quality
-```
-
-By default this scans every corpus under `Data/news` and prints three tables: an overview (records, unique URLs, usable
-unique URLs, `text_quality` breakdown, and where publication dates came from), per-query-family counts, and the top source
-domains with their usable share. Query families that returned zero records stay visible so coverage gaps are obvious.
-
-Use `--source` to inspect specific corpus directories, `--news-dir` to scan a different root, and `--top-domains` to widen
-the domain table. Corpora fetched before the quality gate existed are re-assessed on the fly.
-
-The domain table's `Shared prefix` column reports the longest identical opening shared by two or more distinct usable
-articles from a domain. A large value means site boilerplate is leaking into extracted bodies (or the domain publishes
-near-duplicate articles) — review those texts before labeling, and prefer `extract_depth = "advanced"` when refetching.
+The batch-fetch (`fetch-news-batch`), offline quality audit (`news-quality`), and
+dataset packaging (`package-news`) commands were removed on 2026-07-01 after the
+Tavily collection campaign completed. The frozen deliverable is the v4 shared
+package (see `experiments/manifest.toml` and the dataset card); the tooling and its
+tests are recoverable from git history (pre-`427537d`) if another campaign is run.
 
 ## Output Files
 
@@ -264,32 +210,6 @@ Data/news/                                        generated article corpora, ign
 ```
 
 If you later label article snippets or full text for benchmarking, create a separate derived dataset and document the labeling protocol, inclusion rules, label mapping, and random seed.
-
-## Package For Colleagues
-
-After one or more fetches, create a metadata-first share package from existing corpus directories:
-
-```bash
-sentiment-bench package-news \
-  --source Data/news/tavily_news_20260607T120000Z_bank-earnings-sentiment \
-  --package-id tavily_shared_v1 \
-  --output-dir Data/derived \
-  --text-policy metadata
-```
-
-Repeat `--source` to combine multiple fetched corpora. The command reads `articles.jsonl` and `manifest.json`, deduplicates by normalized URL, and writes the files below. Corpora fetched before the quality gate existed are re-assessed during packaging, so older error pages and stubs are flagged in `text_quality` and excluded from `extract_text_available` and `extracts.jsonl` — re-packaging an old collection is enough to get an honest screening index without refetching.
-
-| File | Purpose |
-| --- | --- |
-| `sources.csv` | One row per unique source URL with titles, snippets, source domains, query provenance, request IDs, extraction status, `text_quality`, and text hashes. |
-| `screening_index.csv` | Editable colleague review sheet with a `text_quality` column, `pending` screening decisions, and blank optional label columns. |
-| `package_manifest.json` | Package ID, source corpora, counts, duplicate count, query matrix path, unmatched queries, file hashes, and sharing notes. |
-| `README.md` | Short handoff note explaining contents, counts, and text policy. |
-| `extracts.jsonl` | Optional full-text file written only with `--text-policy internal-extracts`. |
-
-Default `--text-policy metadata` does not write full article bodies into the share package. Use `--text-policy internal-extracts` only when full-text sharing is appropriate for the audience and source terms.
-
-The optional query matrix at `configs/tavily_query_matrix.toml` records reusable query families for future collection and enriches package metadata when a fetched corpus query matches a matrix entry. It does not trigger any Tavily calls.
 
 ## TUI Workflow
 
