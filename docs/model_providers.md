@@ -2,6 +2,16 @@
 
 Use this guide to route benchmark calls to OpenRouter or to an Ollama server running local models such as Gemma on a desktop PC.
 
+```mermaid
+flowchart LR
+    CMD["run / run-trading-strategy / TUI"] --> P["Provider adapter<br/>providers.py"]
+    P -->|"provider=openrouter"| OR["OpenRouter<br/>hosted API models"]
+    P -->|"provider=ollama"| OL["Ollama server<br/>localhost or desktop PC"]
+    OL -->|"-cloud tags"| OC["Ollama Cloud<br/>signed-in daemon"]
+    OR --> S["Same response record:<br/>label, latency, tokens, cost"]
+    OL --> S
+```
+
 ## Prerequisites
 
 - Project installed with `python -m pip install -e ".[dev]"`.

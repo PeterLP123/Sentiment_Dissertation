@@ -17,13 +17,14 @@ A reproducible CLI and terminal UI for dissertation experiments on financial sen
 
 See [Research protocol](docs/research_protocol.md) and the [Week 4 pre-registration](docs/week4_preregistration.md).
 
-**Where things stand (W3, late June 2026)**
+**Where things stand (W4, early July 2026)**
 
 - **Setup (M1) — mostly locked.** Provenance-clean default dataset (`financial_sentiment_v2.csv`), soft-label + calibration (Brier/ECE) metrics, and per-run reproducibility metadata are done. Still open: the final model-roster freeze and the news-API (Tavily) viability decision.
-- **Data pipeline (M2) — largely in place.** Timestamped news + price ingestion, trading-decision alignment, and leakage controls are built; news corpora are being collected with quality and entity-relevance gating.
-- **Current focus — extraction comparison (M3) and the L1 trading test.** A pre-registered, frozen **Week 4+ confirmatory trading test** is collecting now: the consensus scorer at the D+5 horizon, rolling main dates (Jun 25 – Jul 30) plus an untouched holdout, with returns maturing ~late August.
-- **Week 3 pilot — exploratory, no confirmed edge.** The earlier 22-event pilot found no scorer-horizon mean return significant after Benjamini–Hochberg correction, with a suggestive but non-significant positive pattern for the consensus scorer at D+3..D+6. Retained as hypothesis-generating context only.
-- **Novel layers (L2 / L3) — next**, once the crossed-design extraction runs land (target late July).
+- **Data pipeline (M2) — largely in place.** Timestamped news + price ingestion, trading-decision alignment, and leakage controls are built. The 33-company LSEG collection is running (complete cross-source headlines; story bodies scoped to a source allowlist to stay inside the daily request quota).
+- **L1 confirmatory test — collecting now.** The pre-registered, frozen **Week 4+ trading test** is in its rolling collection window: consensus scorer at the D+5 horizon, main dates Jun 25 – Jul 30 plus an untouched August holdout, returns maturing ~late August. The L1 baseline chapter is drafted with results placeholders pending that test.
+- **Week 3 pilot — exploratory, no confirmed edge.** The 22-event pilot found no scorer-horizon mean return significant after Benjamini–Hochberg correction, with a suggestive but non-significant positive pattern for the consensus scorer at D+3..D+6. Retained as hypothesis-generating context only.
+- **Backtesting infrastructure — merged.** The trading pipeline now has a pure backtest core, a price-provider cache, contamination controls (knowledge-cutoff stratification, entity masking), an effectiveness battery, a leak-free parameter sweep, and a pluggable strategy registry. See [Trading pipeline](docs/trading_pipeline.md).
+- **Novel layers (L2 / L3) — next**, once the crossed-design extraction runs land (target late July). The `analyze-l2` / `analyze-l3` commands and the frozen workflow are already in place.
 
 > Trading results to date are screening diagnostics that assume event independence — not confirmed findings.
 
@@ -42,8 +43,11 @@ See [Research protocol](docs/research_protocol.md) and the [Week 4 pre-registrat
 | NewsAPI sourcing | Page through dated article titles and descriptions with source manifests. | `sentiment-bench newsapi-check`, `fetch-newsapi` |
 | LSEG Workspace research corpus | Create preset collection configs, collect entitled stories immutably, clean them offline, catalog corpora, and create seeded local validation sheets. | `lseg-init-config`, `fetch-lseg-news`, `build-lseg-corpus`, `lseg-catalog` |
 | Trading pilot | Merge and screen news, score three LLMs plus VADER, optionally run an entity-masked arm and knowledge-cutoff stratification, and calculate next-session event returns. | `sentiment-bench run-trading-strategy` |
-| Trading robustness report | Bootstrap event means, compare scorers, test company sensitivity, and render meeting-ready plots. | `sentiment-bench analyze-trading-run` |
-| Parameter sweep | Tune decision threshold and horizon on a completed run, selecting on a training split only. | `sentiment-bench sweep-trading-strategy` |
+| Trading robustness report | Bootstrap event means, run the effectiveness battery (significance, benchmark, economics; BH-corrected), test company sensitivity, and render meeting-ready plots. | `sentiment-bench analyze-trading-run` |
+| Parameter sweep | Tune any registered strategy's parameters and horizon on a completed run, selecting on a training split only. | `sentiment-bench sweep-trading-strategy` |
+| Pluggable strategies | Register trading ideas across four pipeline seams; equal-weight threshold and conviction-weighted sizing built in. | `sentiment-bench list-strategies` |
+| Headline value screen | Assess LSEG headline-only coverage, taxonomy, and lexicon-scored trading value without story bodies. | `sentiment-bench analyze-headline-value` |
+| L2 / L3 analyses | Consensus event study with clustered inference, and G-theory reliability with holdout trading rules. | `sentiment-bench analyze-l2`, `analyze-l3` |
 | Terminal UI | Run the same workflows interactively with tabs for models, prompts, runs, results, and news. | `sentiment-bench tui` |
 
 ## Quick Start
@@ -174,10 +178,13 @@ Start here if you are setting up the project or writing the dissertation methods
 | [Model providers](docs/model_providers.md) | How-to | OpenRouter setup and local/remote Ollama setup for Gemma models. |
 | [News sourcing](docs/news_sourcing.md) | How-to | Search, extract, save, review, and troubleshoot Tavily and NewsAPI corpora. |
 | [LSEG to Ollama pipeline](docs/lseg_ollama_pipeline.md) | How-to | Collect, clean, score, validate, and evaluate local-only Workspace news. |
+| [Frozen LSEG analysis workflow](docs/lseg_analysis_workflow.md) | How-to | The gated corpus → cohort → validation → crossed scoring → L2/L3 sequence. |
+| [Trading pipeline](docs/trading_pipeline.md) | How-to | Run, analyze, tune, and extend the news-to-price trading strategy. |
 | [Results and exports](docs/results_and_exports.md) | Reference | SQLite or Turso/libSQL storage, export files, metrics, figures, and reproducibility metadata. |
 | [Architecture](docs/architecture.md) | Explanation | Why the project separates source data, runs, providers, news corpora, and exports. |
 | [Dataset card](docs/dataset_card.md) | Reference | Dataset identity, shape, label policy, limitations, and ethics. |
 | [Research protocol](docs/research_protocol.md) | Explanation | Dissertation research questions, hypotheses, metrics, and experiment rules. |
+| [Week 4 pre-registration](docs/week4_preregistration.md) | Explanation | The frozen confirmatory trading test: hypothesis, design, and decision rule. |
 
 ## System Map
 
@@ -192,8 +199,12 @@ flowchart LR
     K["NewsAPI"] --> H
     N["LSEG Workspace"] --> O["immutable raw + clean revision corpus"]
     O --> L
+    O --> X["score-corpus-matrix<br/>frozen crossed scoring"]
+    X --> Y["analyze-l2 / analyze-l3<br/>event study + reliability"]
     H --> L["run-trading-strategy<br/>screen + score + price horizons"]
-    L --> M["results/trading<br/>meeting report + evidence"]
+    L --> M["results/trading<br/>run evidence + equity curve"]
+    M --> Q["analyze-trading-run<br/>effectiveness battery"]
+    M --> S["sweep-trading-strategy<br/>leak-free tuning"]
     I["OpenRouter"] --> C
     J["Ollama on desktop PC"] --> C
     J --> L

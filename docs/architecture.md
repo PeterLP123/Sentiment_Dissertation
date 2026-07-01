@@ -1,22 +1,5 @@
 # Architecture
 
-## LSEG Research Path
-
-```mermaid
-flowchart LR
-    W["Workspace desktop session"] --> R["Data/collections/.../raw<br/>resumable licensed checkpoints"]
-    R --> C["Verified clean revisions"]
-    C --> Q["Quality gate + first relevant family revision"]
-    Q --> F["2,100 development + 900 holdout<br/>500 development-only L3 subset"]
-    F --> S["Five models × prompts × samples<br/>VADER + FinBERT contrasts"]
-    S --> L2["L2 clustered event study"]
-    S --> L3["L3 reliability + holdout rules"]
-    L2 --> BH["Shared H2/H3 BH correction"]
-    L3 --> BH
-```
-
-Collection, cleaning, cohort freezing, validation, scoring, and analysis are separate commands so downstream evidence can be rebuilt and audited without another licensed API call. Manifests and content/configuration hashes enforce those boundaries. Native story and revision identifiers cross the analysis boundary; URL-based web records retain their existing representation. Sentiment records and trading decisions are separate artifacts so model behavior can be inspected independently from policy thresholds. Python owns the orchestration because network and model inference dominate latency; a C++ component would not improve those boundaries.
-
 This project keeps source data, external article sourcing, model execution, scoring, and export evidence separated so dissertation results can be reproduced and audited.
 
 ## The Problem
@@ -48,6 +31,48 @@ flowchart LR
     TR --> TE["Data/derived/trading + results/trading"]
 ```
 
+## Module Map
+
+The package layers cleanly: leaf modules own pure logic, service modules own one external system each, and orchestrators compose them. Dependencies point downward only.
+
+```mermaid
+flowchart TB
+    subgraph Interfaces
+        CLI["cli.py"]
+        TUI["tui.py + tui_*.py"]
+    end
+    subgraph Orchestrators
+        RUN["runner.py / baseline_runner.py / sc_runner.py"]
+        TRAD["trading_strategy.py"]
+        CSM["corpus_scoring.py"]
+        ANA["trading_analysis.py / strategy_sweep.py<br/>l2_event_study.py / l3_reliability.py"]
+    end
+    subgraph Services["External-system boundaries"]
+        PROV["providers.py → openrouter.py / ollama_client.py"]
+        NEWS["news_source.py / newsapi_source.py / lseg_source.py"]
+        PRICE["prices.py (PriceProvider + cache)"]
+        STORE["storage.py → libsql_backend.py"]
+    end
+    subgraph Leaves["Pure logic (no I/O)"]
+        BT["backtest.py / strategies.py"]
+        MET["metrics.py / agreement.py / trading_effectiveness.py"]
+        DATA["dataset.py / prompts.py / parser.py"]
+    end
+    CLI --> Orchestrators
+    TUI --> Orchestrators
+    RUN --> PROV
+    RUN --> STORE
+    TRAD --> NEWS
+    TRAD --> PROV
+    TRAD --> PRICE
+    TRAD --> BT
+    CSM --> PROV
+    ANA --> BT
+    ANA --> MET
+    RUN --> DATA
+    RUN --> MET
+```
+
 Core boundaries:
 
 | Boundary | Responsibility |
@@ -77,6 +102,23 @@ Core boundaries:
 | `src/sentiment_benchmark/strategy_sweep.py` | Parameter sweep over any registered strategy's declared parameter space × horizon, selecting on the training split only and reporting held-out test metrics. |
 | `src/sentiment_benchmark/trading_plots.py` | Cutoff/masking sensitivity summaries and the equity-curve and parameter-sweep-heatmap figures (matplotlib optional). |
 | `src/sentiment_benchmark/tui.py` + `tui_*.py` | Interactive Textual interface over the same services: an app shell (`tui.py`) that composes per-feature mixins (`tui_run`, `tui_results`, `tui_queue`, `tui_models`, `tui_monitor`, `tui_news`, `tui_baselines`) on a shared `tui_base` foundation, with `tui_format`/`tui_screens` helpers. |
+
+## The LSEG Research Path
+
+```mermaid
+flowchart LR
+    W["Workspace desktop session"] --> R["Data/collections/.../raw<br/>resumable licensed checkpoints"]
+    R --> C["Verified clean revisions"]
+    C --> Q["Quality gate + first relevant family revision"]
+    Q --> F["2,100 development + 900 holdout<br/>500 development-only L3 subset"]
+    F --> S["Five models × prompts × samples<br/>VADER + FinBERT contrasts"]
+    S --> L2["L2 clustered event study"]
+    S --> L3["L3 reliability + holdout rules"]
+    L2 --> BH["Shared H2/H3 BH correction"]
+    L3 --> BH
+```
+
+Collection, cleaning, cohort freezing, validation, scoring, and analysis are separate commands so downstream evidence can be rebuilt and audited without another licensed API call. Manifests and content/configuration hashes enforce those boundaries. Native story and revision identifiers cross the analysis boundary; URL-based web records retain their existing representation. Sentiment records and trading decisions are separate artifacts so model behavior can be inspected independently from policy thresholds. Python owns the orchestration because network and model inference dominate latency; a C++ component would not improve those boundaries.
 
 ## Why Two Scoring Scopes Exist
 

@@ -2,6 +2,16 @@
 
 You will install the project, validate the dissertation dataset, run a small model benchmark, inspect the stored metrics, export the evidence, and optionally fetch a small Tavily news corpus.
 
+```mermaid
+flowchart LR
+    S1["1–2<br/>install +<br/>credentials"] --> S3["3<br/>validate-data"]
+    S3 --> S4["4<br/>run<br/>(pilot)"]
+    S4 --> S5["5<br/>runs / results"]
+    S5 --> S6["6<br/>export"]
+    S6 --> S7["7<br/>fetch-news<br/>(optional)"]
+    S7 --> S8["8<br/>tui"]
+```
+
 ![CLI news fetch screenshot](assets/cli-news-fetch.svg)
 
 ## What You'll Need

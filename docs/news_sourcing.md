@@ -8,6 +8,22 @@ Use the separate [LSEG to Ollama pipeline](lseg_ollama_pipeline.md) for entitled
 
 ![CLI Tavily fetch screenshot](assets/cli-news-fetch.svg)
 
+The sourcing pipeline, from query to shareable dataset:
+
+```mermaid
+flowchart LR
+    QM["configs/tavily_query_matrix.toml<br/>query families"] --> FB["fetch-news-batch<br/>queries × date windows"]
+    Q["ad hoc query"] --> FN["fetch-news<br/>search + extract"]
+    NA["NewsAPI query"] --> FNA["fetch-newsapi<br/>dated titles + snippets"]
+    FB --> C["Data/news/tavily_news_*<br/>timestamped corpora"]
+    FN --> C
+    FNA --> CN["Data/news/newsapi_news_*"]
+    C --> NQ["news-quality<br/>offline quality audit"]
+    C --> PK["package-news<br/>Data/derived/&lt;package-id&gt;"]
+    C --> TS["run-trading-strategy"]
+    CN --> TS
+```
+
 ## Prerequisites
 
 - A Tavily account and API key.

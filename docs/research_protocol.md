@@ -26,6 +26,19 @@ that the scalar destroys.
 
 The research is organized into layers, and this repository feeds all of them:
 
+```mermaid
+flowchart TB
+    T["Each day's news, scored by<br/>models × prompts × samples"] --> DIST["Distribution of readings"]
+    DIST --> L1["L1 — mean S_t<br/>threshold trading baseline"]
+    DIST --> L2["L2 — cross-model agreement<br/>consensus → crowding/reversal"]
+    DIST --> L3["L3 — reliability (G-theory)<br/>→ position sizing"]
+    DIST --> L4["L4 — writer×scorer shift<br/>(gated stretch)"]
+    L1 -.->|"benchmark the score"| CLAIM["Claim: the scalar destroys<br/>information the distribution carries"]
+    L2 --> CLAIM
+    L3 --> CLAIM
+    L4 -.-> CLAIM
+```
+
 | Layer | Distributional property | Repository's role |
 | --- | --- | --- |
 | **L1** (baseline) | Mean (S_t) | Per-article sentiment scoring feeding daily aggregation and the supervisor's threshold trading strategy |

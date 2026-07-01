@@ -23,6 +23,16 @@ Related documentation:
 
 ## Provenance (verified 2026-06-12, M1-5)
 
+```mermaid
+flowchart LR
+    PB["Financial PhraseBank v1.0<br/>Sentences_66Agree.txt<br/>(Malo et al. 2014)"] --> K["Data/data.csv<br/>legacy Kaggle merge<br/>514 corrupt duplicate rows"]
+    FQ["FiQA 2018 Task 1<br/>(Maia et al. 2018)"] --> K
+    PB --> BS["scripts/build_labeled_dataset.py<br/>rebuild from originals in Data/source/"]
+    FQ --> BS
+    BS --> V2["financial_sentiment_v2.csv<br/>5,947 rows, zero conflicts<br/>default benchmark dataset"]
+    K -.->|"retained immutable,<br/>documented corruption"| LEG["legacy audit material"]
+```
+
 Every row of `Data/data.csv` was matched against the original sources. The file is:
 
 - **Financial PhraseBank v1.0, `Sentences_66Agree.txt`** (Malo et al. 2014): 4,217 rows,

@@ -54,35 +54,73 @@ sentiment-bench --help
 
 ## Commands
 
+Commands grouped by workflow. Every command is documented in a section below or in the linked guide.
+
+### Benchmarking and results
+
 | Command | Purpose |
 | --- | --- |
 | `validate-data` | Validate dataset columns, labels, duplicates, and primary scoring scope. |
-| `news-check` | Run a small Tavily search to verify API connectivity. |
-| `newsapi-check` | Run a one-result NewsAPI Everything query. |
-| `fetch-news` | Fetch Tavily-sourced articles into a timestamped derived corpus. |
-| `fetch-newsapi` | Page through NewsAPI titles and descriptions into a timestamped corpus. |
-| `fetch-news-batch` | Fetch a TOML query matrix across repeated date windows and optionally package the results. |
-| `package-news` | Package existing Tavily corpora into a colleague-shareable source dataset. |
-| `news-quality` | Summarize text quality across fetched Tavily corpora without calling Tavily. |
-| `run-trading-strategy` | Run or preview the fixed source-to-sentiment-to-return pilot. |
-| `analyze-trading-run` | Create robustness tables, plots, and a technical report for a completed trading run. |
-| `sweep-trading-strategy` | Tune a strategy's parameters on a completed run, selecting on a training split only. |
-| `list-strategies` | List registered trading strategies (ideas) and their sweepable parameters. |
 | `list-models` | List models from OpenRouter or Ollama. |
 | `run` | Run LLM sentiment classification benchmarks. |
 | `run-baselines` | Run non-LLM baseline classifiers. |
-| `export` | Export a stored run to files under `results/exports/`. |
 | `runs` | List stored benchmark runs. |
 | `results` | Show stored metrics and optional confusion matrices. |
 | `compare` | Compare two models with paired McNemar's test and bootstrap CIs. |
-| `run-prompt-suite` | Run a model across prompt perturbation variants. |
-| `prompt-sensitivity` | Summarize metric variation across prompt variants. |
+| `export` | Export a stored run to files under `results/exports/`. |
 | `agreement` | Compute inter-model agreement for one run. |
 | `tui` | Launch the terminal UI. |
+
+### Prompt robustness and self-consistency
+
+| Command | Purpose |
+| --- | --- |
+| `run-prompt-suite` | Run a model across prompt perturbation variants. |
+| `prompt-sensitivity` | Summarize metric variation across prompt variants. |
 | `run-self-consistency` | Sample one model repeatedly at temperature > 0. |
 | `self-consistency` | Analyze an existing self-consistency run. |
 | `self-consistency-list` | List self-consistency runs. |
 | `sc-compare-by-conflict` | Test whether conflicting duplicate rows have higher entropy. |
+
+### News sourcing (Tavily and NewsAPI)
+
+| Command | Purpose |
+| --- | --- |
+| `news-check` | Run a small Tavily search to verify API connectivity. |
+| `fetch-news` | Fetch Tavily-sourced articles into a timestamped derived corpus. |
+| `fetch-news-batch` | Fetch a TOML query matrix across repeated date windows and optionally package the results. |
+| `package-news` | Package existing Tavily corpora into a colleague-shareable source dataset. |
+| `news-quality` | Summarize text quality across fetched Tavily corpora without calling Tavily. |
+| `newsapi-check` | Run a one-result NewsAPI Everything query. |
+| `fetch-newsapi` | Page through NewsAPI titles and descriptions into a timestamped corpus. |
+
+### LSEG Workspace corpus and formal analyses
+
+| Command | Purpose |
+| --- | --- |
+| `lseg-init-config` | Write a preset collection TOML config. |
+| `lseg-news-check` | Test the Workspace session and entitlements without writing data. |
+| `fetch-lseg-news` | Atomically checkpoint an immutable, resumable raw collection. |
+| `build-lseg-corpus` | Verify raw hashes and deterministically rebuild clean text offline. |
+| `build-lseg-analysis-cohort` | Apply frozen relevance rules and freeze development/holdout/L3 cohorts. |
+| `lseg-catalog` | Refresh the metadata-only local corpus catalog. |
+| `sample-lseg-validation` | Create seeded human-annotation sheets for relevance and sentiment. |
+| `evaluate-lseg-annotations` | Score annotator agreement and adjudications. |
+| `score-corpus-matrix` | Run the frozen crossed model × prompt × sample scoring matrix, resumably. |
+| `analyze-l2` | Consensus/ambiguity event study with clustered inference (H2). |
+| `analyze-l3` | Variance components, reliability, and holdout trading rules (H3). |
+
+### Trading pipeline and strategies
+
+See the [trading pipeline guide](trading_pipeline.md) for the end-to-end workflow.
+
+| Command | Purpose |
+| --- | --- |
+| `run-trading-strategy` | Run or preview a frozen source-to-sentiment-to-return trading run. |
+| `analyze-trading-run` | Robustness tables, plots, effectiveness battery, and a technical report for a completed run. |
+| `sweep-trading-strategy` | Tune a strategy's parameters on a completed run, selecting on a training split only. |
+| `list-strategies` | List registered trading strategies (ideas) and their sweepable parameters. |
+| `analyze-headline-value` | Headline-only coverage, taxonomy, and trading-value screen for an LSEG collection. |
 
 ## `validate-data`
 
@@ -365,6 +403,31 @@ intervals are descriptive because company-day events overlap and are not indepen
 | `--bootstrap-resamples` | `10000` | Number of percentile-bootstrap event resamples. |
 | `--seed` | `42` | Random seed used by the bootstrap. |
 
+The analysis includes the effectiveness battery — significance/direction tests with Benjamini–Hochberg correction, a buy-and-hold benchmark comparison, and risk-adjusted economics per scorer-horizon cell — written as `effectiveness_*.csv` and appended to `summary.md`. See [Trading pipeline](trading_pipeline.md#the-effectiveness-battery).
+
+## `analyze-headline-value`
+
+```bash
+sentiment-bench analyze-headline-value \
+  --collection-root Data/collections/lseg_us_sector_33_6m \
+  --prices Data/derived/prices/lseg_us_sector_33.csv
+```
+
+Analyzes headline-only coverage, an event-type taxonomy, source mix, and lexicon-scored trading value for an LSEG collection, without requiring story bodies. When the prices CSV is omitted or missing, the trading arm is reported as blocked instead of failing. Outputs (panel, event table, category and source summaries, daily signals, a raw-headline calibration template, trading returns/decisions/summary, `summary.md`, and a manifest) contain licensed headline text and stay local.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `--collection-root` | `Data/collections/lseg_us_sector_33_6m` | Collection folder or raw LSEG directory containing `headlines.jsonl`. |
+| `--prices` | `Data/derived/prices/lseg_us_sector_33.csv` | Optional daily prices CSV; if missing, trading value is reported as blocked. |
+| `--output-dir` | `<collection>/derived/headline_value_analysis` | Output directory for local artifacts. |
+| `--sample-size` | `2000` | Rows in the local raw-headline calibration template. |
+| `--seed` | `42` | Deterministic sample seed. |
+| `--timezone` | `America/New_York` | Exchange timezone used by the backtest core. |
+| `--horizons` | `1,5,10` | Comma-separated holding horizons in trading sessions. |
+| `--transaction-cost-bps-per-side` | `10.0` | Per-side trading cost applied to headline signals. |
+| `--notional-usd` | `10000` | Per-signal notional for P&L summaries. |
+| `--overwrite` | off | Replace files in an existing non-empty output directory. |
+
 ## `sweep-trading-strategy`
 
 ```bash
@@ -375,7 +438,7 @@ sentiment-bench sweep-trading-strategy \
   --metric sharpe --train-fraction 0.6
 ```
 
-Tunes a registered strategy on a completed run without re-scoring. It reloads `daily_signals.csv` and `prices.csv`, filters to one `--scorer`, and evaluates the strategy's declared parameter space × horizon on a chronological train/test split. `--strategy` selects the idea (default `sentiment_threshold_v1`; `--thresholds` overrides the decision-threshold axis for any strategy, while idea-specific params such as the magnitude idea's `scale` use the strategy's declared grid). The single point with the best **training** metric is selected; **held-out** test metrics are reported alongside, so tuning cannot leak. Writes `sweep.csv` (all points, with the selected row flagged and a `params` column for idea-specific values) and `sweep_heatmap.png` (threshold × horizon test metric) into the run directory, and prints the grid with the selected point starred. Selection metrics are notional-independent ratios, so no portfolio assumptions enter the tuning.
+Tunes a registered strategy on a completed run without re-scoring. It reloads `daily_signals.csv` and `prices.csv`, filters to one `--scorer`, and evaluates the strategy's declared parameter space × horizon on a chronological train/test split. `--strategy` selects the idea (default `sentiment_threshold_v1`; `--thresholds` overrides the decision-threshold axis for any strategy, while idea-specific params such as the magnitude idea's `scale` use the strategy's declared grid). The single point with the best **training** metric is selected; **held-out** test metrics are reported alongside, so tuning cannot leak. Writes `sweep.csv` (all points, with the selected row flagged and a `params` column for idea-specific values) and a heatmap PNG named after the CSV stem — `sweep_heatmap.png` by default, or `<stem>_heatmap.png` when `--output` is set — showing the threshold × horizon test metric, and prints the grid with the selected point starred. Selection metrics are notional-independent ratios, so no portfolio assumptions enter the tuning.
 
 | Option | Default | Meaning |
 | --- | --- | --- |

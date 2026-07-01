@@ -62,6 +62,16 @@ A result is treated as **confirmatory** only if **both** hold:
 1. The primary cell (consensus, D+5) is significant at q < 0.05 on the main set; **and**
 2. It **replicates with the same sign** on the holdout.
 
+```mermaid
+flowchart TB
+    M["Main set complete<br/>(~48 events, matured)"] --> P{"Primary cell<br/>consensus, D+5<br/>q < 0.05?"}
+    P -->|no| NULL["Report null / exploratory<br/>no confirmed edge"]
+    P -->|yes| LOCK["Write down the main result,<br/>then run the holdout ONCE"]
+    LOCK --> H{"Holdout mean return<br/>same sign?"}
+    H -->|no| NULL
+    H -->|yes| CONF["Confirmatory result"]
+```
+
 Any other outcome (significant on main but not holdout, or null) is reported
 honestly as exploratory / no confirmed edge. The holdout is analysed **once**,
 at the very end, after the main primary result is written down.

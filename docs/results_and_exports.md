@@ -2,6 +2,18 @@
 
 This reference explains where benchmark evidence is stored, what gets exported, and how to interpret the main metrics.
 
+```mermaid
+flowchart LR
+    RUN["run / run-baselines /<br/>run-self-consistency"] --> ST{"SENTIMENT_BENCH_DB_BACKEND"}
+    ST -->|"sqlite (default)"| SQ["results/sentiment_benchmark.sqlite<br/>local, single-machine"]
+    ST -->|libsql| RE["results/turso_replica.db<br/>local embedded replica"]
+    RE <-->|"sync on completion"| TU["Hosted Turso database<br/>shared across machines"]
+    SQ --> EX["export --run-id N"]
+    RE --> EX
+    EX --> OUT["results/exports/run_N/<br/>responses, metrics, statistics,<br/>LaTeX tables, figures"]
+    OUT --> MAN["experiments/manifest.toml<br/>formal run registry"]
+```
+
 ## Storage Locations
 
 | Path | Created by | Purpose | Git policy |
@@ -230,14 +242,37 @@ For formal results:
 4. Preserve `run.json`, `metrics.json`, `statistics.json`, and `summary.md`.
 5. Interpret headline metrics with `primary` scope and report `all` as an audit scope.
 
-## LSEG Trading Artifacts
+## Trading Artifacts
 
-`Data/news/lseg_<collection-id>/manifest.json` hashes raw aggregate files and checkpoint state. `Data/derived/lseg/<collection-id>/manifest.json` hashes cleaned article revisions and records cleaner/package versions and quality counts. Both directories contain licensed local-only content and remain ignored.
+See the [trading pipeline guide](trading_pipeline.md) for how these artifacts are produced and interpreted.
 
-Completed trading runs add `trading_decisions.csv` alongside `sentiment_scores.csv`, `daily_signals.csv`, `prices.csv`, and `returns.csv`. Decisions retain holds and their reasons; return rows include trades only when the signal policy is enabled. Return exports contain gross and net return/P&L columns, availability timestamp, two-sided transaction costs, and the disclosed short-borrow assumption. Each sentiment score also carries its scorer's `model_knowledge_cutoff`/`is_post_cutoff` and `masking_mode`/`entity_masked`/`n_masked_tokens`. The run manifest records corpus hashes, model tags/digests, prompt and request identity, policy settings, and traded-decision counts.
+Completed trading runs write `trading_decisions.csv` alongside `sentiment_scores.csv`, `daily_signals.csv`, `prices.csv`, and `returns.csv`. Decisions retain holds and their reasons; return rows include trades only when the signal policy is enabled. Return exports contain gross and net return/P&L columns, availability timestamp, two-sided transaction costs, and the disclosed short-borrow assumption. Each sentiment score also carries its scorer's `model_knowledge_cutoff`/`is_post_cutoff` and `masking_mode`/`entity_masked`/`n_masked_tokens`. The run manifest records corpus hashes, model tags/digests, prompt and request identity, policy settings, and traded-decision counts.
+
+For LSEG-sourced runs, `Data/news/lseg_<collection-id>/manifest.json` hashes raw aggregate files and checkpoint state, and `Data/derived/lseg/<collection-id>/manifest.json` hashes cleaned article revisions and records cleaner/package versions and quality counts. Both directories contain licensed local-only content and remain ignored.
 
 ### Contamination sensitivity and tuning artifacts
 
 Runs also write `sensitivity_cutoff.csv` (mean net return and hit rate split by post- vs pre-knowledge-cutoff per scorer and horizon) and, when a masked arm ran (`[scoring].masking_mode = both`), `sensitivity_masking.csv` (masked vs unmasked). `equity_curve.png` plots cumulative net P&L for the primary scorer. These are descriptive sensitivity layers and do not alter the pre-registered primary cell.
 
-`sweep-trading-strategy` reads a completed run's `daily_signals.csv` and `prices.csv` and writes `sweep.csv` (every grid point with train/test metrics and the selected row) plus `sweep_heatmap.png` (threshold × horizon). Parameters are selected on the training split only.
+`sweep-trading-strategy` reads a completed run's `daily_signals.csv` and `prices.csv` and writes `sweep.csv` (every grid point with train/test metrics and the selected row) plus a `<stem>_heatmap.png` (threshold × horizon test metric, named after the sweep CSV). Parameters are selected on the training split only.
+
+### Analysis directory artifacts
+
+`analyze-trading-run --output-dir results/trading/<analysis-id>` writes, without overwriting:
+
+| File | Contents |
+| --- | --- |
+| `summary.md` | Technical report, including the appended effectiveness battery. |
+| `horizon_summary.csv` | Per scorer-horizon mean returns with seeded percentile-bootstrap intervals. |
+| `company_horizon_summary.csv`, `date_horizon_summary.csv` | Company and date breakdowns. |
+| `leave_one_company_out.csv` | Panel-sensitivity estimates with each company removed. |
+| `signal_distribution.csv`, `source_yield.csv` | Signal and article-source diagnostics. |
+| `agreement_metrics.csv`, `pairwise_label_agreement.csv` | LLM/VADER agreement diagnostics. |
+| `effectiveness_significance.csv` | t-test, Wilcoxon, sign, and binomial hit-rate tests with Benjamini–Hochberg q-values. |
+| `effectiveness_benchmarks.csv` | Strategy vs paired buy-and-hold of the same names. |
+| `effectiveness_economics.csv` | Return/risk, win/loss profile, profit factor, naive drawdown, realised P&L. |
+| `pilot_comparison.csv` | Descriptive comparison against `--comparison-run-dir` (when supplied). |
+| Five `.png` plots | Mean returns by horizon, consensus heatmap, signal distribution, source yield, pairwise agreement. |
+| `source_map.md`, `analysis_manifest.json` | Input provenance and SHA-256 hashes of every generated file. |
+
+Bootstrap intervals and effectiveness p-values are descriptive screening diagnostics because company-day events overlap and are not independent.

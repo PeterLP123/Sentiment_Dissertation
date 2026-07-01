@@ -2,6 +2,17 @@
 
 This workflow collects entitled Workspace news into a local immutable corpus, rebuilds deterministic clean text without another LSEG call, scores it with pinned local Ollama models and baselines, then applies an inspectable trading policy. It is research infrastructure, not a live-order system or investment advice.
 
+```mermaid
+flowchart LR
+    CFG["lseg-init-config<br/>preset TOML"] --> CHK["lseg-news-check<br/>session + entitlements"]
+    CHK --> F["fetch-lseg-news<br/>immutable raw checkpoints"]
+    F --> B["build-lseg-corpus<br/>offline clean rebuild"]
+    B --> CAT["lseg-catalog<br/>metadata-only index"]
+    B --> V["sample-lseg-validation →<br/>evaluate-lseg-annotations"]
+    B --> T["run-trading-strategy<br/>pinned Ollama models"]
+    B --> A["build-lseg-analysis-cohort →<br/>frozen L2/L3 workflow"]
+```
+
 ## Install And Prerequisites
 
 The normal installation does not include the Workspace SDK. Install the optional collector and cleaner dependencies only on the collection machine:
