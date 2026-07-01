@@ -110,6 +110,8 @@ def test_evaluate_responses_without_probabilities_has_no_calibration() -> None:
     responses = [_response(1, "positive", None)]
     result = evaluate_responses(rows, responses, "test/model", scope="primary")
     assert result.calibration is None
+    assert result.balanced_accuracy == 1.0
+    assert result.mcc == 0.0
 
 
 def test_storage_roundtrips_label_probabilities(tmp_path) -> None:

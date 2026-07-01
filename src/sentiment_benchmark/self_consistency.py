@@ -216,7 +216,11 @@ def compute_self_consistency(
 
     y_true = [r.hidden_label for r in rows]
     y_pred_maj = [r.majority_label for r in rows]
-    bal_acc = float(balanced_accuracy_score(y_true, y_pred_maj))
+    bal_acc = (
+        1.0
+        if len(set(y_true) | set(y_pred_maj)) == 1
+        else float(balanced_accuracy_score(y_true, y_pred_maj))
+    )
 
     # Conflicting vs non-conflicting breakdown
     conflicting = [r for r in rows if r.is_conflicting_duplicate]

@@ -125,6 +125,20 @@ def _prediction_for_multiclass_metrics(true_label: str, prediction: str) -> str:
     return ALLOWED_LABELS[0]
 
 
+def _balanced_accuracy(y_true: list[str], y_pred: list[str]) -> float:
+    """Preserve sklearn's single-class result without its shape warning."""
+    if len(set(y_true) | set(y_pred)) == 1:
+        return 1.0
+    return float(balanced_accuracy_score(y_true, y_pred))
+
+
+def _matthews_corrcoef(y_true: list[str], y_pred: list[str]) -> float:
+    """Preserve sklearn's degenerate single-class result without its shape warning."""
+    if len(set(y_true) | set(y_pred)) == 1:
+        return 0.0
+    return float(matthews_corrcoef(y_true, y_pred))
+
+
 def _empty_per_class() -> dict[str, dict[str, float]]:
     zero = {"precision": 0.0, "recall": 0.0, "f1": 0.0, "support": 0.0}
     return {label: dict(zero) for label in ALLOWED_LABELS}
@@ -235,8 +249,8 @@ def evaluate_responses(
         scope=scope,
         row_count=len(y_true),
         accuracy=float(accuracy_score(y_true, y_pred)),
-        balanced_accuracy=float(balanced_accuracy_score(y_true, y_pred_scored)),
-        mcc=float(matthews_corrcoef(y_true, y_pred_scored)),
+        balanced_accuracy=_balanced_accuracy(y_true, y_pred_scored),
+        mcc=_matthews_corrcoef(y_true, y_pred_scored),
         macro_f1=float(macro_f1_values),
         weighted_f1=float(weighted_f1_values),
         per_class=per_class,
