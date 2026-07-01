@@ -666,8 +666,10 @@ Three optional tables add the reproducibility and contamination controls (all de
 
 ```toml
 [prices]
-provider = "yfinance"            # price backend
+provider = "lseg"                 # "lseg" (preferred; needs a Workspace session) or "yfinance"
 cache_dir = "Data/derived/prices" # opt-in per-(symbol,window) cache; omit to disable
+[prices.rics]                     # LSEG only: symbol → RIC (unmapped symbols pass through)
+AAPL = "AAPL.O"
 adjusted = true                   # adjusted (auto_adjust) prices
 
 [cutoff]
@@ -679,7 +681,7 @@ policy = "stratify"               # ignore | stratify (default) | post_only
 masking_mode = "both"             # off (default) | on | both
 ```
 
-- `[prices]` makes runs deterministic and offline-replayable when `cache_dir` is set.
+- `[prices]` makes runs deterministic and offline-replayable when `cache_dir` is set. `provider = "lseg"` (preferred for formal runs) fetches licensed daily bars through the same Workspace session as the news collection; note it applies exchange/manual corrections and split adjustments but does **not** back-adjust dividends, so returns follow the price-return convention (yfinance's `auto_adjust` folds dividends in). Frozen configs that omit `[prices]` keep the yfinance default.
 - `[cutoff].policy = stratify` only annotates scores and emits `sensitivity_cutoff.csv`, leaving the frozen primary cell untouched; `post_only` additionally restricts the traded signal to contamination-free (post-cutoff) scores; `ignore` disables annotation. Cutoffs are best-effort — verify against provider model cards or pin them via `[cutoff.overrides]`.
 - `[scoring].masking_mode = both` runs an extra anonymised arm under `#masked` scorer ids and writes `sensitivity_masking.csv`; `on` scores only masked text; `off` is the default.
 

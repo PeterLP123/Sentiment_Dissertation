@@ -29,6 +29,17 @@ lseg_corpus_manifest = "Data/derived/lseg/lseg_workspace_example/manifest.json"
 newsapi_enabled = false
 tavily_gap_fetch = false
 
+[prices]
+# LSEG daily bars via the same Workspace session as the news collection.
+# Split/correction-adjusted, not dividend-adjusted (price-return convention).
+provider = "lseg"
+cache_dir = "Data/derived/prices/cache"
+
+[prices.rics]
+AAPL = "AAPL.O"
+MSFT = "MSFT.O"
+NVDA = "NVDA.O"
+
 [signal_policy]
 min_valid_stories = 3
 threshold = 0.5

@@ -86,7 +86,7 @@ flowchart LR
     E --> H7["D+7 close<br/>exit h=7"]
 ```
 
-Returns are computed on $10,000 notional per event, with gross and net columns (two-sided transaction costs and a disclosed short-borrow assumption). Prices come through the `PriceProvider` seam ([prices.py](../src/sentiment_benchmark/prices.py)) — yfinance with an opt-in per-(symbol, window) cache (`[prices].cache_dir`), so completed runs are deterministic and offline-replayable.
+Returns are computed on $10,000 notional per event, with gross and net columns (two-sided transaction costs and a disclosed short-borrow assumption). Prices come through the `PriceProvider` seam ([prices.py](../src/sentiment_benchmark/prices.py)) with an opt-in per-(symbol, window) cache (`[prices].cache_dir`), so completed runs are deterministic and offline-replayable. Two backends exist: `lseg` (preferred for formal runs — licensed daily bars through the same Workspace session as the news collection, split/correction-adjusted but not dividend-adjusted, i.e. price returns) and `yfinance` (the historical default; folds dividends in via `auto_adjust`). Frozen configs that omit `[prices]` keep yfinance, so registered runs are unaffected.
 
 Two policy options handle thin coverage:
 

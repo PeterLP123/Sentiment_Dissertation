@@ -79,11 +79,17 @@ class TradingCompany:
 
 @dataclass(frozen=True)
 class PricesConfig:
-    """Price-source settings. ``cache_dir`` is opt-in; ``None`` disables caching."""
+    """Price-source settings. ``cache_dir`` is opt-in; ``None`` disables caching.
+    ``ric_overrides`` maps symbol → RIC for the LSEG provider (``[prices.rics]``)."""
 
     provider: str = "yfinance"
     cache_dir: Path | None = None
     adjusted: bool = True
+    ric_overrides: dict[str, str] = field(default_factory=dict)
+
+    @property
+    def source_description(self) -> str:
+        return "LSEG Workspace historical pricing" if self.provider == "lseg" else "Yahoo Finance via yfinance"
 
 
 @dataclass(frozen=True)
@@ -332,6 +338,7 @@ def _build_trading_config(raw: dict[str, Any], config_path: Path) -> TradingStra
             provider=str(prices_raw.get("provider", "yfinance")).strip().lower(),
             cache_dir=Path(prices_raw["cache_dir"]) if prices_raw.get("cache_dir") else None,
             adjusted=bool(prices_raw.get("adjusted", True)),
+            ric_overrides={str(key): str(value) for key, value in (prices_raw.get("rics") or {}).items()},
         )
         cutoff_raw = raw.get("cutoff") or {}
         cutoff = CutoffConfig(
@@ -1290,6 +1297,7 @@ def fetch_price_rows(config: TradingStrategyConfig) -> list[PriceRow]:
         config.prices.provider,
         cache_dir=config.prices.cache_dir,
         adjusted=config.prices.adjusted,
+        ric_overrides=config.prices.ric_overrides,
     )
     try:
         return provider.fetch(symbols, start, end)
@@ -1610,7 +1618,7 @@ def write_run_outputs(
             "horizons": config.horizons,
             "notional_usd": config.notional_usd,
             "entry_rule": "next_observed_session_adjusted_open",
-            "price_source": "Yahoo Finance via yfinance",
+            "price_source": config.prices.source_description,
             "decision_policy": asdict(config.decision_policy),
             "decision_policy_enabled": config.decision_policy_enabled,
             "index_fallback": (
@@ -1693,7 +1701,7 @@ horizons = [{horizons}]
 temperature = {config.temperature}
 notional_usd = {config.notional_usd}
 entry_rule = "next_observed_session_adjusted_open"
-price_source = "Yahoo Finance via yfinance"
+price_source = {_toml_string(config.prices.source_description)}
 transaction_cost_bps_per_side = {config.decision_policy.transaction_cost_bps_per_side}
 short_borrow_bps_per_day = {config.decision_policy.short_borrow_bps_per_day}
 decision_policy_version = {_toml_string(config.decision_policy.policy_version)}

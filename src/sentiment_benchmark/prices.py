@@ -13,11 +13,13 @@ The provider seam plugs into the existing ``price_loader`` injection point in
 from __future__ import annotations
 
 import csv
+import importlib
+import math
 import re
-from collections.abc import Sequence
-from dataclasses import dataclass, fields
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field, fields
 from pathlib import Path
-from typing import Protocol, runtime_checkable
+from typing import Any, ClassVar, Protocol, runtime_checkable
 
 
 class PriceProviderError(RuntimeError):
@@ -62,6 +64,8 @@ class YFinancePriceProvider:
     the prices; ``repair=True`` enables yfinance's bad-tick repair.
     """
 
+    cache_tag: ClassVar[str] = "yfinance"
+
     adjusted: bool = True
     repair: bool = True
 
@@ -103,12 +107,103 @@ class YFinancePriceProvider:
         return _sorted(rows)
 
 
+# Daily-interval OHLCV fields for the LSEG historical-pricing access layer.
+_LSEG_FIELDS = ["OPEN_PRC", "HIGH_1", "LOW_1", "TRDPRC_1", "ACVOL_UNS"]
+# Corrections plus capital-change (split) adjustments. NOTE: unlike yfinance's
+# auto_adjust, LSEG does not back-adjust for dividends — prices follow the
+# *price-return* convention. State this wherever cross-provider numbers meet.
+_LSEG_ADJUSTMENTS = ["exchangeCorrection", "manualCorrection", "CCH"]
+
+
+def _is_nan(value: Any) -> bool:
+    try:
+        return value is None or math.isnan(float(value))
+    except (TypeError, ValueError):
+        return True
+
+
+@dataclass(frozen=True)
+class LsegPriceProvider:
+    """Daily bars from LSEG Workspace via the ``lseg.data`` access layer.
+
+    Requires a running Workspace session (same requirement as the news
+    collection). Symbols are translated to RICs through ``ric_overrides``;
+    unmapped symbols are passed through unchanged and left to LSEG's own
+    resolution. ``adjusted=True`` applies exchange/manual corrections and
+    capital-change (split) adjustments; dividends are *not* folded in, so
+    returns are price returns rather than yfinance-style total returns.
+    LSEG treats ``end`` as inclusive (yfinance excludes it); the backtest
+    is insensitive to one extra trailing session.
+    """
+
+    cache_tag: ClassVar[str] = "lseg"
+
+    adjusted: bool = True
+    ric_overrides: Mapping[str, str] = field(default_factory=dict)
+
+    def fetch(self, symbols: Sequence[str], start: str, end: str) -> list[PriceRow]:
+        try:
+            ld = importlib.import_module("lseg.data")
+        except ImportError as exc:  # pragma: no cover - exercised only without lseg-data
+            raise PriceProviderError("the lseg-data SDK is required for LSEG price data") from exc
+        try:
+            ld.open_session()
+        except Exception as exc:
+            raise PriceProviderError(f"cannot open LSEG session (is Workspace running?): {exc}") from exc
+        try:
+            rows: list[PriceRow] = []
+            for symbol in symbols:
+                ric = self.ric_overrides.get(symbol, symbol)
+                try:
+                    frame = ld.get_history(
+                        universe=ric,
+                        fields=_LSEG_FIELDS,
+                        interval="daily",
+                        start=start,
+                        end=end,
+                        adjustments=_LSEG_ADJUSTMENTS if self.adjusted else None,
+                    )
+                except Exception as exc:
+                    raise PriceProviderError(f"LSEG history request failed for {symbol} ({ric}): {exc}") from exc
+                if frame is None or getattr(frame, "empty", True):
+                    raise PriceProviderError(f"no LSEG prices returned for {symbol} ({ric})")
+                missing = [name for name in _LSEG_FIELDS[:4] if name not in frame.columns]
+                if missing:
+                    raise PriceProviderError(
+                        f"LSEG history for {symbol} ({ric}) lacks fields {missing}; got {list(frame.columns)}"
+                    )
+                for index, value in frame.iterrows():
+                    ohlc = [value["OPEN_PRC"], value["HIGH_1"], value["LOW_1"], value["TRDPRC_1"]]
+                    if any(_is_nan(item) for item in ohlc):
+                        continue  # non-trading or unpriced session
+                    session_date = index.date().isoformat() if hasattr(index, "date") else str(index)[:10]
+                    volume = value.get("ACVOL_UNS") if hasattr(value, "get") else None
+                    rows.append(
+                        PriceRow(
+                            symbol=symbol,
+                            session_date=session_date,
+                            open=float(ohlc[0]),
+                            high=float(ohlc[1]),
+                            low=float(ohlc[2]),
+                            close=float(ohlc[3]),
+                            volume=0.0 if volume is None or _is_nan(volume) else float(volume),
+                            repaired=False,
+                        )
+                    )
+            return _sorted(rows)
+        finally:
+            try:
+                ld.close_session()
+            except Exception:  # pragma: no cover - session teardown is best-effort
+                pass
+
+
 _CACHE_FIELDS = [field.name for field in fields(PriceRow)]
 
 
-def _cache_filename(symbol: str, start: str, end: str) -> str:
+def _cache_filename(tag: str, symbol: str, start: str, end: str) -> str:
     safe_symbol = re.sub(r"[^A-Za-z0-9._-]", "_", symbol)
-    return f"{safe_symbol}__{start}__{end}.csv"
+    return f"{tag}__{safe_symbol}__{start}__{end}.csv"
 
 
 def _read_cache(path: Path) -> list[PriceRow] | None:
@@ -161,16 +256,19 @@ class CachedPriceProvider:
 
     A cache hit performs no network call, so tuning sweeps that re-run the same
     window are deterministic and offline. Each symbol is cached independently so
-    adding a company does not invalidate the others.
+    adding a company does not invalidate the others. Filenames are namespaced by
+    the inner provider's ``cache_tag`` so switching provider with the same
+    ``cache_dir`` cannot serve one source's bars as another's.
     """
 
     inner: PriceProvider
     cache_dir: Path
 
     def fetch(self, symbols: Sequence[str], start: str, end: str) -> list[PriceRow]:
+        tag = getattr(self.inner, "cache_tag", type(self.inner).__name__.lower())
         rows: list[PriceRow] = []
         for symbol in symbols:
-            path = self.cache_dir / _cache_filename(symbol, start, end)
+            path = self.cache_dir / _cache_filename(tag, symbol, start, end)
             cached = _read_cache(path)
             if cached is None:
                 cached = self.inner.fetch([symbol], start, end)
@@ -184,16 +282,20 @@ def make_price_provider(
     *,
     cache_dir: str | Path | None = None,
     adjusted: bool = True,
+    ric_overrides: Mapping[str, str] | None = None,
 ) -> PriceProvider:
     """Build a price provider from config values.
 
     ``provider`` selects the network backend; passing ``cache_dir`` wraps it in a
-    :class:`CachedPriceProvider`.
+    :class:`CachedPriceProvider`. ``ric_overrides`` (symbol → RIC) applies to the
+    LSEG provider only.
     """
 
     name = (provider or "yfinance").strip().lower()
     if name in {"yfinance", "yahoo"}:
         base: PriceProvider = YFinancePriceProvider(adjusted=adjusted)
+    elif name in {"lseg", "workspace", "refinitiv"}:
+        base = LsegPriceProvider(adjusted=adjusted, ric_overrides=dict(ric_overrides or {}))
     else:
         raise PriceProviderError(f"unknown price provider: {provider!r}")
     if cache_dir is not None:
