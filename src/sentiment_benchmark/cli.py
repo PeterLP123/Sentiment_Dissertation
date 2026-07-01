@@ -1130,7 +1130,7 @@ def sweep_trading_strategy_command(
     write_sweep_csv(results, destination)
     heatmap_path = plot_sweep_heatmap(
         results,
-        destination.with_name("sweep_heatmap.png"),
+        destination.with_name(f"{destination.stem}_heatmap.png"),
         attr="test_metric",
         title=f"Sweep test {metric} — {scorer}",
     )
