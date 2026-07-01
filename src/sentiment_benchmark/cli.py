@@ -124,12 +124,13 @@ from .runner import BenchmarkRunner
 from .sc_runner import SelfConsistencyRunner
 from .self_consistency import SelfConsistencyResult
 from .storage import BenchmarkStore
+from .strategies import available as available_strategies
+from .strategies import get as get_strategy
 from .strategy_sweep import (
-    ParameterGrid,
     chronological_split_date,
     load_prices_csv,
     load_signals_csv,
-    sweep,
+    sweep_strategy,
     write_sweep_csv,
 )
 from .trading_analysis import TradingAnalysisError, analyze_trading_run
@@ -1068,6 +1069,10 @@ def sweep_trading_strategy_command(
         str,
         typer.Option("--scorer", help="scorer_id to tune, e.g. consensus/majority or openai/gpt-4o-mini."),
     ] = "consensus/majority",
+    strategy: Annotated[
+        str,
+        typer.Option("--strategy", help="Registered strategy id to tune (see list-strategies)."),
+    ] = "sentiment_threshold_v1",
     thresholds: Annotated[
         str,
         typer.Option("--thresholds", help="Comma-separated decision thresholds."),
@@ -1089,8 +1094,14 @@ def sweep_trading_strategy_command(
         typer.Option("--output", help="Where to write sweep.csv (default: <run-dir>/sweep.csv)."),
     ] = None,
 ) -> None:
-    """Tune decision-policy parameters on a completed run, selecting on a training
-    split only and reporting held-out test metrics (no look-ahead in tuning)."""
+    """Tune a strategy's parameters on a completed run, selecting on a training
+    split only and reporting held-out test metrics (no look-ahead in tuning). The
+    strategy's own parameter space (e.g. ``scale`` for the magnitude idea) is swept;
+    ``--thresholds`` overrides the decision-threshold axis for any strategy."""
+    try:
+        strategy_obj = get_strategy(strategy)
+    except KeyError as exc:
+        raise typer.BadParameter(str(exc)) from exc
     try:
         signals = [s for s in load_signals_csv(run_dir / "daily_signals.csv") if s.scorer_id == scorer]
         prices = load_prices_csv(run_dir / "prices.csv")
@@ -1098,13 +1109,21 @@ def sweep_trading_strategy_command(
         raise typer.BadParameter(str(exc)) from exc
     if not signals:
         raise typer.BadParameter(f"no daily signals for scorer {scorer!r} in {run_dir}")
-    grid = ParameterGrid(
-        thresholds=tuple(float(value) for value in thresholds.split(",") if value.strip()),
-        horizons=tuple(int(value) for value in horizons.split(",") if value.strip()),
-    )
+    param_space = dict(strategy_obj.param_space())
+    param_space["threshold"] = tuple(float(value) for value in thresholds.split(",") if value.strip())
+    horizons_tuple = tuple(int(value) for value in horizons.split(",") if value.strip())
     try:
         split_date = chronological_split_date([s.news_date for s in signals], train_fraction)
-        results = sweep(signals, prices, grid, split_date=split_date, notional_usd=10_000.0, metric=metric)
+        results = sweep_strategy(
+            signals,
+            prices,
+            strategy_obj,
+            horizons=horizons_tuple,
+            split_date=split_date,
+            notional_usd=10_000.0,
+            metric=metric,
+            param_space=param_space,
+        )
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from exc
     destination = output or (run_dir / "sweep.csv")
@@ -1116,13 +1135,14 @@ def sweep_trading_strategy_command(
         title=f"Sweep test {metric} — {scorer}",
     )
 
-    table = Table(title=f"Parameter sweep — {metric}, scorer={scorer} (train split before {split_date})")
-    for column in ("threshold", "horizon", "n_train", "n_test", "train", "test", "selected"):
+    table = Table(title=f"Parameter sweep — {strategy}, {metric}, scorer={scorer} (train split before {split_date})")
+    for column in ("threshold", "horizon", "params", "n_train", "n_test", "train", "test", "selected"):
         table.add_column(column)
     for result in results:
         table.add_row(
             f"{result.threshold:g}",
             str(result.horizon),
+            result.params or "—",
             str(result.n_train),
             str(result.n_test),
             "—" if result.train_metric is None else f"{result.train_metric:.4f}",
@@ -1133,6 +1153,19 @@ def sweep_trading_strategy_command(
     console.print(f"[green]Wrote[/green] {destination}")
     if heatmap_path is not None:
         console.print(f"[green]Wrote[/green] {heatmap_path}")
+
+
+@app.command("list-strategies")
+def list_strategies_command() -> None:
+    """List registered trading strategies (ideas) and their sweepable parameters."""
+    table = Table(title="Registered strategies")
+    for column in ("id", "axes", "eval frame", "param space", "description"):
+        table.add_column(column)
+    for strat in available_strategies():
+        space = "; ".join(f"{name}={list(values)}" for name, values in strat.param_space().items()) or "—"
+        table.add_row(strat.id, ", ".join(strat.axes), strat.evaluator.frame, space, strat.description)
+    console.print(table)
+    console.print("Evaluation frames: 'event_study' (implemented), 'cross_sectional' (planned fast-follow).")
 
 
 @app.command("package-news")

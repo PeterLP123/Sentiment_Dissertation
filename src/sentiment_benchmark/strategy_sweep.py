@@ -11,14 +11,16 @@ Dependency direction: ``prices``/``backtest`` ← ``strategy_sweep``.
 from __future__ import annotations
 
 import csv
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, fields, replace
 from itertools import product
 from pathlib import Path
 from statistics import fmean, stdev
 
-from .backtest import DailySignal, DecisionPolicyConfig, IndexFallback, ReturnRow, run_backtest
+from .backtest import DailySignal, DecisionFn, DecisionPolicyConfig, IndexFallback, ReturnRow, run_backtest
 from .prices import PriceRow
+from .strategies import CONFIG_PARAM_NAMES, Strategy
+from .strategies import get as get_strategy
 
 SELECTION_METRICS = ("mean_return", "hit_rate", "sharpe")
 
@@ -97,6 +99,10 @@ class SweepResult:
     test_mean_return: float | None
     test_hit_rate: float | None
     selected: bool = False
+    strategy_id: str = "sentiment_threshold_v1"
+    # Idea-specific params for this point (e.g. "scale=1.0") beyond the shared
+    # threshold/min-valid/cost columns; empty for the default threshold strategy.
+    params: str = ""
 
 
 def _vector(returns: list[ReturnRow]) -> list[float]:
@@ -152,6 +158,7 @@ def _returns_for(
     notional_usd: float,
     index_fallback: IndexFallback | None,
     timezone: str,
+    decision_fn: DecisionFn | None = None,
 ) -> list[ReturnRow]:
     if not signals:
         return []
@@ -163,7 +170,86 @@ def _returns_for(
         notional_usd=notional_usd,
         index_fallback=index_fallback,
         timezone=timezone,
+        decision_fn=decision_fn,
     ).returns
+
+
+def _params_str(params: Mapping[str, float]) -> str:
+    """Compact, stable serialisation of idea-specific params for the CSV record."""
+    return "; ".join(f"{name}={value}" for name, value in sorted(params.items()))
+
+
+def _flag_selected(results: list[SweepResult]) -> list[SweepResult]:
+    """Flag the single point with the best *train* selection metric."""
+    best: SweepResult | None = None
+    best_metric = float("-inf")
+    for result in results:
+        if result.train_metric is not None and result.train_metric > best_metric:
+            best_metric = result.train_metric
+            best = result
+    if best is None:
+        return results
+    return [replace(result, selected=result is best) for result in results]
+
+
+def sweep_strategy(
+    signals: list[DailySignal],
+    prices: list[PriceRow],
+    strategy: Strategy,
+    *,
+    horizons: tuple[int, ...],
+    split_date: str,
+    notional_usd: float,
+    metric: str = "sharpe",
+    param_space: Mapping[str, Sequence[float | int]] | None = None,
+    index_fallback: IndexFallback | None = None,
+    timezone: str = "America/New_York",
+) -> list[SweepResult]:
+    """Evaluate a registered strategy over its declared parameter space × horizons,
+    selecting on the *train* split only and reporting *held-out* test metrics. The
+    decision rule comes from the strategy, so any idea plugs into the same tuning
+    discipline. ``split_date`` is the first test date; ``param_space`` overrides the
+    strategy's default grid."""
+    if metric not in SELECTION_METRICS:
+        raise ValueError(f"metric must be one of {SELECTION_METRICS}")
+    space = dict(param_space) if param_space is not None else strategy.param_space()
+    names = list(space)
+    train = [signal for signal in signals if signal.news_date < split_date]
+    test = [signal for signal in signals if signal.news_date >= split_date]
+
+    results: list[SweepResult] = []
+    for combo in product(*(tuple(space[name]) for name in names)):
+        point = dict(zip(names, combo, strict=True))
+        config, policy = strategy.policy_for(point)
+        idea_params = {name: value for name, value in point.items() if name not in CONFIG_PARAM_NAMES}
+        for horizon in horizons:
+            train_returns = _returns_for(
+                train, prices, config, horizon,
+                notional_usd=notional_usd, index_fallback=index_fallback,
+                timezone=timezone, decision_fn=policy.decide,
+            )
+            test_returns = _returns_for(
+                test, prices, config, horizon,
+                notional_usd=notional_usd, index_fallback=index_fallback,
+                timezone=timezone, decision_fn=policy.decide,
+            )
+            results.append(
+                SweepResult(
+                    threshold=config.threshold,
+                    horizon=horizon,
+                    min_valid_stories=config.min_valid_stories,
+                    transaction_cost_bps_per_side=config.transaction_cost_bps_per_side,
+                    n_train=len(train_returns),
+                    n_test=len(test_returns),
+                    train_metric=_metric(train_returns, metric),
+                    test_metric=_metric(test_returns, metric),
+                    test_mean_return=_metric(test_returns, "mean_return"),
+                    test_hit_rate=_metric(test_returns, "hit_rate"),
+                    strategy_id=strategy.id,
+                    params=_params_str(idea_params),
+                )
+            )
+    return _flag_selected(results)
 
 
 def sweep(
@@ -177,51 +263,26 @@ def sweep(
     index_fallback: IndexFallback | None = None,
     timezone: str = "America/New_York",
 ) -> list[SweepResult]:
-    """Evaluate every grid point on train and test; flag the single point with the
-    best *train* selection metric. ``split_date`` is the first test date: signals
-    with ``news_date < split_date`` are train, the rest test."""
-    if metric not in SELECTION_METRICS:
-        raise ValueError(f"metric must be one of {SELECTION_METRICS}")
-    train = [signal for signal in signals if signal.news_date < split_date]
-    test = [signal for signal in signals if signal.news_date >= split_date]
-
-    results: list[SweepResult] = []
-    for threshold, horizon, min_valid, cost in grid.points():
-        policy = DecisionPolicyConfig(
-            min_valid_stories=min_valid,
-            threshold=threshold,
-            transaction_cost_bps_per_side=cost,
-        )
-        train_returns = _returns_for(
-            train, prices, policy, horizon, notional_usd=notional_usd, index_fallback=index_fallback, timezone=timezone
-        )
-        test_returns = _returns_for(
-            test, prices, policy, horizon, notional_usd=notional_usd, index_fallback=index_fallback, timezone=timezone
-        )
-        results.append(
-            SweepResult(
-                threshold=threshold,
-                horizon=horizon,
-                min_valid_stories=min_valid,
-                transaction_cost_bps_per_side=cost,
-                n_train=len(train_returns),
-                n_test=len(test_returns),
-                train_metric=_metric(train_returns, metric),
-                test_metric=_metric(test_returns, metric),
-                test_mean_return=_metric(test_returns, "mean_return"),
-                test_hit_rate=_metric(test_returns, "hit_rate"),
-            )
-        )
-
-    best: SweepResult | None = None
-    best_metric = float("-inf")
-    for result in results:
-        if result.train_metric is not None and result.train_metric > best_metric:
-            best_metric = result.train_metric
-            best = result
-    if best is None:
-        return results
-    return [replace(result, selected=result is best) for result in results]
+    """Backwards-compatible sweep of the default threshold strategy over a
+    :class:`ParameterGrid`; a thin wrapper over :func:`sweep_strategy`."""
+    strategy = get_strategy("sentiment_threshold_v1")
+    param_space: dict[str, Sequence[float | int]] = {
+        "threshold": grid.thresholds,
+        "min_valid_stories": grid.min_valid_stories,
+        "transaction_cost_bps_per_side": grid.transaction_cost_bps_per_side,
+    }
+    return sweep_strategy(
+        signals,
+        prices,
+        strategy,
+        horizons=grid.horizons,
+        split_date=split_date,
+        notional_usd=notional_usd,
+        metric=metric,
+        param_space=param_space,
+        index_fallback=index_fallback,
+        timezone=timezone,
+    )
 
 
 def write_sweep_csv(results: list[SweepResult], path: str | Path) -> None:

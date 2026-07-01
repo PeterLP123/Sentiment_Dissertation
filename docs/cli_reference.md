@@ -66,7 +66,8 @@ sentiment-bench --help
 | `news-quality` | Summarize text quality across fetched Tavily corpora without calling Tavily. |
 | `run-trading-strategy` | Run or preview the fixed source-to-sentiment-to-return pilot. |
 | `analyze-trading-run` | Create robustness tables, plots, and a technical report for a completed trading run. |
-| `sweep-trading-strategy` | Tune decision-policy parameters on a completed run, selecting on a training split only. |
+| `sweep-trading-strategy` | Tune a strategy's parameters on a completed run, selecting on a training split only. |
+| `list-strategies` | List registered trading strategies (ideas) and their sweepable parameters. |
 | `list-models` | List models from OpenRouter or Ollama. |
 | `run` | Run LLM sentiment classification benchmarks. |
 | `run-baselines` | Run non-LLM baseline classifiers. |
@@ -369,22 +370,31 @@ intervals are descriptive because company-day events overlap and are not indepen
 ```bash
 sentiment-bench sweep-trading-strategy \
   --run-dir results/trading/week3_trading_pilot_20260624_reviewed \
-  --scorer consensus/majority \
+  --scorer consensus/majority --strategy sentiment_magnitude_v1 \
   --thresholds 0.0,0.1,0.2,0.3 --horizons 1,3,5 \
   --metric sharpe --train-fraction 0.6
 ```
 
-Tunes the decision policy on a completed run without re-scoring. It reloads `daily_signals.csv` and `prices.csv`, filters to one `--scorer`, and evaluates every threshold × horizon point on a chronological train/test split. The single point with the best **training** metric is selected; **held-out** test metrics are reported alongside, so tuning cannot leak. Writes `sweep.csv` (all grid points, with the selected row flagged) and `sweep_heatmap.png` (threshold × horizon test metric) into the run directory, and prints the grid with the selected point starred. Selection metrics are notional-independent ratios, so no portfolio assumptions enter the tuning.
+Tunes a registered strategy on a completed run without re-scoring. It reloads `daily_signals.csv` and `prices.csv`, filters to one `--scorer`, and evaluates the strategy's declared parameter space × horizon on a chronological train/test split. `--strategy` selects the idea (default `sentiment_threshold_v1`; `--thresholds` overrides the decision-threshold axis for any strategy, while idea-specific params such as the magnitude idea's `scale` use the strategy's declared grid). The single point with the best **training** metric is selected; **held-out** test metrics are reported alongside, so tuning cannot leak. Writes `sweep.csv` (all points, with the selected row flagged and a `params` column for idea-specific values) and `sweep_heatmap.png` (threshold × horizon test metric) into the run directory, and prints the grid with the selected point starred. Selection metrics are notional-independent ratios, so no portfolio assumptions enter the tuning.
 
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `--run-dir` | required | Completed run with `daily_signals.csv` and `prices.csv`. |
 | `--scorer` | `consensus/majority` | `scorer_id` to tune (e.g. `openai/gpt-4o-mini`, or a `#masked` arm). |
-| `--thresholds` | `0.0,0.1,0.2,0.3` | Comma-separated decision thresholds. |
+| `--strategy` | `sentiment_threshold_v1` | Registered strategy id to tune (see `list-strategies`). |
+| `--thresholds` | `0.0,0.1,0.2,0.3` | Comma-separated decision thresholds (overrides the threshold axis). |
 | `--horizons` | `1,3,5` | Comma-separated holding horizons (trading sessions). |
 | `--metric` | `sharpe` | Selection metric: `mean_return`, `hit_rate`, or `sharpe`. |
 | `--train-fraction` | `0.6` | Fraction of distinct news dates used to tune (split is by date, not row). |
 | `--output` | `<run-dir>/sweep.csv` | Where to write the sweep CSV. |
+
+## `list-strategies`
+
+```bash
+sentiment-bench list-strategies
+```
+
+Lists the registered trading strategies (ideas): id, the pipeline seams each customizes, its evaluation frame, its default sweepable parameter space, and a description. Use the id with `sweep-trading-strategy --strategy` or in a config `[strategy]` table. Built-ins: `sentiment_threshold_v1` (equal-weight ±1 default), `sentiment_magnitude_v1` (conviction-weighted sizing), and `headline_sentiment_threshold_v1` (headline information-value pipeline).
 
 ## `news-quality`
 
@@ -609,3 +619,17 @@ masking_mode = "both"             # off (default) | on | both
 - `[prices]` makes runs deterministic and offline-replayable when `cache_dir` is set.
 - `[cutoff].policy = stratify` only annotates scores and emits `sensitivity_cutoff.csv`, leaving the frozen primary cell untouched; `post_only` additionally restricts the traded signal to contamination-free (post-cutoff) scores; `ignore` disables annotation. Cutoffs are best-effort — verify against provider model cards or pin them via `[cutoff.overrides]`.
 - `[scoring].masking_mode = both` runs an extra anonymised arm under `#masked` scorer ids and writes `sensitivity_masking.csv`; `on` scores only masked text; `off` is the default.
+
+An optional `[strategy]` table selects which registered idea a run uses (default is the equal-weight threshold strategy, so existing configs are unaffected):
+
+```toml
+[strategy]
+id = "sentiment_magnitude_v1"     # see `sentiment-bench list-strategies`
+scale = 1.0                        # idea-specific params (here: conviction sizing scale)
+max_position = 1.0
+eval_frame = "event_study"        # event_study (implemented) | cross_sectional (planned)
+```
+
+- Shared decision params (`threshold`, `min_valid_stories`, costs) still come from `[signal_policy]`; `[strategy]` only adds the idea id, idea-specific params, and the evaluation frame.
+- The default `sentiment_threshold_v1` reproduces the legacy behaviour byte-for-byte; only opt-in ideas (e.g. the conviction-weighted `sentiment_magnitude_v1`) use fractional position sizing.
+- The resolved `strategy_id` and params are recorded in `experiments/manifest.toml` for each run. `eval_frame = "cross_sectional"` is a guarded planned fast-follow and currently errors.

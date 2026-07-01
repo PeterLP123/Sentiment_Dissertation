@@ -13,12 +13,18 @@ Dependency direction: ``prices`` (leaf) ← ``backtest`` ← ``trading_strategy`
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime, time
 from itertools import groupby
 from zoneinfo import ZoneInfo
 
 from .prices import PriceRow
+
+# A pluggable decision rule: raw daily signals + shared policy config → decisions.
+# ``make_trading_decisions`` is the default implementation; ``strategies`` injects
+# alternatives (e.g. conviction sizing) through ``run_backtest(..., decision_fn=)``.
+DecisionFn = Callable[[list["DailySignal"], "DecisionPolicyConfig"], list["TradingDecision"]]
 
 
 class TradingStrategyError(RuntimeError):
@@ -76,6 +82,11 @@ class TradingDecision:
     policy_version: str
     reason: str
     availability_timestamp: str | None = None
+    # Signed position size in units of one ``notional_usd`` block. ``None`` means
+    # "fall back to ``action_value``" (i.e. a full ±1 position), which keeps the
+    # legacy threshold policy byte-identical. Conviction-weighted strategies set a
+    # fractional value in [-1, 1]; see ``strategies.MagnitudePolicy``.
+    position: float | None = None
 
 
 @dataclass(frozen=True)
@@ -156,6 +167,7 @@ def make_trading_decisions(
                 policy_version=policy.policy_version,
                 reason=reason,
                 availability_timestamp=signal.availability_timestamp,
+                position=float(action_value),
             )
         )
     return decisions
@@ -182,12 +194,14 @@ def calculate_returns(
                 continue
             signal_name = "positive" if signal.action == "buy" else "negative"
             signal_value = signal.action_value
+            position = signal.position if signal.position is not None else float(signal.action_value)
             action = signal.action
         else:
             if signal.signal is None or signal.signal_value is None or signal.mean_score is None:
                 continue
             signal_name = signal.signal
             signal_value = signal.signal_value
+            position = float(signal_value)
             action = "buy" if signal_value > 0 else "sell" if signal_value < 0 else "hold"
         use_fallback = index_fallback is not None and signal.article_count < index_fallback.min_texts
         traded_symbol = index_fallback.symbol if index_fallback is not None and use_fallback else signal.symbol
@@ -223,9 +237,11 @@ def calculate_returns(
         for horizon in horizons:
             exit_row = future[horizon - 1]
             market_return = exit_row.close / entry.open - 1
-            strategy_return = signal_value * market_return
-            transaction_cost = transaction_cost_bps_per_side * 2 / 10_000
-            short_borrow_cost = short_borrow_bps_per_day * horizon / 10_000 if signal_value < 0 else 0.0
+            strategy_return = position * market_return
+            # Costs scale with the traded notional, i.e. |position|. For the legacy
+            # full ±1 position abs(position) == 1, so this is byte-identical.
+            transaction_cost = transaction_cost_bps_per_side * 2 / 10_000 * abs(position)
+            short_borrow_cost = short_borrow_bps_per_day * horizon / 10_000 * abs(position) if position < 0 else 0.0
             net_strategy_return = strategy_return - transaction_cost - short_borrow_cost
             returns.append(
                 ReturnRow(
@@ -305,11 +321,13 @@ def run_backtest(
     timezone: str = "America/New_York",
     use_decision_policy: bool = True,
     equity_horizon: int | None = None,
+    decision_fn: DecisionFn | None = None,
 ) -> BacktestResult:
     """Pure end-to-end backtest: signals → decisions → per-event returns →
     equity curve. ``use_decision_policy=False`` reproduces the legacy signal rule
-    (returns computed straight off the raw signals)."""
-    decisions = make_trading_decisions(signals, policy)
+    (returns computed straight off the raw signals). ``decision_fn`` overrides the
+    decision rule (defaults to the threshold policy ``make_trading_decisions``)."""
+    decisions = (decision_fn or make_trading_decisions)(signals, policy)
     basis: list[DailySignal] | list[TradingDecision] = decisions if use_decision_policy else signals
     returns = calculate_returns(
         basis,

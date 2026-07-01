@@ -9,7 +9,9 @@ from sentiment_benchmark.backtest import (
     DailySignal,
     DecisionPolicyConfig,
     ReturnRow,
+    TradingDecision,
     build_equity_curve,
+    calculate_returns,
     run_backtest,
 )
 from sentiment_benchmark.prices import PriceRow
@@ -61,6 +63,24 @@ def _return_row(*, exit_date: str, net_pnl: float, horizon: int = 1, notional: f
         net_strategy_return_pct=net_pnl / notional * 100,
         net_pnl_usd=net_pnl,
     )
+
+
+def test_calculate_returns_uses_fractional_position() -> None:
+    # Entry session 2026-06-09 (open 100) -> horizon-1 close 110 = +10% market move.
+    base = dict(
+        symbol="AAPL", news_date="2026-06-08", scorer_id="model", article_count=3, valid_count=3,
+        mean_score=1.0, action="buy", action_value=1, threshold=0.0, min_valid_stories=1,
+        policy_version="v1", reason="t",
+    )
+    full = TradingDecision(**base)  # position None -> falls back to the full +1 position
+    half = TradingDecision(**base, position=0.5)  # conviction-weighted half size
+    full_row = calculate_returns([full], _prices(), horizons=(1,), notional_usd=10_000.0)[0]
+    half_row = calculate_returns([half], _prices(), horizons=(1,), notional_usd=10_000.0)[0]
+    assert full_row.strategy_return == pytest.approx(0.10)
+    assert half_row.strategy_return == pytest.approx(0.05)
+    assert half_row.net_pnl_usd == pytest.approx(500.0)
+    # signal_value stays the ±1 direction even when the traded size is fractional.
+    assert half_row.signal_value == 1
 
 
 def test_build_equity_curve_accumulates_by_exit_date() -> None:

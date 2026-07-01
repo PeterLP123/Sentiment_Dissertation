@@ -27,7 +27,9 @@ from .backtest import (
     TradingStrategyError,
     build_equity_curve,
     calculate_returns,
-    make_trading_decisions,
+)
+from .backtest import (
+    make_trading_decisions as make_trading_decisions,  # re-exported for call sites/tests
 )
 from .baselines import classify_finbert_texts, classify_vader_text
 from .constants import DEFAULT_OLLAMA_HOST
@@ -41,6 +43,8 @@ from .newsapi_source import make_newsapi_fetch_config, write_newsapi_corpus
 from .prices import PriceProviderError, PriceRow, make_price_provider
 from .prompts import load_prompts
 from .runtime_metadata import collect_run_environment
+from .strategies import MeanSignalBuilder
+from .strategies import get as get_strategy
 from .trading_plots import plot_equity_curve, write_sensitivity_csvs
 
 LABEL_VALUES = {"positive": 1, "neutral": 0, "negative": -1}
@@ -139,6 +143,12 @@ class TradingStrategyConfig:
     prices: PricesConfig
     cutoff: CutoffConfig
     companies: tuple[TradingCompany, ...]
+    # Pluggable strategy: which registered idea to run and its idea-specific
+    # params (shared threshold/min_valid/cost still come from [signal_policy]).
+    strategy_id: str = "sentiment_threshold_v1"
+    strategy_params: dict[str, float] = field(default_factory=dict)
+    # Evaluation frame: "event_study" (implemented) or "cross_sectional" (planned).
+    eval_frame: str = "event_study"
 
     @property
     def derived_dir(self) -> Path:
@@ -328,6 +338,15 @@ def _build_trading_config(raw: dict[str, Any], config_path: Path) -> TradingStra
             policy=str(cutoff_raw.get("policy", "stratify")).strip().lower(),
             overrides={str(key): str(value) for key, value in (cutoff_raw.get("overrides") or {}).items()},
         )
+        strategy_raw = raw.get("strategy") or {}
+        strategy_id = str(strategy_raw.get("id", "sentiment_threshold_v1")).strip()
+        get_strategy(strategy_id)  # fail fast on an unknown strategy id
+        eval_frame = str(strategy_raw.get("eval_frame", "event_study")).strip().lower()
+        if eval_frame not in ("event_study", "cross_sectional"):
+            raise ValueError(f"unknown eval_frame {eval_frame!r}; expected 'event_study' or 'cross_sectional'")
+        strategy_params = {
+            str(key): float(value) for key, value in strategy_raw.items() if key not in ("id", "eval_frame")
+        }
         config = TradingStrategyConfig(
             run_id=str(run["id"]).strip(),
             title=str(run["title"]).strip(),
@@ -371,6 +390,9 @@ def _build_trading_config(raw: dict[str, Any], config_path: Path) -> TradingStra
             prices=prices,
             cutoff=cutoff,
             companies=companies,
+            strategy_id=strategy_id,
+            strategy_params=strategy_params,
+            eval_frame=eval_frame,
         )
     except (KeyError, TypeError, ValueError) as exc:
         raise TradingStrategyError(f"invalid trading config {config_path}: {exc}") from exc
@@ -1242,56 +1264,10 @@ def daily_signals(
     dates: tuple[str, ...],
     symbols: tuple[str, ...],
 ) -> list[DailySignal]:
-    accepted_counts = Counter(
-        (article.symbol, article.published_date_local)
-        for article in articles
-        if article.screening_decision == "include"
-    )
-    article_by_id = {article.article_id: article for article in articles}
-    grouped: dict[tuple[str, str, str], list[SentimentScore]] = defaultdict(list)
-    for score in scores:
-        grouped[(score.symbol, score.news_date, score.scorer_id)].append(score)
-    results: list[DailySignal] = []
-    for news_date in dates:
-        for symbol in symbols:
-            for scorer_id in scorer_ids:
-                valid_scores = [
-                    score
-                    for score in grouped.get((symbol, news_date, scorer_id), [])
-                    if score.label_value is not None
-                ]
-                values = [int(score.label_value) for score in valid_scores if score.label_value is not None]
-                availability_values = [
-                    article_by_id[score.article_id].published_at
-                    for score in valid_scores
-                    if score.article_id in article_by_id
-                    and "lseg" in article_by_id[score.article_id].providers
-                    and article_by_id[score.article_id].published_at
-                ]
-                mean = sum(values) / len(values) if values else None
-                if mean is None:
-                    signal = None
-                    signal_value = None
-                elif mean > 0:
-                    signal, signal_value = "positive", 1
-                elif mean < 0:
-                    signal, signal_value = "negative", -1
-                else:
-                    signal, signal_value = "neutral", 0
-                results.append(
-                    DailySignal(
-                        symbol=symbol,
-                        news_date=news_date,
-                        scorer_id=scorer_id,
-                        article_count=accepted_counts[(symbol, news_date)],
-                        valid_count=len(values),
-                        mean_score=mean,
-                        signal=signal,
-                        signal_value=signal_value,
-                        availability_timestamp=max(availability_values, default=None),
-                    )
-                )
-    return results
+    """Backwards-compatible wrapper around the default mean/sign signal builder.
+    The builder now lives in :class:`strategies.MeanSignalBuilder` so it can be
+    swapped per strategy; behaviour here is unchanged."""
+    return MeanSignalBuilder().build(articles, scores, scorer_ids, dates, symbols)
 
 
 def _price_window(config: TradingStrategyConfig) -> tuple[str, str]:
@@ -1690,6 +1666,8 @@ def register_completed_experiment(config: TradingStrategyConfig) -> None:
     dates = ", ".join(_toml_string(value) for value in config.dates)
     horizons = ", ".join(str(value) for value in config.horizons)
     symbols = ", ".join(_toml_string(company.symbol) for company in config.companies)
+    strategy_params_items = ", ".join(f"{key} = {value}" for key, value in sorted(config.strategy_params.items()))
+    strategy_params_toml = f"{{ {strategy_params_items} }}" if strategy_params_items else "{}"
     entry = f"""
 
 [[experiments]]
@@ -1719,6 +1697,8 @@ price_source = "Yahoo Finance via yfinance"
 transaction_cost_bps_per_side = {config.decision_policy.transaction_cost_bps_per_side}
 short_borrow_bps_per_day = {config.decision_policy.short_borrow_bps_per_day}
 decision_policy_version = {_toml_string(config.decision_policy.policy_version)}
+strategy_id = {_toml_string(config.strategy_id)}
+strategy_params = {strategy_params_toml}
 
 [experiments.analysis]
 exploratory = true
@@ -1868,17 +1848,24 @@ async def run_trading_strategy(
         if config.cutoff.policy == "post_only"
         else all_scores
     )
-    signals = daily_signals(
+    strategy = get_strategy(config.strategy_id)
+    if config.eval_frame != "event_study":
+        raise TradingStrategyError(
+            f"eval_frame {config.eval_frame!r} is a planned fast-follow; only 'event_study' is implemented"
+        )
+    signals = strategy.signal_builder.build(
         articles,
         signal_scores,
         scorer_ids,
         config.dates,
         tuple(company.symbol for company in config.companies),
     )
-    decisions = make_trading_decisions(signals, config.decision_policy)
+    tradeable = strategy.event_selector.select(signals)
+    decision_policy = strategy.make_policy(**config.strategy_params)
+    decisions = decision_policy.decide(tradeable, config.decision_policy)
     prices = price_loader(config)
     returns = calculate_returns(
-        decisions if config.decision_policy_enabled else signals,
+        decisions if config.decision_policy_enabled else tradeable,
         prices,
         horizons=config.horizons,
         notional_usd=config.notional_usd,
@@ -1926,6 +1913,9 @@ def describe_trading_plan(config: TradingStrategyConfig) -> dict[str, Any]:
         "newsapi_to": to_time,
         "entry_rule": "next observed trading-session adjusted open",
         "lseg_corpus": str(config.lseg_corpus_manifest) if config.lseg_corpus_manifest else "disabled",
+        "strategy": config.strategy_id,
+        "strategy_params": config.strategy_params or "defaults",
+        "eval_frame": config.eval_frame,
         "decision_policy": asdict(config.decision_policy) if config.decision_policy_enabled else "legacy signal rule",
         "index_fallback": (
             f"{config.index_fallback.symbol} when a company-day has fewer than {config.index_fallback.min_texts} texts"

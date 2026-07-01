@@ -15,6 +15,7 @@ from .artifact_io import atomic_write_json, atomic_write_text, read_json, sha256
 from .backtest import DailySignal, DecisionPolicyConfig, ReturnRow, run_backtest
 from .lseg_source import utc_now
 from .runtime_metadata import collect_run_environment
+from .strategies import get as get_strategy
 from .strategy_sweep import load_prices_csv
 
 HEADLINE_VALUE_SCHEMA_VERSION = 1
@@ -994,11 +995,12 @@ def _run_trading_value(
     signals = _signals_from_rows(signal_rows)
     max_horizon = max(horizons)
     filtered, skipped = _filter_signals_with_price_horizon(signals, price_rows, max_horizon=max_horizon)
+    strategy = get_strategy("headline_sentiment_threshold_v1")
     policy = DecisionPolicyConfig(
         min_valid_stories=1,
         threshold=0.0,
         transaction_cost_bps_per_side=transaction_cost_bps_per_side,
-        policy_version="headline_sentiment_threshold_v1",
+        policy_version=strategy.id,
     )
     result = run_backtest(
         filtered,
@@ -1008,6 +1010,7 @@ def _run_trading_value(
         notional_usd=notional_usd,
         timezone=timezone,
         use_decision_policy=True,
+        decision_fn=strategy.make_policy().decide,
     )
     returns_path = _write_csv(output_dir / "trading_returns.csv", [_return_row_to_dict(row) for row in result.returns])
     decisions_path = _write_csv(output_dir / "trading_decisions.csv", [decision.__dict__ for decision in result.decisions])
