@@ -63,7 +63,7 @@ def _parse_version_created(value: Any) -> str | None:
     except ValueError:
         return None
     if parsed.tzinfo is None:
-        return None
+        parsed = parsed.replace(tzinfo=UTC)
     return parsed.astimezone(UTC).isoformat()
 
 

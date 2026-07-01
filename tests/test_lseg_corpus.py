@@ -28,6 +28,12 @@ class CorpusBackend:
                     "language": "en",
                 },
                 {
+                    "storyId": "urn:test:naive-time:1",
+                    "headline": "Apple publishes update",
+                    "versionCreated": "2026-06-01T09:30:00",
+                    "language": "en",
+                },
+                {
                     "storyId": "urn:test:invalid-time:1",
                     "headline": "Apple update",
                     "versionCreated": "not-a-time",
@@ -79,16 +85,19 @@ def test_build_corpus_preserves_full_clean_text_and_excludes_invalid_records(tmp
     raw = asyncio.run(fetch_lseg_news(config, LsegNewsClient(CorpusBackend())))
     result = build_lseg_corpus(raw.raw_dir)
 
-    assert result.article_count == 4
-    assert result.eligible_count == 1
+    assert result.article_count == 5
+    assert result.eligible_count == 2
     manifest, articles = load_verified_lseg_corpus(result.manifest_path)
     valid = next(row for row in articles if row["story_id"] == "urn:test:valid:1")
+    naive_time = next(row for row in articles if row["story_id"] == "urn:test:naive-time:1")
     invalid_time = next(row for row in articles if row["story_id"] == "urn:test:invalid-time:1")
     web = next(row for row in articles if row["story_id"] == "urn:test:web:1")
     french = next(row for row in articles if row["story_id"] == "urn:test:french:1")
     assert valid["version_created"] == "2026-06-01T09:00:00+00:00"
     assert valid["clean_text"] == "June 1 (Reuters) - Apple signed a large contract."
     assert valid["scoring_eligible"] is True
+    assert naive_time["version_created"] == "2026-06-01T09:30:00+00:00"
+    assert naive_time["scoring_eligible"] is True
     assert invalid_time["text_quality"] == "invalid_timestamp"
     assert web["text_quality"] == "story_unavailable"
     assert french["text_quality"] == "non_english"

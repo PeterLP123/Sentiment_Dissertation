@@ -44,6 +44,30 @@ headlines are known, it switches to story-level progress and the final
 completion ETA. Pressing `Ctrl-C` is safe—run the same command to resume from
 the saved checkpoints.
 
+## Clean CSV Export
+
+For local analysis, build two flat UTF-8 CSVs from the hash-verified raw
+collection:
+
+```bash
+.venv/bin/python scripts/build_lseg_clean_csvs.py \
+  --source Data/collections/lseg_us_sector_33_6m/raw/lseg_us_sector_33_6m \
+  --output-dir Data/collections/lseg_us_sector_33_6m/derived/us_sector_33_6m/csv
+```
+
+- `headlines.csv` contains one normalized headline per unique LSEG story
+  revision, with UTC timestamps, deterministic IDs and hashes, source, ticker,
+  and RIC fields. LSEG's timezone-naive `version_created` values are interpreted
+  as UTC, consistent with the collection windows and analysis pipeline.
+- `main_bodies.csv` contains successful Reuters story bodies converted from HTML
+  to paragraph-preserving plain text. It records cleaning quality and retains
+  short but non-empty bodies with `scoring_eligible=false`.
+- `manifest.json` records input hashes, cleaning rules, row counts, exclusions,
+  output hashes, and the no-redistribution constraint.
+
+The CSVs contain licensed LSEG text. Keep them local unless every recipient is
+authorized to receive that content.
+
 ## Package For Sharing
 
 The cleaned corpus is normally the useful package. After collection and
