@@ -1,5 +1,8 @@
+import warnings
+
 import numpy as np
 import pandas as pd
+from statsmodels.tools.sm_exceptions import ConvergenceWarning
 
 from sentiment_benchmark.l3_reliability import aggregate_daily_reliability, fit_crossed_gstudy, item_reliability
 
@@ -29,7 +32,10 @@ def _measurements() -> pd.DataFrame:
 
 def test_gstudy_and_reliability_are_bounded() -> None:
     measurements = _measurements()
-    result = fit_crossed_gstudy(measurements, n_models=2, n_prompts=2, n_samples=3)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", ConvergenceWarning)
+        result = fit_crossed_gstudy(measurements, n_models=2, n_prompts=2, n_samples=3)
+    assert result.converged is True
     assert result.components["item"] > 0
     assert result.variance_shares["item"] == max(result.variance_shares.values())
     assert 0 <= result.g_coefficient <= 1

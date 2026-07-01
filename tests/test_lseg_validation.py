@@ -63,12 +63,12 @@ def test_validation_sampling_and_annotation_agreement_are_reproducible(tmp_path:
         double_code_seed=43,
     )
     assert result.sample_count == 6
-    assert len(list(csv.DictReader(result.secondary_path.open()))) == 2
 
     with result.primary_path.open(encoding="utf-8", newline="") as handle:
         primary_rows = list(csv.DictReader(handle))
     with result.secondary_path.open(encoding="utf-8", newline="") as handle:
         secondary_rows = list(csv.DictReader(handle))
+    assert len(secondary_rows) == 2
     secondary_ids = {row["revision_id"] for row in secondary_rows}
     _rewrite_labels(result.primary_path, "primary_relevance", ["relevant"] * len(primary_rows))
     primary_labels = ["positive" if index % 2 else "neutral" for index in range(len(primary_rows))]
