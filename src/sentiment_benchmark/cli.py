@@ -174,6 +174,7 @@ def score_corpus_matrix_command(
                 "openrouter": await stack.enter_async_context(
                     make_llm_client("openrouter", base_url=os.getenv("OPENROUTER_BASE_URL", DEFAULT_BASE_URL))
                 ),
+                "cerebras": await stack.enter_async_context(make_llm_client("cerebras")),
                 "ollama": await stack.enter_async_context(
                     make_llm_client(
                         "ollama",

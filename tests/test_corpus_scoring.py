@@ -49,6 +49,22 @@ def test_frozen_design_counts() -> None:
     }
 
 
+def test_matrix_config_accepts_cerebras_models(tmp_path: Path) -> None:
+    config_path = tmp_path / "matrix.toml"
+    base = Path("configs/crossed_scoring.toml").read_text(encoding="utf-8")
+    config_path.write_text(
+        base + '\n[[models]]\nid = "gpt-oss-120b"\nprovider = "cerebras"\n',
+        encoding="utf-8",
+    )
+    config = load_matrix_config(config_path)
+    assert ("gpt-oss-120b", "cerebras") in [(m.model_id, m.provider) for m in config.models]
+    # Cerebras counts as a hosted provider in the dry-run call split.
+    items = load_matrix_items(_csv(tmp_path / "main.csv", 2), "benchmark")
+    plan = matrix_plan(config, items, set())
+    hosted_models = sum(m.provider in {"openrouter", "cerebras"} for m in config.models)
+    assert plan.hosted_calls == len(items) * config.samples * hosted_models
+
+
 def test_matrix_plan_and_resume(tmp_path: Path) -> None:
     main = _csv(tmp_path / "main.csv", 3)
     subset = _csv(tmp_path / "subset.csv", 1)

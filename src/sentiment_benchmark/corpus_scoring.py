@@ -63,7 +63,7 @@ def load_matrix_config(path: str | Path) -> MatrixConfig:
         MatrixModel(str(item.get("id") or "").strip(), str(item.get("provider") or "").strip().lower())
         for item in payload.get("models") or []
     )
-    if not models or any(not model.model_id or model.provider not in {"openrouter", "ollama"} for model in models):
+    if not models or any(not model.model_id or model.provider not in {"openrouter", "cerebras", "ollama"} for model in models):
         raise LsegNewsError("matrix config requires valid [[models]] entries")
     target = tuple(str(value) for value in raw.get("target_prompts") or [])
     benchmark = tuple(str(value) for value in raw.get("benchmark_prompts") or [])
@@ -122,7 +122,7 @@ def load_matrix_items(path: str | Path, kind: str) -> list[MatrixItem]:
 def matrix_plan(config: MatrixConfig, items: list[MatrixItem], subset_ids: set[str]) -> MatrixPlan:
     base_calls = len(items) * len(config.models) * config.samples
     variant_calls = len(subset_ids) * len(config.models) * config.samples * 2
-    hosted = sum(model.provider == "openrouter" for model in config.models)
+    hosted = sum(model.provider in {"openrouter", "cerebras"} for model in config.models)
     local = len(config.models) - hosted
     calls_per_model = len(items) * config.samples + len(subset_ids) * config.samples * 2
     return MatrixPlan(
