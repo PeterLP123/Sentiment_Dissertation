@@ -139,7 +139,7 @@ class ModelsMixin(AppMixin):
             if self._model_recommends_disabled_thinking(model_id, by_id.get(model_id))
         ]
         if self.provider != "ollama":
-            target.update("Used only for Ollama runs; OpenRouter runs ignore this setting.")
+            target.update("Used only for Ollama runs; hosted-provider runs ignore this setting.")
             return
         if recommended_models:
             state = "ON" if self.disable_ollama_thinking else "OFF"
@@ -191,7 +191,12 @@ class ModelsMixin(AppMixin):
     async def _fetch_models(self) -> None:
         with self._busy("fetch-models", label="Fetching…", spinner_widget="model-table"):
             try:
-                async with make_llm_client(self.provider, base_url=self.base_url, ollama_host=self.ollama_host) as client:
+                async with make_llm_client(
+                    self.provider,
+                    base_url=self.base_url,
+                    ollama_host=self.ollama_host,
+                    cerebras_base_url=self.cerebras_base_url,
+                ) as client:
                     models = await client.list_models()
             except Exception as exc:
                 self._notify_error(f"Could not fetch models: {exc}", title="Fetch failed")

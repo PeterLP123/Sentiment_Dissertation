@@ -170,8 +170,18 @@ def test_ollama_response_error_becomes_api_error() -> None:
 
 def test_provider_helpers_resolve_ollama_endpoint() -> None:
     assert normalize_provider("OLLAMA") == "ollama"
+    assert normalize_provider("CEREBRAS") == "cerebras"
     assert endpoint_for_provider("ollama", base_url="https://openrouter.test", ollama_host="http://pc:11434/") == "http://pc:11434"
     assert endpoint_for_provider("openrouter", base_url="https://openrouter.test/", ollama_host="http://pc:11434") == "https://openrouter.test"
+    assert (
+        endpoint_for_provider(
+            "cerebras",
+            base_url="https://openrouter.test/",
+            ollama_host="http://pc:11434",
+            cerebras_base_url="https://cerebras.test/v1/",
+        )
+        == "https://cerebras.test/v1"
+    )
 
 
 def test_ollama_empty_completion_is_malformed() -> None:

@@ -61,6 +61,9 @@ class RunMixin(AppMixin):
         base_url = data.get("base_url")
         if isinstance(base_url, str) and base_url:
             self.base_url = base_url
+        cerebras_base_url = data.get("cerebras_base_url")
+        if isinstance(cerebras_base_url, str) and cerebras_base_url:
+            self.cerebras_base_url = cerebras_base_url
         ollama_host = data.get("ollama_host")
         if isinstance(ollama_host, str) and ollama_host:
             self.ollama_host = ollama_host
@@ -99,6 +102,13 @@ class RunMixin(AppMixin):
             value = data.get(key)
             if isinstance(value, (int, float)) and not isinstance(value, bool) and low <= value <= high:
                 self._run_settings[key] = caster(value)
+        # Concurrency 1 was the old provider-neutral default. Migrate that stale
+        # value when a saved session is reopened on Cerebras; explicit values
+        # other than the old default remain untouched.
+        if self.provider == "cerebras" and self._run_settings["concurrency"] == 1:
+            from .constants import DEFAULT_CEREBRAS_CONCURRENCY
+
+            self._run_settings["concurrency"] = DEFAULT_CEREBRAS_CONCURRENCY
 
     def _refresh_run_settings_cache(self) -> None:
         """Pull current run-setting widget values into the persisted cache (skips invalid/missing)."""
@@ -132,6 +142,7 @@ class RunMixin(AppMixin):
             "prompt_id": self.prompt.prompt_id,
             "provider": self.provider,
             "base_url": self.base_url,
+            "cerebras_base_url": self.cerebras_base_url,
             "ollama_host": self.ollama_host,
             "news_query": self.news_query,
             "news_topic": self.news_topic,
@@ -482,7 +493,12 @@ class RunMixin(AppMixin):
         def handle_event(event: dict) -> None:
             self.call_from_thread(self._handle_run_event, event)
 
-        async with make_llm_client(config.provider, base_url=config.base_url, ollama_host=config.base_url) as client:
+        async with make_llm_client(
+            config.provider,
+            base_url=config.base_url,
+            ollama_host=config.base_url,
+            cerebras_base_url=config.base_url,
+        ) as client:
             runner = BenchmarkRunner(client=client, store=store)
             return await runner.run(
                 config,

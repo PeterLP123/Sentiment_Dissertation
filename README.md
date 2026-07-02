@@ -2,7 +2,7 @@
 
 ![Sentiment benchmark workflow](docs/assets/research-workflow.svg)
 
-A reproducible CLI and terminal UI for dissertation experiments on financial sentiment analysis. The project validates a provenance-clean default dataset, runs OpenRouter or Ollama-hosted models, compares them with non-LLM baselines, exports publication-ready evidence, sources unlabeled news through Tavily and NewsAPI, and runs an exploratory news-to-price trading pilot.
+A reproducible CLI and terminal UI for dissertation experiments on financial sentiment analysis. The project validates a provenance-clean default dataset, runs OpenRouter, Cerebras, or Ollama-hosted models, compares them with non-LLM baselines, exports publication-ready evidence, sources unlabeled news through Tavily and NewsAPI, and runs an exploratory news-to-price trading pilot.
 
 ## Project Status
 
@@ -84,6 +84,10 @@ Create a local `.env` file. Use placeholder values until you add your real keys:
 OPENROUTER_API_KEY=your-openrouter-key
 OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 
+# Optional: high-throughput hosted inference.
+CEREBRAS_API_KEY=your-cerebras-key
+CEREBRAS_BASE_URL=https://api.cerebras.ai/v1
+
 TAVILY_API_KEY=your-tavily-key
 TAVILY_PROJECT=sentiment-dissertation
 
@@ -123,6 +127,13 @@ Run a local Gemma model hosted by Ollama on another machine:
 ```bash
 sentiment-bench run --provider ollama --ollama-host http://desktop-pc:11434 \
   --models gemma4:12b --mode pilot --prompt-id finance_calibrated_label_only
+```
+
+For the fastest hosted accuracy pilot, select Cerebras in the TUI or run:
+
+```bash
+SENTIMENT_BENCH_PROVIDER=cerebras sentiment-bench run \
+  --models gemma-4-31b --mode pilot --concurrency 64
 ```
 
 Source unlabeled news articles through Tavily:
@@ -174,7 +185,7 @@ Start here if you are setting up the project or writing the dissertation methods
 | [Getting started](docs/getting_started.md) | Tutorial | First install, validation, pilot run, export, and news fetch. |
 | [CLI reference](docs/cli_reference.md) | Reference | Commands, options, defaults, and examples. |
 | [TUI guide](docs/tui_guide.md) | How-to | Interactive model, prompt, run, results, and news workflows. |
-| [Model providers](docs/model_providers.md) | How-to | OpenRouter setup and local/remote Ollama setup for Gemma models. |
+| [Model providers](docs/model_providers.md) | How-to | OpenRouter, Cerebras, and local/remote Ollama setup. |
 | [News sourcing](docs/news_sourcing.md) | How-to | Search, extract, save, review, and troubleshoot Tavily and NewsAPI corpora. |
 | [LSEG to Ollama pipeline](docs/lseg_ollama_pipeline.md) | How-to | Collect, clean, score, validate, and evaluate local-only Workspace news. |
 | [Frozen LSEG analysis workflow](docs/lseg_analysis_workflow.md) | How-to | The gated corpus → cohort → validation → crossed scoring → L2/L3 sequence. |

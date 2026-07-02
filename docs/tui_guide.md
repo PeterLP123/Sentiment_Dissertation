@@ -69,19 +69,25 @@ sentiment-bench tui
    or:
 
    ```text
+   https://api.cerebras.ai/v1
+   ```
+
+   or:
+
+   ```text
    http://desktop-pc:11434
    ```
 
-3. Open Models and fetch models. For local Ollama at `http://localhost:11434`, the TUI auto-fetches installed models on startup unless `SENTIMENT_BENCH_AUTO_FETCH_MODELS=0`.
+3. Open Models and fetch models. Cerebras returns the models available to the current project. For local Ollama at `http://localhost:11434`, the TUI auto-fetches installed models on startup unless `SENTIMENT_BENCH_AUTO_FETCH_MODELS=0`.
 4. Select one or more model IDs.
 5. Open Prompt and choose `default_label_only`, `finance_calibrated_label_only`, or another prompt.
 6. Open Run, keep `pilot` for the first pass, and start the run.
-7. For Gemma 4/Ollama models, keep `Disable Ollama thinking` enabled so reasoning tokens do not consume the short answer budget.
+7. Cerebras automatically starts at concurrency 64 and applies model-aware request pacing. For Gemma 4/Ollama models, keep `Disable Ollama thinking` enabled so reasoning tokens do not consume the short answer budget.
 8. Open Results when the run finishes.
 
 ## Local Resource Monitor
 
-The Dashboard and Run tabs show a live local resource monitor. It reports provider, endpoint, selected/fetched model counts, TUI concurrency, max completion tokens, `OLLAMA_NUM_PARALLEL`, and the Ollama thinking setting. When `nvidia-smi` is available, it also reports each NVIDIA GPU's utilization, VRAM, power, and temperature.
+The Dashboard and Run tabs show a live local resource monitor. It reports provider, endpoint, selected/fetched model counts, TUI concurrency, max completion tokens, and provider-specific throughput settings. For Cerebras it shows the active request pace; for Ollama it shows `OLLAMA_NUM_PARALLEL` and thinking behavior. When `nvidia-smi` is available, it also reports each NVIDIA GPU's utilization, VRAM, power, and temperature.
 
 Use this monitor as a run-health signal, not as the only speed metric. A single Ollama request can leave GPU utilization below maximum even while the model is working. Increase concurrency only after a pilot run is stable and watch invalid outputs, latency, and VRAM pressure together.
 
@@ -124,6 +130,8 @@ When Turso/libSQL is configured, the Results tab reads the shared run history. E
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
 | Models tab shows no models | Provider credential or endpoint problem. | Check `.env`, provider selector, endpoint, and firewall. |
+| Cerebras returns 401 | `CEREBRAS_API_KEY` is missing or invalid. | Add the key to `.env`, restart the TUI, and fetch models again. |
+| Cerebras is unexpectedly slow | The API key belongs to a lower-quota project, or another process shares the key. | Check the key's project, close stale TUI processes, and restart so `.env` is reloaded; the client displays and enforces live quota headers. |
 | Local Ollama models do not auto-fetch | Auto-fetch is disabled, provider is not Ollama, or host is not localhost. | Set provider to Ollama, use `http://localhost:11434`, click Fetch Models manually, or remove `SENTIMENT_BENCH_AUTO_FETCH_MODELS=0`. |
 | Run button refuses to start | Missing model selection or invalid settings. | Review Dashboard readiness and Run validation hints. |
 | Ollama run fails from another machine | Ollama server not reachable. | Check `OLLAMA_HOST`, host firewall, and `ollama list` on the model host. |

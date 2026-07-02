@@ -430,8 +430,8 @@ def _validate_trading_config(config: TradingStrategyConfig) -> None:
         raise TradingStrategyError("scoring.masking_mode must be off, on, or both")
     if len({company.symbol for company in config.companies}) != len(config.companies):
         raise TradingStrategyError("company symbols must be unique")
-    if config.provider not in {"openrouter", "ollama"}:
-        raise TradingStrategyError("scoring.provider must be openrouter or ollama")
+    if config.provider not in {"openrouter", "cerebras", "ollama"}:
+        raise TradingStrategyError("scoring.provider must be openrouter, cerebras, or ollama")
     if len(set(config.models)) != len(config.models) or any(not model.strip() for model in config.models):
         raise TradingStrategyError("scoring.models must contain unique non-empty model IDs")
     if config.primary_model not in config.models and not (

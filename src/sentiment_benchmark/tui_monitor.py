@@ -18,7 +18,12 @@ class MonitorMixin(AppMixin):
     def _refresh_dashboard(self) -> None:
         rows = load_dataset(self.dataset_path)
         stats = compute_stats(rows)
-        key_status = "present" if os.getenv("OPENROUTER_API_KEY") else "missing"
+        if self.provider == "openrouter":
+            credential_line = f"OpenRouter API key: {'present' if os.getenv('OPENROUTER_API_KEY') else 'missing'}"
+        elif self.provider == "cerebras":
+            credential_line = f"Cerebras API key: {'present' if os.getenv('CEREBRAS_API_KEY') else 'missing'}"
+        else:
+            credential_line = "Ollama API key: not required"
         endpoint = self._active_endpoint()
         storage_label = BenchmarkStore(self.db_path).storage_label()
         self.query_one("#dashboard", Static).update(
@@ -32,7 +37,7 @@ class MonitorMixin(AppMixin):
                     f"Result DB: {storage_label}",
                     f"Provider: {self._provider_title()}",
                     f"Endpoint: {endpoint}",
-                    f"OpenRouter API key: {key_status}",
+                    credential_line,
                 ]
             )
         )
@@ -103,12 +108,21 @@ class MonitorMixin(AppMixin):
         except Exception:
             max_tokens = "?"
 
+        provider_lines = []
+        if self.provider == "cerebras":
+            provider_lines.append("Cerebras request pace: calibrated from live API-key quota headers")
+        elif self.provider == "ollama":
+            provider_lines.extend(
+                [
+                    f"Ollama NUM_PARALLEL env visible to TUI: {os.getenv('OLLAMA_NUM_PARALLEL') or 'default'}",
+                    f"Ollama thinking: {'disabled' if self.disable_ollama_thinking else 'provider default'}",
+                ]
+            )
         lines = [
             f"Provider: {self._provider_title()} | Endpoint: {self._active_endpoint()}",
             f"Selected models: {len(self.selected_models)} | Fetched provider models: {len(self._all_models)}",
             f"Run settings: TUI concurrency {concurrency} | max completion tokens {max_tokens}",
-            f"Ollama NUM_PARALLEL env visible to TUI: {os.getenv('OLLAMA_NUM_PARALLEL') or 'default'}",
-            f"Ollama thinking: {'disabled' if self.disable_ollama_thinking else 'provider default'}",
+            *provider_lines,
             *self._gpu_lines,
         ]
         content = "\n".join(lines)

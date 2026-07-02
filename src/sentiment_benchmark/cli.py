@@ -1154,11 +1154,11 @@ def list_strategies_command() -> None:
 def list_models(
     provider: Annotated[
         str,
-        typer.Option("--provider", help="Model provider: openrouter or ollama."),
+        typer.Option("--provider", help="Model provider: openrouter, cerebras, or ollama."),
     ] = os.getenv("SENTIMENT_BENCH_PROVIDER", DEFAULT_PROVIDER),
     base_url: Annotated[
         str,
-        typer.Option("--base-url", help="OpenRouter-compatible base URL."),
+        typer.Option("--base-url", help="OpenRouter-compatible base URL (Cerebras uses CEREBRAS_BASE_URL)."),
     ] = os.getenv("OPENROUTER_BASE_URL", DEFAULT_BASE_URL),
     ollama_host: Annotated[
         str,
@@ -1193,7 +1193,7 @@ def run_benchmark(
     prompts_path: Annotated[Path, typer.Option("--prompts-path")] = DEFAULT_PROMPTS_PATH,
     provider: Annotated[
         str,
-        typer.Option("--provider", help="Model provider: openrouter or ollama."),
+        typer.Option("--provider", help="Model provider: openrouter, cerebras, or ollama."),
     ] = os.getenv("SENTIMENT_BENCH_PROVIDER", DEFAULT_PROVIDER),
     base_url: Annotated[str, typer.Option("--base-url")] = os.getenv("OPENROUTER_BASE_URL", DEFAULT_BASE_URL),
     ollama_host: Annotated[
@@ -1502,7 +1502,7 @@ def run_prompt_suite_command(
     prompts_path: Annotated[Path, typer.Option("--prompts-path")] = DEFAULT_PROMPTS_PATH,
     provider: Annotated[
         str,
-        typer.Option("--provider", help="Model provider: openrouter or ollama."),
+        typer.Option("--provider", help="Model provider: openrouter, cerebras, or ollama."),
     ] = os.getenv("SENTIMENT_BENCH_PROVIDER", DEFAULT_PROVIDER),
     base_url: Annotated[str, typer.Option("--base-url")] = os.getenv("OPENROUTER_BASE_URL", DEFAULT_BASE_URL),
     ollama_host: Annotated[
@@ -1677,7 +1677,7 @@ def run_self_consistency(
     prompts_path: Annotated[Path, typer.Option("--prompts-path")] = DEFAULT_PROMPTS_PATH,
     provider: Annotated[
         str,
-        typer.Option("--provider", help="Model provider: openrouter or ollama."),
+        typer.Option("--provider", help="Model provider: openrouter, cerebras, or ollama."),
     ] = os.getenv("SENTIMENT_BENCH_PROVIDER", DEFAULT_PROVIDER),
     base_url: Annotated[str, typer.Option("--base-url")] = os.getenv("OPENROUTER_BASE_URL", DEFAULT_BASE_URL),
     ollama_host: Annotated[

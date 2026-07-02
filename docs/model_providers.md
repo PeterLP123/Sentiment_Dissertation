@@ -1,14 +1,16 @@
 # How To Configure Model Providers
 
-Use this guide to route benchmark calls to OpenRouter or to an Ollama server running local models such as Gemma on a desktop PC.
+Use this guide to route benchmark calls to OpenRouter, Cerebras Inference, or an Ollama server running local models such as Gemma on a desktop PC.
 
 ```mermaid
 flowchart LR
     CMD["run / run-trading-strategy / TUI"] --> P["Provider adapter<br/>providers.py"]
     P -->|"provider=openrouter"| OR["OpenRouter<br/>hosted API models"]
+    P -->|"provider=cerebras"| CB["Cerebras Inference<br/>high-throughput hosted models"]
     P -->|"provider=ollama"| OL["Ollama server<br/>localhost or desktop PC"]
     OL -->|"-cloud tags"| OC["Ollama Cloud<br/>signed-in daemon"]
     OR --> S["Same response record:<br/>label, latency, tokens, cost"]
+    CB --> S
     OL --> S
 ```
 
@@ -17,6 +19,7 @@ flowchart LR
 - Project installed with `python -m pip install -e ".[dev]"`.
 - `sentiment-bench --help` works from the repository root.
 - For OpenRouter: `OPENROUTER_API_KEY`.
+- For Cerebras: `CEREBRAS_API_KEY`.
 - For Ollama: the official `ollama` Python package is installed through project dependencies, and the Ollama server is reachable from this machine.
 - For Ollama Cloud models (`-cloud` tags): the Ollama daemon is signed in (`ollama signin`) and has internet access. See [Use Ollama Cloud Models](#use-ollama-cloud-models).
 
@@ -26,6 +29,8 @@ flowchart LR
 | --- | --- | --- |
 | `SENTIMENT_BENCH_PROVIDER` | `openrouter` | CLI and TUI provider selection. |
 | `OPENROUTER_BASE_URL` | `https://openrouter.ai/api/v1` | OpenRouter-compatible chat endpoint. |
+| `CEREBRAS_BASE_URL` | `https://api.cerebras.ai/v1` | Cerebras OpenAI-compatible endpoint. |
+| `CEREBRAS_MAX_RPM` | model-specific | Optional local ceiling; live API-key quota headers take precedence. |
 | `OLLAMA_HOST` | `http://localhost:11434` | Ollama Python client host. |
 | `SENTIMENT_BENCH_AUTO_FETCH_MODELS` | `1` | TUI auto-fetches local Ollama models when provider is Ollama and host starts with `http://localhost`. |
 | `OLLAMA_NUM_PARALLEL` | Ollama default | Optional Ollama server setting for parallel request handling; the TUI displays the value it can see. |
@@ -53,6 +58,33 @@ Run a pilot:
 ```bash
 sentiment-bench run --provider openrouter \
   --models openai/gpt-4o-mini --mode pilot
+```
+
+## Configure Cerebras
+
+Add the API key and endpoint to `.env`:
+
+```bash
+CEREBRAS_API_KEY=your-cerebras-key
+CEREBRAS_BASE_URL=https://api.cerebras.ai/v1
+```
+
+In the TUI, select **Cerebras**, click **Fetch Models**, and select one or more returned model IDs. The TUI sets concurrency to 64. The client admits requests through a per-model token bucket, retries transient failures, and honors `Retry-After` or Cerebras reset headers on HTTP 429.
+
+The model request limits recorded for this dissertation project on 2 July 2026 are shown below. They are fallback planning values only: the client serializes one initial quota probe, then enforces the live minute/hour/day headers returned for the active API key before releasing concurrent requests.
+
+| Model | RPM | RPH | RPD | TPM | TPH | TPD |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `gemma-4-31b` | 500 | 30,000 | 720,000 | 500,000 | 30,000,000 | 720,000,000 |
+| `gpt-oss-120b` | 1,000 | 60,000 | 1,440,000 | 1,000,000 | 120,000,000 | 2,000,000,000 |
+| `zai-glm-4.7` | 500 | 30,000 | 720,000 | 500,000 | 30,000,000 | 720,000,000 |
+
+These short label-only requests normally reach the request limit before the token limit. Set `CEREBRAS_MAX_RPM` only when you want a ceiling below the live API quota. Keep `max_completion_tokens=64` for hard-label accuracy tests so token quota is not reserved unnecessarily.
+
+```bash
+sentiment-bench list-models --provider cerebras --limit 20
+sentiment-bench run --provider cerebras \
+  --models gemma-4-31b --mode pilot --concurrency 64
 ```
 
 ## Configure Ollama On A Desktop PC
@@ -175,8 +207,8 @@ sentiment-bench tui
 
 In the Dashboard tab:
 
-1. Set Provider to `OpenRouter` or `Ollama`.
-2. Set the endpoint field. For Ollama, use `http://desktop-pc:11434`.
+1. Set Provider to `OpenRouter`, `Cerebras`, or `Ollama`.
+2. Set the endpoint field. Cerebras defaults to `https://api.cerebras.ai/v1`; for Ollama, use `http://desktop-pc:11434`.
 3. Open the Models tab and fetch models. For local Ollama at `http://localhost:11434`, the TUI also auto-fetches installed models on startup unless `SENTIMENT_BENCH_AUTO_FETCH_MODELS=0`.
 4. Select one or more models.
 5. For Gemma 4, keep `Disable Ollama thinking` enabled on the Run tab.

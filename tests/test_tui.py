@@ -1526,6 +1526,38 @@ def test_tui_cloud_catalog_requires_ollama_provider(tmp_path: Path) -> None:
     asyncio.run(scenario())
 
 
+def test_tui_cerebras_provider_sets_endpoint_and_fast_concurrency(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CEREBRAS_API_KEY", "test-key")
+
+    async def scenario() -> None:
+        app = _make_app(tmp_path)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.1)
+            app.query_one("#provider", Select).value = "cerebras"
+            await pilot.pause()
+
+            assert app.provider == "cerebras"
+            assert app.query_one("#provider-endpoint", Input).value == "https://api.cerebras.ai/v1"
+            assert app.query_one("#concurrency", Input).value == "64"
+            assert "Cerebras API key: present" in str(app.query_one("#dashboard", Static).content)
+
+    asyncio.run(scenario())
+
+
+def test_tui_migrates_old_cerebras_concurrency_default(tmp_path: Path) -> None:
+    session_path = tmp_path / "tui_session.json"
+    session_path.write_text(json.dumps({"provider": "cerebras", "concurrency": 1}), encoding="utf-8")
+
+    app = SentimentBenchmarkApp(
+        session_path=session_path,
+        queue_path=tmp_path / "tui_queue.json",
+        db_path=tmp_path / "benchmark.sqlite",
+    )
+
+    assert app.provider == "cerebras"
+    assert app._run_settings["concurrency"] == 64
+
+
 def test_tui_loaded_models_panel_lists_ollama_ps(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     class _FakeOllama:
         async def __aenter__(self):

@@ -48,7 +48,7 @@ flowchart TB
         ANA["trading_analysis.py / strategy_sweep.py<br/>l2_event_study.py / l3_reliability.py"]
     end
     subgraph Services["External-system boundaries"]
-        PROV["providers.py → openrouter.py / ollama_client.py"]
+        PROV["providers.py → OpenRouter / Cerebras / Ollama"]
         NEWS["news_source.py / newsapi_source.py / lseg_source.py"]
         PRICE["prices.py (PriceProvider + cache)"]
         STORE["storage.py → libsql_backend.py"]
@@ -80,7 +80,8 @@ Core boundaries:
 | `Data/derived/labeled/financial_sentiment_v2.csv` | Default provenance-clean labeled benchmark dataset. |
 | `Data/data.csv` | Immutable legacy Kaggle source with documented merge corruption. |
 | `src/sentiment_benchmark/dataset.py` | Dataset loading, validation, duplicate/conflict metadata. |
-| `src/sentiment_benchmark/providers.py` | Chooses OpenRouter or Ollama client from provider settings. |
+| `src/sentiment_benchmark/providers.py` | Chooses OpenRouter, Cerebras, or Ollama client from provider settings. |
+| `src/sentiment_benchmark/cerebras_client.py` | Cerebras OpenAI-compatible adapter with model-aware request pacing and reset-aware retries. |
 | `src/sentiment_benchmark/runner.py` | Executes model runs and stores responses. |
 | `src/sentiment_benchmark/metrics.py` | Computes classification metrics and comparison statistics. |
 | `src/sentiment_benchmark/storage.py` | Owns database schema and persistence for SQLite or native libSQL/Turso. |
@@ -189,7 +190,7 @@ Adding an idea usually means implementing one seam (a `DecisionPolicy`) and call
 | SQLite local store by default | Simple, inspectable, no service dependency. | Not ideal for sharing one run history across machines. |
 | Optional Turso/libSQL backend | Shared run history with per-machine local replicas. | Requires Python 3.12 setup, Turso credentials, and careful secret handling. |
 | Ignored generated outputs | Keeps git clean and avoids large artifacts. | Formal outputs must be exported and registered deliberately. |
-| Provider abstraction | Same benchmark flow works for OpenRouter and Ollama. | Lowest common denominator interface hides provider-specific advanced controls. |
+| Provider abstraction | Same benchmark flow works for OpenRouter, Cerebras, and Ollama. | Lowest common denominator interface hides provider-specific advanced controls. |
 | Primary/all scopes | Separates headline comparison from ambiguity audit. | Readers must understand which scope is being discussed. |
 | Tavily corpora unlabeled by default | Prevents accidental weak labeling. | A later labeling workflow is required before articles can become benchmark rows. |
 | Next-session-open trading entry | Permits all news on day D without look-ahead. | It differs from a literal close-to-close teaching example. |

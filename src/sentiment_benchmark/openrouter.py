@@ -19,13 +19,15 @@ class OpenRouterClient:
         self,
         api_key: str | None = None,
         base_url: str = DEFAULT_BASE_URL,
+        api_key_env: str = "OPENROUTER_API_KEY",
         http_referer: str | None = None,
         app_title: str = DEFAULT_APP_TITLE,
         timeout: float = 60.0,
         client: httpx.AsyncClient | None = None,
     ) -> None:
         load_env_file()
-        self.api_key = api_key or os.getenv("OPENROUTER_API_KEY")
+        self.api_key_env = api_key_env
+        self.api_key = api_key or os.getenv(api_key_env)
         self.base_url = base_url.rstrip("/")
         self.http_referer = http_referer or os.getenv("OPENROUTER_HTTP_REFERER") or None
         self.app_title = app_title
@@ -51,7 +53,7 @@ class OpenRouterClient:
 
     def _headers(self) -> dict[str, str]:
         if not self.api_key:
-            raise RuntimeError("OPENROUTER_API_KEY is required for OpenRouter requests")
+            raise RuntimeError(f"{self.api_key_env} is required for {self.__class__.__name__} requests")
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -125,7 +127,7 @@ class OpenRouterClient:
         start = time.monotonic()
         try:
             response = await self._request_with_retries("POST", "chat/completions", retries, json=payload)
-            latency_ms = (time.monotonic() - start) * 1000
+            latency_ms = float(response.extensions.get("sentiment_benchmark_request_latency_ms", (time.monotonic() - start) * 1000))
             if response.status_code >= 400:
                 return LLMResponseRecord(
                     row_number=example.row_number,

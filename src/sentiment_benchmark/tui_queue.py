@@ -287,7 +287,11 @@ class QueueMixin(AppMixin):
             preview = ", ".join(models[:2])
             if len(models) > 2:
                 preview += f" (+{len(models) - 2})"
-            provider = "Ollama" if item.get("provider") == "ollama" else "OpenRouter"
+            provider = {
+                "openrouter": "OpenRouter",
+                "cerebras": "Cerebras",
+                "ollama": "Ollama",
+            }.get(str(item.get("provider")), str(item.get("provider") or "OpenRouter").title())
             mode = item.get("mode", "pilot")
             sample = str(item.get("sample_per_class", "")) if mode == "pilot" else "full"
             prompt_id = (item.get("prompt") or {}).get("prompt_id", "-")

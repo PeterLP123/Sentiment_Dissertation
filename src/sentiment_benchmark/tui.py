@@ -37,6 +37,8 @@ from textual.widgets import (
 from .baselines import BASELINE_SPECS, DEFAULT_BASELINES, BaselineSpec
 from .constants import (
     DEFAULT_BASE_URL,
+    DEFAULT_CEREBRAS_BASE_URL,
+    DEFAULT_CEREBRAS_CONCURRENCY,
     DEFAULT_DATASET_PATH,
     DEFAULT_DB_PATH,
     DEFAULT_MAX_COMPLETION_TOKENS,
@@ -323,6 +325,7 @@ class SentimentBenchmarkApp(BaselinesMixin, ModelsMixin, MonitorMixin, NewsMixin
         except ValueError:
             self.provider = normalize_provider(DEFAULT_PROVIDER)
         self.base_url = os.getenv("OPENROUTER_BASE_URL", DEFAULT_BASE_URL)
+        self.cerebras_base_url = os.getenv("CEREBRAS_BASE_URL", DEFAULT_CEREBRAS_BASE_URL)
         self.ollama_host = os.getenv("OLLAMA_HOST", DEFAULT_OLLAMA_HOST)
         self.news_query = "financial markets"
         self.news_topic = DEFAULT_NEWS_TOPIC
@@ -364,7 +367,7 @@ class SentimentBenchmarkApp(BaselinesMixin, ModelsMixin, MonitorMixin, NewsMixin
             "run_mode": "pilot",
             "sample_per_class": 30,
             "seed": 42,
-            "concurrency": 1,
+            "concurrency": DEFAULT_CEREBRAS_CONCURRENCY if self.provider == "cerebras" else 1,
             "temperature": 0.0,
             "max_completion_tokens": DEFAULT_MAX_COMPLETION_TOKENS,
         }
@@ -386,7 +389,7 @@ class SentimentBenchmarkApp(BaselinesMixin, ModelsMixin, MonitorMixin, NewsMixin
         with TabbedContent():
             with TabPane("Dashboard", id="dashboard-tab"):
                 yield Static(
-                    "Use this app to run OpenRouter or Ollama models against the dissertation sentiment dataset. "
+                    "Use this app to run OpenRouter, Cerebras, or Ollama models against the dissertation sentiment dataset. "
                     "Only Sentence text is sent to models; hidden Sentiment labels stay in the evaluator.",
                     classes="help",
                 )
@@ -402,7 +405,7 @@ class SentimentBenchmarkApp(BaselinesMixin, ModelsMixin, MonitorMixin, NewsMixin
                 )
                 yield Static("Provider", classes="field-label")
                 yield Select(
-                    [("OpenRouter", "openrouter"), ("Ollama", "ollama")],
+                    [("OpenRouter", "openrouter"), ("Cerebras", "cerebras"), ("Ollama", "ollama")],
                     id="provider",
                     value=self.provider,
                     allow_blank=False,
@@ -415,13 +418,13 @@ class SentimentBenchmarkApp(BaselinesMixin, ModelsMixin, MonitorMixin, NewsMixin
                 )
                 yield Static("Manual model ID", classes="field-label")
                 yield Static(
-                    "Examples: openai/gpt-4o-mini or gemma3. Ollama Cloud models work through a signed-in "
+                    "Examples: openai/gpt-4o-mini, gpt-oss-120b (Cerebras), or gemma3. Ollama Cloud models work through a signed-in "
                     "local daemon — add them by their cloud tag, e.g. gpt-oss:120b-cloud or minimax-m3:cloud, "
                     "or press Cloud Catalog to browse known cloud models without pulling them. "
                     "Repeat Add Model for each model you want in the same benchmark run.",
                     classes="help",
                 )
-                yield Input(placeholder="gpt-oss:120b-cloud, minimax-m3:cloud, or openai/gpt-4o-mini", id="manual-model")
+                yield Input(placeholder="gpt-oss-120b, gemma3, or openai/gpt-4o-mini", id="manual-model")
                 with Horizontal(classes="toolbar"):
                     yield Button("Add Model", id="add-model", variant="primary")
                     yield Button("Fetch Models", id="fetch-models")
@@ -543,7 +546,8 @@ class SentimentBenchmarkApp(BaselinesMixin, ModelsMixin, MonitorMixin, NewsMixin
                         )
                         yield Static("Concurrency", classes="field-label")
                         yield Static(
-                            "Number of simultaneous API calls. Keep this at 1 unless you are comfortable with rate limits.",
+                            "Number of simultaneous API calls. Cerebras starts at 64 and is paced to the configured model RPM; "
+                            "set CEREBRAS_MAX_RPM to the limit shown in your Cerebras console.",
                             classes="help",
                         )
                         yield Input(
@@ -953,13 +957,22 @@ class SentimentBenchmarkApp(BaselinesMixin, ModelsMixin, MonitorMixin, NewsMixin
             self.notify(message, title=title, severity="information")
 
     def _active_endpoint(self) -> str:
-        return endpoint_for_provider(self.provider, base_url=self.base_url, ollama_host=self.ollama_host)
+        return endpoint_for_provider(
+            self.provider,
+            base_url=self.base_url,
+            ollama_host=self.ollama_host,
+            cerebras_base_url=self.cerebras_base_url,
+        )
 
     def _endpoint_placeholder(self) -> str:
-        return "http://desktop-pc:11434" if self.provider == "ollama" else DEFAULT_BASE_URL
+        if self.provider == "ollama":
+            return "http://desktop-pc:11434"
+        if self.provider == "cerebras":
+            return DEFAULT_CEREBRAS_BASE_URL
+        return DEFAULT_BASE_URL
 
     def _provider_title(self) -> str:
-        return "Ollama" if self.provider == "ollama" else "OpenRouter"
+        return {"openrouter": "OpenRouter", "cerebras": "Cerebras", "ollama": "Ollama"}[self.provider]
 
     def action_show_tab(self, tab_id: str) -> None:
         with suppress(Exception):
@@ -1002,11 +1015,12 @@ class SentimentBenchmarkApp(BaselinesMixin, ModelsMixin, MonitorMixin, NewsMixin
             bar = self.query_one("#status-bar", Static)
         except Exception:
             return
-        provider_status = (
-            f"OpenRouter key: {'OK' if os.getenv('OPENROUTER_API_KEY') else 'missing'}"
-            if self.provider == "openrouter"
-            else f"Ollama: {self.ollama_host}"
-        )
+        if self.provider == "openrouter":
+            provider_status = f"OpenRouter key: {'OK' if os.getenv('OPENROUTER_API_KEY') else 'missing'}"
+        elif self.provider == "cerebras":
+            provider_status = f"Cerebras key: {'OK' if os.getenv('CEREBRAS_API_KEY') else 'missing'}"
+        else:
+            provider_status = f"Ollama: {self.ollama_host}"
         queue_pending = sum(1 for item in self._experiment_queue if not self._queue_item_done(item))
         queue_status = f"queue: {queue_pending} pending" if self._experiment_queue else "queue: empty"
         base = (
@@ -1122,6 +1136,8 @@ class SentimentBenchmarkApp(BaselinesMixin, ModelsMixin, MonitorMixin, NewsMixin
             value = event.input.value.strip()
             if self.provider == "ollama":
                 self.ollama_host = value or DEFAULT_OLLAMA_HOST
+            elif self.provider == "cerebras":
+                self.cerebras_base_url = value or DEFAULT_CEREBRAS_BASE_URL
             else:
                 self.base_url = value or DEFAULT_BASE_URL
             self._refresh_dashboard()
@@ -1171,6 +1187,7 @@ class SentimentBenchmarkApp(BaselinesMixin, ModelsMixin, MonitorMixin, NewsMixin
         if event.value is Select.BLANK:
             return
         if event.select.id == "provider":
+            previous_provider = self.provider
             try:
                 self.provider = normalize_provider(str(event.value))
             except ValueError as exc:
@@ -1182,6 +1199,13 @@ class SentimentBenchmarkApp(BaselinesMixin, ModelsMixin, MonitorMixin, NewsMixin
                 endpoint.placeholder = self._endpoint_placeholder()
             except Exception:
                 pass
+            with suppress(Exception):
+                concurrency = self.query_one("#concurrency", Input)
+                current = int(concurrency.value)
+                if self.provider == "cerebras" and current == 1:
+                    concurrency.value = str(DEFAULT_CEREBRAS_CONCURRENCY)
+                elif previous_provider == "cerebras" and current == DEFAULT_CEREBRAS_CONCURRENCY:
+                    concurrency.value = "1"
             self._all_models = []
             self._render_model_table()
             self._refresh_dashboard()

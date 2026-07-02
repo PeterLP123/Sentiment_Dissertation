@@ -38,11 +38,14 @@ sentiment-bench --help
 
 | Variable | Meaning |
 | --- | --- |
-| `SENTIMENT_BENCH_PROVIDER` | Default provider for CLI/TUI: `openrouter` or `ollama`. |
+| `SENTIMENT_BENCH_PROVIDER` | Default provider for CLI/TUI: `openrouter`, `cerebras`, or `ollama`. |
 | `OPENROUTER_API_KEY` | OpenRouter authentication token. |
+| `CEREBRAS_API_KEY` | Cerebras authentication token. |
 | `TAVILY_API_KEY` | Tavily search and extraction token. |
 | `NEWSAPI_API_KEY` | NewsAPI Everything endpoint token. |
 | `OPENROUTER_BASE_URL` | OpenRouter-compatible endpoint. |
+| `CEREBRAS_BASE_URL` | Cerebras endpoint, defaulting to `https://api.cerebras.ai/v1`. |
+| `CEREBRAS_MAX_RPM` | Optional local request-rate ceiling; live Cerebras API-key headers take precedence. |
 | `OLLAMA_HOST` | Ollama endpoint, such as `http://localhost:11434`. |
 | `SENTIMENT_BENCH_DB_BACKEND` | `sqlite` by default; set `libsql` for Turso/native libSQL. |
 | `TURSO_DATABASE_URL` | Turso/libSQL URL, such as `libsql://...turso.io`. |
@@ -61,7 +64,7 @@ Commands grouped by workflow. Every command is documented in a section below or 
 | Command | Purpose |
 | --- | --- |
 | `validate-data` | Validate dataset columns, labels, duplicates, and primary scoring scope. |
-| `list-models` | List models from OpenRouter or Ollama. |
+| `list-models` | List models from OpenRouter, Cerebras, or Ollama. |
 | `run` | Run LLM sentiment classification benchmarks. |
 | `run-baselines` | Run non-LLM baseline classifiers. |
 | `runs` | List stored benchmark runs. |
@@ -133,12 +136,13 @@ sentiment-bench validate-data
 
 ```bash
 sentiment-bench list-models --provider openrouter --limit 50
+sentiment-bench list-models --provider cerebras --limit 50
 sentiment-bench list-models --provider ollama --ollama-host http://desktop-pc:11434
 ```
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `--provider` | `openrouter` | `openrouter` or `ollama`. |
+| `--provider` | `openrouter` | `openrouter`, `cerebras`, or `ollama`. |
 | `--base-url` | `https://openrouter.ai/api/v1` | OpenRouter-compatible base URL. |
 | `--ollama-host` | `http://localhost:11434` | Ollama host URL. |
 | `--limit` | `50` | Maximum rows to show. |
@@ -157,7 +161,7 @@ sentiment-bench run --models openai/gpt-4o-mini --mode pilot
 | `--dataset-path` | `Data/derived/labeled/financial_sentiment_v2.csv` | Dataset CSV. |
 | `--db-path` | `results/sentiment_benchmark.sqlite` | Local SQLite storage path; when `SENTIMENT_BENCH_DB_BACKEND=libsql`, Turso env vars select the synced replica. |
 | `--prompts-path` | `configs/default_prompts.toml` | Prompt config path. |
-| `--provider` | `openrouter` | `openrouter` or `ollama`. |
+| `--provider` | `openrouter` | `openrouter`, `cerebras`, or `ollama`. |
 | `--base-url` | `https://openrouter.ai/api/v1` | OpenRouter-compatible base URL. |
 | `--ollama-host` | `http://localhost:11434` | Ollama host URL. |
 | `--sample-per-class` | `30` | Pilot rows per class. |
@@ -166,7 +170,7 @@ sentiment-bench run --models openai/gpt-4o-mini --mode pilot
 | `--max-completion-tokens` | `64` | Default completion-token budget. |
 | `--reasoning-max-tokens` | `2048` | Larger token budget for reasoning-model ID markers. |
 | `--model-max-tokens` | none | Per-model override as `model_id=N`; repeatable. |
-| `--concurrency` | `1` | Concurrent model requests. |
+| `--concurrency` | `1` | Concurrent model requests. The TUI changes this to `64` when Cerebras is selected. |
 | `--retries` | `3` | Retries per request. |
 | `--few-shot-k` | `0` | Demonstrations per class. |
 | `--few-shot-seed` | `--seed` | Demonstration sampling seed. |
@@ -494,7 +498,7 @@ Key `run-self-consistency` options:
 | `--model`, `-m` | required | Model ID to sample. |
 | `--mode` | `pilot` | `pilot` or `full`. |
 | `--prompt-id` | `default_label_only` | Prompt ID. |
-| `--provider` | `openrouter` | `openrouter` or `ollama`. |
+| `--provider` | `openrouter` | `openrouter`, `cerebras`, or `ollama`. |
 | `--temperature`, `-t` | `0.7` | Sampling temperature; use > 0 for diversity. |
 | `--num-samples`, `-n` | `5` | Repeated samples per row. |
 | `--max-completion-tokens` | `64` | Completion-token budget. |

@@ -9,7 +9,7 @@ This documentation is organized by reader task ([Diátaxis](https://diataxis.fr/
 | Document | Type | Best for |
 | --- | --- | --- |
 | [Getting started](getting_started.md) | Tutorial | First install, validation, pilot run, export, and news fetch. |
-| [Model providers](model_providers.md) | How-to | OpenRouter setup and local/remote Ollama setup for Gemma models. |
+| [Model providers](model_providers.md) | How-to | OpenRouter, Cerebras, and local/remote Ollama setup. |
 | [News sourcing](news_sourcing.md) | How-to | Search, extract, package, and troubleshoot Tavily and NewsAPI corpora. |
 | [LSEG to Ollama pipeline](lseg_ollama_pipeline.md) | How-to | Collect, clean, score, validate, and evaluate local-only Workspace news. |
 | [Frozen LSEG analysis workflow](lseg_analysis_workflow.md) | How-to | The gated corpus → cohort → validation → crossed scoring → L2/L3 sequence. |
@@ -53,7 +53,7 @@ flowchart TB
     subgraph Execution["Execution"]
         CLI["sentiment-bench CLI"]
         TUI["sentiment-bench tui"]
-        P["Provider adapter<br/>OpenRouter or Ollama"]
+        P["Provider adapter<br/>OpenRouter, Cerebras, or Ollama"]
     end
     subgraph Evidence["Evidence"]
         DB["SQLite or Turso/libSQL<br/>run history"]

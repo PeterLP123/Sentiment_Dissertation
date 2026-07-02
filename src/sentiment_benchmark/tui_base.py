@@ -45,6 +45,7 @@ class AppMixin(_AppBase):
         db_path: Path
         provider: Provider
         base_url: str
+        cerebras_base_url: str
         ollama_host: str
         news_query: str
         news_topic: str

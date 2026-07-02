@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "sentiment-dissertation-benchmark"
 version = "0.1.0"
-description = "Terminal UI and CLI for benchmarking OpenRouter and Ollama LLM sentiment analysis on dissertation data."
+description = "Terminal UI and CLI for benchmarking OpenRouter, Cerebras, and Ollama LLM sentiment analysis on dissertation data."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [

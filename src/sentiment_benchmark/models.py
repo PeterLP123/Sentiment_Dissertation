@@ -7,7 +7,7 @@ from .constants import DEFAULT_REASONING_MAX_COMPLETION_TOKENS
 
 OutputMode = Literal["label_only", "explanation", "cot", "soft_label"]
 RunMode = Literal["pilot", "full"]
-Provider = Literal["openrouter", "ollama"]
+Provider = Literal["openrouter", "ollama", "cerebras"]
 ParseStatus = Literal["valid", "invalid", "error"]
 ResponseStatus = Literal["success", "api_error", "transport_error", "malformed_response", "skipped", "client_error"]
 
