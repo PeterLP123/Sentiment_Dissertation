@@ -51,12 +51,31 @@ class _RunContext:
     cancel_event: CancelEvent | None
     callback: ProgressCallback | None
     event_callback: EventCallback | None
+    pending_responses: list[LLMResponseRecord]
+    flush_lock: asyncio.Lock
 
 
 class BenchmarkRunner:
+    # Rows per write transaction. Batching amortizes the libsql commit round
+    # trip; on a crash at most one batch is lost and re-attempted on resume.
+    response_flush_size = 32
+
     def __init__(self, client: Any, store: BenchmarkStore) -> None:
         self.client = client
         self.store = store
+
+    async def _save_response(self, ctx: _RunContext, record: LLMResponseRecord) -> None:
+        ctx.pending_responses.append(record)
+        if len(ctx.pending_responses) >= self.response_flush_size:
+            await self._flush_responses(ctx)
+
+    async def _flush_responses(self, ctx: _RunContext) -> None:
+        async with ctx.flush_lock:
+            if not ctx.pending_responses:
+                return
+            batch = list(ctx.pending_responses)
+            ctx.pending_responses.clear()
+            await asyncio.to_thread(self.store.save_responses, ctx.run_id, batch)
 
     async def _notify(self, callback: ProgressCallback | None, message: str) -> None:
         if callback is None:
@@ -165,10 +184,7 @@ class BenchmarkRunner:
             if ctx.config.provider == "ollama":
                 classify_kwargs["ollama_think"] = ctx.config.ollama_think
             record = await self.client.classify(**classify_kwargs)
-            # Store writes run in a worker thread: on the libsql backend each
-            # write is a network round trip that would otherwise block every
-            # in-flight request coroutine.
-            await asyncio.to_thread(self.store.save_response, ctx.run_id, record)
+            await self._save_response(ctx, record)
             if record.status == "success" and record.generation_id:
                 try:
                     metadata = await self.client.get_generation_metadata(record.generation_id, retries=ctx.config.retries)
@@ -226,7 +242,7 @@ class BenchmarkRunner:
                 error=f"{type(exc).__name__}: {exc}",
             )
             try:
-                await asyncio.to_thread(self.store.save_response, ctx.run_id, record)
+                await self._save_response(ctx, record)
             except Exception as save_exc:
                 await self._notify(
                     ctx.callback,
@@ -265,10 +281,15 @@ class BenchmarkRunner:
         # requests. Fixed-size gather batches would make all slots wait for the
         # slowest request in each batch (e.g. one row sleeping on Retry-After),
         # which starves throughput on rate-paced providers.
-        results = await asyncio.gather(
-            *(self._classify_row_guarded(ctx, model_id, row.blind(), completed_rows) for row in ctx.selected_rows),
-            return_exceptions=True,
-        )
+        try:
+            results = await asyncio.gather(
+                *(self._classify_row_guarded(ctx, model_id, row.blind(), completed_rows) for row in ctx.selected_rows),
+                return_exceptions=True,
+            )
+        finally:
+            # Persist whatever completed, also when the gather is cancelled,
+            # so metrics and resumes see every finished row.
+            await self._flush_responses(ctx)
         for result in results:
             if isinstance(result, BaseException):
                 raise result
@@ -361,6 +382,8 @@ class BenchmarkRunner:
             cancel_event=cancel_event,
             callback=callback,
             event_callback=event_callback,
+            pending_responses=[],
+            flush_lock=asyncio.Lock(),
         )
         final_status = "completed"
         try:

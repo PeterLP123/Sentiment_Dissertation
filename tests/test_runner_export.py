@@ -522,6 +522,38 @@ class OllamaCapturingClient(FakeClient):
         return await super().classify(model_id, prompt, example, temperature, max_completion_tokens, retries)
 
 
+def test_responses_flush_in_batches_and_all_rows_persist(tmp_path: Path) -> None:
+    dataset = _write_dataset(tmp_path)
+    prompt = make_prompt("test", "Return a label.", "Sentence:\n{sentence}\n\nSentiment label:", "label_only")
+    db_path = tmp_path / "batch-flush.sqlite"
+    config = RunConfig(
+        models=["fake/model"],
+        prompt=prompt,
+        mode="pilot",
+        dataset_path=str(dataset),
+        db_path=str(db_path),
+        base_url="https://openrouter.test/api/v1",
+        sample_per_class=1,
+    )
+    store = BenchmarkStore(db_path)
+    batch_sizes: list[int] = []
+    original_save = store.save_responses
+
+    def counting_save(run_id: int, records: list) -> None:
+        batch_sizes.append(len(records))
+        original_save(run_id, records)
+
+    store.save_responses = counting_save  # type: ignore[method-assign]
+    runner = BenchmarkRunner(client=FakeClient(), store=store)  # type: ignore[arg-type]
+    runner.response_flush_size = 2
+
+    summary = asyncio.run(runner.run(config))
+
+    # 3 rows with flush size 2: one threshold flush plus the final flush.
+    assert sorted(batch_sizes) == [1, 2]
+    assert len(store.fetch_responses(summary.run_id, "fake/model")) == 3
+
+
 class StragglerClient(FakeClient):
     """One row stalls until the given later rows have completed."""
 

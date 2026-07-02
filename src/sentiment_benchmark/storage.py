@@ -534,51 +534,66 @@ class BenchmarkStore:
             ).fetchall()
         return {int(row[0]) for row in rows}
 
+    _RESPONSE_UPSERT_SQL = """
+        INSERT INTO responses (
+            run_id, row_number, model_id, prompt_hash, raw_content, normalized_label,
+            parse_status, explanation, label_probabilities, raw_response_json, latency_ms, status, error,
+            prompt_tokens, completion_tokens, total_tokens, generation_id, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(run_id, row_number, model_id, prompt_hash) DO UPDATE SET
+            raw_content=excluded.raw_content,
+            normalized_label=excluded.normalized_label,
+            parse_status=excluded.parse_status,
+            explanation=excluded.explanation,
+            label_probabilities=excluded.label_probabilities,
+            raw_response_json=excluded.raw_response_json,
+            latency_ms=excluded.latency_ms,
+            status=excluded.status,
+            error=excluded.error,
+            prompt_tokens=excluded.prompt_tokens,
+            completion_tokens=excluded.completion_tokens,
+            total_tokens=excluded.total_tokens,
+            generation_id=excluded.generation_id
+    """
+
+    @staticmethod
+    def _response_row(run_id: int, record: LLMResponseRecord) -> tuple[Any, ...]:
+        return (
+            run_id,
+            record.row_number,
+            record.model_id,
+            record.prompt_hash,
+            record.raw_content,
+            record.normalized_label,
+            record.parse_status,
+            record.explanation,
+            json.dumps(record.label_probabilities, sort_keys=True) if record.label_probabilities is not None else None,
+            json.dumps(record.raw_response_json) if record.raw_response_json is not None else None,
+            record.latency_ms,
+            record.status,
+            record.error,
+            record.prompt_tokens,
+            record.completion_tokens,
+            record.total_tokens,
+            record.generation_id,
+            utc_now(),
+        )
+
     def save_response(self, run_id: int, record: LLMResponseRecord) -> None:
+        self.save_responses(run_id, [record])
+
+    def save_responses(self, run_id: int, records: list[LLMResponseRecord]) -> None:
+        """Upsert a batch of responses under a single commit.
+
+        On the libsql backend every commit is a network round trip to the
+        hosted primary (~1.7s measured on the embedded replica), so per-row
+        commits cap full runs far below the provider request quota.
+        """
+        if not records:
+            return
         with self.connect() as connection:
-            connection.execute(
-                """
-                INSERT INTO responses (
-                    run_id, row_number, model_id, prompt_hash, raw_content, normalized_label,
-                    parse_status, explanation, label_probabilities, raw_response_json, latency_ms, status, error,
-                    prompt_tokens, completion_tokens, total_tokens, generation_id, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(run_id, row_number, model_id, prompt_hash) DO UPDATE SET
-                    raw_content=excluded.raw_content,
-                    normalized_label=excluded.normalized_label,
-                    parse_status=excluded.parse_status,
-                    explanation=excluded.explanation,
-                    label_probabilities=excluded.label_probabilities,
-                    raw_response_json=excluded.raw_response_json,
-                    latency_ms=excluded.latency_ms,
-                    status=excluded.status,
-                    error=excluded.error,
-                    prompt_tokens=excluded.prompt_tokens,
-                    completion_tokens=excluded.completion_tokens,
-                    total_tokens=excluded.total_tokens,
-                    generation_id=excluded.generation_id
-                """,
-                (
-                    run_id,
-                    record.row_number,
-                    record.model_id,
-                    record.prompt_hash,
-                    record.raw_content,
-                    record.normalized_label,
-                    record.parse_status,
-                    record.explanation,
-                    json.dumps(record.label_probabilities, sort_keys=True) if record.label_probabilities is not None else None,
-                    json.dumps(record.raw_response_json) if record.raw_response_json is not None else None,
-                    record.latency_ms,
-                    record.status,
-                    record.error,
-                    record.prompt_tokens,
-                    record.completion_tokens,
-                    record.total_tokens,
-                    record.generation_id,
-                    utc_now(),
-                ),
-            )
+            for record in records:
+                connection.execute(self._RESPONSE_UPSERT_SQL, self._response_row(run_id, record))
 
     def save_generation_metadata(
         self,

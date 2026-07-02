@@ -40,6 +40,33 @@ def test_storage_insert_and_resume_check(tmp_path) -> None:
     assert len(responses) == 2
 
 
+def test_save_responses_batch_upserts_under_one_commit(tmp_path) -> None:
+    store = BenchmarkStore(tmp_path / "batch.sqlite")
+    store.initialize()
+
+    def record(row_number: int, status: str) -> LLMResponseRecord:
+        ok = status == "success"
+        return LLMResponseRecord(
+            row_number=row_number,
+            model_id="test/model",
+            prompt_hash="abc123",
+            raw_content="positive" if ok else None,
+            normalized_label="positive" if ok else None,
+            parse_status="valid" if ok else "error",
+            status=status,
+            error=None if ok else "HTTP 503",
+        )
+
+    store.save_responses(1, [record(2, "success"), record(3, "api_error")])
+    assert len(store.fetch_responses(1, "test/model")) == 2
+    assert store.successful_row_numbers(1, "test/model", "abc123") == {2}
+
+    # Re-saving a row in a later batch updates it instead of duplicating.
+    store.save_responses(1, [record(3, "success")])
+    assert len(store.fetch_responses(1, "test/model")) == 2
+    assert store.successful_row_numbers(1, "test/model", "abc123") == {2, 3}
+
+
 def _prompt() -> PromptConfig:
     return PromptConfig(
         prompt_id="test",
