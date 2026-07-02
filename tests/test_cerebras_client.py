@@ -143,6 +143,41 @@ def test_cerebras_calibrates_to_live_api_key_limits(monkeypatch) -> None:
     run(scenario())
 
 
+def test_cerebras_refills_at_server_reset_not_full_window(monkeypatch) -> None:
+    monkeypatch.delenv("CEREBRAS_MAX_RPM", raising=False)
+
+    async def scenario() -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                headers={
+                    "x-ratelimit-limit-requests-hour": "10",
+                    "x-ratelimit-remaining-requests-hour": "0",
+                    "x-ratelimit-reset-requests-hour": "0.05",
+                },
+                json={"id": "ok", "choices": [{"message": {"content": "neutral"}}]},
+            )
+
+        client = make_client(handler)
+        prompt = make_prompt("test", "Return one label.", "{sentence}", "label_only")
+        # The probe reports the hour quota as already spent, resetting in 50ms.
+        await client.classify("gemma-4-31b", prompt, BlindExample(1, "Flat."))
+
+        started = time.monotonic()
+        # Assuming a full hour window from now would block this call until the
+        # wait_for timeout; honoring the reset header releases it in ~50ms.
+        record = await asyncio.wait_for(
+            client.classify("gemma-4-31b", prompt, BlindExample(2, "Flat.")),
+            timeout=2,
+        )
+        waited = time.monotonic() - started
+
+        assert record.normalized_label == "neutral"
+        assert waited >= 0.04
+
+    run(scenario())
+
+
 def test_cerebras_serializes_initial_quota_probe() -> None:
     async def scenario() -> None:
         calls = 0

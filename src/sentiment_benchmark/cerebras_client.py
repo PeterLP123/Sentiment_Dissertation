@@ -85,20 +85,25 @@ class _AdaptiveRequestLimiter:
             await asyncio.sleep(delay)
 
     async def observe(self, headers: httpx.Headers) -> None:
-        observed: dict[str, tuple[int, int | None]] = {}
+        observed: dict[str, tuple[int, int | None, float | None]] = {}
         for window in _RATE_WINDOWS:
             limit = _header_int(headers, f"x-ratelimit-limit-requests-{window}")
             remaining = _header_int(headers, f"x-ratelimit-remaining-requests-{window}")
+            reset_seconds = _header_float(headers, f"x-ratelimit-reset-requests-{window}")
             if limit is not None and limit > 0:
-                observed[window] = (limit, remaining)
+                observed[window] = (limit, remaining, reset_seconds)
 
         async with self._condition:
             now = time.monotonic()
             if observed:
                 rpm_ceiling = _positive_int_env("CEREBRAS_MAX_RPM")
-                self.snapshot = {f"requests_{window}": limit for window, (limit, _remaining) in observed.items()}
-                for window, (reported_limit, remaining) in observed.items():
+                self.snapshot = {f"requests_{window}": limit for window, (limit, _remaining, _reset) in observed.items()}
+                for window, (reported_limit, remaining, reset_seconds) in observed.items():
                     limit = min(reported_limit, rpm_ceiling) if window == "minute" and rpm_ceiling else reported_limit
+                    # Refill when the server window actually resets. Assuming a
+                    # full window from now over-blocks: a run started mid-window
+                    # would stall for up to an hour/day on partially spent quota.
+                    server_reset_at = now + reset_seconds if reset_seconds is not None and reset_seconds > 0 else None
                     current = self._buckets.get(window)
                     if current is None or current.capacity != float(limit):
                         tokens = float(limit - 1 if remaining is None else min(remaining, limit))
@@ -106,10 +111,12 @@ class _AdaptiveRequestLimiter:
                             capacity=float(limit),
                             tokens=max(0.0, tokens),
                             window_seconds=_RATE_WINDOWS[window],
-                            reset_at=now + _RATE_WINDOWS[window],
+                            reset_at=server_reset_at if server_reset_at is not None else now + _RATE_WINDOWS[window],
                         )
                     else:
                         current.reset_if_due(now)
+                        if server_reset_at is not None:
+                            current.reset_at = min(current.reset_at, server_reset_at)
                         if remaining is not None:
                             current.tokens = min(current.tokens, float(remaining))
             elif not self._calibrated:
@@ -139,6 +146,16 @@ def _header_int(headers: httpx.Headers, name: str) -> int | None:
         return None
     try:
         return int(raw)
+    except ValueError:
+        return None
+
+
+def _header_float(headers: httpx.Headers, name: str) -> float | None:
+    raw = headers.get(name)
+    if raw is None:
+        return None
+    try:
+        return float(raw)
     except ValueError:
         return None
 
