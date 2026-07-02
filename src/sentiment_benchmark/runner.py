@@ -150,6 +150,10 @@ class BenchmarkRunner:
         if ctx.config.prompt.output_mode == "soft_label":
             max_completion_tokens = max(max_completion_tokens, SOFT_LABEL_MIN_COMPLETION_TOKENS)
         async with ctx.semaphore:
+            # Re-check after waiting for a slot: rows queued behind the
+            # semaphore when the run is cancelled must not issue requests.
+            if ctx.cancel_event is not None and ctx.cancel_event.is_set():
+                return
             classify_kwargs = {
                 "model_id": model_id,
                 "prompt": ctx.config.prompt,
@@ -198,6 +202,9 @@ class BenchmarkRunner:
             )
 
     async def _classify_row_guarded(self, ctx: _RunContext, model_id: str, example: BlindExample) -> None:
+        # Unattempted rows must leave no record so a resume can pick them up.
+        if ctx.cancel_event is not None and ctx.cancel_event.is_set():
+            return
         try:
             await self._classify_row(ctx, model_id, example)
         except Exception as exc:
@@ -245,22 +252,19 @@ class BenchmarkRunner:
         )
         model_cancelled = False
         model_failed = False
-        concurrency = max(1, ctx.config.concurrency)
-        for start in range(0, len(ctx.selected_rows), concurrency):
-            if ctx.cancel_event is not None and ctx.cancel_event.is_set():
-                model_cancelled = True
-                break
-            batch = ctx.selected_rows[start : start + concurrency]
-            results = await asyncio.gather(
-                *(self._classify_row_guarded(ctx, model_id, row.blind()) for row in batch),
-                return_exceptions=True,
-            )
-            for result in results:
-                if isinstance(result, BaseException):
-                    raise result
-            if ctx.cancel_event is not None and ctx.cancel_event.is_set():
-                model_cancelled = True
-                break
+        # Dispatch every row at once and let ctx.semaphore bound the in-flight
+        # requests. Fixed-size gather batches would make all slots wait for the
+        # slowest request in each batch (e.g. one row sleeping on Retry-After),
+        # which starves throughput on rate-paced providers.
+        results = await asyncio.gather(
+            *(self._classify_row_guarded(ctx, model_id, row.blind()) for row in ctx.selected_rows),
+            return_exceptions=True,
+        )
+        for result in results:
+            if isinstance(result, BaseException):
+                raise result
+        if ctx.cancel_event is not None and ctx.cancel_event.is_set():
+            model_cancelled = True
         primary = None
         try:
             responses = self.store.fetch_responses(ctx.run_id, model_id)

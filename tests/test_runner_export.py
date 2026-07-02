@@ -517,6 +517,65 @@ class OllamaCapturingClient(FakeClient):
         return await super().classify(model_id, prompt, example, temperature, max_completion_tokens, retries)
 
 
+class StragglerClient(FakeClient):
+    """One row stalls until the given later rows have completed."""
+
+    def __init__(self, slow_row: int, release_after: set[int]) -> None:
+        self.slow_row = slow_row
+        self.release_after = release_after
+        self.completed: list[int] = []
+        self._release = asyncio.Event()
+
+    async def classify(
+        self,
+        model_id: str,
+        prompt,
+        example: BlindExample,
+        temperature: float = 0.0,
+        max_completion_tokens: int = 8,
+        retries: int = 3,
+    ) -> LLMResponseRecord:
+        if example.row_number == self.slow_row:
+            await asyncio.wait_for(self._release.wait(), timeout=5)
+        record = await super().classify(model_id, prompt, example, temperature, max_completion_tokens, retries)
+        self.completed.append(example.row_number)
+        if example.row_number != self.slow_row and self.release_after <= set(self.completed):
+            self._release.set()
+        return record
+
+
+def test_slow_request_does_not_gate_rows_beyond_its_concurrency_slot(tmp_path: Path) -> None:
+    """One stuck request must only occupy its own semaphore slot.
+
+    With concurrency=2 and selected rows (2, 3, 4), fixed-size gather batches
+    would put rows 2 and 3 in the first batch and never start row 4 while row 2
+    was stalled; continuous dispatch lets rows 3 and 4 finish first.
+    """
+    dataset = _write_dataset(tmp_path)
+    prompt = make_prompt("test", "Return a label.", "Sentence:\n{sentence}\n\nSentiment label:", "label_only")
+    db_path = tmp_path / "straggler.sqlite"
+    config = RunConfig(
+        models=["fake/model"],
+        prompt=prompt,
+        mode="pilot",
+        dataset_path=str(dataset),
+        db_path=str(db_path),
+        base_url="https://openrouter.test/api/v1",
+        sample_per_class=1,
+        concurrency=2,
+    )
+    store = BenchmarkStore(db_path)
+    client = StragglerClient(slow_row=2, release_after={3, 4})
+
+    summary = asyncio.run(BenchmarkRunner(client=client, store=store).run(config))  # type: ignore[arg-type]
+
+    assert summary.status == "completed"
+    assert client.completed == [3, 4, 2]
+    responses = store.fetch_responses(summary.run_id, "fake/model")
+    assert len(responses) == 3
+    assert all(dict(row)["status"] == "success" for row in responses)
+
+
 def test_row_failure_is_recorded_and_run_finalized(tmp_path: Path) -> None:
     dataset = _write_dataset(tmp_path)
     prompt = make_prompt("test", "Return a label.", "Sentence:\n{sentence}\n\nSentiment label:", "label_only")
