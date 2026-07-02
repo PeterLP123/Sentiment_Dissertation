@@ -127,8 +127,8 @@ class BenchmarkRunner:
         self.store.save_prompt(config.prompt)
         return config
 
-    async def _classify_row(self, ctx: _RunContext, model_id: str, example: BlindExample) -> None:
-        if self.store.successful_response_exists(ctx.run_id, model_id, example.row_number, ctx.config.prompt.prompt_hash):
+    async def _classify_row(self, ctx: _RunContext, model_id: str, example: BlindExample, completed_rows: set[int]) -> None:
+        if example.row_number in completed_rows:
             await self._notify(ctx.callback, f"Skipped existing response: run={ctx.run_id} model={model_id} row={example.row_number}")
             await self._emit(
                 ctx.event_callback,
@@ -165,7 +165,10 @@ class BenchmarkRunner:
             if ctx.config.provider == "ollama":
                 classify_kwargs["ollama_think"] = ctx.config.ollama_think
             record = await self.client.classify(**classify_kwargs)
-            self.store.save_response(ctx.run_id, record)
+            # Store writes run in a worker thread: on the libsql backend each
+            # write is a network round trip that would otherwise block every
+            # in-flight request coroutine.
+            await asyncio.to_thread(self.store.save_response, ctx.run_id, record)
             if record.status == "success" and record.generation_id:
                 try:
                     metadata = await self.client.get_generation_metadata(record.generation_id, retries=ctx.config.retries)
@@ -178,7 +181,8 @@ class BenchmarkRunner:
                         f"generation={record.generation_id} error={exc}",
                     )
                 if metadata:
-                    self.store.save_generation_metadata(
+                    await asyncio.to_thread(
+                        self.store.save_generation_metadata,
                         run_id=ctx.run_id,
                         row_number=record.row_number,
                         model_id=model_id,
@@ -202,12 +206,12 @@ class BenchmarkRunner:
                 },
             )
 
-    async def _classify_row_guarded(self, ctx: _RunContext, model_id: str, example: BlindExample) -> None:
+    async def _classify_row_guarded(self, ctx: _RunContext, model_id: str, example: BlindExample, completed_rows: set[int]) -> None:
         # Unattempted rows must leave no record so a resume can pick them up.
         if ctx.cancel_event is not None and ctx.cancel_event.is_set():
             return
         try:
-            await self._classify_row(ctx, model_id, example)
+            await self._classify_row(ctx, model_id, example, completed_rows)
         except Exception as exc:
             # Record the failure instead of letting it propagate: one bad row
             # must not abort the batch loop or leave the run unfinalized.
@@ -222,7 +226,7 @@ class BenchmarkRunner:
                 error=f"{type(exc).__name__}: {exc}",
             )
             try:
-                self.store.save_response(ctx.run_id, record)
+                await asyncio.to_thread(self.store.save_response, ctx.run_id, record)
             except Exception as save_exc:
                 await self._notify(
                     ctx.callback,
@@ -253,12 +257,16 @@ class BenchmarkRunner:
         )
         model_cancelled = False
         model_failed = False
+        # One query up front instead of one existence check per row: per-row
+        # checks open a backend connection each, which stalls full-dataset
+        # runs for minutes before the first request on the libsql backend.
+        completed_rows = self.store.successful_row_numbers(ctx.run_id, model_id, ctx.config.prompt.prompt_hash)
         # Dispatch every row at once and let ctx.semaphore bound the in-flight
         # requests. Fixed-size gather batches would make all slots wait for the
         # slowest request in each batch (e.g. one row sleeping on Retry-After),
         # which starves throughput on rate-paced providers.
         results = await asyncio.gather(
-            *(self._classify_row_guarded(ctx, model_id, row.blind()) for row in ctx.selected_rows),
+            *(self._classify_row_guarded(ctx, model_id, row.blind(), completed_rows) for row in ctx.selected_rows),
             return_exceptions=True,
         )
         for result in results:

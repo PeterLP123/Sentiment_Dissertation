@@ -5,7 +5,7 @@ import os
 import sqlite3
 import threading
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -58,6 +58,7 @@ class BenchmarkStore:
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.backend = os.getenv("SENTIMENT_BENCH_DB_BACKEND", "sqlite").strip().lower()
+        self._libsql_connection: LibsqlConnection | None = None
 
     def storage_label(self) -> str:
         if self.backend in {"libsql", "turso"}:
@@ -70,26 +71,34 @@ class BenchmarkStore:
 
     @contextmanager
     def connect(self) -> Iterator[Any]:
-        use_lock = self.backend in {"libsql", "turso"}
-        if use_lock:
-            _LIBSQL_LOCK.acquire()
-        try:
-            connection: Any
-            if self.backend in {"libsql", "turso"}:
-                connection = LibsqlConnection.from_env()
-            elif self.backend in {"sqlite", ""}:
-                connection = sqlite3.connect(self.db_path)
-                connection.row_factory = sqlite3.Row
-            else:
-                raise ValueError("SENTIMENT_BENCH_DB_BACKEND must be 'sqlite' or 'libsql'")
+        if self.backend in {"libsql", "turso"}:
+            # Establishing an embedded-replica connection costs a network
+            # round trip (~100ms), so reuse one connection per store instead
+            # of reconnecting per operation; the lock already serializes use.
+            with _LIBSQL_LOCK:
+                if self._libsql_connection is None:
+                    self._libsql_connection = LibsqlConnection.from_env()
+                try:
+                    yield self._libsql_connection
+                    self._libsql_connection.commit()
+                except BaseException:
+                    # The connection may hold a broken or half-finished
+                    # transaction; drop it so the next operation reconnects.
+                    broken, self._libsql_connection = self._libsql_connection, None
+                    with suppress(Exception):
+                        broken.close()
+                    raise
+            return
+        if self.backend in {"sqlite", ""}:
+            connection = sqlite3.connect(self.db_path)
+            connection.row_factory = sqlite3.Row
             try:
                 yield connection
                 connection.commit()
             finally:
                 connection.close()
-        finally:
-            if use_lock:
-                _LIBSQL_LOCK.release()
+            return
+        raise ValueError("SENTIMENT_BENCH_DB_BACKEND must be 'sqlite' or 'libsql'")
 
     def sync_backend(self) -> bool:
         if self.backend not in {"libsql", "turso"}:
@@ -505,23 +514,25 @@ class BenchmarkStore:
                 ),
             )
 
-    def successful_response_exists(self, run_id: int, model_id: str, row_number: int, prompt_hash: str) -> bool:
-        """True only if a *successful* response is already stored.
+    def successful_row_numbers(self, run_id: int, model_id: str, prompt_hash: str) -> set[int]:
+        """Row numbers with a stored *successful* response, in one query.
 
         Resuming a run relies on this so that previously failed rows
         (api_error/transport_error/malformed_response) are re-attempted instead
-        of being treated as permanently complete.
+        of being treated as permanently complete. One query per model matters:
+        per-row lookups open a backend connection each, which stalls
+        full-dataset runs for minutes before the first request on libsql.
         """
         with self.connect() as connection:
-            row = connection.execute(
+            rows = connection.execute(
                 """
-                SELECT 1 FROM responses
-                WHERE run_id = ? AND model_id = ? AND row_number = ? AND prompt_hash = ?
+                SELECT row_number FROM responses
+                WHERE run_id = ? AND model_id = ? AND prompt_hash = ?
                   AND status = 'success'
                 """,
-                (run_id, model_id, row_number, prompt_hash),
-            ).fetchone()
-        return row is not None
+                (run_id, model_id, prompt_hash),
+            ).fetchall()
+        return {int(row[0]) for row in rows}
 
     def save_response(self, run_id: int, record: LLMResponseRecord) -> None:
         with self.connect() as connection:

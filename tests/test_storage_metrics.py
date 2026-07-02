@@ -20,12 +20,24 @@ def test_storage_insert_and_resume_check(tmp_path) -> None:
         parse_status="valid",
         status="success",
     )
-    assert not store.successful_response_exists(1, "test/model", 2, "abc123")
+    failed = LLMResponseRecord(
+        row_number=3,
+        model_id="test/model",
+        prompt_hash="abc123",
+        raw_content=None,
+        normalized_label=None,
+        parse_status="error",
+        status="api_error",
+        error="HTTP 503",
+    )
+    assert store.successful_row_numbers(1, "test/model", "abc123") == set()
     store.save_response(1, record)
-    assert store.successful_response_exists(1, "test/model", 2, "abc123")
+    store.save_response(1, failed)
+    # Only successful rows count as complete; failed rows stay resumable.
+    assert store.successful_row_numbers(1, "test/model", "abc123") == {2}
     store.save_response(1, record)
     responses = store.fetch_responses(1, "test/model")
-    assert len(responses) == 1
+    assert len(responses) == 2
 
 
 def _prompt() -> PromptConfig:
@@ -213,8 +225,11 @@ def test_sync_backend_syncs_libsql(monkeypatch, tmp_path) -> None:
             self.closed = True
 
     fake_connection = FakeConnection()
+    connect_calls = 0
 
     def fake_connect(path, **kwargs):
+        nonlocal connect_calls
+        connect_calls += 1
         return fake_connection
 
     monkeypatch.setitem(sys.modules, "libsql", SimpleNamespace(connect=fake_connect))
@@ -228,7 +243,11 @@ def test_sync_backend_syncs_libsql(monkeypatch, tmp_path) -> None:
     assert store.sync_backend() is True
     assert fake_connection.synced == 1
     assert fake_connection.committed == 1
-    assert fake_connection.closed is True
+    # Connecting to the embedded replica costs a network round trip, so the
+    # connection is cached and reused rather than closed per operation.
+    assert store.sync_backend() is True
+    assert connect_calls == 1
+    assert fake_connection.closed is False
 
 
 def test_metrics_counts_invalid_as_wrong_and_excludes_conflicts() -> None:
