@@ -1019,7 +1019,13 @@ def score_headlines_command(
     ] = os.getenv("OLLAMA_HOST", DEFAULT_OLLAMA_HOST),
     prompt_id: Annotated[
         str,
-        typer.Option("--prompt-id", help="Label-only prompt id from configs/default_prompts.toml."),
+        typer.Option(
+            "--prompt-id",
+            help=(
+                "Prompt id from configs/default_prompts.toml. label_only prompts score +1/0/-1; "
+                "soft_label prompts (e.g. financial_soft_label_base) score P(positive)-P(negative) in [-1, 1]."
+            ),
+        ),
     ] = "finance_calibrated_label_only",
     prompts_path: Annotated[Path, typer.Option("--prompts-path")] = DEFAULT_PROMPTS_PATH,
     output: Annotated[

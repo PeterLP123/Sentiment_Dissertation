@@ -3,6 +3,8 @@ import csv
 import json
 from pathlib import Path
 
+import pytest
+
 from sentiment_benchmark.headline_scoring import score_headlines
 from sentiment_benchmark.headline_value import (
     analyze_headline_value,
@@ -148,6 +150,63 @@ def test_score_headlines_writes_scores_and_resumes(tmp_path: Path) -> None:
     assert resumed.attempted == 0
     assert resumed.already_scored == 2
     assert len(client.calls) == 2
+
+
+class SoftLabelClient(FakeClient):
+    """Returns per-class probabilities like a soft_label prompt run."""
+
+    async def classify(
+        self,
+        model_id: str,
+        prompt,
+        example: BlindExample,
+        temperature: float = 0.0,
+        max_completion_tokens: int = 8,
+        retries: int = 3,
+    ) -> LLMResponseRecord:
+        self.calls.append(example.sentence)
+        positive = 0.7 if "beats" in example.sentence else 0.1
+        negative = 0.1 if "beats" in example.sentence else 0.6
+        probabilities = {"positive": positive, "negative": negative, "neutral": 1.0 - positive - negative}
+        label = max(probabilities, key=lambda key: probabilities[key])
+        return LLMResponseRecord(
+            row_number=example.row_number,
+            model_id=model_id,
+            prompt_hash=prompt.prompt_hash,
+            raw_content=json.dumps(probabilities),
+            normalized_label=label,
+            parse_status="valid",
+            status="success",
+            label_probabilities=probabilities,
+            latency_ms=5,
+        )
+
+
+def test_score_headlines_soft_label_scores_probability_margin(tmp_path: Path) -> None:
+    root = _fixture_collection(tmp_path)
+    output = tmp_path / "soft_scores.csv"
+    prompt = make_prompt("soft", "Return probability JSON.", "Text:\n{sentence}\n\nProbability JSON:", "soft_label")
+
+    summary = asyncio.run(
+        score_headlines(
+            SoftLabelClient(),
+            collection_root=root,
+            model_id="fake/model",
+            prompt=prompt,
+            output_path=output,
+        )
+    )
+
+    assert summary.succeeded == 2
+    with output.open(newline="", encoding="utf-8") as handle:
+        rows = {row["headline"]: row for row in csv.DictReader(handle)}
+    beats = rows["Apple beats earnings estimates"]
+    probe = rows["Microsoft faces antitrust probe"]
+    # Score is P(positive) - P(negative), not the +1/0/-1 label map.
+    assert float(beats["score"]) == pytest.approx(0.6)
+    assert beats["label"] == "positive"
+    assert float(probe["score"]) == pytest.approx(-0.5)
+    assert probe["label"] == "negative"
 
 
 def test_analyze_headline_value_backtests_llm_scorers(tmp_path: Path) -> None:

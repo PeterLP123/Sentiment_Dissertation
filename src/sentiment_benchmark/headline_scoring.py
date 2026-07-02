@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from .budgets import resolve_max_completion_tokens
+from .constants import SOFT_LABEL_MIN_COMPLETION_TOKENS
 from .headline_value import collect_scorable_headlines
 from .models import BlindExample, PromptConfig
 
@@ -68,7 +69,12 @@ async def score_headlines(
     if limit is not None:
         pending = pending[:limit]
 
+    # label_only prompts map labels to +1/0/-1; soft_label prompts score the
+    # elicited distribution as P(positive) - P(negative) in [-1, 1].
+    soft_label = prompt.output_mode == "soft_label"
     budget = resolve_max_completion_tokens(model_id, max_completion_tokens)
+    if soft_label:
+        budget = max(budget, SOFT_LABEL_MIN_COMPLETION_TOKENS)
     semaphore = asyncio.Semaphore(max(1, concurrency))
     write_lock = asyncio.Lock()
     buffer: list[dict[str, Any]] = []
@@ -104,7 +110,15 @@ async def score_headlines(
                     retries=retries,
                 )
             label = record.normalized_label or ""
-            score = LABEL_SCORES.get(label)
+            if soft_label:
+                probabilities = record.label_probabilities or {}
+                score = (
+                    float(probabilities.get("positive", 0.0)) - float(probabilities.get("negative", 0.0))
+                    if probabilities
+                    else None
+                )
+            else:
+                score = LABEL_SCORES.get(label)
             if record.status == "success" and score is not None:
                 status, error = "success", ""
                 succeeded += 1
