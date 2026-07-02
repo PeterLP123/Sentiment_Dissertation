@@ -163,7 +163,7 @@ def score_corpus_matrix_command(
     table.add_row("Hosted", f"{plan.hosted_calls:,}")
     table.add_row("Local", f"{plan.local_calls:,}")
     frozen = frozen_design_call_counts()
-    table.add_row("Frozen LSEG + benchmark total", f"{frozen['total']:,}")
+    table.add_row("Reference LSEG + benchmark total", f"{frozen['total']:,}")
     console.print(table)
     if dry_run:
         return
@@ -201,7 +201,7 @@ def analyze_l2_command(
     prices: Annotated[Path, typer.Option("--prices", help="Cached stock and ^GSPC daily prices CSV.")],
     output_dir: Annotated[Path, typer.Option("--output-dir")],
 ) -> None:
-    """Run the frozen agreement/ambiguity event study."""
+    """Run the L2 clustered agreement/ambiguity event study."""
     try:
         result = analyze_l2(scores, prices, output_dir)
     except L2AnalysisError as exc:

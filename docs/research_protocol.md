@@ -1,6 +1,14 @@
 # Research Protocol
 
-Last updated: 2026-06-28
+Last updated: 2026-07-02
+
+> **Design flexibility (2026-07-02).** Little in this protocol is frozen. Rosters,
+> providers, prompts, call budgets, and analysis parameters are working defaults —
+> we stay flexible to switch them (e.g. to Cerebras-hosted models) as tooling and
+> evidence evolve. Executed runs record exactly what they used (hashes, digests,
+> config, commit); a revised design becomes a new dated run, never an overwrite.
+> The only binding commitments are plans explicitly filed and dated *before* their
+> data are collected or inspected, and those bind only if that design is executed.
 
 Operational documentation:
 
@@ -8,7 +16,7 @@ Operational documentation:
 - [CLI reference](cli_reference.md)
 - [Model providers](model_providers.md)
 - [Tavily news sourcing](news_sourcing.md)
-- [Frozen LSEG analysis workflow](lseg_analysis_workflow.md)
+- [LSEG analysis workflow](lseg_analysis_workflow.md)
 - [Results and exports](results_and_exports.md)
 - [Architecture](architecture.md)
 
@@ -167,7 +175,7 @@ The primary event-study corpus is the fixed 33-company US LSEG panel from 2025-1
 through 2026-06-26. It supplies the L2 single-stock arm and the event-level signal used
 by L3. Futures remain a secondary overlay. The design makes no pre/post-2023 claim.
 Tavily and NewsAPI remain exploratory/pilot sources, while FNSPID or GDELT are
-documented fallbacks rather than inputs silently pooled into the frozen primary cohort.
+documented fallbacks rather than inputs silently pooled into the recorded primary cohort.
 
 LSEG raw checkpoints are licensed local material. The cleaned corpus remains ineligible
 for formal scoring until its raw manifest is completed and verified. The analysis
@@ -197,7 +205,7 @@ explicit pilot limitation.
 
 ## Model Selection
 
-The frozen LSEG crossed-scoring roster is:
+The current default LSEG crossed-scoring roster is:
 
 - GPT-4o mini
 - Gemini 2.5 Flash Lite
@@ -221,11 +229,12 @@ model tags and digests can be verified. Other formal benchmark comparisons may i
 - `baseline/finbert`, as a financial-domain transformer baseline and non-LLM contrast
   in L2.
 
-**Roster freeze.** The model roster is frozen before formal runs begin (M1-3/W3 at the
-latest). Because L2 agreement statistics and the L3 crossed design depend on every
-model scoring every item, adding a model after the freeze requires re-running
-everything; additions are therefore prohibited without an explicit registry entry
-recording the re-run.
+**Roster stability within a run family.** The roster is a per-run-family choice, not
+a project-wide freeze: it may be revised between run families (e.g. swapping in
+Cerebras-hosted models for throughput), with the registry recording what each family
+used. Because L2 agreement statistics and the L3 crossed design depend on every model
+scoring every item, changing the roster *mid-family* requires re-running that family;
+record the re-run in the registry rather than mixing rosters within one family.
 
 Model lists must be recorded in the experiment registry and exports. LLM runs should
 record provider route, model ID, prompt ID/hash, temperature, retry policy,
@@ -257,7 +266,7 @@ and prompt hash. Demonstration rows must not overlap with evaluation rows.
 **Crossed-design requirement (L3).** Formal scoring is item × model × prompt-variant ×
 stochastic sample. Target-company and general-financial soft-label prompt families each
 have a base, label-order, and semantic-paraphrase variant. Five samples are recorded per
-cell. The frozen plan is 100,000 LSEG calls plus 47,500 labeled-benchmark calls: 147,500
+cell. Under the default configuration this is 100,000 LSEG calls plus 47,500 labeled-benchmark calls: 147,500
 total, of which 88,500 are hosted and 59,000 local. Each stored response is keyed by
 item/content hash, model/digest, prompt/hash, and sample index; resume accepts exact
 matches only.
@@ -332,7 +341,7 @@ documented in the dissertation text.
   flag, so event returns are stratified into contamination-free (event after cutoff) vs
   potentially contaminated (event at/before cutoff). The `[cutoff]` policy defaults to
   `stratify` — it only annotates and reports (`sensitivity_cutoff.csv`), leaving the
-  frozen primary cell untouched — while `post_only` restricts the traded signal to
+  declared primary cell untouched — while `post_only` restricts the traded signal to
   contamination-free scores. A complementary entity-masking ablation
   (`[scoring].masking_mode = both`) re-scores each item with the company name, ticker,
   and aliases replaced by `[COMPANY]`/`[TICKER]` placeholders, isolating the model's
@@ -342,7 +351,7 @@ documented in the dissertation text.
 
 ### LSEG Local-Model Evaluation
 
-- Sample 150 `include` events from the frozen cohort, stratified by ticker and exchange-local news date.
+- Sample 150 `include` events from the built cohort, stratified by ticker and exchange-local news date.
 - Double-code 30 sampled events selected with seed 43. Both annotators record relevance and sentiment; report percent agreement and Cohen's kappa for each field separately, then adjudicate every disagreement separately before calculating model metrics.
 - Export only adjudicated-relevant records.
 - Report accuracy, macro-F1, MCC, per-class precision/recall/F1, confusion matrices, and invalid-output coverage against both the existing financial benchmark and the adjudicated local LSEG sample.

@@ -19,7 +19,7 @@ description = "Per-ticker Tavily query matrix for the prospective single-name ne
 #     ticker or "plc"/"Holdings" suffixes (e.g. Shell plc, Rolls-Royce
 #     Holdings, Prudential plc) to avoid off-topic results.
 #
-# FREEZE PROTOCOL: the panel is frozen like the model roster — additions or
+# CHANGE PROTOCOL: the panel is stable per collection campaign — additions or
 # removals after the first formal collection week mean a survivorship-biased
 # panel.
 #

@@ -12,7 +12,7 @@ This documentation is organized by reader task ([Diátaxis](https://diataxis.fr/
 | [Model providers](model_providers.md) | How-to | OpenRouter, Cerebras, and local/remote Ollama setup. |
 | [News sourcing](news_sourcing.md) | How-to | Search, extract, package, and troubleshoot Tavily and NewsAPI corpora. |
 | [LSEG to Ollama pipeline](lseg_ollama_pipeline.md) | How-to | Collect, clean, score, validate, and evaluate local-only Workspace news. |
-| [Frozen LSEG analysis workflow](lseg_analysis_workflow.md) | How-to | The gated corpus → cohort → validation → crossed scoring → L2/L3 sequence. |
+| [LSEG analysis workflow](lseg_analysis_workflow.md) | How-to | The gated corpus → cohort → validation → crossed scoring → L2/L3 sequence (working design; models/providers swappable). |
 | [Trading pipeline](trading_pipeline.md) | How-to + explanation | The news-to-price pipeline: runs, effectiveness battery, sweeps, and pluggable strategies. |
 | [TUI guide](tui_guide.md) | How-to | Interactive model, prompt, run, results, and news workflows. |
 | [CLI reference](cli_reference.md) | Reference | Every command, option, default, and example. |
@@ -20,7 +20,7 @@ This documentation is organized by reader task ([Diátaxis](https://diataxis.fr/
 | [Dataset card](dataset_card.md) | Reference | Dataset identity, provenance, label policy, limitations, and ethics. |
 | [Architecture](architecture.md) | Explanation | Why source data, providers, runs, corpora, and exports are separated. |
 | [Research protocol](research_protocol.md) | Explanation | "Beyond the Score" research questions, hypotheses, layers, and experiment rules. |
-| [Trading pre-registration](trading_preregistration.md) | Explanation | The frozen confirmatory trading test: hypothesis, design, and decision rule. |
+| [Trading pre-registration](trading_preregistration.md) | Explanation | A filed confirmatory trading test (collection parked 2026-07-01; binds only if executed). |
 
 ## Choose A Starting Point
 
@@ -32,9 +32,9 @@ This documentation is organized by reader task ([Diátaxis](https://diataxis.fr/
 | Fetch articles from Tavily or NewsAPI into `Data/news`. | [News sourcing](news_sourcing.md) |
 | Batch-fetch and package a shareable Tavily source dataset. | [News sourcing](news_sourcing.md) |
 | Build the licensed Workspace-to-local-model pipeline. | [LSEG to Ollama pipeline](lseg_ollama_pipeline.md) |
-| Execute the frozen 33-company LSEG cohort, scoring, L2, and L3 workflow. | [Frozen LSEG analysis workflow](lseg_analysis_workflow.md) |
+| Execute the 33-company LSEG cohort, scoring, L2, and L3 workflow. | [LSEG analysis workflow](lseg_analysis_workflow.md) |
 | Run, analyze, tune, or extend the trading strategy. | [Trading pipeline](trading_pipeline.md) |
-| Understand the confirmatory Week 4 trading test. | [Trading pre-registration](trading_preregistration.md) |
+| Understand the filed (currently parked) confirmatory trading test. | [Trading pre-registration](trading_preregistration.md) |
 | Work through the terminal UI. | [TUI guide](tui_guide.md) |
 | Look up a command, option, or default. | [CLI reference](cli_reference.md) |
 | Understand exported files and metrics. | [Results and exports](results_and_exports.md) |

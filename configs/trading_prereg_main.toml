@@ -1,4 +1,9 @@
 # ============================================================================
+# STATUS (2026-07-02): collection PARKED (de-prioritized 2026-07-01). This filed
+# design binds only if executed; it does not constrain other designs. The project
+# stays flexible to switch corpora, scorers, models, and providers — file a new
+# dated plan for any different confirmatory test instead of editing this one.
+# ============================================================================
 # Week 4+ news-sentiment trading run — MAIN (pre-registered) analysis set
 # ============================================================================
 # Purpose: widen the Week 3 pilot from 3 adjacent days to several non-adjacent,

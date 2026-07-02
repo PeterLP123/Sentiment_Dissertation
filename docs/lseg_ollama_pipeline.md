@@ -10,7 +10,7 @@ flowchart LR
     B --> CAT["lseg-catalog<br/>metadata-only index"]
     B --> V["sample-lseg-validation →<br/>evaluate-lseg-annotations"]
     B --> T["run-trading-strategy<br/>pinned Ollama models"]
-    B --> A["build-lseg-analysis-cohort →<br/>frozen L2/L3 workflow"]
+    B --> A["build-lseg-analysis-cohort →<br/>L2/L3 workflow"]
 ```
 
 ## Install And Prerequisites
@@ -29,7 +29,7 @@ sentiment-bench lseg-init-config --collection-id my_lseg_collection --output con
 
 The default preset covers `AAPL`, `AMZN`, `GOOGL`, `JPM`, `META`, `MSFT`, `NVDA`, and `TSLA` from `2025-06-26T00:00:00Z` to `2026-06-26T00:00:00Z` with `window_days = 1`. For other work, copy a config, choose a new stable collection ID, freeze the UTC interval and explicit per-company queries, and do not reuse an ID for different settings.
 
-For a larger cross-sector corpus, `configs/lseg_us_sector_33_6m.toml` defines three US-listed companies in each of 11 sectors over the fixed interval `2025-12-26T00:00:00Z` to `2026-06-26T00:00:00Z`. Its per-company queries use `R:<RIC> and Language:LEN` without a Reuters-only source filter, so the collection retains all English-language sources available under the active Workspace entitlements. Raw, derived, and reporting artifacts are grouped under `Data/collections/lseg_us_sector_33_6m/`; see its README for the exact layout and commands. Validate the configured RICs and headline/story entitlements with `lseg-news-check` before starting the full collection. After collection, follow the [frozen LSEG analysis workflow](lseg_analysis_workflow.md) for the quality gate, validation, crossed scoring, and L2/L3 analyses.
+For a larger cross-sector corpus, `configs/lseg_us_sector_33_6m.toml` defines three US-listed companies in each of 11 sectors over the fixed interval `2025-12-26T00:00:00Z` to `2026-06-26T00:00:00Z`. Its per-company queries use `R:<RIC> and Language:LEN` without a Reuters-only source filter, so the collection retains all English-language sources available under the active Workspace entitlements. Raw, derived, and reporting artifacts are grouped under `Data/collections/lseg_us_sector_33_6m/`; see its README for the exact layout and commands. Validate the configured RICs and headline/story entitlements with `lseg-news-check` before starting the full collection. After collection, follow the [LSEG analysis workflow](lseg_analysis_workflow.md) for the quality gate, validation, crossed scoring, and L2/L3 analyses.
 
 ## Collect And Clean
 

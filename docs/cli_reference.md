@@ -102,11 +102,11 @@ Commands grouped by workflow. Every command is documented in a section below or 
 | `lseg-news-check` | Test the Workspace session and entitlements without writing data. |
 | `fetch-lseg-news` | Atomically checkpoint an immutable, resumable raw collection. |
 | `build-lseg-corpus` | Verify raw hashes and deterministically rebuild clean text offline. |
-| `build-lseg-analysis-cohort` | Apply frozen relevance rules and freeze development/holdout/L3 cohorts. |
+| `build-lseg-analysis-cohort` | Apply the configured relevance rules and write hashed development/holdout/L3 cohorts. |
 | `lseg-catalog` | Refresh the metadata-only local corpus catalog. |
 | `sample-lseg-validation` | Create seeded human-annotation sheets for relevance and sentiment. |
 | `evaluate-lseg-annotations` | Score annotator agreement and adjudications. |
-| `score-corpus-matrix` | Run the frozen crossed model × prompt × sample scoring matrix, resumably. |
+| `score-corpus-matrix` | Run the configured crossed model × prompt × sample scoring matrix, resumably. |
 | `analyze-l2` | Consensus/ambiguity event study with clustered inference (H2). |
 | `analyze-l3` | Variance components, reliability, and holdout trading rules (H3). |
 
@@ -116,7 +116,7 @@ See the [trading pipeline guide](trading_pipeline.md) for the end-to-end workflo
 
 | Command | Purpose |
 | --- | --- |
-| `run-trading-strategy` | Run or preview a frozen source-to-sentiment-to-return trading run. |
+| `run-trading-strategy` | Run or preview a config-driven source-to-sentiment-to-return trading run. |
 | `analyze-trading-run` | Robustness tables, plots, effectiveness battery, and a technical report for a completed run. |
 | `sweep-trading-strategy` | Tune a strategy's parameters on a completed run, selecting on a training split only. |
 | `list-strategies` | List registered trading strategies (ideas) and their sweepable parameters. |
@@ -531,9 +531,9 @@ sentiment-bench lseg-catalog
 
 `lseg-init-config` writes a preset TOML config and refuses to replace an existing file unless `--overwrite` is passed. The default preset is the 8-company Week 4 universe over `2025-06-26T00:00:00Z` to `2026-06-26T00:00:00Z` with daily windows; `configs/lseg_us_mega_cap_1y.toml` is the checked-in template. `lseg-news-check` tests the desktop session plus headline and story entitlements without writing data. `fetch-lseg-news` atomically checkpoints an immutable collection. `build-lseg-corpus` verifies raw hashes and deterministically rebuilds clean text offline. `lseg-catalog` refreshes metadata-only `Data/derived/lseg/catalog.json` and `catalog.csv`.
 
-`build-lseg-analysis-cohort` leaves the verified corpus unchanged, applies the frozen relevance and earliest-revision rules, and writes hashed development, holdout, and L3 cohort artifacts. It refuses incomplete corpora, undersized splits, and existing output directories.
+`build-lseg-analysis-cohort` leaves the verified corpus unchanged, applies the configured relevance and earliest-revision rules, and writes hashed development, holdout, and L3 cohort artifacts. It refuses incomplete corpora, undersized splits, and existing output directories.
 
-`score-corpus-matrix` runs the frozen five-model, three-prompt, five-sample design. Scores are append-only and resumable by item content, model digest, prompt hash, and sample index. `--dry-run` validates inputs and prints both the current call count and the frozen 147,500-call LSEG-plus-benchmark total without contacting a provider.
+`score-corpus-matrix` runs the configured crossed design (default: five models, three prompts, five samples — swappable in `configs/crossed_scoring.toml`). Scores are append-only and resumable by item content, model digest, prompt hash, and sample index. `--dry-run` validates inputs and prints the call counts for the current configuration without contacting a provider.
 
 ```bash
 sentiment-bench analyze-l2 \
@@ -588,8 +588,8 @@ policy = "stratify"               # ignore | stratify (default) | post_only
 masking_mode = "both"             # off (default) | on | both
 ```
 
-- `[prices]` makes runs deterministic and offline-replayable when `cache_dir` is set. `provider = "lseg"` (preferred for formal runs) fetches licensed daily bars through the same Workspace session as the news collection; note it applies exchange/manual corrections and split adjustments but does **not** back-adjust dividends, so returns follow the price-return convention (yfinance's `auto_adjust` folds dividends in). Frozen configs that omit `[prices]` keep the yfinance default.
-- `[cutoff].policy = stratify` only annotates scores and emits `sensitivity_cutoff.csv`, leaving the frozen primary cell untouched; `post_only` additionally restricts the traded signal to contamination-free (post-cutoff) scores; `ignore` disables annotation. Cutoffs are best-effort — verify against provider model cards or pin them via `[cutoff.overrides]`.
+- `[prices]` makes runs deterministic and offline-replayable when `cache_dir` is set. `provider = "lseg"` (preferred for formal runs) fetches licensed daily bars through the same Workspace session as the news collection; note it applies exchange/manual corrections and split adjustments but does **not** back-adjust dividends, so returns follow the price-return convention (yfinance's `auto_adjust` folds dividends in). Existing configs that omit `[prices]` keep the yfinance default.
+- `[cutoff].policy = stratify` only annotates scores and emits `sensitivity_cutoff.csv`, leaving the declared primary cell untouched; `post_only` additionally restricts the traded signal to contamination-free (post-cutoff) scores; `ignore` disables annotation. Cutoffs are best-effort — verify against provider model cards or pin them via `[cutoff.overrides]`.
 - `[scoring].masking_mode = both` runs an extra anonymised arm under `#masked` scorer ids and writes `sensitivity_masking.csv`; `on` scores only masked text; `off` is the default.
 
 An optional `[strategy]` table selects which registered idea a run uses (default is the equal-weight threshold strategy, so existing configs are unaffected):

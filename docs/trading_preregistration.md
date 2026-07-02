@@ -1,6 +1,15 @@
 # Confirmatory Trading Test — Pre-registration
 
-**Status:** frozen before collection · **Date filed:** 2026-06-24
+**Status:** filed 2026-06-24, before collection · **collection parked 2026-07-01 — not currently binding**
+
+> **Status note (2026-07-02):** the forward NewsAPI collection this plan depends on
+> was consciously de-prioritized on 2026-07-01 in favour of the large-N LSEG
+> headline corpus and LLM scoring via Cerebras. This document stays on file
+> unchanged as a dated record: **it binds only if and when this specific design is
+> executed.** It does not constrain other designs — the project stays flexible to
+> switch corpora, scorers, models, and providers, with each executed run recording
+> what it actually used. If a different confirmatory design is adopted, file a new
+> dated plan rather than editing this one.
 
 > **Rename note (2026-07-01):** this file was `docs/week4_preregistration.md` and its
 > configs were `configs/week4_trading_main.toml` / `week4_trading_holdout.toml` (run ids

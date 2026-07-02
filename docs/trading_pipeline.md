@@ -4,7 +4,7 @@ Last updated: 2026-07-01
 
 This guide explains the news-to-price trading pipeline end to end: how articles become sentiment scores, how scores become daily signals and trades, how event returns are computed, and how the analysis, effectiveness battery, parameter sweep, and pluggable strategy layer fit together.
 
-> **Interpretation limit.** Everything here is research infrastructure for the dissertation's L1 layer, not a live-order system or investment advice. Company-day events overlap and are treated as independent by the statistics, so all p-values are optimistic *screening diagnostics* — the only confirmatory claim comes from the frozen [Trading pre-registration](trading_preregistration.md).
+> **Interpretation limit.** Everything here is research infrastructure for the dissertation's L1 layer, not a live-order system or investment advice. Company-day events overlap and are treated as independent by the statistics, so all p-values are optimistic *screening diagnostics* — a confirmatory claim requires a plan filed before its data, e.g. the (currently parked) [Trading pre-registration](trading_preregistration.md).
 
 ## The Pipeline At A Glance
 
@@ -55,7 +55,7 @@ One command runs the left half through `returns.csv`; two more analyze and tune 
 
 ## Stage 1: Sources And Screening
 
-`run-trading-strategy` reads a frozen TOML config (for example [`configs/trading_prereg_main.toml`](../configs/trading_prereg_main.toml)) that fixes the company panel, news dates, providers, models, and policy. It merges provider records into a provider-neutral article table, canonicalizes URLs, removes exact headline syndications, and assigns each article an exchange-local news date.
+`run-trading-strategy` reads a TOML config (for example [`configs/trading_prereg_main.toml`](../configs/trading_prereg_main.toml)) that fixes the company panel, news dates, providers, models, and policy. It merges provider records into a provider-neutral article table, canonicalizes URLs, removes exact headline syndications, and assigns each article an exchange-local news date.
 
 Screening is `automatic_title_rule_v1` — a target alias must appear in the title, excluding consumer promotions — plus documented manual review persisted as a `*_overrides.toml`. Every automatic and manual decision is recorded under `Data/derived/trading/<run-id>/` so inclusion is auditable and is never tuned after seeing returns.
 
@@ -86,7 +86,7 @@ flowchart LR
     E --> H7["D+7 close<br/>exit h=7"]
 ```
 
-Returns are computed on $10,000 notional per event, with gross and net columns (two-sided transaction costs and a disclosed short-borrow assumption). Prices come through the `PriceProvider` seam ([prices.py](../src/sentiment_benchmark/prices.py)) with an opt-in per-(symbol, window) cache (`[prices].cache_dir`), so completed runs are deterministic and offline-replayable. Two backends exist: `lseg` (preferred for formal runs — licensed daily bars through the same Workspace session as the news collection, split/correction-adjusted but not dividend-adjusted, i.e. price returns) and `yfinance` (the historical default; folds dividends in via `auto_adjust`). Frozen configs that omit `[prices]` keep yfinance, so registered runs are unaffected.
+Returns are computed on $10,000 notional per event, with gross and net columns (two-sided transaction costs and a disclosed short-borrow assumption). Prices come through the `PriceProvider` seam ([prices.py](../src/sentiment_benchmark/prices.py)) with an opt-in per-(symbol, window) cache (`[prices].cache_dir`), so completed runs are deterministic and offline-replayable. Two backends exist: `lseg` (preferred for formal runs — licensed daily bars through the same Workspace session as the news collection, split/correction-adjusted but not dividend-adjusted, i.e. price returns) and `yfinance` (the historical default; folds dividends in via `auto_adjust`). Configs that omit `[prices]` keep yfinance, so previously registered runs are unaffected.
 
 Two policy options handle thin coverage:
 
@@ -132,7 +132,7 @@ The same command runs three complementary test families per `(scorer, horizon)` 
 | Benchmark comparison | Does the strategy beat passive buy-and-hold of the same names? | Paired test of the per-event difference | `effectiveness_benchmarks.csv` |
 | Risk-adjusted economics | Is the edge economically meaningful? | Return/risk ratio, win/loss profile, profit factor, naive max drawdown, realised P&L | `effectiveness_economics.csv` |
 
-**Week 3 result (exploratory, 22 events):** no scorer-horizon mean return survived BH correction; a suggestive but non-significant positive pattern appeared for the consensus scorer at D+3..D+6. That pattern motivated — but does not bias — the frozen Week 4 test (consensus, D+5, q < 0.05 on the main set *and* same-sign replication on an untouched holdout).
+**Week 3 result (exploratory, 22 events):** no scorer-horizon mean return survived BH correction; a suggestive but non-significant positive pattern appeared for the consensus scorer at D+3..D+6. That pattern motivated — but does not bias — the filed Week 4 test (consensus, D+5, q < 0.05 on the main set *and* same-sign replication on an untouched holdout); its collection is currently parked.
 
 ## Tuning: The Parameter Sweep
 
@@ -179,7 +179,7 @@ Registered built-ins (`sentiment-bench list-strategies`):
 
 | Strategy id | Idea |
 | --- | --- |
-| `sentiment_threshold_v1` | Equal-weight long/short: full ±1 position once mean sentiment clears the no-trade band. **Default** — reproduces the legacy rule byte-for-byte, so the frozen Trading pre-registration is untouched. |
+| `sentiment_threshold_v1` | Equal-weight long/short: full ±1 position once mean sentiment clears the no-trade band. **Default** — reproduces the legacy rule byte-for-byte, so the filed Trading pre-registration is untouched. |
 | `sentiment_magnitude_v1` | Conviction-weighted long/short: position size scales with \|mean sentiment\| (clipped). |
 | `headline_sentiment_threshold_v1` | Threshold rule applied to per-headline signals (headline information-value pipeline). |
 
@@ -213,7 +213,7 @@ Every layer is a separate, hashed artifact, so a dissertation claim can be trace
 
 ```mermaid
 flowchart LR
-    C["frozen config<br/>(TOML, hashed)"] --> R["run_manifest.json<br/>results/trading/&lt;run-id&gt;"]
+    C["run config<br/>(TOML, hashed)"] --> R["run_manifest.json<br/>results/trading/&lt;run-id&gt;"]
     R --> A["analysis_manifest.json<br/>+ summary.md"]
     R --> S["sweep.csv"]
     A --> E["experiments/manifest.toml<br/>registered run family"]
@@ -221,4 +221,4 @@ flowchart LR
     E --> D["dissertation chapters<br/>cite run ids + hashes"]
 ```
 
-Related reading: [Trading pre-registration](trading_preregistration.md) (the frozen confirmatory test), [Research protocol](research_protocol.md) (L1–L4 design), [Results and exports](results_and_exports.md) (artifact schemas), [Architecture](architecture.md) (module boundaries).
+Related reading: [Trading pre-registration](trading_preregistration.md) (the filed, currently parked confirmatory test), [Research protocol](research_protocol.md) (L1–L4 design), [Results and exports](results_and_exports.md) (artifact schemas), [Architecture](architecture.md) (module boundaries).

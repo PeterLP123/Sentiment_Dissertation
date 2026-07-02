@@ -252,7 +252,7 @@ For LSEG-sourced runs, `Data/news/lseg_<collection-id>/manifest.json` hashes raw
 
 ### Contamination sensitivity and tuning artifacts
 
-Runs also write `sensitivity_cutoff.csv` (mean net return and hit rate split by post- vs pre-knowledge-cutoff per scorer and horizon) and, when a masked arm ran (`[scoring].masking_mode = both`), `sensitivity_masking.csv` (masked vs unmasked). `equity_curve.png` plots cumulative net P&L for the primary scorer. These are descriptive sensitivity layers and do not alter the pre-registered primary cell.
+Runs also write `sensitivity_cutoff.csv` (mean net return and hit rate split by post- vs pre-knowledge-cutoff per scorer and horizon) and, when a masked arm ran (`[scoring].masking_mode = both`), `sensitivity_masking.csv` (masked vs unmasked). `equity_curve.png` plots cumulative net P&L for the primary scorer. These are descriptive sensitivity layers and do not alter the declared primary cell.
 
 `sweep-trading-strategy` reads a completed run's `daily_signals.csv` and `prices.csv` and writes `sweep.csv` (every grid point with train/test metrics and the selected row) plus a `<stem>_heatmap.png` (threshold × horizon test metric, named after the sweep CSV). Parameters are selected on the training split only.
 
