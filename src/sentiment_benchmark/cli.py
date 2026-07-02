@@ -29,6 +29,7 @@ from .constants import (
     ALLOWED_LABELS,
     CONFUSION_PREDICTION_LABELS,
     DEFAULT_BASE_URL,
+    DEFAULT_CEREBRAS_CONCURRENCY,
     DEFAULT_CONCURRENCY,
     DEFAULT_DATASET_PATH,
     DEFAULT_DB_PATH,
@@ -248,6 +249,22 @@ def _resolve_provider(provider: str):
         return normalize_provider(provider)
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from exc
+
+
+def _resolve_concurrency(provider: str, concurrency: int | None) -> int:
+    """Default concurrency per provider when --concurrency is not given.
+
+    Cerebras is quota-paced by the adaptive limiter, so it needs enough
+    in-flight requests to reach the model RPM; local/OpenRouter runs keep
+    the conservative single-request default.
+    """
+    if concurrency is not None:
+        if concurrency < 1:
+            raise typer.BadParameter("--concurrency must be >= 1")
+        return concurrency
+    if provider == "cerebras":
+        return DEFAULT_CEREBRAS_CONCURRENCY
+    return DEFAULT_CONCURRENCY
 
 
 def _make_run_config(
@@ -1218,7 +1235,10 @@ def run_benchmark(
             help="Per-model completion-token override as 'model_id=N'. Repeat for multiple models.",
         ),
     ] = None,
-    concurrency: Annotated[int, typer.Option("--concurrency")] = DEFAULT_CONCURRENCY,
+    concurrency: Annotated[
+        int | None,
+        typer.Option("--concurrency", help="Simultaneous API calls. Default: 64 for Cerebras, otherwise 1."),
+    ] = None,
     retries: Annotated[int, typer.Option("--retries")] = DEFAULT_RETRIES,
     few_shot_k: Annotated[
         int,
@@ -1257,6 +1277,7 @@ def run_benchmark(
     if few_shot_k < 0:
         raise typer.BadParameter("--few-shot-k must be >= 0")
     resolved_provider = _resolve_provider(provider)
+    concurrency = _resolve_concurrency(resolved_provider, concurrency)
     endpoint = endpoint_for_provider(resolved_provider, base_url=base_url, ollama_host=ollama_host)
     model_token_overrides = _parse_model_max_tokens(model_max_tokens)
     prompt = _resolve_prompt(prompt_id, prompts_path)
@@ -1514,7 +1535,10 @@ def run_prompt_suite_command(
     temperature: Annotated[float, typer.Option("--temperature")] = DEFAULT_TEMPERATURE,
     max_completion_tokens: Annotated[int, typer.Option("--max-completion-tokens")] = DEFAULT_MAX_COMPLETION_TOKENS,
     reasoning_max_tokens: Annotated[int, typer.Option("--reasoning-max-tokens")] = DEFAULT_REASONING_MAX_COMPLETION_TOKENS,
-    concurrency: Annotated[int, typer.Option("--concurrency")] = DEFAULT_CONCURRENCY,
+    concurrency: Annotated[
+        int | None,
+        typer.Option("--concurrency", help="Simultaneous API calls. Default: 64 for Cerebras, otherwise 1."),
+    ] = None,
     retries: Annotated[int, typer.Option("--retries")] = DEFAULT_RETRIES,
 ) -> None:
     """Run a model across a family of prompt perturbations (one run per variant).
@@ -1527,6 +1551,7 @@ def run_prompt_suite_command(
     if not models:
         raise typer.BadParameter("At least one --models value is required")
     resolved_provider = _resolve_provider(provider)
+    concurrency = _resolve_concurrency(resolved_provider, concurrency)
     endpoint = endpoint_for_provider(resolved_provider, base_url=base_url, ollama_host=ollama_host)
     base_prompt = _resolve_prompt(base_prompt_id, prompts_path)
     families = tuple(include) if include else ("label_order", "paraphrase")
@@ -1695,7 +1720,10 @@ def run_self_consistency(
         typer.Option("--num-samples", "-n", help="Number of repeated samples per row."),
     ] = 5,
     max_completion_tokens: Annotated[int, typer.Option("--max-completion-tokens")] = DEFAULT_MAX_COMPLETION_TOKENS,
-    concurrency: Annotated[int, typer.Option("--concurrency")] = DEFAULT_CONCURRENCY,
+    concurrency: Annotated[
+        int | None,
+        typer.Option("--concurrency", help="Simultaneous API calls. Default: 64 for Cerebras, otherwise 1."),
+    ] = None,
     retries: Annotated[int, typer.Option("--retries")] = DEFAULT_RETRIES,
 ) -> None:
     """Run a model multiple times at temperature > 0 to measure self-consistency.
@@ -1711,6 +1739,7 @@ def run_self_consistency(
     if temperature < 0.0:
         raise typer.BadParameter("--temperature must be >= 0.0")
     resolved_provider = _resolve_provider(provider)
+    concurrency = _resolve_concurrency(resolved_provider, concurrency)
 
     prompt = _resolve_prompt(prompt_id, prompts_path)
 

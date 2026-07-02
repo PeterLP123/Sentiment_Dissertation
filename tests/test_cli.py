@@ -14,6 +14,17 @@ from sentiment_benchmark.storage import BenchmarkStore
 runner = CliRunner()
 
 
+def test_cli_concurrency_default_is_provider_aware() -> None:
+    from sentiment_benchmark.cli import _resolve_concurrency
+    from sentiment_benchmark.constants import DEFAULT_CEREBRAS_CONCURRENCY
+
+    assert _resolve_concurrency("cerebras", None) == DEFAULT_CEREBRAS_CONCURRENCY
+    assert _resolve_concurrency("openrouter", None) == 1
+    assert _resolve_concurrency("ollama", None) == 1
+    # An explicit flag always wins over the provider default.
+    assert _resolve_concurrency("cerebras", 8) == 8
+
+
 def test_cli_trading_strategy_dry_run_has_no_credential_dependency() -> None:
     result = runner.invoke(app, ["run-trading-strategy", "--dry-run"])
     assert result.exit_code == 0

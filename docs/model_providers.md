@@ -84,7 +84,7 @@ These short label-only requests normally reach the request limit before the toke
 ```bash
 sentiment-bench list-models --provider cerebras --limit 20
 sentiment-bench run --provider cerebras \
-  --models gemma-4-31b --mode pilot --concurrency 64
+  --models gemma-4-31b --mode pilot
 ```
 
 ## Configure Ollama On A Desktop PC

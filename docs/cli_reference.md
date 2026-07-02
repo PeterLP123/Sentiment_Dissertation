@@ -170,7 +170,7 @@ sentiment-bench run --models openai/gpt-4o-mini --mode pilot
 | `--max-completion-tokens` | `64` | Default completion-token budget. |
 | `--reasoning-max-tokens` | `2048` | Larger token budget for reasoning-model ID markers. |
 | `--model-max-tokens` | none | Per-model override as `model_id=N`; repeatable. |
-| `--concurrency` | `1` | Concurrent model requests. The TUI changes this to `64` when Cerebras is selected. |
+| `--concurrency` | provider default | Concurrent model requests. Defaults to `64` for Cerebras (quota-paced) and `1` otherwise, matching the TUI. |
 | `--retries` | `3` | Retries per request. |
 | `--few-shot-k` | `0` | Demonstrations per class. |
 | `--few-shot-seed` | `--seed` | Demonstration sampling seed. |
@@ -502,7 +502,7 @@ Key `run-self-consistency` options:
 | `--temperature`, `-t` | `0.7` | Sampling temperature; use > 0 for diversity. |
 | `--num-samples`, `-n` | `5` | Repeated samples per row. |
 | `--max-completion-tokens` | `64` | Completion-token budget. |
-| `--concurrency` | `1` | Concurrent requests. |
+| `--concurrency` | provider default | Concurrent requests: `64` for Cerebras, `1` otherwise. |
 | `--retries` | `3` | Retries per request. |
 
 ## `tui`
