@@ -4,10 +4,13 @@
 
 ```bash
 cd dissertation
-latexmk -pdf main.tex     # full build (pdflatex + biber + makeglossaries)
-latexmk -c                # clean aux files (keeps the PDF)
-latexmk -C                # clean everything, including main.pdf
+make pdf                  # full build (latexmk: pdflatex + biber + makeglossaries)
+make assets               # refresh generated/ tables from registered runs
+make count                # words per chapter + total vs the 10,000-word budget
+make clean                # remove aux files (keeps the PDF)
 ```
+
+(`latexmk -pdf main.tex` still works directly; the Makefile just wraps it.)
 
 The included `.latexmkrc` wires in `biber` (bibliography) and
 `makeglossaries` (the List of Acronyms) automatically — a plain
@@ -38,6 +41,23 @@ Or use [Overleaf](https://overleaf.com): zip this folder and upload — it works
 
 Chapter structure mirrors the chapter map in the wiki's *Beyond the Score Plan*.
 Sections 3.1–3.4 can be drafted now from the repo — they don't depend on results.
+
+## Results tables: never hand-type numbers
+
+`make assets` (or `python ../scripts/refresh_dissertation_assets.py`) mirrors the
+exported LaTeX tables of every experiment registered in `experiments/manifest.toml`
+into `generated/<experiment-id>/`, each file stamped with a provenance header
+(experiment id, run ids, commit, dataset sha). Include them instead of transcribing:
+
+```latex
+\input{generated/clean-baselines-full-20260628/leaderboard}
+```
+
+Re-run the experiment → re-export → `make assets`, and the document updates itself.
+Anything hand-typed can silently drift from the run it claims to report; anything
+`\input` cannot. `generated/` is tracked in git so the folder still zips straight
+into Overleaf. Check the provenance header before including a table — legacy
+(corrupted-dataset) experiments are mirrored too, and their headers say so.
 
 ## Habits that pay off
 
