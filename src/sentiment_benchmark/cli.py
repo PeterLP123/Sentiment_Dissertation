@@ -48,6 +48,7 @@ from .corpus_scoring import frozen_design_call_counts, load_matrix_config, load_
 from .dataset import compute_stats, load_dataset
 from .env import load_env_file
 from .exporter import export_run
+from .headline_scoring import score_headlines
 from .headline_value import HeadlineValueError, analyze_headline_value
 from .l2_event_study import L2AnalysisError, analyze_l2
 from .l3_reliability import L3AnalysisError, analyze_l3
@@ -1000,6 +1001,83 @@ def analyze_trading_run_command(
     console.print(table)
 
 
+@app.command("score-headlines")
+def score_headlines_command(
+    model: Annotated[str, typer.Option("--model", "-m", help="Model id to score with, e.g. gpt-oss-120b.")],
+    collection_root: Annotated[
+        Path,
+        typer.Option("--collection-root", help="Collection folder or raw LSEG directory containing headlines.jsonl."),
+    ] = Path("Data/collections/lseg_us_sector_33_6m"),
+    provider: Annotated[
+        str,
+        typer.Option("--provider", help="Model provider: openrouter, cerebras, or ollama."),
+    ] = os.getenv("SENTIMENT_BENCH_PROVIDER", DEFAULT_PROVIDER),
+    base_url: Annotated[str, typer.Option("--base-url")] = os.getenv("OPENROUTER_BASE_URL", DEFAULT_BASE_URL),
+    ollama_host: Annotated[
+        str,
+        typer.Option("--ollama-host", help="Ollama host URL, e.g. http://desktop-pc:11434."),
+    ] = os.getenv("OLLAMA_HOST", DEFAULT_OLLAMA_HOST),
+    prompt_id: Annotated[
+        str,
+        typer.Option("--prompt-id", help="Label-only prompt id from configs/default_prompts.toml."),
+    ] = "finance_calibrated_label_only",
+    prompts_path: Annotated[Path, typer.Option("--prompts-path")] = DEFAULT_PROMPTS_PATH,
+    output: Annotated[
+        Path | None,
+        typer.Option("--output", help="Scores CSV (append-only, resumable). Default: <collection>/derived/headline_scores_<model>.csv"),
+    ] = None,
+    temperature: Annotated[float, typer.Option("--temperature")] = DEFAULT_TEMPERATURE,
+    max_completion_tokens: Annotated[int, typer.Option("--max-completion-tokens")] = DEFAULT_MAX_COMPLETION_TOKENS,
+    concurrency: Annotated[
+        int | None,
+        typer.Option("--concurrency", help="Simultaneous API calls. Default: 64 for Cerebras, otherwise 1."),
+    ] = None,
+    retries: Annotated[int, typer.Option("--retries")] = DEFAULT_RETRIES,
+    limit: Annotated[
+        int | None,
+        typer.Option("--limit", min=1, help="Score at most this many unscored headlines (pilot runs)."),
+    ] = None,
+) -> None:
+    """Score the collection's unique headlines with an LLM for analyze-headline-value --llm-scores."""
+    resolved_provider = _resolve_provider(provider)
+    concurrency = _resolve_concurrency(resolved_provider, concurrency)
+    prompt = _resolve_prompt(prompt_id, prompts_path)
+    safe_model = model.replace("/", "_").replace(":", "_")
+    output_path = output if output is not None else collection_root / "derived" / f"headline_scores_{safe_model}.csv"
+
+    async def main() -> None:
+        async with make_llm_client(resolved_provider, base_url=base_url, ollama_host=ollama_host) as client:
+            summary = await score_headlines(
+                client,
+                collection_root=collection_root,
+                model_id=model,
+                prompt=prompt,
+                output_path=output_path,
+                concurrency=concurrency,
+                retries=retries,
+                temperature=temperature,
+                max_completion_tokens=max_completion_tokens,
+                limit=limit,
+                callback=lambda message: console.print(f"[dim]{message}[/dim]"),
+            )
+        table = Table(title=f"Headline Scoring — {model}")
+        table.add_column("Metric")
+        table.add_column("Value", justify="right")
+        table.add_row("Unique scorable headlines", f"{summary.total_unique:,}")
+        table.add_row("Already scored (skipped)", f"{summary.already_scored:,}")
+        table.add_row("Attempted", f"{summary.attempted:,}")
+        table.add_row("Succeeded", f"{summary.succeeded:,}")
+        table.add_row("Failed", f"{summary.failed:,}")
+        table.add_row("Scores CSV", str(summary.output_path))
+        console.print(table)
+        console.print(f"[dim]Backtest with: sentiment-bench analyze-headline-value --llm-scores {summary.output_path}[/dim]")
+
+    try:
+        asyncio.run(main())
+    except HeadlineValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+
 @app.command("analyze-headline-value")
 def analyze_headline_value_command(
     collection_root: Annotated[
@@ -1027,6 +1105,13 @@ def analyze_headline_value_command(
     ] = 10.0,
     notional_usd: Annotated[float, typer.Option("--notional-usd", min=1.0, help="Per-signal notional for P&L summaries.")] = 10_000.0,
     overwrite: Annotated[bool, typer.Option("--overwrite", help="Replace files in an existing non-empty output directory.")] = False,
+    llm_scores: Annotated[
+        list[Path] | None,
+        typer.Option(
+            "--llm-scores",
+            help="score-headlines CSV adding llm/<model> scorers next to the lexicon ones. Repeat for multiple files.",
+        ),
+    ] = None,
 ) -> None:
     """Analyze headline-only coverage, taxonomy, and trading value without requiring story bodies."""
     try:
@@ -1047,6 +1132,7 @@ def analyze_headline_value_command(
             transaction_cost_bps_per_side=transaction_cost_bps_per_side,
             notional_usd=notional_usd,
             overwrite=overwrite,
+            llm_scores=tuple(llm_scores or ()),
         )
     except HeadlineValueError as exc:
         raise typer.BadParameter(str(exc)) from exc

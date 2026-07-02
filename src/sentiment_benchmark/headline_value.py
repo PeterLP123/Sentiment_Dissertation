@@ -218,6 +218,65 @@ def story_family_id(story_id: str) -> str:
     return re.sub(r":\d+$", "", story_id or "")
 
 
+def headline_norm_sha256(headline: str) -> str:
+    """Stable key linking a headline to its LLM scores: hash of the normalized text."""
+    return sha256_text(normalize_headline(headline))
+
+
+def collect_scorable_headlines(collection_root: str | Path) -> list[tuple[str, str]]:
+    """Unique in-window company-matched headlines as (norm sha256, example text) pairs.
+
+    This is the exact population the panel aggregates, so scoring these (and
+    nothing else) gives an LLM scorer the same corpus the lexicon scorers see.
+    """
+    root = Path(collection_root)
+    raw_dir = _resolve_raw_dir(root)
+    headlines_path = raw_dir / "headlines.jsonl"
+    if not headlines_path.exists():
+        raise HeadlineValueError(f"missing headlines.jsonl: {headlines_path}")
+    config = _config_from_manifest(read_json(raw_dir / "manifest.json"))
+    symbols = {company.symbol for company in _companies_from_config(config)}
+    start_date = _parse_date(config["collection"]["start"])
+    end_date = _parse_date(config["collection"]["end"])
+    unique: dict[str, str] = {}
+    with headlines_path.open(encoding="utf-8") as handle:
+        for line_number, line in enumerate(handle, start=1):
+            if not line.strip():
+                continue
+            row = _loads_jsonl_row(line, headlines_path, line_number)
+            headline = str(row.get("headline") or "")
+            normalized = normalize_headline(headline)
+            if not normalized:
+                continue
+            if not any(symbol in symbols for symbol in (row.get("matched_symbols") or ())):
+                continue
+            timestamp = _parse_timestamp(row.get("version_created") or row.get("first_created"))
+            if timestamp is None or not (start_date <= timestamp.date() < end_date):
+                continue
+            unique.setdefault(sha256_text(normalized), headline)
+    return sorted(unique.items())
+
+
+def _load_llm_scores(paths: tuple[str | Path, ...]) -> dict[str, dict[str, float]]:
+    """Read score-headlines CSVs into {norm sha256: {model_id: score}}."""
+    scores: dict[str, dict[str, float]] = {}
+    for raw_path in paths:
+        path = Path(raw_path)
+        if not path.exists():
+            raise HeadlineValueError(f"missing LLM scores file: {path}")
+        with path.open(newline="", encoding="utf-8") as handle:
+            for row in csv.DictReader(handle):
+                if str(row.get("status") or "") != "success":
+                    continue
+                sha = str(row.get("headline_sha256") or "")
+                model_id = str(row.get("model_id") or "")
+                raw_score = str(row.get("score") or "")
+                if not sha or not model_id or raw_score == "":
+                    continue
+                scores.setdefault(sha, {})[model_id] = float(raw_score)
+    return scores
+
+
 def classify_headline(
     headline: str,
     *,
@@ -291,6 +350,7 @@ def analyze_headline_value(
     transaction_cost_bps_per_side: float = 10.0,
     notional_usd: float = 10_000.0,
     overwrite: bool = False,
+    llm_scores: tuple[str | Path, ...] = (),
 ) -> HeadlineValueResult:
     root = Path(collection_root)
     raw_dir = _resolve_raw_dir(root)
@@ -313,6 +373,9 @@ def analyze_headline_value(
     first_pass = _first_pass(headlines_path, symbols=symbols, start_date=start_date, end_date=end_date)
     low_volume_symbols = _low_volume_symbols(first_pass["company_associations"])
     top_sources = {source for source, _ in first_pass["source_counts"].most_common(15)}
+
+    llm_by_sha = _load_llm_scores(llm_scores) if llm_scores else {}
+    llm_day_aggs: dict[str, dict[tuple[str, date], list[float]]] = defaultdict(lambda: defaultdict(lambda: [0.0, 0.0]))
 
     day_aggs: dict[tuple[str, date], DayAggregate] = {(symbol, day): DayAggregate() for symbol in symbols for day in dates}
     event_aggs: dict[tuple[str, str], EventAggregate] = {}
@@ -382,6 +445,13 @@ def analyze_headline_value(
                         classification=classification,
                         tradability_class=tradability_class,
                     )
+                    if llm_by_sha and normalized:
+                        # Mirror the lexicon: one contribution per company
+                        # association per row, aggregated per company-day.
+                        for llm_model_id, llm_score in (llm_by_sha.get(sha256_text(normalized)) or {}).items():
+                            slot = llm_day_aggs[llm_model_id][(symbol, news_date)]
+                            slot[0] += llm_score
+                            slot[1] += 1
                 if normalized:
                     _update_event_aggregate(
                         event_aggs,
@@ -405,6 +475,8 @@ def analyze_headline_value(
     category_rows = _build_category_rows(category_assoc_counts, event_rows)
     sample_rows = _build_sample_rows(sample_candidates, sample_size=sample_size, seed=seed)
     signal_rows = _build_signal_rows(panel_rows)
+    if llm_day_aggs:
+        signal_rows.extend(_build_llm_signal_rows(llm_day_aggs, panel_rows))
 
     company_day_panel_path = _write_csv(target_output / "company_day_panel.csv", panel_rows)
     event_table_path = _write_csv(target_output / "headline_events.csv", event_rows)
@@ -473,6 +545,14 @@ def analyze_headline_value(
             "notional_usd": notional_usd,
         },
         "counts": counts,
+        "llm_scorers": {
+            model_id: {
+                "score_files": [str(path) for path in llm_scores],
+                "scored_company_associations": int(sum(slot[1] for slot in per_day.values())),
+                "covered_company_days": sum(1 for slot in per_day.values() if slot[1] > 0),
+            }
+            for model_id, per_day in sorted(llm_day_aggs.items())
+        },
         "taxonomy": {
             "event_types": list(EVENT_TYPES),
             "tradability_classes": list(TRADABILITY_CLASSES),
@@ -960,6 +1040,48 @@ def _build_signal_rows(panel_rows: list[dict[str, Any]]) -> list[dict[str, Any]]
                     "symbol": panel["symbol"],
                     "news_date": panel["news_date"],
                     "scorer_id": scorer_id,
+                    "article_count": panel["headline_count"],
+                    "valid_count": valid_count,
+                    "mean_score": mean_score,
+                    "signal": signal,
+                    "signal_value": signal_value,
+                    "availability_timestamp": "",
+                }
+            )
+    return rows
+
+
+def _build_llm_signal_rows(
+    llm_day_aggs: dict[str, dict[tuple[str, date], list[float]]],
+    panel_rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """LLM scorer rows in the exact shape of the lexicon signal rows.
+
+    One row per (model, company-day panel row), so llm/<model> scorers flow
+    through the identical backtest with no special-casing downstream.
+    """
+    rows: list[dict[str, Any]] = []
+    for model_id in sorted(llm_day_aggs):
+        per_day = llm_day_aggs[model_id]
+        for panel in panel_rows:
+            key = (str(panel["symbol"]), date.fromisoformat(str(panel["news_date"])))
+            total, count = per_day.get(key, (0.0, 0.0))
+            valid_count = int(count)
+            mean_score: float | str
+            signal_value: int | str
+            if valid_count <= 0:
+                signal = ""
+                signal_value = ""
+                mean_score = ""
+            else:
+                mean_score = total / valid_count
+                signal_value = 1 if mean_score > 0 else -1 if mean_score < 0 else 0
+                signal = "positive" if signal_value == 1 else "negative" if signal_value == -1 else "neutral"
+            rows.append(
+                {
+                    "symbol": panel["symbol"],
+                    "news_date": panel["news_date"],
+                    "scorer_id": f"llm/{model_id}",
                     "article_count": panel["headline_count"],
                     "valid_count": valid_count,
                     "mean_score": mean_score,
