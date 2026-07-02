@@ -3,9 +3,10 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import time
 from contextlib import AsyncExitStack
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 from rich.console import Console, Group
@@ -1200,6 +1201,107 @@ def list_models(
     asyncio.run(main())
 
 
+class _RunProgress:
+    """Live per-model progress bars driven by the runner's structured events.
+
+    Successful rows advance the bars silently; failed rows print their error
+    detail above the display so quick experiments surface problems immediately.
+    """
+
+    def __init__(self, console: Console) -> None:
+        self.progress = Progress(
+            SpinnerColumn(style="cyan"),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(bar_width=20, complete_style="cyan", finished_style="green"),
+            MofNCompleteColumn(),
+            TextColumn("[green]{task.fields[ok]} ok[/green] [red]{task.fields[failed]} failed[/red]"),
+            TextColumn("[dim]ETA[/dim]"),
+            TimeRemainingColumn(),
+            console=console,
+            expand=True,
+        )
+        self._tasks: dict[str, Any] = {}
+        self._counts: dict[str, dict[str, int]] = {}
+        self.failed_rows = 0
+
+    def __enter__(self) -> _RunProgress:
+        self.progress.start()
+        return self
+
+    def __exit__(self, *exc_info: Any) -> None:
+        self.progress.stop()
+
+    def handle_event(self, event: dict[str, Any]) -> None:
+        if event["type"] == "model_started":
+            model_id = event["model_id"]
+            self._counts[model_id] = {"ok": 0, "failed": 0}
+            self._tasks[model_id] = self.progress.add_task(
+                f"[cyan]{model_id}[/cyan]", total=event["total_rows"], ok=0, failed=0
+            )
+        elif event["type"] == "row_completed":
+            model_id = event["model_id"]
+            counts = self._counts.get(model_id)
+            if counts is None or model_id not in self._tasks:
+                return
+            if event["status"] in {"success", "skipped"}:
+                counts["ok"] += 1
+            else:
+                counts["failed"] += 1
+                self.failed_rows += 1
+            self.progress.update(self._tasks[model_id], advance=1, ok=counts["ok"], failed=counts["failed"])
+        elif event["type"] == "model_completed":
+            model_id = event["model_id"]
+            if model_id not in self._tasks:
+                return
+            accuracy = event.get("accuracy")
+            suffix = f" [dim]accuracy={accuracy:.4f}[/dim]" if isinstance(accuracy, (int, float)) else ""
+            style = "green" if event.get("status") == "completed" else "yellow"
+            self.progress.update(self._tasks[model_id], description=f"[{style}]{model_id}[/{style}]{suffix}")
+
+    def handle_message(self, message: str) -> None:
+        # Per-row success lines are covered by the bars; keep lifecycle
+        # messages and anything carrying an error detail. Text() avoids rich
+        # markup parsing of brackets inside API error payloads.
+        if message.startswith(("Saved response:", "Skipped existing response:")) and " error=" not in message:
+            return
+        style = "red" if " error=" in message or "failed" in message.lower() else "dim"
+        self.progress.console.print(Text(message, style=style))
+
+
+def _metrics_summary(store: BenchmarkStore, run_id: int) -> tuple[Table, list[tuple[str, str, dict]]] | None:
+    """Build the per-model metrics table for a run (shared by run/results)."""
+    metric_rows = store.fetch_metrics(run_id)
+    if not metric_rows:
+        return None
+    cost_by_model = store.run_cost_by_model(run_id)
+
+    table = Table(title=f"Run {run_id} Metrics")
+    for column in ("Model", "Scope", "Rows", "Accuracy", "Bal Acc", "MCC", "Macro F1", "Latency", "Tokens", "Cost", "Invalid", "Errors"):
+        table.add_column(column, justify="right" if column not in {"Model", "Scope"} else "left")
+    parsed = [(row["model_id"], row["scope"], json.loads(row["metrics_json"])) for row in metric_rows]
+    scope_order = {"primary": 0, "all": 1}
+    parsed.sort(key=lambda item: (scope_order.get(item[1], 2), -item[2]["accuracy"], item[0]))
+    for model_id, scope, metric in parsed:
+        latency = metric.get("mean_latency_ms")
+        tokens = metric.get("total_tokens") or 0
+        cost = cost_by_model.get(model_id)
+        table.add_row(
+            model_id,
+            scope,
+            str(metric["row_count"]),
+            f"{metric['accuracy']:.4f}",
+            f"{metric.get('balanced_accuracy', 0.0):.4f}",
+            f"{metric.get('mcc', 0.0):.4f}",
+            f"{metric['macro_f1']:.4f}",
+            f"{latency:.0f} ms" if isinstance(latency, (int, float)) else "-",
+            f"{int(tokens):,}" if tokens else "-",
+            f"${cost:.4f}" if isinstance(cost, (int, float)) else "-",
+            str(metric["invalid_output_count"]),
+            str(metric["api_error_count"]),
+        )
+    return table, parsed
+
+
 @app.command("run")
 def run_benchmark(
     models: Annotated[list[str], typer.Option("--models", "-m", help="Model id. Repeat for multiple models.")],
@@ -1304,10 +1406,35 @@ def run_benchmark(
 
     async def main() -> None:
         store = BenchmarkStore(db_path)
-        async with make_llm_client(resolved_provider, base_url=base_url, ollama_host=ollama_host) as client:
-            runner = BenchmarkRunner(client=client, store=store)
-            summary = await runner.run(config, resume_run_id=resume_run_id, callback=lambda message: console.print(message))
-        console.print(f"Run {summary.run_id} complete: {summary.model_count} model(s), {summary.selected_row_count} row(s)")
+        started = time.monotonic()
+        with _RunProgress(console) as display:
+            async with make_llm_client(resolved_provider, base_url=base_url, ollama_host=ollama_host) as client:
+                runner = BenchmarkRunner(client=client, store=store)
+                summary = await runner.run(
+                    config,
+                    resume_run_id=resume_run_id,
+                    callback=display.handle_message,
+                    event_callback=display.handle_event,
+                )
+        elapsed = time.monotonic() - started
+        attempted = summary.selected_row_count * summary.model_count
+        rate = f" ({attempted / elapsed * 60:.0f} rows/min)" if elapsed > 0 and attempted else ""
+        status_style = {"completed": "green", "cancelled": "yellow"}.get(summary.status, "red")
+        console.print(
+            f"\n[{status_style}]Run {summary.run_id} {summary.status}[/{status_style}]: "
+            f"{summary.model_count} model(s) x {summary.selected_row_count} row(s) in {elapsed:.1f}s{rate}"
+        )
+        rendered = _metrics_summary(store, summary.run_id)
+        if rendered is not None:
+            console.print(rendered[0])
+        if display.failed_rows:
+            console.print(
+                f"[yellow]{display.failed_rows} row(s) failed.[/yellow] Re-attempt just those with: "
+                f"sentiment-bench run --resume-run-id {summary.run_id} "
+                + " ".join(f"--models {model}" for model in config.models)
+                + f" --provider {resolved_provider}"
+            )
+        console.print(f"[dim]Full details: sentiment-bench results --run-id {summary.run_id} --confusion[/dim]")
 
     asyncio.run(main())
 
@@ -1404,36 +1531,11 @@ def results_command(
 ) -> None:
     """Show stored metrics (and optionally confusion matrices) for a run."""
     store = BenchmarkStore(db_path)
-    metric_rows = store.fetch_metrics(run_id)
-    if not metric_rows:
+    rendered = _metrics_summary(store, run_id)
+    if rendered is None:
         console.print(f"No metrics found for run {run_id}. It may still be running or have failed before scoring.")
         raise typer.Exit(code=1)
-    cost_by_model = store.run_cost_by_model(run_id)
-
-    table = Table(title=f"Run {run_id} Metrics")
-    for column in ("Model", "Scope", "Rows", "Accuracy", "Bal Acc", "MCC", "Macro F1", "Latency", "Tokens", "Cost", "Invalid", "Errors"):
-        table.add_column(column, justify="right" if column not in {"Model", "Scope"} else "left")
-    parsed = [(row["model_id"], row["scope"], json.loads(row["metrics_json"])) for row in metric_rows]
-    scope_order = {"primary": 0, "all": 1}
-    parsed.sort(key=lambda item: (scope_order.get(item[1], 2), -item[2]["accuracy"], item[0]))
-    for model_id, scope, metric in parsed:
-        latency = metric.get("mean_latency_ms")
-        tokens = metric.get("total_tokens") or 0
-        cost = cost_by_model.get(model_id)
-        table.add_row(
-            model_id,
-            scope,
-            str(metric["row_count"]),
-            f"{metric['accuracy']:.4f}",
-            f"{metric.get('balanced_accuracy', 0.0):.4f}",
-            f"{metric.get('mcc', 0.0):.4f}",
-            f"{metric['macro_f1']:.4f}",
-            f"{latency:.0f} ms" if isinstance(latency, (int, float)) else "-",
-            f"{int(tokens):,}" if tokens else "-",
-            f"${cost:.4f}" if isinstance(cost, (int, float)) else "-",
-            str(metric["invalid_output_count"]),
-            str(metric["api_error_count"]),
-        )
+    table, parsed = rendered
     console.print(table)
 
     if confusion:

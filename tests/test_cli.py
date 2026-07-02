@@ -25,6 +25,122 @@ def test_cli_concurrency_default_is_provider_aware() -> None:
     assert _resolve_concurrency("cerebras", 8) == 8
 
 
+def test_cli_run_shows_progress_and_metrics_summary(tmp_path: Path, monkeypatch) -> None:
+    from contextlib import asynccontextmanager
+
+    dataset = tmp_path / "data.csv"
+    dataset.write_text(
+        "Sentence,Sentiment\npositive example,positive\nnegative example,negative\nneutral example,neutral\n",
+        encoding="utf-8",
+    )
+    db_path = tmp_path / "run.sqlite"
+
+    class StubClient:
+        async def classify(self, model_id, prompt, example, temperature=0.0, max_completion_tokens=8, retries=3):
+            label = example.sentence.split()[0]
+            return LLMResponseRecord(
+                row_number=example.row_number,
+                model_id=model_id,
+                prompt_hash=prompt.prompt_hash,
+                raw_content=label,
+                normalized_label=label,
+                parse_status="valid",
+                status="success",
+                latency_ms=10,
+            )
+
+        async def get_generation_metadata(self, generation_id, retries=3):
+            return None
+
+    @asynccontextmanager
+    async def stub_make_llm_client(*args, **kwargs):
+        yield StubClient()
+
+    monkeypatch.setattr("sentiment_benchmark.cli.make_llm_client", stub_make_llm_client)
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "--models",
+            "stub/model",
+            "--mode",
+            "pilot",
+            "--sample-per-class",
+            "1",
+            "--dataset-path",
+            str(dataset),
+            "--db-path",
+            str(db_path),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    # Per-row success lines are replaced by the progress display.
+    assert "Saved response" not in result.output
+    # The closing summary shows status, throughput, and the metrics table.
+    assert "completed" in result.output
+    assert "rows/min" in result.output
+    assert "Metrics" in result.output
+    assert "stub/model" in result.output
+    assert "results --run-id" in result.output
+
+
+def test_cli_run_surfaces_row_errors_and_resume_hint(tmp_path: Path, monkeypatch) -> None:
+    from contextlib import asynccontextmanager
+
+    dataset = tmp_path / "data.csv"
+    dataset.write_text(
+        "Sentence,Sentiment\npositive example,positive\nnegative example,negative\nneutral example,neutral\n",
+        encoding="utf-8",
+    )
+    db_path = tmp_path / "run.sqlite"
+
+    class FailingStubClient:
+        async def classify(self, model_id, prompt, example, temperature=0.0, max_completion_tokens=8, retries=3):
+            return LLMResponseRecord(
+                row_number=example.row_number,
+                model_id=model_id,
+                prompt_hash=prompt.prompt_hash,
+                raw_content=None,
+                normalized_label=None,
+                parse_status="error",
+                status="api_error",
+                error="HTTP 404: model_not_found",
+                latency_ms=5,
+            )
+
+        async def get_generation_metadata(self, generation_id, retries=3):
+            return None
+
+    @asynccontextmanager
+    async def stub_make_llm_client(*args, **kwargs):
+        yield FailingStubClient()
+
+    monkeypatch.setattr("sentiment_benchmark.cli.make_llm_client", stub_make_llm_client)
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "--models",
+            "stub/model",
+            "--mode",
+            "pilot",
+            "--sample-per-class",
+            "1",
+            "--dataset-path",
+            str(dataset),
+            "--db-path",
+            str(db_path),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    # Rich may soft-wrap the long line; assert on the unbreakable error token.
+    assert "model_not_found" in result.output
+    assert "3 row(s) failed" in result.output
+    assert "--resume-run-id" in result.output
+
+
 def test_cli_trading_strategy_dry_run_has_no_credential_dependency() -> None:
     result = runner.invoke(app, ["run-trading-strategy", "--dry-run"])
     assert result.exit_code == 0
