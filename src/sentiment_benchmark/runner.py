@@ -185,10 +185,11 @@ class BenchmarkRunner:
                         generation_id=record.generation_id,
                         metadata=metadata,
                     )
+            failure_detail = f" error={record.error[:160]}" if record.status != "success" and record.error else ""
             await self._notify(
                 ctx.callback,
                 f"Saved response: run={ctx.run_id} model={model_id} row={example.row_number} "
-                f"status={record.status} label={record.normalized_label or '-'}",
+                f"status={record.status} label={record.normalized_label or '-'}{failure_detail}",
             )
             await self._emit(
                 ctx.event_callback,

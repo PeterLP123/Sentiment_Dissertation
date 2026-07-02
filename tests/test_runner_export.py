@@ -324,10 +324,15 @@ def test_resume_retries_failed_rows(tmp_path: Path) -> None:
     )
     store = BenchmarkStore(db_path)
 
-    first = asyncio.run(BenchmarkRunner(client=FailingClient(), store=store).run(config))  # type: ignore[arg-type]
+    messages: list[str] = []
+    first = asyncio.run(
+        BenchmarkRunner(client=FailingClient(), store=store).run(config, callback=lambda message: messages.append(message))  # type: ignore[arg-type]
+    )
     failed = store.fetch_responses(first.run_id, "fake/model")
     assert len(failed) == 3
     assert all(dict(row)["status"] == "api_error" for row in failed)
+    # The console line surfaces why a row failed, not just its status.
+    assert any("status=api_error" in message and "HTTP 503" in message for message in messages)
 
     counting = CountingClient()
     asyncio.run(BenchmarkRunner(client=counting, store=store).run(config, resume_run_id=first.run_id))  # type: ignore[arg-type]

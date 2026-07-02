@@ -5,6 +5,8 @@ from sentiment_benchmark.constants import DEFAULT_REASONING_MAX_COMPLETION_TOKEN
 def test_is_reasoning_model_detects_known_families() -> None:
     assert is_reasoning_model("openai/gpt-5.5")
     assert is_reasoning_model("openai/o3-mini")
+    # Cerebras hosts gpt-oss bare; it reasons before emitting content.
+    assert is_reasoning_model("gpt-oss-120b")
     assert is_reasoning_model("google/gemini-3.5-flash")
     assert is_reasoning_model("minimax-m3:cloud")
     assert is_reasoning_model("deepseek-v4-pro:cloud")

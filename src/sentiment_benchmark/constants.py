@@ -33,6 +33,7 @@ DEFAULT_RETRIES = 3
 DEFAULT_REASONING_MAX_COMPLETION_TOKENS = 2048
 REASONING_MODEL_MARKERS = (
     "gpt-5",
+    "gpt-oss",
     "o1",
     "o3",
     "o4-mini",
