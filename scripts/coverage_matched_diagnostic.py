@@ -19,6 +19,7 @@ from collections import defaultdict
 from pathlib import Path
 from statistics import correlation, fmean
 
+from sentiment_benchmark.artifact_io import read_json, sha256_text
 from sentiment_benchmark.backtest import DailySignal, DecisionPolicyConfig, run_backtest
 from sentiment_benchmark.headline_value import (
     _companies_from_config,
@@ -32,7 +33,6 @@ from sentiment_benchmark.headline_value import (
     classify_headline,
     normalize_headline,
 )
-from sentiment_benchmark.artifact_io import read_json, sha256_text
 from sentiment_benchmark.strategies import get as get_strategy
 from sentiment_benchmark.strategy_sweep import load_prices_csv
 
