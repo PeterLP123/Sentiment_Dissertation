@@ -120,6 +120,7 @@ See the [trading pipeline guide](trading_pipeline.md) for the end-to-end workflo
 | `analyze-trading-run` | Robustness tables, plots, effectiveness battery, and a technical report for a completed run. |
 | `sweep-trading-strategy` | Tune a strategy's parameters on a completed run, selecting on a training split only. |
 | `list-strategies` | List registered trading strategies (ideas) and their sweepable parameters. |
+| `score-headlines` | Score a collection's unique headlines with an LLM (resumable) for `--llm-scores`. |
 | `analyze-headline-value` | Headline-only coverage, taxonomy, and trading-value screen for an LSEG collection. |
 
 ## `validate-data`
@@ -329,6 +330,17 @@ intervals are descriptive because company-day events overlap and are not indepen
 
 The analysis includes the effectiveness battery — significance/direction tests with Benjamini–Hochberg correction, a buy-and-hold benchmark comparison, and risk-adjusted economics per scorer-horizon cell — written as `effectiveness_*.csv` and appended to `summary.md`. See [Trading pipeline](trading_pipeline.md#the-effectiveness-battery).
 
+## `score-headlines`
+
+```bash
+sentiment-bench score-headlines --model gemma-4-31b --provider cerebras \
+  --prompt-id financial_soft_label_base \
+  --output Data/collections/lseg_us_sector_33_6m/derived/headline_scores_gemma-4-31b_soft.csv \
+  --limit 20000
+```
+
+Scores the exact headline population `analyze-headline-value` aggregates (unique in-window company-matched headlines) with any provider, into an append-only CSV keyed by normalized-headline hash. Re-running skips already-successful rows and re-attempts failures; `--limit` takes a hash-ordered (effectively random) subsample for unbiased pilots. `label_only` prompts score +1/0/-1; `soft_label` prompts score `P(positive) - P(negative)` in [-1, 1]. Keep separate `--output` files per prompt mode. Reasoning models receive the automatic completion-budget bump.
+
 ## `analyze-headline-value`
 
 ```bash
@@ -337,7 +349,7 @@ sentiment-bench analyze-headline-value \
   --prices Data/derived/prices/lseg_us_sector_33.csv
 ```
 
-Analyzes headline-only coverage, an event-type taxonomy, source mix, and lexicon-scored trading value for an LSEG collection, without requiring story bodies. When the prices CSV is omitted or missing, the trading arm is reported as blocked instead of failing. Outputs (panel, event table, category and source summaries, daily signals, a raw-headline calibration template, trading returns/decisions/summary, `summary.md`, and a manifest) contain licensed headline text and stay local.
+Analyzes headline-only coverage, an event-type taxonomy, source mix, and lexicon-scored trading value for an LSEG collection, without requiring story bodies. Pass one or more `--llm-scores` CSVs from `score-headlines` to backtest `llm/<model>` scorers next to the lexicon ones with identical company-day aggregation. When the prices CSV is omitted or missing, the trading arm is reported as blocked instead of failing. Outputs (panel, event table, category and source summaries, daily signals, a raw-headline calibration template, trading returns/decisions/summary, `summary.md`, and a manifest) contain licensed headline text and stay local.
 
 | Option | Default | Meaning |
 | --- | --- | --- |
@@ -350,6 +362,7 @@ Analyzes headline-only coverage, an event-type taxonomy, source mix, and lexicon
 | `--horizons` | `1,5,10` | Comma-separated holding horizons in trading sessions. |
 | `--transaction-cost-bps-per-side` | `10.0` | Per-side trading cost applied to headline signals. |
 | `--notional-usd` | `10000` | Per-signal notional for P&L summaries. |
+| `--llm-scores` | none | `score-headlines` CSV adding `llm/<model>` scorers; repeatable. |
 | `--overwrite` | off | Replace files in an existing non-empty output directory. |
 
 ## `sweep-trading-strategy`
@@ -374,6 +387,8 @@ Tunes a registered strategy on a completed run without re-scoring. It reloads `d
 | `--metric` | `sharpe` | Selection metric: `mean_return`, `hit_rate`, or `sharpe`. |
 | `--train-fraction` | `0.6` | Fraction of distinct news dates used to tune (split is by date, not row). |
 | `--output` | `<run-dir>/sweep.csv` | Where to write the sweep CSV. |
+| `--prices` | `<run-dir>/prices.csv` | Prices CSV override for run dirs without one (e.g. headline-value output). |
+| `--max-news-date` | none | Drop signals after this date (YYYY-MM-DD) when prices lack future sessions. |
 
 ## `list-strategies`
 
@@ -529,11 +544,11 @@ sentiment-bench score-corpus-matrix \
 sentiment-bench lseg-catalog
 ```
 
-`lseg-init-config` writes a preset TOML config and refuses to replace an existing file unless `--overwrite` is passed. The default preset is the 8-company Week 4 universe over `2025-06-26T00:00:00Z` to `2026-06-26T00:00:00Z` with daily windows; `configs/lseg_us_mega_cap_1y.toml` is the checked-in template. `lseg-news-check` tests the desktop session plus headline and story entitlements without writing data. `fetch-lseg-news` atomically checkpoints an immutable collection. `build-lseg-corpus` verifies raw hashes and deterministically rebuilds clean text offline. `lseg-catalog` refreshes metadata-only `Data/derived/lseg/catalog.json` and `catalog.csv`.
+`lseg-init-config` writes a preset TOML config and refuses to replace an existing file unless `--overwrite` is passed. The default preset is the 8-company US mega-cap universe (`us-mega-eight`) over `2025-06-26T00:00:00Z` to `2026-06-26T00:00:00Z` with daily windows; `configs/lseg_us_mega_cap_1y.toml` is the checked-in template. `lseg-news-check` tests the desktop session plus headline and story entitlements without writing data. `fetch-lseg-news` atomically checkpoints an immutable collection. `build-lseg-corpus` verifies raw hashes and deterministically rebuilds clean text offline. `lseg-catalog` refreshes metadata-only `Data/derived/lseg/catalog.json` and `catalog.csv`.
 
 `build-lseg-analysis-cohort` leaves the verified corpus unchanged, applies the configured relevance and earliest-revision rules, and writes hashed development, holdout, and L3 cohort artifacts. It refuses incomplete corpora, undersized splits, and existing output directories.
 
-`score-corpus-matrix` runs the configured crossed design (default: five models, three prompts, five samples — swappable in `configs/crossed_scoring.toml`). Scores are append-only and resumable by item content, model digest, prompt hash, and sample index. `--dry-run` validates inputs and prints the call counts for the current configuration without contacting a provider.
+`score-corpus-matrix` runs the configured crossed design (default: five models, three prompts, five samples — swappable in `configs/crossed_scoring.toml`; `[[models]]` entries accept `openrouter`, `cerebras`, or `ollama` providers). Concurrency is per provider: `[matrix] concurrency` is the global default, `[matrix.provider_concurrency]` overrides per provider, and Cerebras defaults to its quota-paced 64. Reasoning models get the automatic completion-budget bump. Scores are append-only and resumable by item content, model digest, prompt hash, and sample index. `--dry-run` validates inputs and prints the call counts for the current configuration without contacting a provider.
 
 ```bash
 sentiment-bench analyze-l2 \

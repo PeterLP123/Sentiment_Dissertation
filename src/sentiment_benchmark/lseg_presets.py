@@ -22,8 +22,11 @@ from .lseg_source import (
 LSEG_US_MEGA_CAP_1Y_START = "2025-06-26T00:00:00Z"
 LSEG_US_MEGA_CAP_1Y_END = "2026-06-26T00:00:00Z"
 LSEG_US_MEGA_CAP_1Y_ID = "lseg_us_mega_cap_1y"
-LSEG_PRESET_WEEK4_EIGHT = "week4-eight"
-LSEG_PRESETS = (LSEG_PRESET_WEEK4_EIGHT,)
+LSEG_PRESET_US_MEGA_EIGHT = "us-mega-eight"
+# Collections recorded before the de-weeking keep working: the old preset
+# name normalizes to the new id.
+_LEGACY_PRESET_ALIASES = {"week4-eight": LSEG_PRESET_US_MEGA_EIGHT}
+LSEG_PRESETS = (LSEG_PRESET_US_MEGA_EIGHT,)
 
 
 @dataclass(frozen=True)
@@ -34,7 +37,7 @@ class LsegCompanyPreset:
     aliases: tuple[str, ...]
 
 
-WEEK4_EIGHT_COMPANIES: tuple[LsegCompanyPreset, ...] = (
+US_MEGA_EIGHT_COMPANIES: tuple[LsegCompanyPreset, ...] = (
     LsegCompanyPreset("AAPL", "Apple Inc.", "AAPL.O", ("Apple", "AAPL")),
     LsegCompanyPreset("AMZN", "Amazon.com Inc.", "AMZN.O", ("Amazon", "Amazon.com", "AMZN")),
     LsegCompanyPreset("GOOGL", "Alphabet Inc.", "GOOGL.O", ("Alphabet", "Google", "GOOGL")),
@@ -48,7 +51,8 @@ WEEK4_EIGHT_COMPANIES: tuple[LsegCompanyPreset, ...] = (
 
 def companies_for_lseg_preset(preset: str) -> tuple[LsegCompanyConfig, ...]:
     normalized = preset.strip().lower()
-    if normalized != LSEG_PRESET_WEEK4_EIGHT:
+    normalized = _LEGACY_PRESET_ALIASES.get(normalized, normalized)
+    if normalized != LSEG_PRESET_US_MEGA_EIGHT:
         raise LsegConfigurationError(f"unknown LSEG preset {preset!r}; available presets: {', '.join(LSEG_PRESETS)}")
     return tuple(
         LsegCompanyConfig(
@@ -58,7 +62,7 @@ def companies_for_lseg_preset(preset: str) -> tuple[LsegCompanyConfig, ...]:
             news_query=f"R:{company.ric} and Language:LEN",
             aliases=company.aliases,
         )
-        for company in WEEK4_EIGHT_COMPANIES
+        for company in US_MEGA_EIGHT_COMPANIES
     )
 
 

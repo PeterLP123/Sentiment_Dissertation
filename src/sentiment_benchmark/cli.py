@@ -57,7 +57,7 @@ from .lseg_catalog import build_lseg_catalog
 from .lseg_cohort import build_lseg_analysis_cohort
 from .lseg_corpus import build_lseg_corpus
 from .lseg_presets import (
-    LSEG_PRESET_WEEK4_EIGHT,
+    LSEG_PRESET_US_MEGA_EIGHT,
     LSEG_PRESETS,
     LSEG_US_MEGA_CAP_1Y_END,
     LSEG_US_MEGA_CAP_1Y_ID,
@@ -504,7 +504,7 @@ def lseg_init_config(
     preset: Annotated[
         str,
         typer.Option("--preset", help=f"LSEG config preset: {', '.join(LSEG_PRESETS)}."),
-    ] = LSEG_PRESET_WEEK4_EIGHT,
+    ] = LSEG_PRESET_US_MEGA_EIGHT,
     collection_id: Annotated[
         str,
         typer.Option("--collection-id", help="Stable collection id. Do not reuse for different settings."),

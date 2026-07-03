@@ -10,7 +10,7 @@ from rich.text import Text
 from textual.widgets import Button, DataTable, Input, ProgressBar, Select, Static
 
 from sentiment_benchmark.baseline_runner import BaselineRunSummary
-from sentiment_benchmark.lseg_presets import LSEG_PRESET_WEEK4_EIGHT, lseg_config_from_preset, write_lseg_config
+from sentiment_benchmark.lseg_presets import LSEG_PRESET_US_MEGA_EIGHT, lseg_config_from_preset, write_lseg_config
 from sentiment_benchmark.models import DatasetRow, EvaluationResult, LLMResponseRecord, ModelConfig, PromptConfig
 from sentiment_benchmark.news_source import NewsArticleRecord, NewsFetchResult, article_record_id, make_news_fetch_config, normalize_url
 from sentiment_benchmark.storage import BenchmarkStore
@@ -793,7 +793,7 @@ class FakeTuiNewsClient:
 
 def _write_lseg_tui_config(path: Path) -> Path:
     config = lseg_config_from_preset(
-        preset=LSEG_PRESET_WEEK4_EIGHT,
+        preset=LSEG_PRESET_US_MEGA_EIGHT,
         collection_id="tui_lseg",
         start="2025-06-26T00:00:00Z",
         end="2026-06-26T00:00:00Z",
