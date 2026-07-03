@@ -302,3 +302,56 @@ exploratory = true
 preregistered = false
 causal_claim = false
 interpretation_notes = "Event-level and equal-weight mean returns only; overlapping events are not a funded portfolio."
+
+[[experiments]]
+id = "clean-llm-full-20260703"
+title = "Clean full-dataset zero-shot LLM benchmark (Cerebras)"
+status = "completed"
+dissertation_relevance = "First LLM accuracy benchmark on the provenance-clean dataset; fills the chapter 4 results placeholder next to clean-baselines-full-20260628."
+run_ids = [26, 27]
+commit_sha = "20c6f0cb8927b20b0f7ca724167c038268b6bc46"
+export_path = "results/exports/clean_llm_20260703_run_26"
+created_at = "2026-07-02T00:00:00+00:00"
+completed_at = "2026-07-03T00:00:00+00:00"
+
+[experiments.dataset]
+path = "Data/derived/labeled/financial_sentiment_v2.csv"
+sha256 = "514dfc90316ec43617b7d59ac89a29d1063549ed91b08ef21cd11f5a8ac9ea9e"
+rows = 5947
+source = "Financial PhraseBank v1.0 and FiQA 2018 Task 1 provenance-clean rebuild"
+build_script = "scripts/build_labeled_dataset.py"
+
+[experiments.prompt]
+id = "default_label_only"
+hash = "ad461fc9e4af5b81"
+output_mode = "label_only"
+notes = "Zero-shot hard-label prompt; gpt-oss-120b received the automatic reasoning completion budget."
+
+[experiments.models]
+ids = [
+  "gemma-4-31b",
+  "gpt-oss-120b",
+]
+selection_notes = "Cerebras Inference hosted models (run 26 = gemma, exported alongside run 27 = gpt-oss at results/exports/clean_llm_20260703_run_27). Roster is a working default per the flexible-design stance."
+
+[experiments.settings]
+mode = "full"
+seed = 42
+sample_logic = "All 5,947 clean rows; no sampling."
+temperature = 0.0
+concurrency = 64
+retries = 3
+
+[experiments.analysis]
+primary_scope = "primary"
+audit_scope = "all"
+metrics_focus = [
+  "accuracy",
+  "macro_f1",
+  "balanced_accuracy",
+  "mcc",
+  "confusion_matrix",
+  "bootstrap_ci",
+]
+cost_notes = "Cerebras Inference free-tier quota; zero marginal cost. 5,947 requests per model."
+interpretation_notes = "Primary results: gemma-4-31b accuracy 0.800 / macro-F1 0.805; gpt-oss-120b 0.773 / 0.776. Neither zero-shot LLM beats the fine-tuned FinBERT baseline (0.811 / 0.806) from clean-baselines-full-20260628 on hard labels. Run 26 was resumed across the storage throughput fixes (commits 7e00c6d..bf3b5be); responses are identical-protocol throughout."
