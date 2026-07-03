@@ -1186,6 +1186,14 @@ def sweep_trading_strategy_command(
         Path | None,
         typer.Option("--output", help="Where to write sweep.csv (default: <run-dir>/sweep.csv)."),
     ] = None,
+    prices_path: Annotated[
+        Path | None,
+        typer.Option("--prices", help="Prices CSV override for run dirs without one (e.g. headline-value output)."),
+    ] = None,
+    max_news_date: Annotated[
+        str | None,
+        typer.Option("--max-news-date", help="Drop signals after this date (YYYY-MM-DD), e.g. when prices lack future sessions."),
+    ] = None,
 ) -> None:
     """Tune a strategy's parameters on a completed run, selecting on a training
     split only and reporting held-out test metrics (no look-ahead in tuning). The
@@ -1197,9 +1205,11 @@ def sweep_trading_strategy_command(
         raise typer.BadParameter(str(exc)) from exc
     try:
         signals = [s for s in load_signals_csv(run_dir / "daily_signals.csv") if s.scorer_id == scorer]
-        prices = load_prices_csv(run_dir / "prices.csv")
+        prices = load_prices_csv(prices_path if prices_path is not None else run_dir / "prices.csv")
     except OSError as exc:
         raise typer.BadParameter(str(exc)) from exc
+    if max_news_date is not None:
+        signals = [s for s in signals if s.news_date <= max_news_date]
     if not signals:
         raise typer.BadParameter(f"no daily signals for scorer {scorer!r} in {run_dir}")
     param_space = dict(strategy_obj.param_space())

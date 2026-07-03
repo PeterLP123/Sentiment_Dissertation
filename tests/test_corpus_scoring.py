@@ -49,6 +49,60 @@ def test_frozen_design_counts() -> None:
     }
 
 
+def test_matrix_provider_concurrency_defaults_and_overrides(tmp_path: Path) -> None:
+    config = load_matrix_config("configs/crossed_scoring.toml")
+    # Global default applies to openrouter/ollama; Cerebras gets its quota-paced default.
+    assert config.concurrency_for("openrouter") == config.concurrency
+    assert config.concurrency_for("ollama") == config.concurrency
+    assert config.concurrency_for("cerebras") == 64
+
+    config_path = tmp_path / "matrix.toml"
+    base = Path("configs/crossed_scoring.toml").read_text(encoding="utf-8")
+    override = base.replace(
+        "concurrency = 3",
+        "concurrency = 3\n\n[matrix.provider_concurrency]\ncerebras = 16\nollama = 2\n",
+    )
+    config_path.write_text(override, encoding="utf-8")
+    overridden = load_matrix_config(config_path)
+    assert overridden.concurrency_for("cerebras") == 16
+    assert overridden.concurrency_for("ollama") == 2
+    assert overridden.concurrency_for("openrouter") == 3
+
+
+def test_matrix_reasoning_models_get_bumped_completion_budget(tmp_path: Path) -> None:
+    class BudgetCapturingClient(FakeClient):
+        def __init__(self) -> None:
+            self.budgets: dict[str, int] = {}
+
+        async def classify(self, model_id, prompt, example, **kwargs):
+            self.budgets[model_id] = kwargs["max_completion_tokens"]
+            return await super().classify(model_id, prompt, example, **kwargs)
+
+    config_path = tmp_path / "matrix.toml"
+    base = Path("configs/crossed_scoring.toml").read_text(encoding="utf-8")
+    config_path.write_text(
+        base + '\n[[models]]\nid = "gpt-oss-120b"\nprovider = "cerebras"\n',
+        encoding="utf-8",
+    )
+    main = _csv(tmp_path / "main.csv", 1)
+    subset = _csv(tmp_path / "subset.csv", 0)
+    client = BudgetCapturingClient()
+    asyncio.run(
+        score_corpus_matrix(
+            input_path=main,
+            subset_path=subset,
+            input_kind="benchmark",
+            config_path=config_path,
+            prompts_path="configs/default_prompts.toml",
+            output_dir=tmp_path / "output",
+            clients={"openrouter": client, "ollama": client, "cerebras": client},
+        )
+    )
+    # Reasoning model gets the bump; others keep the soft-label config budget.
+    assert client.budgets["gpt-oss-120b"] == 2048
+    assert client.budgets["openai/gpt-4o-mini"] == 128
+
+
 def test_matrix_config_accepts_cerebras_models(tmp_path: Path) -> None:
     config_path = tmp_path / "matrix.toml"
     base = Path("configs/crossed_scoring.toml").read_text(encoding="utf-8")

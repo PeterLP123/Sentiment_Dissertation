@@ -4,11 +4,13 @@ import asyncio
 import csv
 import json
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from .artifact_io import atomic_write_json, canonical_json, sha256_file, sha256_text
+from .budgets import resolve_max_completion_tokens
+from .constants import DEFAULT_CEREBRAS_CONCURRENCY, SOFT_LABEL_MIN_COMPLETION_TOKENS
 from .lseg_source import LsegNewsError, utc_now
 from .models import BlindExample, PromptConfig
 from .prompts import load_prompts
@@ -32,6 +34,20 @@ class MatrixConfig:
     max_completion_tokens: int = 128
     concurrency: int = 3
     retries: int = 3
+    provider_concurrency: dict[str, int] = field(default_factory=dict)
+
+    def concurrency_for(self, provider: str) -> int:
+        """Per-provider in-flight limit; [matrix.provider_concurrency] overrides.
+
+        Cerebras defaults to its quota-paced concurrency: one global limit
+        sized for a local provider would idle a 500-1,000 RPM quota.
+        """
+        override = self.provider_concurrency.get(provider)
+        if override is not None:
+            return override
+        if provider == "cerebras":
+            return max(self.concurrency, DEFAULT_CEREBRAS_CONCURRENCY)
+        return self.concurrency
 
 
 @dataclass(frozen=True)
@@ -78,8 +94,11 @@ def load_matrix_config(path: str | Path) -> MatrixConfig:
         max_completion_tokens=int(raw.get("max_completion_tokens", 128)),
         concurrency=int(raw.get("concurrency", 3)),
         retries=int(raw.get("retries", 3)),
+        provider_concurrency={
+            str(provider): int(value) for provider, value in (raw.get("provider_concurrency") or {}).items()
+        },
     )
-    if config.samples < 1 or config.concurrency < 1:
+    if config.samples < 1 or config.concurrency < 1 or any(v < 1 for v in config.provider_concurrency.values()):
         raise LsegNewsError("matrix samples and concurrency must be positive")
     return config
 
@@ -213,20 +232,31 @@ async def score_corpus_matrix(
             for line in scores_path.read_text(encoding="utf-8").splitlines()
             if line.strip()
         }
-    semaphore = asyncio.Semaphore(config.concurrency)
+    semaphores = {
+        provider: asyncio.Semaphore(config.concurrency_for(provider))
+        for provider in {model.provider for model in config.models}
+    }
     write_lock = asyncio.Lock()
+
+    def completion_budget(model: MatrixModel, prompt: PromptConfig) -> int:
+        # Reasoning models spend completion tokens before emitting content,
+        # and soft-label JSON needs its minimum budget; mirror the runner.
+        budget = resolve_max_completion_tokens(model.model_id, config.max_completion_tokens)
+        if prompt.output_mode == "soft_label":
+            budget = max(budget, SOFT_LABEL_MIN_COMPLETION_TOKENS)
+        return budget
 
     async def score_one(item: MatrixItem, model: MatrixModel, prompt: PromptConfig, sample_index: int) -> None:
         key = (item.item_id, item.content_sha256, model.model_id, prompt.prompt_hash, sample_index)
         if key in existing:
             return
-        async with semaphore:
+        async with semaphores[model.provider]:
             response = await clients[model.provider].classify(
                 model.model_id,
                 prompt,
                 BlindExample(int(item.metadata["row_number"]), item.content),
                 temperature=config.temperature,
-                max_completion_tokens=config.max_completion_tokens,
+                max_completion_tokens=completion_budget(model, prompt),
                 retries=config.retries,
             )
         record = {

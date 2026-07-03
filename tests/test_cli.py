@@ -141,6 +141,64 @@ def test_cli_run_surfaces_row_errors_and_resume_hint(tmp_path: Path, monkeypatch
     assert "--resume-run-id" in result.output
 
 
+def test_cli_sweep_accepts_prices_override_and_news_date_cutoff(tmp_path: Path) -> None:
+    import csv as _csv
+
+    run_dir = tmp_path / "analysis"
+    run_dir.mkdir()
+    dates = ["2026-06-08", "2026-06-09", "2026-06-10", "2026-06-11", "2026-06-12", "2026-06-15", "2026-06-16", "2026-06-17"]
+    with (run_dir / "daily_signals.csv").open("w", newline="", encoding="utf-8") as handle:
+        writer = _csv.DictWriter(
+            handle,
+            fieldnames=[
+                "symbol", "news_date", "scorer_id", "article_count", "valid_count",
+                "mean_score", "signal", "signal_value", "availability_timestamp",
+            ],
+        )
+        writer.writeheader()
+        for day in dates:
+            writer.writerow({
+                "symbol": "AAPL", "news_date": day, "scorer_id": "llm/test", "article_count": "3",
+                "valid_count": "3", "mean_score": "0.5", "signal": "positive", "signal_value": "1",
+                "availability_timestamp": "",
+            })
+        # A signal past the price history: --max-news-date must drop it.
+        writer.writerow({
+            "symbol": "AAPL", "news_date": "2026-06-30", "scorer_id": "llm/test", "article_count": "1",
+            "valid_count": "1", "mean_score": "0.5", "signal": "positive", "signal_value": "1",
+            "availability_timestamp": "",
+        })
+    prices_csv = tmp_path / "external_prices.csv"
+    sessions = dates + ["2026-06-18", "2026-06-19", "2026-06-22"]
+    with prices_csv.open("w", newline="", encoding="utf-8") as handle:
+        writer = _csv.DictWriter(
+            handle,
+            fieldnames=["symbol", "session_date", "open", "high", "low", "close", "volume", "repaired"],
+        )
+        writer.writeheader()
+        for day in sessions:
+            writer.writerow({
+                "symbol": "AAPL", "session_date": day, "open": "100.0", "high": "105.0",
+                "low": "95.0", "close": "101.0", "volume": "1000.0", "repaired": "False",
+            })
+
+    result = runner.invoke(
+        app,
+        [
+            "sweep-trading-strategy",
+            "--run-dir", str(run_dir),
+            "--scorer", "llm/test",
+            "--prices", str(prices_csv),
+            "--max-news-date", "2026-06-17",
+            "--thresholds", "0.0",
+            "--horizons", "1",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert (run_dir / "sweep.csv").exists()
+
+
 def test_cli_trading_strategy_dry_run_has_no_credential_dependency() -> None:
     result = runner.invoke(app, ["run-trading-strategy", "--dry-run"])
     assert result.exit_code == 0
