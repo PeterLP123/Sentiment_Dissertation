@@ -341,6 +341,22 @@ sentiment-bench score-headlines --model gemma-4-31b --provider cerebras \
 
 Scores the exact headline population `analyze-headline-value` aggregates (unique in-window company-matched headlines) with any provider, into an append-only CSV keyed by normalized-headline hash. Re-running skips already-successful rows and re-attempts failures; `--limit` takes a hash-ordered (effectively random) subsample for unbiased pilots. `label_only` prompts score +1/0/-1; `soft_label` prompts score `P(positive) - P(negative)` in [-1, 1]. Keep separate `--output` files per prompt mode. Reasoning models receive the automatic completion-budget bump.
 
+### Unattended full-collection runs
+
+A full-collection pass (hundreds of thousands of headlines) runs for a day or more on Cerebras free-tier quota. The command is built for this: the CSV is append-only and flushed in batches, per-headline errors are recorded without aborting, and the Cerebras client paces itself against the server's minute/hour/day quota windows — when the daily cap is hit it sleeps until the window resets instead of failing. The process only needs to stay alive, so cover the two host-side risks — the terminal dying and the machine sleeping:
+
+```bash
+cd <repo root>          # .env (API key) and the default --collection-root are relative paths
+tmux new -s scoring
+# inside the tmux session:
+caffeinate -is sentiment-bench score-headlines --model gemma-4-31b --provider cerebras \
+  --prompt-id financial_soft_label_base \
+  --output Data/collections/lseg_us_sector_33_6m/derived/headline_scores_gemma-4-31b_soft.csv \
+  2>&1 | tee -a Data/collections/lseg_us_sector_33_6m/derived/scoring_gemma_soft.log
+```
+
+Detach with `Ctrl-b d`; reattach with `tmux attach -t scoring`. `caffeinate -is` blocks idle sleep but not lid-close sleep — keep the laptop on AC power with the lid open (or clamshell mode with an external display). Progress prints every 250 headlines with a running failure count; check on a run with `tail` on the log or `wc -l` on the CSV. The exit code is 0 even when rows failed, so after the run finishes re-run the identical command once as a cleanup pass — it only re-attempts failures. If the process dies (reboot, power loss), relaunching the same command resumes where it stopped; the log stays next to the scores CSV inside the collection directory, which is never committed.
+
 ## `analyze-headline-value`
 
 ```bash
