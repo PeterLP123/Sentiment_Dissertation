@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-CLEANER_VERSION = "lseg_html_v1"
+CLEANER_VERSION = "lseg_html_v2"
 
 QUALITY_OK = "ok"
 QUALITY_MISSING = "missing"
@@ -39,7 +39,16 @@ _BLOCK_ELEMENTS = {
 _TRAILING_BOILERPLATE = (
     re.compile(r"^\(?c\)?\s*copyright\s+(?:thomson\s+)?reuters\b.*$", re.IGNORECASE),
     re.compile(r"^click\s+for\s+restrictions\b.*$", re.IGNORECASE),
-    re.compile(r"^\(\(.*(?:@|thomsonreuters|reuters).*(?:\)\))$", re.IGNORECASE),
+    re.compile(
+        r"^\(\(.*(?:[A-Za-z0-9._%+\-]+@(?:thomsonreuters|reuters)\.com|thomsonreuters|reuters).*\)\s*\)$",
+        re.IGNORECASE,
+    ),
+    re.compile(r"^\(.*[A-Za-z0-9._%+\-]+@(?:thomsonreuters|reuters)\.com.*\)$", re.IGNORECASE),
+    re.compile(r"^--\s*source\s+link:\s*\S+\s*$", re.IGNORECASE),
+    re.compile(
+        r"^--\s*[a-z][a-z -]{0,60}:\s*reuters has not verified this story and does not vouch for its accuracy\.?\s*$",
+        re.IGNORECASE,
+    ),
 )
 
 
