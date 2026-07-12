@@ -8,23 +8,22 @@ A reproducible CLI and terminal UI for dissertation experiments on financial sen
 
 *Active development — MSc dissertation, due 1 September 2026. The CLI/TUI tooling below is stable; current effort is on the dissertation's measurement and trading experiments.*
 
-**Research direction (settled, supervisor-confirmed June 2026): "Beyond the Score."** The central claim is that a single sentiment score `Sₜ` is not a sufficient statistic — the *distribution* of independent model readings carries information the score destroys. The work is layered, and this repository is the measurement engine that feeds it:
+**Research direction (scope reset 12 July 2026): "Beyond the Mean."** The supervisor-confirmed "Beyond the Score" direction is retained, but the dissertation now has one focal construct — **cross-model agreement** — and one bounded market test. Working title: *Beyond the Mean: Cross-Model Agreement and Post-News Return Resolution*. Three separated claims structure the evidence:
 
-- **L1 (baseline):** daily-sentiment threshold trading strategy vs price-only and buy-and-hold.
-- **L2:** inter-model consensus → crowding/reversal event study.
-- **L3:** measurement-reliability (G-theory) → position sizing.
-- **L4 (gated stretch):** writer×scorer robustness.
+- **Benchmark competence:** each scorer in the fixed roster (FinBERT, VADER, Cerebras Gemma and GPT-OSS) classifies financial sentiment credibly on the provenance-clean benchmark.
+- **Construct validity:** item-level cross-model agreement tracks graded human annotation agreement (PhraseBank tiers) and classification error.
+- **External predictive validity:** continuous agreement adds held-out information about firm-level post-news abnormal returns beyond mean sentiment and the initial price reaction.
 
-See [Research protocol](docs/research_protocol.md) and the [Trading pre-registration](docs/trading_preregistration.md).
+The former L1–L4 layer programme (threshold trading, crowding/reversal, G-theory reliability sizing, writer×scorer) is demoted to designed nice-to-haves and future work. See the [Dissertation execution plan](docs/dissertation_execution_plan.md) for the critical path and gates, the [Research protocol](docs/research_protocol.md) for the design, and the [Trading pre-registration](docs/trading_preregistration.md) (collection parked 2026-07-01; binds only if executed).
 
-**Where things stand (W4, early July 2026)**
+**Where things stand (12 July 2026)**
 
-- **Setup (M1) — mostly locked.** Provenance-clean default dataset (`financial_sentiment_v2.csv`), soft-label + calibration (Brier/ECE) metrics, and per-run reproducibility metadata are done. Still open: the final model-roster freeze and the news-API (Tavily) viability decision.
-- **Data pipeline (M2) — largely in place.** Timestamped news + price ingestion, trading-decision alignment, and leakage controls are built. The 33-company LSEG collection is running (complete cross-source headlines; story bodies scoped to a source allowlist to stay inside the daily request quota).
-- **L1 confirmatory test — collecting now.** The pre-registered, frozen **Week 4+ trading test** is in its rolling collection window: consensus scorer at the D+5 horizon, main dates Jun 25 – Jul 30 plus an untouched August holdout, returns maturing ~late August. The L1 baseline chapter is drafted with results placeholders pending that test.
-- **Week 3 pilot — exploratory, no confirmed edge.** The 22-event pilot found no scorer-horizon mean return significant after Benjamini–Hochberg correction, with a suggestive but non-significant positive pattern for the consensus scorer at D+3..D+6. Retained as hypothesis-generating context only.
-- **Backtesting infrastructure — merged.** The trading pipeline now has a pure backtest core, a price-provider cache, contamination controls (knowledge-cutoff stratification, entity masking), an effectiveness battery, a leak-free parameter sweep, and a pluggable strategy registry. See [Trading pipeline](docs/trading_pipeline.md).
-- **Novel layers (L2 / L3) — next**, once the crossed-design extraction runs land (target late July). The `analyze-l2` / `analyze-l3` commands and the frozen workflow are already in place.
+- **Benchmark competence — done.** The provenance-clean dataset (`financial_sentiment_v2.csv`) is validated and the clean full-dataset benchmark runs for the core roster are registered; the hosted LLMs did not beat the fine-tuned FinBERT baseline.
+- **LSEG collection — complete.** The 33-company six-month raw collection finished 2026-06-30 (complete cross-source headlines; story bodies scoped to a source allowlist). Next: the canonical corpus rebuild, event-study price panel, and 100-event dry run feeding the **19 July market-feasibility gate** — current blockers are recorded in the [LSEG workflow](docs/lseg_analysis_workflow.md).
+- **PhraseBank agreement validation — next (due 18 Jul).** Reuses the registered benchmark predictions; no new hosted calls required.
+- **Held-out event study — gated.** If the 19 July gate passes, the lean four-scorer panel (~6,000 hosted calls) and the nested mean-vs-agreement comparison run by 27 July; results freeze 31 July. On failure, the measurement-validity fallback activates — no third design.
+- **Backtesting infrastructure — merged.** The trading pipeline has a pure backtest core, a price-provider cache, contamination controls (knowledge-cutoff stratification, entity masking), an effectiveness battery, a leak-free parameter sweep, and a pluggable strategy registry. See [Trading pipeline](docs/trading_pipeline.md). It now serves the optional economic-translation extension, not the core research question.
+- **Legacy trading tests — exploratory context.** The 22-event Week 3 pilot found no scorer-horizon mean return significant after Benjamini–Hochberg correction; the filed confirmatory Week 4+ collection is parked and binds only if executed.
 
 > Trading results to date are screening diagnostics that assume event independence — not confirmed findings.
 

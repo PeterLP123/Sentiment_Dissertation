@@ -1,31 +1,45 @@
-# LSEG Analysis Workflow
+# LSEG Core Analysis Workflow
 
-Last updated: 2026-07-02
+Last updated: 2026-07-12
 
-> **Design status (2026-07-02): working design, not a pre-registration.** Everything below — roster, prompts, sample counts, call budgets — is the current default, and we stay flexible to switch models, providers (e.g. Cerebras Inference), prompts, or analysis parameters as tooling and evidence evolve. What *is* fixed is provenance: every executed run records exactly what it used (hashes, digests, config, commit) and a revised design becomes a new dated run rather than an overwrite. Freezing happens per run at execution time, not project-wide in advance. The only binding commitments are ones explicitly filed and dated before their data are collected or inspected.
+> **Implementation status.** Corpus/cohort/scoring/L2 foundations exist, but the refocused workflow is not yet fully executable. Commands explicitly marked **planned** require the implementation tasks in [the execution plan](dissertation_execution_plan.md). The former 147,500-call crossed L2/L3 workflow is retained as an optional extension, not the dissertation critical path.
 
-This is the working plan from the completed LSEG collection to the L2/L3 analyses. The primary design is the 33-company US single-stock panel over `2025-12-26T00:00:00Z` to `2026-06-26T00:00:00Z`. Index futures are a secondary overlay. The design does not make a pre/post-2023 comparison.
+## Objective
 
-The raw collection is resumable and may continue independently. Formal scoring waits until the raw manifest, cleaned corpus, quality validation, and cohort build are complete. Raw checkpoints and licensed story text are never source-controlled.
+Build one auditable point-in-time LSEG event panel and test whether continuous cross-model agreement adds held-out information beyond mean sentiment and the initial price reaction.
 
-## Gate Sequence
+Core flow:
 
 ```mermaid
 flowchart LR
-    R["Completed raw LSEG manifest"] --> C["Verified cleaned corpus"]
-    C --> Q["Quality-gated 3,000-event cohort"]
-    Q --> V["Joint human validation"]
-    V --> F["Recorded prompts, models, tags and digests"]
-    F --> S["Resumable crossed scoring"]
-    S --> L2["L2 event study"]
-    S --> L3["L3 reliability analysis"]
-    L2 --> BH["Shared H2/H3 BH correction"]
-    L3 --> BH
+    R["Complete raw LSEG manifest"] --> C["Canonical cleaned corpus"]
+    C --> Q["Audited event cohort"]
+    P["Stocks + market price history"] --> DR["100-event dry run"]
+    Q --> DR
+    DR --> G{"19 Jul gate"}
+    G -->|pass| S["Four-scorer, one-prompt panel"]
+    S --> E["Held-out event study"]
+    E --> F["31 Jul result freeze"]
+    G -->|fail| FB["Measurement-validity fallback"]
 ```
 
-Each command refuses incompatible or incomplete inputs instead of silently replacing artifacts. Use a new output directory for a revised design.
+## Known blockers on 12 July
 
-## 1. Complete And Clean The Corpus
+- The documented price file has only the 33 stocks, no `^GSPC`, and roughly 127–128 sessions; it cannot support the declared market model.
+- `l2_event_study.py` currently aligns using `news_date` rather than the precise `version_created` timing rule.
+- Existing CAR windows include the initial reaction, while the refocused outcome must exclude it.
+- The old analysis uses categorical agreement/H2 crowding hypotheses instead of the continuous nested held-out comparison.
+- Formal core score and L2 artifact directories do not yet exist.
+
+Do not launch full scoring until these blockers and the 100-event dry run are resolved.
+
+## 0. Protect the worktree
+
+The repository contains unrelated dirty funded-portfolio work. Commit/park it deliberately or use a separate `codex/dissertation-core` worktree. Do not mix those changes with the core analysis.
+
+## 1. Complete and rebuild the canonical corpus
+
+Existing commands:
 
 ```bash
 sentiment-bench fetch-lseg-news --config configs/lseg_us_sector_33_6m.toml
@@ -34,9 +48,18 @@ sentiment-bench build-lseg-corpus \
   --source Data/collections/lseg_us_sector_33_6m/raw/lseg_us_sector_33_6m
 ```
 
-The fetcher resumes exact raw checkpoints. The corpus builder verifies the completed raw manifest and creates a derived corpus without changing the raw files.
+Implementation task: allow the verified auxiliary `csv/` export directory to coexist with canonical outputs while preserving the refusal to overwrite any unrecognised non-empty derived content.
 
-## 2. Build The Analysis Cohort
+Required outputs:
+
+- `articles.jsonl`;
+- `screening_index.csv`;
+- complete corpus `manifest.json` with source, cleaner and file hashes;
+- corpus counts and exclusion reasons.
+
+## 2. Build and audit the event cohort
+
+Existing command:
 
 ```bash
 sentiment-bench build-lseg-analysis-cohort \
@@ -44,62 +67,161 @@ sentiment-bench build-lseg-analysis-cohort \
   --config configs/lseg_us_sector_33_analysis.toml
 ```
 
-For each `(story_family, symbol)`, the builder keeps the earliest eligible revision that passes target relevance. Relevance requires either a curated company alias in the headline, or an alias in the lead plus at least two mentions in the body. TOML overrides are the auditable exception mechanism. Decisions are `include`, `review`, or `exclude`; only `include` enters the primary analysis.
+Core event identity is the earliest eligible revision for each `story_family × symbol`. Keep `include`, `review`, and `exclude` decisions auditable. The eventual analysis aggregates to one `symbol × event_session` observation.
 
-Timestamps are converted to New York time. Seed 42 freezes 2,100 development events and a 900-event chronological holdout. The 500-item L3 prompt-facet subset is selected from development only. The manifest hashes the cohort, split, screening index, symbol/date coverage, configuration, and source corpus. Incomplete corpora, fewer than 3,000 included events, fewer than 500 development items, overwrites, and configuration drift are hard failures.
+The old fixed 2,100-development/900-holdout target is a capacity target, not proof of statistical adequacy. Before freeze, report:
 
-## 3. Validate Relevance And Sentiment Jointly
+- included/review/excluded counts and reasons;
+- distinct firms and calendar dates;
+- development/evaluation date boundary and non-overlap;
+- company-day concentration;
+- minimum detectable effect or equivalent support analysis.
+
+Use the existing validation sampler for a 150-event relevance/sentiment audit, with at least the registered double-coded subset and adjudication. Market feasibility requires relevance precision of at least 0.85.
+
+## 3. Build a valid event-study price panel
+
+Planned code/config:
+
+- `src/sentiment_benchmark/price_panel.py`;
+- `tests/test_price_panel.py`;
+- `configs/lseg_us_sector_33_prices.toml`;
+- CLI `build-price-panel`.
+
+Planned command:
 
 ```bash
-sentiment-bench sample-lseg-validation \
-  --cohort-manifest Data/collections/lseg_us_sector_33_6m/derived/us_sector_33_6m_analysis/manifest.json \
-  --output-dir Data/collections/lseg_us_sector_33_6m/derived/us_sector_33_6m_validation
+sentiment-bench build-price-panel \
+  --config configs/lseg_us_sector_33_prices.toml \
+  --output Data/derived/prices/lseg_us_sector_33_event_study.csv
 ```
 
-The sample contains 150 included events; 30 are double-coded with seed 43. Both annotators record relevance and sentiment. Every disagreement is adjudicated separately, and relevance and sentiment percent agreement/Cohen's kappa are reported independently. Only adjudicated-relevant records are exported. The downstream development/holdout boundary remains chronological 70/30.
+The output manifest must contain every retained stock plus the verified broad-market series (`^GSPC`, mapped to the confirmed LSEG instrument) and enough history for 120 estimation sessions, a 21-session gap, the initial session, and ten subsequent sessions.
 
-## 4. Score The Crossed Matrix
+## 4. Run the 100-event timing/CAR gate
 
-The current default LLM roster is GPT-4o mini, Gemini 2.5 Flash Lite, Llama 3.3 70B Instruct, `gemma3:12b`, and `qwen3:8b`. The roster is a choice, not a commitment — swap models or providers (e.g. Cerebras-hosted `gemma-4-31b` / `gpt-oss-120b` for throughput) by editing `configs/crossed_scoring.toml`; the run manifest records whatever roster actually executed. FinBERT and VADER are deterministic contrasts. The soft-label prompt families cross target-company/general-financial wording with base, label-order, and semantic-paraphrase variants.
+Before scoring the full cohort, select 100 representative events across firms, dates and publication-time categories. Verify:
+
+1. `version_created` UTC → `America/New_York` conversion;
+2. same-session versus next-session assignment under the declared close rule;
+3. 120-session market-model estimation and 21-session gap;
+4. event-session `initial_reaction`;
+5. post-event `CAR(+1,+1)`, `CAR(+1,+5)`, and `CAR(+1,+10)` excluding the initial session;
+6. deterministic attrition reasons.
+
+The 19 July market gate passes only when at least 80% of evaluation events align, at least 25 symbols survive, relevance precision is at least 0.85, and date support is adequate for the declared inference. Otherwise activate the measurement-validity fallback; do not redesign the market study on the fly.
+
+## 5. Freeze and score the core roster
+
+Core scorers:
+
+- ProsusAI/FinBERT;
+- VADER;
+- Cerebras `gemma-4-31b`;
+- Cerebras `gpt-oss-120b`.
+
+Core LLM config target: `configs/dissertation_core_scoring.toml`, one target-company label prompt, temperature 0, one sample.
+
+Planned execution shape:
 
 ```bash
 sentiment-bench score-corpus-matrix \
-  --config configs/crossed_scoring.toml \
+  --config configs/dissertation_core_scoring.toml \
   --prompts-path configs/default_prompts.toml \
   --input Data/collections/lseg_us_sector_33_6m/derived/us_sector_33_6m_analysis/cohort.jsonl \
-  --subset Data/collections/lseg_us_sector_33_6m/derived/us_sector_33_6m_analysis/l3_subset.jsonl \
   --kind lseg \
-  --output-dir results/scoring/lseg_us_sector_33_formal \
+  --output-dir results/scoring/lseg_us_sector_33_core_v1 \
   --dry-run
 ```
 
-With the default configuration the dry-run totals 147,500 calls: 100,000 LSEG calls and 47,500 labeled-benchmark calls, split into 88,500 hosted and 59,000 local calls. A different roster or sample count changes these totals; `--dry-run` reprints them without contacting a provider. The full cohort/benchmark tier receives the base prompt; the 500-item facet subsets receive the two additional variants. Five stochastic samples are stored per crossed cell.
+The implementation must also score FinBERT/VADER on the identical item identities and assemble all four scorers under one validated schema. Freeze the dry-run identity list before calls.
 
-Every response identity includes item ID and content hash, model ID and digest, prompt ID and hash, and sample index. Probabilities, label, token usage, latency, cost, parse status, and errors are recorded. Resume skips exact matches only. Formal execution fails if local Ollama tags/digests cannot be verified or if a recorded identity drifts mid-run.
+Acceptance:
 
-## 5. Run L2 And L3
+- model/version/prompt/content/config hashes recorded;
+- at least 98% success per scorer;
+- at least 95% complete four-scorer item coverage;
+- duplicate identities, content mismatch and model drift rejected;
+- no evaluation-driven roster/prompt changes.
+
+The expected hosted workload is approximately 6,000 calls rather than 147,500; the actual dry-run count is the binding value.
+
+## 6. Run the refocused event study
+
+Planned/refactored command:
 
 ```bash
 sentiment-bench analyze-l2 \
-  --scores results/scoring/lseg_us_sector_33_formal/scores.jsonl \
-  --prices Data/derived/prices/lseg_us_sector_33.csv \
-  --output-dir results/l2/lseg_us_sector_33
-
-sentiment-bench analyze-l3 \
-  --scores results/scoring/lseg_us_sector_33_formal/scores.jsonl \
-  --benchmark-scores results/scoring/financial_sentiment_formal/scores.jsonl \
-  --event-returns results/l2/lseg_us_sector_33/event_returns.csv \
-  --l2-hypotheses results/l2/lseg_us_sector_33/hypotheses.csv \
-  --output-dir results/l3/lseg_us_sector_33
+  --scores results/scoring/lseg_us_sector_33_core_v1/scores.jsonl \
+  --prices Data/derived/prices/lseg_us_sector_33_event_study.csv \
+  --output-dir results/l2/lseg_us_sector_33_core_v1
 ```
 
-L2 takes the five-sample majority reading per model, labels pairwise agreement as unanimous/high, 4–1/medium, or at most 0.4/low, and uses mean normalized self-consistency entropy as H2c ambiguity. Company-day event weights sum to one. Primary abnormal returns use a 120-session market model against `^GSPC`, ending 21 sessions before the event, at CAR horizons 1, 5, and 10; market-adjusted returns are sensitivity evidence. Inference includes company/date effects and two-way clustered uncertainty.
+Required comparisons on identical symbol-session rows:
 
-L3 fits crossed item, model, prompt, and interaction variance components with sample residual, then reports variance shares, G/dependability coefficients, item measurement-error variance, bounded reliability, and equal-weight daily reliability. Fixed-threshold, shrunk-signal, and signal-to-noise rules are tuned on development only and compared on the identical holdout with 10 bps per side and date-block bootstrap inference. PhraseBank agreement tiers provide the independent ambiguity/reliability validation. H2 and H3 declared p-values share one Benjamini-Hochberg adjustment.
+1. strongest individual scorer + initial reaction;
+2. ensemble mean + initial reaction;
+3. ensemble mean + agreement + mean×agreement + initial reaction.
 
-## Evidence And Change Control
+Primary held-out evidence is `MSE(model 3) - MSE(model 2)`; a negative value favours the agreement-augmented model. Also report MAE, out-of-sample R-squared and a date-block bootstrap interval. Development data alone determine standardisation and model fit. A company/date-aware coefficient table is secondary explanatory evidence.
 
-- Register formal run families in `experiments/manifest.toml` with source/config hashes and the exact Git commit.
-- Keep raw LSEG text, generated corpora, scores, databases, exports, model caches, and price caches out of Git.
-- A changed cohort rule, prompt, roster, model digest, split, or analysis parameter creates a new run; it does not overwrite the recorded one. Switching designs is allowed and expected — the record of what ran is what must not change.
-- Report null results and limitations. The event study and backtest are observational and do not establish causal market effects or deployable alpha.
+Required output bundle:
+
+- `item_metrics.csv`;
+- `event_panel.csv`;
+- `development_coefficients.csv`;
+- `holdout_predictions.csv`;
+- `model_comparison.csv`;
+- `bootstrap.csv`;
+- `robustness.csv`;
+- `figures/`;
+- `summary.md`;
+- `manifest.json`.
+
+Every summary includes attrition and null results. Agreement interaction signs may describe strengthening, attenuation, continuation, or reversal; they do not identify crowding.
+
+## 7. Register, export, reproduce, freeze
+
+Register:
+
+- `phrasebank-agreement-core-v1`;
+- `lseg-core-scoring-v1`;
+- `lseg-agreement-event-study-v1`.
+
+Store commit, command, split, input/config/model/prompt/output hashes and deviations in `experiments/manifest.toml`. Export main-text assets to `dissertation/generated/`. Reproduce into a fresh output directory before the 31 July freeze.
+
+Verification:
+
+```bash
+pytest -q <focused core tests>
+pytest -q
+ruff check .
+mypy src/sentiment_benchmark
+sentiment-bench validate-data
+cd dissertation
+make assets
+make count
+make pdf
+```
+
+After 31 July, permit only bug fixes, declared robustness, exact reproduction and asset regeneration.
+
+## Optional extended workflow
+
+The following are preserved but not on the critical path:
+
+- old `configs/crossed_scoring.toml` three-prompt/five-sample matrix;
+- TF–IDF fifth scorer after a documented full-data fit;
+- prompt sensitivity and within-model entropy;
+- L3 G-theory/reliability analysis and sizing;
+- one after-cost agreement-conditioned portfolio rule;
+- futures overlay, training-cutoff, heterogeneity and Echo experiments.
+
+An extension can start only after core reproduction on 31 July, at least 7,500 substantive dissertation words, and no risk to the 9–10 August supervisor draft. At most one enters the main text.
+
+## Evidence and change control
+
+- Never overwrite raw LSEG text, completed run artifacts, score files or manifests.
+- A changed cohort, roster, model digest, prompt, split, timing rule, outcome or analysis parameter creates a new run ID/output directory.
+- Keep licensed raw/derived text and heavy generated results out of Git; source-controlled manifests/docs/code explain how to reproduce them.
+- Report nulls, failures, attrition and limitations. This workflow does not establish causal market effects or deployable alpha.

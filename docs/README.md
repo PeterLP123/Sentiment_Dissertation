@@ -8,31 +8,33 @@ This documentation is organized by reader task ([Diátaxis](https://diataxis.fr/
 
 | Document | Type | Best for |
 | --- | --- | --- |
+| [Dissertation execution plan](dissertation_execution_plan.md) | Plan | The refocused critical path: exact code, artifacts, gates, writing dependencies, dates, and nice-to-haves. |
 | [Getting started](getting_started.md) | Tutorial | First install, validation, pilot run, export, and news fetch. |
 | [Model providers](model_providers.md) | How-to | OpenRouter, Cerebras, and local/remote Ollama setup. |
 | [News sourcing](news_sourcing.md) | How-to | Search, extract, package, and troubleshoot Tavily and NewsAPI corpora. |
 | [LSEG to Ollama pipeline](lseg_ollama_pipeline.md) | How-to | Collect, clean, score, validate, and evaluate local-only Workspace news. |
-| [LSEG analysis workflow](lseg_analysis_workflow.md) | How-to | The gated corpus → cohort → validation → crossed scoring → L2/L3 sequence (working design; models/providers swappable). |
+| [LSEG analysis workflow](lseg_analysis_workflow.md) | How-to + implementation plan | The gated corpus → price/timing dry run → lean four-scorer panel → held-out event-study sequence. |
 | [Trading pipeline](trading_pipeline.md) | How-to + explanation | The news-to-price pipeline: runs, effectiveness battery, sweeps, and pluggable strategies. |
 | [TUI guide](tui_guide.md) | How-to | Interactive model, prompt, run, results, and news workflows. |
 | [CLI reference](cli_reference.md) | Reference | Every command, option, default, and example. |
 | [Results and exports](results_and_exports.md) | Reference | Storage backends, export files, metrics, LaTeX tables, and trading artifacts. |
 | [Dataset card](dataset_card.md) | Reference | Dataset identity, provenance, label policy, limitations, and ethics. |
 | [Architecture](architecture.md) | Explanation | Why source data, providers, runs, corpora, and exports are separated. |
-| [Research protocol](research_protocol.md) | Explanation | "Beyond the Score" research questions, hypotheses, layers, and experiment rules. |
+| [Research protocol](research_protocol.md) | Explanation | The refocused agreement-validity and incremental held-out market design, inference, artifacts, and interpretation limits. |
 | [Trading pre-registration](trading_preregistration.md) | Explanation | A filed confirmatory trading test (collection parked 2026-07-01; binds only if executed). |
 
 ## Choose A Starting Point
 
 | I need to... | Read this |
 | --- | --- |
+| See the dissertation's current critical path and deliverables. | [Dissertation execution plan](dissertation_execution_plan.md) |
 | Install the project and run the first benchmark. | [Getting started](getting_started.md) |
 | Use Gemma or another local model running on a desktop PC. | [Model providers](model_providers.md) |
 | Share run history across machines with Turso/libSQL. | [Results and exports](results_and_exports.md) |
 | Fetch articles from Tavily or NewsAPI into `Data/news`. | [News sourcing](news_sourcing.md) |
 | Batch-fetch and package a shareable Tavily source dataset. | [News sourcing](news_sourcing.md) |
 | Build the licensed Workspace-to-local-model pipeline. | [LSEG to Ollama pipeline](lseg_ollama_pipeline.md) |
-| Execute the 33-company LSEG cohort, scoring, L2, and L3 workflow. | [LSEG analysis workflow](lseg_analysis_workflow.md) |
+| Execute the refocused 33-company LSEG feasibility, scoring, and event-study workflow. | [LSEG analysis workflow](lseg_analysis_workflow.md) |
 | Run, analyze, tune, or extend the trading strategy. | [Trading pipeline](trading_pipeline.md) |
 | Understand the filed (currently parked) confirmatory trading test. | [Trading pre-registration](trading_preregistration.md) |
 | Work through the terminal UI. | [TUI guide](tui_guide.md) |
@@ -98,3 +100,4 @@ Source-controlled files should explain how an experiment was produced. Local gen
 4. [Results and exports](results_and_exports.md)
 5. [Trading pipeline](trading_pipeline.md)
 6. [Research protocol](research_protocol.md)
+7. [Dissertation execution plan](dissertation_execution_plan.md)

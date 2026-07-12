@@ -97,10 +97,9 @@
 \usepackage[colorinlistoftodos, textsize=footnotesize]{todonotes}
 
 % ----------------------- Metadata -----------------------------------
-% Working title — aligns with the "Beyond the Score" thesis: the
-% scalar S_t is not a sufficient statistic; trade the distribution.
-\title{Beyond the Score: Trading the Distribution of\\
-       Machine-Read Financial Sentiment}            % <-- refine late
+% Working title aligned with the refocused 12 July research contract.
+\title{Beyond the Mean: Cross-Model Agreement and\\
+       Post-News Return Resolution}
 \author{Peter Prendergast}
 \date{September 2026}                               % <-- submission month
 
@@ -113,9 +112,9 @@
 \begin{titlepage}
   \centering
   \vspace*{2cm}
-  {\LARGE\bfseries Beyond the Score: Trading the Distribution\\of Machine-Read Financial Sentiment\par}
+  {\LARGE\bfseries Beyond the Mean: Cross-Model Agreement\\and Post-News Return Resolution\par}
   \vspace{0.5cm}
-  {\large Consensus, Reliability, and the Limits of a Scalar Sentiment Signal\par}
+  {\large Measurement Validity and Incremental Market Information\par}
   \vspace{2cm}
   {\large\bfseries Peter Prendergast\par}
   \vspace{1cm}
@@ -149,18 +148,20 @@
 % ----------------------- Main matter --------------------------------
 \pagenumbering{arabic}
 
-% Chapter map mirrors the Beyond the Score research plan:
-% L1 = baseline threshold strategy (supervisor's design, retained)
-% L2 = consensus -> crowding/reversal (headline novel chapter)
-% L3 = reliability -> shrinkage/sizing (second novel chapter)
-% L4 = echo experiment — GATED at M2 (28 Jun): if the gate stayed
-%      closed, delete the include AND the chapter file, and close RQ4
-%      in the conclusion instead.
+% Refocused core (12 July): one agreement-validity analysis and one
+% held-out LSEG event study. Chapters 04/05 are transitional source
+% files to be consolidated into Methodology and Results. The L3 and
+% L4 files are optional/future-work sources. They remain temporarily
+% included only until the old cross-references are migrated below.
 \include{chapters/01-introduction}
 \include{chapters/02-literature-review}
 \include{chapters/03-data-pipeline}
 \include{chapters/04-layer1-baseline}
 \include{chapters/05-layer2-consensus}
+% Nice-to-have only. These remain temporarily included while the old
+% scaffold still cross-references their labels; the 12--14 July
+% consolidation task removes the references and then excludes them
+% from the seven-chapter core without deleting the source files.
 \include{chapters/06-layer3-reliability}
 \include{chapters/07-layer4-echo}
 \include{chapters/08-discussion}
