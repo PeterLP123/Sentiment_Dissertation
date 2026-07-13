@@ -7,6 +7,7 @@ import pytest
 
 from sentiment_benchmark.headline_scoring import score_headlines
 from sentiment_benchmark.headline_value import (
+    HeadlineValueError,
     analyze_headline_value,
     collect_scorable_headlines,
     headline_norm_sha256,
@@ -114,6 +115,37 @@ def test_collect_scorable_headlines_dedupes_and_windows(tmp_path: Path) -> None:
     assert headlines[0][0] == headline_norm_sha256(dict(headlines)[headlines[0][0]])
 
 
+def test_collect_scorable_headlines_filters_source_and_direct_company(tmp_path: Path) -> None:
+    root = _fixture_collection(tmp_path)
+    headlines_path = root / "raw" / "lseg_fixture" / "headlines.jsonl"
+    with headlines_path.open("a", encoding="utf-8") as handle:
+        handle.write(
+            json.dumps(
+                {
+                    "story_id": "urn:newsml:reuters.com:20260601:multi:1",
+                    "headline": "Apple and Microsoft announce partnership",
+                    "version_created": "2026-06-01T17:00:00Z",
+                    "source_code": "NS:RTRS",
+                    "matched_symbols": ["AAPL", "MSFT"],
+                }
+            )
+            + "\n"
+        )
+
+    reuters = collect_scorable_headlines(root, source_codes=("NS:RTRS",))
+    direct = collect_scorable_headlines(
+        root,
+        source_codes=("NS:RTRS",),
+        direct_company_only=True,
+    )
+
+    assert {text for _sha, text in reuters} == {
+        "Apple beats earnings estimates",
+        "Apple and Microsoft announce partnership",
+    }
+    assert [text for _sha, text in direct] == ["Apple beats earnings estimates"]
+
+
 def test_score_headlines_writes_scores_and_resumes(tmp_path: Path) -> None:
     root = _fixture_collection(tmp_path)
     output = tmp_path / "scores.csv"
@@ -150,6 +182,25 @@ def test_score_headlines_writes_scores_and_resumes(tmp_path: Path) -> None:
     assert resumed.attempted == 0
     assert resumed.already_scored == 2
     assert len(client.calls) == 2
+
+
+def test_score_headlines_refuses_population_above_safety_ceiling(tmp_path: Path) -> None:
+    root = _fixture_collection(tmp_path)
+    client = FakeClient()
+
+    with pytest.raises(HeadlineValueError, match="exceeding --max-population 1"):
+        asyncio.run(
+            score_headlines(
+                client,
+                collection_root=root,
+                model_id="fake/model",
+                prompt=_prompt(),
+                output_path=tmp_path / "scores.csv",
+                max_population=1,
+            )
+        )
+
+    assert client.calls == []
 
 
 class SoftLabelClient(FakeClient):

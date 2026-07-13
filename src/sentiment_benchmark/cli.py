@@ -51,7 +51,7 @@ from .dataset import compute_stats, load_dataset
 from .env import load_env_file
 from .exporter import export_run
 from .headline_scoring import score_headlines
-from .headline_value import HeadlineValueError, analyze_headline_value
+from .headline_value import HeadlineValueError, analyze_headline_value, collect_scorable_headlines
 from .l2_event_study import L2AnalysisError, analyze_l2
 from .l3_reliability import L3AnalysisError, analyze_l3
 from .latex_tables import sensitivity_table_latex
@@ -103,6 +103,7 @@ from .newsapi_source import (
     write_newsapi_corpus,
 )
 from .perturbations import generate_prompt_suite
+from .price_export import PriceExportError, export_lseg_prices
 from .prompt_sensitivity import SENSITIVITY_METRICS, prompt_sensitivity
 from .prompts import load_prompts
 from .providers import endpoint_for_provider, make_llm_client, normalize_provider
@@ -636,6 +637,10 @@ def lseg_news_check(
         Path,
         typer.Option("--config", help="TOML LSEG collection definition used for the entitlement check."),
     ] = Path("configs/lseg_workspace_example.toml"),
+    all_companies: Annotated[
+        bool,
+        typer.Option("--all-companies", help="Check every configured RIC over the complete interval."),
+    ] = False,
 ) -> None:
     """Verify Workspace headline and story access without writing data."""
     try:
@@ -645,14 +650,19 @@ def lseg_news_check(
 
     async def main() -> None:
         async with _make_lseg_news_client() as client:
-            result = await check_lseg_news(config, client)
+            result = await check_lseg_news(config, client, all_companies=all_companies)
         table = Table(title="LSEG Workspace News Check")
-        table.add_column("Metric")
-        table.add_column("Value")
-        table.add_row("Query", str(result["query"]))
-        table.add_row("Headlines", str(result["headline_count"]))
-        table.add_row("Story ID", str(result["story_id"] or "-"))
-        table.add_row("Story status", str(result["story_status"]))
+        table.add_column("Symbol")
+        table.add_column("RIC")
+        table.add_column("Headlines", justify="right")
+        table.add_column("Story status")
+        for check in result["checks"]:
+            table.add_row(
+                str(check["symbol"]),
+                str(check["ric"]),
+                str(check["headline_count"]),
+                str(check["story_status"]),
+            )
         console.print(table)
 
     try:
@@ -779,6 +789,43 @@ def fetch_lseg_news_command(
         asyncio.run(main())
     except LsegNewsError as exc:
         raise typer.BadParameter(str(exc)) from exc
+
+
+@app.command("fetch-lseg-prices")
+def fetch_lseg_prices_command(
+    config_path: Annotated[
+        Path,
+        typer.Option("--config", help="LSEG collection config supplying the symbol-to-RIC universe."),
+    ],
+    start: Annotated[str, typer.Option("--start", help="First requested price date (YYYY-MM-DD).")],
+    end: Annotated[str, typer.Option("--end", help="Last requested price date (YYYY-MM-DD).")],
+    output: Annotated[Path, typer.Option("--output", help="Destination OHLCV CSV.")],
+    overwrite: Annotated[
+        bool,
+        typer.Option("--overwrite", help="Replace an existing CSV and manifest."),
+    ] = False,
+) -> None:
+    """Fetch a hash-manifested LSEG price panel for a configured company universe."""
+
+    try:
+        config = load_lseg_collection_config(config_path)
+        result = export_lseg_prices(
+            config,
+            start=start,
+            end=end,
+            output=output,
+            overwrite=overwrite,
+        )
+    except (LsegNewsError, PriceExportError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    table = Table(title="LSEG Price Export")
+    table.add_column("Metric")
+    table.add_column("Value")
+    table.add_row("Symbols", str(result.symbol_count))
+    table.add_row("Rows", f"{result.row_count:,}")
+    table.add_row("CSV", str(result.output_path))
+    table.add_row("Manifest", str(result.manifest_path))
+    console.print(table)
 
 
 @app.command("build-lseg-corpus")
@@ -1132,6 +1179,29 @@ def score_headlines_command(
         int | None,
         typer.Option("--limit", min=1, help="Score at most this many unscored headlines (pilot runs)."),
     ] = None,
+    source_code: Annotated[
+        list[str] | None,
+        typer.Option("--source-code", help="Only score this exact source code; repeat for multiple sources."),
+    ] = None,
+    direct_company_only: Annotated[
+        bool,
+        typer.Option(
+            "--direct-company-only/--all-company-matched",
+            help="Keep only single-company headlines classified as directly actionable.",
+        ),
+    ] = False,
+    max_population: Annotated[
+        int | None,
+        typer.Option(
+            "--max-population",
+            min=1,
+            help="Refuse to score when the complete filtered population exceeds this safety ceiling.",
+        ),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Count the frozen scoring population without opening a model client."),
+    ] = False,
 ) -> None:
     """Score the collection's unique headlines with an LLM for analyze-headline-value --llm-scores."""
     resolved_provider = _resolve_provider(provider)
@@ -1139,6 +1209,30 @@ def score_headlines_command(
     prompt = _resolve_prompt(prompt_id, prompts_path)
     safe_model = model.replace("/", "_").replace(":", "_")
     output_path = output if output is not None else collection_root / "derived" / f"headline_scores_{safe_model}.csv"
+    source_codes = tuple(source_code or ())
+
+    if dry_run:
+        try:
+            population = collect_scorable_headlines(
+                collection_root,
+                source_codes=source_codes,
+                direct_company_only=direct_company_only,
+            )
+        except HeadlineValueError as exc:
+            raise typer.BadParameter(str(exc)) from exc
+        table = Table(title="Headline Scoring Dry Run")
+        table.add_column("Metric")
+        table.add_column("Value", justify="right")
+        table.add_row("Filtered unique headlines", f"{len(population):,}")
+        table.add_row("Source codes", ", ".join(source_codes) if source_codes else "all")
+        table.add_row("Direct-company only", str(direct_company_only))
+        table.add_row("Safety ceiling", f"{max_population:,}" if max_population is not None else "none")
+        console.print(table)
+        if max_population is not None and len(population) > max_population:
+            raise typer.BadParameter(
+                f"filtered scoring population has {len(population):,} headlines, exceeding --max-population {max_population:,}"
+            )
+        return
 
     async def main() -> None:
         async with make_llm_client(resolved_provider, base_url=base_url, ollama_host=ollama_host) as client:
@@ -1153,6 +1247,9 @@ def score_headlines_command(
                 temperature=temperature,
                 max_completion_tokens=max_completion_tokens,
                 limit=limit,
+                source_codes=source_codes,
+                direct_company_only=direct_company_only,
+                max_population=max_population,
                 callback=lambda message: console.print(f"[dim]{message}[/dim]"),
             )
         table = Table(title=f"Headline Scoring — {model}")
@@ -1207,6 +1304,17 @@ def analyze_headline_value_command(
             help="score-headlines CSV adding llm/<model> scorers next to the lexicon ones. Repeat for multiple files.",
         ),
     ] = None,
+    source_code: Annotated[
+        list[str] | None,
+        typer.Option("--source-code", help="Only analyze this exact source code; repeat for multiple sources."),
+    ] = None,
+    direct_company_only: Annotated[
+        bool,
+        typer.Option(
+            "--direct-company-only/--all-company-matched",
+            help="Apply the same single-company actionable filter used by score-headlines.",
+        ),
+    ] = False,
 ) -> None:
     """Analyze headline-only coverage, taxonomy, and trading value without requiring story bodies."""
     try:
@@ -1228,6 +1336,8 @@ def analyze_headline_value_command(
             notional_usd=notional_usd,
             overwrite=overwrite,
             llm_scores=tuple(llm_scores or ()),
+            source_codes=tuple(source_code or ()),
+            direct_company_only=direct_company_only,
         )
     except HeadlineValueError as exc:
         raise typer.BadParameter(str(exc)) from exc
@@ -1430,9 +1540,7 @@ class _RunProgress:
         if event["type"] == "model_started":
             model_id = event["model_id"]
             self._counts[model_id] = {"ok": 0, "failed": 0}
-            self._tasks[model_id] = self.progress.add_task(
-                f"[cyan]{model_id}[/cyan]", total=event["total_rows"], ok=0, failed=0
-            )
+            self._tasks[model_id] = self.progress.add_task(f"[cyan]{model_id}[/cyan]", total=event["total_rows"], ok=0, failed=0)
         elif event["type"] == "row_completed":
             model_id = event["model_id"]
             counts = self._counts.get(model_id)

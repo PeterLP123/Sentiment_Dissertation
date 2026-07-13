@@ -13,6 +13,7 @@ from sentiment_benchmark.lseg_source import (
     LsegNewsClient,
     LsegNewsError,
     LsegStoryResponse,
+    check_lseg_news,
     collection_windows,
     fetch_lseg_news,
     load_lseg_collection_config,
@@ -148,6 +149,38 @@ aliases = ["Apple"]
     ]
 
 
+def test_load_lseg_config_accepts_headline_only_mode(tmp_path: Path) -> None:
+    path = tmp_path / "lseg.toml"
+    path.write_text(
+        """
+[collection]
+id = "headlines"
+start = "2025-06-26T00:00:00Z"
+end = "2026-06-26T00:00:00Z"
+fetch_story_bodies = false
+max_requests_per_run = 8000
+[[companies]]
+symbol = "DLB"
+name = "Dolby Laboratories"
+ric = "DLB.N"
+news_query = "R:DLB.N and Language:LEN and Source:RTRS"
+aliases = ["Dolby", "Dolby Laboratories"]
+"""
+    )
+
+    config = load_lseg_collection_config(path)
+
+    assert config.fetch_story_bodies is False
+    assert config.max_requests_per_run == 8000
+    assert config.to_payload()["collection"]["fetch_story_bodies"] is False
+
+
+def test_default_story_mode_preserves_legacy_config_identity(tmp_path: Path) -> None:
+    payload = _config(tmp_path).to_payload()
+
+    assert "fetch_story_bodies" not in payload["collection"]
+
+
 def test_load_lseg_config_rejects_request_rate_above_workspace_limit(tmp_path: Path) -> None:
     path = tmp_path / "lseg.toml"
     path.write_text(
@@ -166,6 +199,26 @@ ric = "AAPL.O"
 
     with pytest.raises(LsegNewsError, match="requests_per_second must be between 0.1 and 5"):
         load_lseg_collection_config(path)
+
+
+def test_news_check_can_validate_all_headline_only_companies(tmp_path: Path) -> None:
+    config = replace(_config(tmp_path), fetch_story_bodies=False)
+    backend = FakeBackend()
+
+    result = asyncio.run(check_lseg_news(config, LsegNewsClient(backend), all_companies=True))
+
+    assert [row["symbol"] for row in result["checks"]] == ["AAPL", "MSFT"]
+    assert all(row["story_status"] == "skipped_headline_only" for row in result["checks"])
+    assert backend.story_calls == []
+
+
+def test_news_check_wraps_closed_workspace_session(tmp_path: Path) -> None:
+    class ClosedBackend:
+        async def headline_page(self, **_kwargs):
+            raise ValueError("Session is not opened. Can't send any request")
+
+    with pytest.raises(LsegNewsError, match="start Workspace, sign in"):
+        asyncio.run(check_lseg_news(_config(tmp_path), LsegNewsClient(ClosedBackend())))
 
 
 def test_story_content_reads_lseg_sdk_story_content() -> None:
@@ -377,6 +430,23 @@ def test_story_source_allowlist_fetches_only_matching_sources(tmp_path: Path) ->
 
     resumed = asyncio.run(fetch_lseg_news(config, LsegNewsClient(NoCalls())))
     assert resumed.resumed is True
+
+
+def test_headline_only_collection_makes_no_story_requests(tmp_path: Path) -> None:
+    config = replace(_config(tmp_path), fetch_story_bodies=False)
+    backend = FakeBackend()
+    result = asyncio.run(fetch_lseg_news(config, LsegNewsClient(backend)))
+
+    assert result.headline_count == 3
+    assert result.story_count == 0
+    assert result.failed_story_count == 0
+    assert backend.story_calls == []
+    assert (result.raw_dir / "stories.jsonl").read_text(encoding="utf-8") == ""
+    manifest = json.loads((result.raw_dir / "manifest.json").read_text())
+    assert manifest["counts"]["fetch_story_bodies"] is False
+    assert manifest["counts"]["headlines_without_story_fetch"] == 3
+    assert manifest["sharing"]["licensed_full_text"] is False
+    assert manifest["sharing"]["licensed_headlines"] is True
 
 
 def test_story_allowlist_is_a_safe_in_progress_change(tmp_path: Path) -> None:
@@ -614,6 +684,19 @@ def test_request_pacer_smooths_concurrent_request_starts() -> None:
     assert metrics.paced_waits == 2
     assert metrics.paced_wait_seconds == 1.0
     assert metrics.requests_per_second == 2.0
+
+
+def test_request_pacer_enforces_hard_safety_budget() -> None:
+    pacer = lseg_source._RequestPacer(1_000_000, max_requests=2)
+
+    async def run_requests() -> None:
+        await pacer.acquire()
+        await pacer.acquire()
+        await pacer.acquire()
+
+    with pytest.raises(LsegNewsError, match="safety budget exhausted at 2 requests"):
+        asyncio.run(run_requests())
+    assert pacer.snapshot().requests_started == 2
 
 
 def test_retry_uses_exponential_backoff(monkeypatch) -> None:

@@ -77,6 +77,7 @@ class LsegCollectionConfig:
     story_concurrency: int = DEFAULT_LSEG_STORY_CONCURRENCY
     retries: int = DEFAULT_LSEG_RETRIES
     requests_per_second: float = DEFAULT_LSEG_REQUESTS_PER_SECOND
+    max_requests_per_run: int | None = None
     window_days: int | None = DEFAULT_LSEG_WINDOW_DAYS
     min_text_chars: int = DEFAULT_LSEG_MIN_TEXT_CHARS
     max_scoring_chars: int = DEFAULT_LSEG_MAX_SCORING_CHARS
@@ -93,6 +94,11 @@ class LsegCollectionConfig:
     # stories). All headlines are still collected regardless; this narrows only
     # the expensive Phase 2. Empty means fetch every story.
     story_source_allowlist: tuple[str, ...] = ()
+    # Headline-only collections skip Phase 2 entirely. The default remains true
+    # for backwards compatibility; the false value is included in the config
+    # identity so a headline-only collection cannot be mistaken for a full-text
+    # corpus.
+    fetch_story_bodies: bool = True
     companies: tuple[LsegCompanyConfig, ...] = ()
 
     @property
@@ -118,8 +124,12 @@ class LsegCollectionConfig:
         }
         if self.window_days is not None:
             collection["window_days"] = self.window_days
+        if self.max_requests_per_run is not None:
+            collection["max_requests_per_run"] = self.max_requests_per_run
         if self.story_source_allowlist:
             collection["story_source_allowlist"] = list(self.story_source_allowlist)
+        if not self.fetch_story_bodies:
+            collection["fetch_story_bodies"] = False
         return {
             "collection": collection,
             "cleaning": {
@@ -218,6 +228,7 @@ class _RequestPacer:
         self,
         requests_per_second: float,
         *,
+        max_requests: int | None = None,
         clock: Callable[[], float] | None = None,
         sleeper: Callable[[float], Awaitable[None]] | None = None,
     ) -> None:
@@ -225,6 +236,7 @@ class _RequestPacer:
             raise ValueError("requests_per_second must be positive")
         self.requests_per_second = requests_per_second
         self._interval = 1.0 / requests_per_second
+        self._max_requests = max_requests
         self._clock = clock
         self._sleeper = sleeper or asyncio.sleep
         self._lock = asyncio.Lock()
@@ -240,6 +252,11 @@ class _RequestPacer:
 
     async def acquire(self) -> None:
         async with self._lock:
+            if self._max_requests is not None and self._requests_started >= self._max_requests:
+                raise LsegNewsError(
+                    f"LSEG request safety budget exhausted at {self._max_requests:,} requests; "
+                    "saved checkpoints are intact, so raise the frozen budget or resume after the quota resets"
+                )
             now = self._now()
             delay = max(0.0, self._next_start - now)
             if delay > 0.001:
@@ -441,6 +458,12 @@ def config_from_payload(payload: dict[str, Any]) -> LsegCollectionConfig:
             minimum=0.1,
             maximum=5.0,
         ),
+        max_requests_per_run=_optional_int_setting(
+            collection.get("max_requests_per_run"),
+            name="collection.max_requests_per_run",
+            minimum=1,
+            maximum=1_000_000,
+        ),
         window_days=_optional_int_setting(
             collection.get("window_days"),
             name="collection.window_days",
@@ -468,6 +491,10 @@ def config_from_payload(payload: dict[str, Any]) -> LsegCollectionConfig:
         story_source_allowlist=_string_list_setting(
             collection.get("story_source_allowlist"),
             name="collection.story_source_allowlist",
+        ),
+        fetch_story_bodies=_bool_setting(
+            collection.get("fetch_story_bodies", True),
+            name="collection.fetch_story_bodies",
         ),
         companies=tuple(companies),
     )
@@ -708,8 +735,8 @@ class LsegNewsClient:
         self._backend = backend or _LsegSdkBackend()
         self._pacer = _RequestPacer(DEFAULT_LSEG_REQUESTS_PER_SECOND)
 
-    def configure_request_pacing(self, requests_per_second: float) -> None:
-        self._pacer = _RequestPacer(requests_per_second)
+    def configure_request_pacing(self, requests_per_second: float, max_requests: int | None = None) -> None:
+        self._pacer = _RequestPacer(requests_per_second, max_requests=max_requests)
 
     @property
     def request_metrics(self) -> LsegRequestMetrics:
@@ -736,11 +763,25 @@ class LsegNewsClient:
         cursor: str | None,
     ) -> LsegHeadlinePage:
         await self._pacer.acquire()
-        return await self._backend.headline_page(query=query, start=start, end=end, count=count, cursor=cursor)
+        try:
+            return await self._backend.headline_page(query=query, start=start, end=end, count=count, cursor=cursor)
+        except ValueError as exc:
+            if "session is not opened" in str(exc).lower():
+                raise LsegNewsError(
+                    "cannot use the LSEG desktop session; start Workspace, sign in, and retry the same command"
+                ) from exc
+            raise
 
     async def fetch_story(self, story_id: str) -> LsegStoryResponse:
         await self._pacer.acquire()
-        return await self._backend.story(story_id)
+        try:
+            return await self._backend.story(story_id)
+        except ValueError as exc:
+            if "session is not opened" in str(exc).lower():
+                raise LsegNewsError(
+                    "cannot use the LSEG desktop session; start Workspace, sign in, and retry the same command"
+                ) from exc
+            raise
 
 
 def _status_code_of(exc: Exception) -> int | None:
@@ -1093,36 +1134,52 @@ def _safe_in_progress_operational_change(manifest: dict[str, Any], config: LsegC
     return canonical_json(normalized_stored) == canonical_json(config_payload)
 
 
-async def check_lseg_news(config: LsegCollectionConfig, client: LsegNewsClient) -> dict[str, Any]:
-    client.configure_request_pacing(config.requests_per_second)
-    company = config.companies[0]
-    window = collection_windows(config)[0]
-    page = await _retry(
-        lambda: client.fetch_headline_page(
-            query=company.news_query,
-            start=window.start,
-            end=window.end,
-            count=1,
-            cursor=None,
-        ),
-        config.retries,
-    )
-    normalized = next(
-        (record for row in page.rows if (record := _normalize_headline(row, company)) is not None),
-        None,
-    )
-    story_status = "not_checked"
-    story_id = None
-    if normalized is not None:
-        story_id = str(normalized["story_id"])
-        story = await _retry(lambda: client.fetch_story(story_id), config.retries)
-        story_status = story.status
-    return {
-        "query": company.news_query,
-        "headline_count": len(page.rows),
-        "story_id": story_id,
-        "story_status": story_status,
-    }
+async def check_lseg_news(
+    config: LsegCollectionConfig,
+    client: LsegNewsClient,
+    *,
+    all_companies: bool = False,
+) -> dict[str, Any]:
+    client.configure_request_pacing(config.requests_per_second, config.max_requests_per_run)
+    companies = config.companies if all_companies else config.companies[:1]
+    first_window = collection_windows(config)[0]
+    checks: list[dict[str, Any]] = []
+    for company in companies:
+        start = config.start if all_companies else first_window.start
+        end = config.end if all_companies else first_window.end
+        page = await _retry(
+            lambda company=company, start=start, end=end: client.fetch_headline_page(
+                query=company.news_query,
+                start=start,
+                end=end,
+                count=1,
+                cursor=None,
+            ),
+            config.retries,
+        )
+        normalized = next(
+            (record for row in page.rows if (record := _normalize_headline(row, company)) is not None),
+            None,
+        )
+        story_status = "not_checked"
+        story_id = None
+        if normalized is not None and config.fetch_story_bodies:
+            story_id = str(normalized["story_id"])
+            story = await _retry(lambda story_id=story_id: client.fetch_story(story_id), config.retries)
+            story_status = story.status
+        elif normalized is not None:
+            story_status = "skipped_headline_only"
+        checks.append(
+            {
+                "symbol": company.symbol,
+                "ric": company.ric,
+                "query": company.news_query,
+                "headline_count": len(page.rows),
+                "story_id": story_id,
+                "story_status": story_status,
+            }
+        )
+    return {**checks[0], "checks": checks}
 
 
 def _completed_window_checkpoints(pages_dir: Path, config: LsegCollectionConfig) -> set[tuple[str, int]]:
@@ -1156,7 +1213,7 @@ async def fetch_lseg_news(
     *,
     progress_callback: LsegProgressCallback | None = None,
 ) -> LsegFetchResult:
-    client.configure_request_pacing(config.requests_per_second)
+    client.configure_request_pacing(config.requests_per_second, config.max_requests_per_run)
     retry_count = 0
     retry_backoff_seconds = 0.0
     pagination_anomalies: list[dict[str, Any]] = []
@@ -1362,7 +1419,9 @@ async def fetch_lseg_news(
     # All headlines are kept; the story-fetch phase can be narrowed to specific
     # sources (e.g. Reuters-only) to stay within the request budget while still
     # preserving full headline coverage.
-    if config.story_source_allowlist:
+    if not config.fetch_story_bodies:
+        story_targets: list[str] = []
+    elif config.story_source_allowlist:
         allowed_sources = set(config.story_source_allowlist)
         story_targets = [
             story_id for story_id in sorted(headlines) if (headlines[story_id].get("source_code") or "") in allowed_sources
@@ -1471,6 +1530,7 @@ async def fetch_lseg_news(
             "headline_pages": len(page_paths),
             "headlines": len(headline_rows),
             "stories": len(story_rows),
+            "fetch_story_bodies": config.fetch_story_bodies,
             "story_source_allowlist": list(config.story_source_allowlist),
             "headlines_without_story_fetch": len(headline_rows) - len(story_rows),
             "failed_stories": failed_story_count,
@@ -1501,9 +1561,10 @@ async def fetch_lseg_news(
             "checkpoint_tree_sha256": directory_digest(raw_dir, checkpoint_paths),
         },
         "sharing": {
-            "licensed_full_text": True,
+            "licensed_full_text": bool(story_rows),
+            "licensed_headlines": True,
             "redistribute": False,
-            "note": "Workspace story content is local research material and must not be committed or shared.",
+            "note": "Workspace news content is local research material and must not be committed or shared.",
         },
         "checkpoint_retention": {
             "story_shards": "pruned_on_completion" if config.prune_story_shards_on_completion else "retained",

@@ -18,7 +18,7 @@ from typing import Any
 
 from .budgets import resolve_max_completion_tokens
 from .constants import SOFT_LABEL_MIN_COMPLETION_TOKENS
-from .headline_value import collect_scorable_headlines
+from .headline_value import HeadlineValueError, collect_scorable_headlines
 from .models import BlindExample, PromptConfig
 
 LABEL_SCORES = {"positive": 1.0, "neutral": 0.0, "negative": -1.0}
@@ -59,9 +59,21 @@ async def score_headlines(
     temperature: float = 0.0,
     max_completion_tokens: int = 64,
     limit: int | None = None,
+    source_codes: tuple[str, ...] = (),
+    direct_company_only: bool = False,
+    max_population: int | None = None,
     callback: Any = None,
 ) -> HeadlineScoringSummary:
-    headlines = collect_scorable_headlines(collection_root)
+    headlines = collect_scorable_headlines(
+        collection_root,
+        source_codes=source_codes,
+        direct_company_only=direct_company_only,
+    )
+    if max_population is not None and len(headlines) > max_population:
+        raise HeadlineValueError(
+            f"filtered scoring population has {len(headlines):,} headlines, exceeding "
+            f"--max-population {max_population:,}; tighten the frozen filter or reduce the company universe"
+        )
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
     done = _existing_success_shas(output, model_id)

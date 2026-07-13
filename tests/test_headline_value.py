@@ -173,3 +173,27 @@ def test_analyze_headline_value_runs_trading_summary_with_prices(tmp_path: Path)
     assert {row["scorer_id"] for row in summary if row.get("scorer_id")}
     returns = _read_csv(output / "trading_returns.csv")
     assert returns
+
+
+def test_analyze_headline_value_applies_frozen_scoring_population_to_all_scorers(tmp_path: Path) -> None:
+    root = _fixture_collection(tmp_path)
+    output = tmp_path / "filtered"
+
+    analyze_headline_value(
+        root,
+        prices=tmp_path / "missing.csv",
+        output_dir=output,
+        sample_size=0,
+        source_codes=("NS:RTRS",),
+        direct_company_only=True,
+    )
+
+    manifest = json.loads((output / "manifest.json").read_text())
+    assert manifest["counts"]["input_headline_rows"] == 6
+    assert manifest["counts"]["headline_rows"] == 1
+    assert manifest["counts"]["filtered_out_headline_rows"] == 5
+    assert manifest["config"]["source_codes"] == ["NS:RTRS"]
+    panel = _read_csv(output / "company_day_panel.csv")
+    apple_day = next(row for row in panel if row["symbol"] == "AAPL" and row["news_date"] == "2026-06-01")
+    assert apple_day["headline_count"] == "1"
+    assert {row["source_code"] for row in _read_csv(output / "source_summary.csv")} == {"NS:RTRS"}

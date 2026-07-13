@@ -223,7 +223,12 @@ def headline_norm_sha256(headline: str) -> str:
     return sha256_text(normalize_headline(headline))
 
 
-def collect_scorable_headlines(collection_root: str | Path) -> list[tuple[str, str]]:
+def collect_scorable_headlines(
+    collection_root: str | Path,
+    *,
+    source_codes: tuple[str, ...] = (),
+    direct_company_only: bool = False,
+) -> list[tuple[str, str]]:
     """Unique in-window company-matched headlines as (norm sha256, example text) pairs.
 
     This is the exact population the panel aggregates, so scoring these (and
@@ -235,7 +240,9 @@ def collect_scorable_headlines(collection_root: str | Path) -> list[tuple[str, s
     if not headlines_path.exists():
         raise HeadlineValueError(f"missing headlines.jsonl: {headlines_path}")
     config = _config_from_manifest(read_json(raw_dir / "manifest.json"))
-    symbols = {company.symbol for company in _companies_from_config(config)}
+    companies = _companies_from_config(config)
+    aliases_by_symbol = {company.symbol: company.aliases for company in companies}
+    allowed_sources = {value.strip() for value in source_codes if value.strip()}
     start_date = _parse_date(config["collection"]["start"])
     end_date = _parse_date(config["collection"]["end"])
     unique: dict[str, str] = {}
@@ -248,13 +255,50 @@ def collect_scorable_headlines(collection_root: str | Path) -> list[tuple[str, s
             normalized = normalize_headline(headline)
             if not normalized:
                 continue
-            if not any(symbol in symbols for symbol in (row.get("matched_symbols") or ())):
+            selected, matched_symbols = _population_selection(
+                row,
+                headline=headline,
+                aliases_by_symbol=aliases_by_symbol,
+                allowed_sources=allowed_sources,
+                direct_company_only=direct_company_only,
+            )
+            if not selected or not matched_symbols:
                 continue
             timestamp = _parse_timestamp(row.get("version_created") or row.get("first_created"))
             if timestamp is None or not (start_date <= timestamp.date() < end_date):
                 continue
             unique.setdefault(sha256_text(normalized), headline)
     return sorted(unique.items())
+
+
+def _population_selection(
+    row: dict[str, Any],
+    *,
+    headline: str,
+    aliases_by_symbol: dict[str, tuple[str, ...]],
+    allowed_sources: set[str],
+    direct_company_only: bool,
+) -> tuple[bool, tuple[str, ...]]:
+    """Apply the frozen row filter shared by scoring and downstream analysis."""
+
+    source_code = str(row.get("source_code") or "unknown")
+    matched_symbols = tuple(dict.fromkeys(symbol for symbol in (row.get("matched_symbols") or ()) if symbol in aliases_by_symbol))
+    if allowed_sources and source_code not in allowed_sources:
+        return False, matched_symbols
+    if not direct_company_only:
+        return True, matched_symbols
+    if len(matched_symbols) != 1:
+        return False, matched_symbols
+    classification = classify_headline(
+        headline,
+        aliases=aliases_by_symbol[matched_symbols[0]],
+        matched_symbol_count=1,
+        duplicate_count=1,
+    )
+    return (
+        classify_tradability(classification, duplicate_count=1, matched_symbol_count=1) == "single_company_actionable",
+        matched_symbols,
+    )
 
 
 def _load_llm_scores(paths: tuple[str | Path, ...]) -> dict[str, dict[str, float]]:
@@ -351,6 +395,8 @@ def analyze_headline_value(
     notional_usd: float = 10_000.0,
     overwrite: bool = False,
     llm_scores: tuple[str | Path, ...] = (),
+    source_codes: tuple[str, ...] = (),
+    direct_company_only: bool = False,
 ) -> HeadlineValueResult:
     root = Path(collection_root)
     raw_dir = _resolve_raw_dir(root)
@@ -363,6 +409,7 @@ def analyze_headline_value(
     companies = _companies_from_config(config)
     symbols = tuple(company.symbol for company in companies)
     aliases_by_symbol = {company.symbol: company.aliases for company in companies}
+    allowed_sources = {value.strip() for value in source_codes if value.strip()}
     start_date = _parse_date(config["collection"]["start"])
     end_date = _parse_date(config["collection"]["end"])
     dates = _date_range(start_date, end_date)
@@ -370,7 +417,14 @@ def analyze_headline_value(
     target_output = Path(output_dir) if output_dir is not None else root / "derived" / "headline_value_analysis"
     _prepare_output_dir(target_output, overwrite=overwrite)
 
-    first_pass = _first_pass(headlines_path, symbols=symbols, start_date=start_date, end_date=end_date)
+    first_pass = _first_pass(
+        headlines_path,
+        aliases_by_symbol=aliases_by_symbol,
+        start_date=start_date,
+        end_date=end_date,
+        allowed_sources=allowed_sources,
+        direct_company_only=direct_company_only,
+    )
     low_volume_symbols = _low_volume_symbols(first_pass["company_associations"])
     top_sources = {source for source, _ in first_pass["source_counts"].most_common(15)}
 
@@ -389,11 +443,19 @@ def analyze_headline_value(
                 continue
             row = _loads_jsonl_row(line, headlines_path, line_number)
             headline = str(row.get("headline") or "")
+            selected, matched_symbols = _population_selection(
+                row,
+                headline=headline,
+                aliases_by_symbol=aliases_by_symbol,
+                allowed_sources=allowed_sources,
+                direct_company_only=direct_company_only,
+            )
+            if not selected:
+                continue
             normalized = normalize_headline(headline)
             timestamp = _parse_timestamp(row.get("version_created") or row.get("first_created"))
             source_code = str(row.get("source_code") or "unknown")
             source_scope = SOURCE_REUTERS if source_code == "NS:RTRS" else SOURCE_NON_REUTERS
-            matched_symbols = tuple(symbol for symbol in (row.get("matched_symbols") or ()) if symbol in aliases_by_symbol)
             story_family = story_family_id(str(row.get("story_id") or ""))
 
             if timestamp is not None:
@@ -496,6 +558,8 @@ def analyze_headline_value(
     )
 
     counts = {
+        "input_headline_rows": first_pass["input_headline_rows"],
+        "filtered_out_headline_rows": first_pass["input_headline_rows"] - first_pass["headline_rows"],
         "headline_rows": first_pass["headline_rows"],
         "outside_config_window_rows": first_pass["outside_window_rows"],
         "matched_company_associations": first_pass["matched_company_associations"],
@@ -543,6 +607,8 @@ def analyze_headline_value(
             "horizons": list(horizons),
             "transaction_cost_bps_per_side": transaction_cost_bps_per_side,
             "notional_usd": notional_usd,
+            "source_codes": sorted(allowed_sources),
+            "direct_company_only": direct_company_only,
         },
         "counts": counts,
         "llm_scorers": {
@@ -659,34 +725,52 @@ def _loads_jsonl_row(line: str, path: Path, line_number: int) -> dict[str, Any]:
     return value
 
 
-def _first_pass(headlines_path: Path, *, symbols: tuple[str, ...], start_date: date, end_date: date) -> dict[str, Any]:
-    allowed = set(symbols)
+def _first_pass(
+    headlines_path: Path,
+    *,
+    aliases_by_symbol: dict[str, tuple[str, ...]],
+    start_date: date,
+    end_date: date,
+    allowed_sources: set[str],
+    direct_company_only: bool,
+) -> dict[str, Any]:
     source_counts: Counter[str] = Counter()
     company_counts: Counter[str] = Counter()
     company_norm_counts: Counter[tuple[str, str]] = Counter()
     matched_company_associations = 0
     outside_window_rows = 0
     headline_rows = 0
+    input_headline_rows = 0
     with headlines_path.open(encoding="utf-8") as handle:
         for line_number, line in enumerate(handle, start=1):
             if not line.strip():
                 continue
             row = _loads_jsonl_row(line, headlines_path, line_number)
+            input_headline_rows += 1
+            headline = str(row.get("headline") or "")
+            selected, matched_symbols = _population_selection(
+                row,
+                headline=headline,
+                aliases_by_symbol=aliases_by_symbol,
+                allowed_sources=allowed_sources,
+                direct_company_only=direct_company_only,
+            )
+            if not selected:
+                continue
             headline_rows += 1
             source_code = str(row.get("source_code") or "unknown")
             source_counts[source_code] += 1
             timestamp = _parse_timestamp(row.get("version_created") or row.get("first_created"))
             if timestamp is not None and not (start_date <= timestamp.date() < end_date):
                 outside_window_rows += 1
-            normalized = normalize_headline(str(row.get("headline") or ""))
-            for symbol in (row.get("matched_symbols") or ()):
-                if symbol not in allowed:
-                    continue
+            normalized = normalize_headline(headline)
+            for symbol in matched_symbols:
                 matched_company_associations += 1
                 company_counts[str(symbol)] += 1
                 if normalized:
                     company_norm_counts[(str(symbol), normalized)] += 1
     return {
+        "input_headline_rows": input_headline_rows,
         "headline_rows": headline_rows,
         "outside_window_rows": outside_window_rows,
         "source_counts": source_counts,
