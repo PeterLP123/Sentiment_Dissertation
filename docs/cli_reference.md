@@ -119,6 +119,7 @@ See the [trading pipeline guide](trading_pipeline.md) for the end-to-end workflo
 | `run-trading-strategy` | Run or preview a config-driven source-to-sentiment-to-return trading run. |
 | `analyze-trading-run` | Robustness tables, plots, effectiveness battery, and a technical report for a completed run. |
 | `sweep-trading-strategy` | Tune a strategy's parameters on a completed run, selecting on a training split only. |
+| `analyze-week6-pnl` | Exploratory daily stock and fixed-capital portfolio P&L with development-only tuning. |
 | `list-strategies` | List registered trading strategies (ideas) and their sweepable parameters. |
 | `score-headlines` | Score a collection's unique headlines with an LLM (resumable) for `--llm-scores`. |
 | `analyze-headline-value` | Headline-only coverage, taxonomy, and trading-value screen for an LSEG collection. |
@@ -380,6 +381,33 @@ Analyzes headline-only coverage, an event-type taxonomy, source mix, and lexicon
 | `--notional-usd` | `10000` | Per-signal notional for P&L summaries. |
 | `--llm-scores` | none | `score-headlines` CSV adding `llm/<model>` scorers; repeatable. |
 | `--overwrite` | off | Replace files in an existing non-empty output directory. |
+
+## `analyze-week6-pnl`
+
+```bash
+sentiment-bench analyze-week6-pnl \
+  --signals Data/collections/lseg_us_sector_33_6m/derived/headline_value_analysis_lseg_priced/sweep_ws/daily_signals.csv \
+  --prices Data/collections/lseg_us_sector_33_6m/derived/headline_value_analysis_lseg_priced/sweep_ws/prices.csv \
+  --scorer headline/sentiment_all \
+  --run-id lseg_headline_sentiment_all_20260713
+```
+
+Builds the Week 6 exploratory daily P&L evidence without re-scoring news. Untimestamped day-level signals enter conservatively at the next observed trading-session close and earn only later close-to-close returns. The command tunes a small threshold/holding grid on development dates, freezes a stability-selected rule, selects one simple low-correlation stock set from development daily net returns, and evaluates both portfolios once after the boundary. It refuses to overwrite an existing run and writes the stock/portfolio daily series, performance tables, full candidate grid, correlation support counts, manual timing check, figures, summary, and hashed manifest under `results/week6_pnl/<run_id>/`.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `--signals` | required | Existing `daily_signals.csv`; no model/API calls are made. |
+| `--prices` | required | Corresponding daily OHLCV `prices.csv`. |
+| `--run-id` | required | Name of a new immutable output directory. |
+| `--output-root` | `results/week6_pnl` | Parent directory for Week 6 runs. |
+| `--scorer` | `headline/sentiment_all` | One stock-day `scorer_id` to analyse. |
+| `--starting-capital` | `100000` | Fixed portfolio capital (reported as pounds for this supervisor task). |
+| `--transaction-cost-bps-per-side` | `10` | Cost on each unit of position turnover. |
+| `--development-fraction` | `0.6` | Chronological signal-date fraction used for development. |
+| `--thresholds` | `0,0.05,0.10` | Small development-only symmetric threshold grid. |
+| `--holding-periods` | `1,3,5,7` | Small development-only holding-session grid. |
+| `--min-joint-active-dates` | `10` | Support needed before a correlation can guide selection; counts remain explicitly reported. |
+| `--low-correlation-stock-count` | `ceil(sqrt(universe))` | Optional frozen subset size. |
 
 ## `sweep-trading-strategy`
 

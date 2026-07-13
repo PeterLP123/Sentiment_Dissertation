@@ -43,6 +43,7 @@ The former L1–L4 layer programme (threshold trading, crowding/reversal, G-theo
 | Trading pilot | Merge and screen news, score three LLMs plus VADER, optionally run an entity-masked arm and knowledge-cutoff stratification, and calculate next-session event returns. | `sentiment-bench run-trading-strategy` |
 | Trading robustness report | Bootstrap event means, run the effectiveness battery (significance, benchmark, economics; BH-corrected), test company sensitivity, and render meeting-ready plots. | `sentiment-bench analyze-trading-run` |
 | Parameter sweep | Tune any registered strategy's parameters and horizon on a completed run, selecting on a training split only. | `sentiment-bench sweep-trading-strategy` |
+| Week 6 daily P&L | Run the exploratory, cost-aware fixed-capital stock and portfolio analysis with a frozen chronological evaluation. | `sentiment-bench analyze-week6-pnl` |
 | Pluggable strategies | Register trading ideas across four pipeline seams; equal-weight threshold and conviction-weighted sizing built in. | `sentiment-bench list-strategies` |
 | Headline value screen | Assess LSEG headline-only coverage, taxonomy, and lexicon-scored trading value without story bodies. | `sentiment-bench analyze-headline-value` |
 | L2 / L3 analyses | Consensus event study with clustered inference, and G-theory reliability with holdout trading rules. | `sentiment-bench analyze-l2`, `analyze-l3` |
@@ -155,6 +156,9 @@ sentiment-bench analyze-trading-run \
   --output-dir results/trading/<analysis-id>
 sentiment-bench sweep-trading-strategy \
   --run-dir results/trading/<run-id> --scorer consensus/majority
+sentiment-bench analyze-week6-pnl \
+  --signals <completed-run>/daily_signals.csv \
+  --prices <completed-run>/prices.csv --run-id <week6-run-id>
 ```
 
 Collect an entitled LSEG corpus and run the local-model policy:
