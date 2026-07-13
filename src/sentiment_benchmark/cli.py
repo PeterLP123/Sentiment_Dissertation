@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import shlex
+import sys
 import time
 from contextlib import AsyncExitStack
 from pathlib import Path
@@ -128,6 +130,7 @@ from .trading_strategy import (
 from .trading_strategy import (
     run_trading_strategy as execute_trading_strategy,
 )
+from .week6_pnl import Week6PnlConfig, Week6PnlError, run_week6_pnl
 
 console = Console()
 app = typer.Typer(help="Benchmark OpenRouter and Ollama LLMs on dissertation sentiment data.")
@@ -137,6 +140,88 @@ load_env_file()
 # before recording a fetch as failed and moving on.
 FETCH_ATTEMPTS = 3
 FETCH_RETRY_BASE_DELAY_SECONDS = 5.0
+
+
+def _comma_separated_floats(value: str, *, option: str) -> tuple[float, ...]:
+    try:
+        parsed = tuple(float(item.strip()) for item in value.split(",") if item.strip())
+    except ValueError as exc:
+        raise typer.BadParameter(f"{option} must be a comma-separated numeric list") from exc
+    if not parsed:
+        raise typer.BadParameter(f"{option} cannot be empty")
+    return parsed
+
+
+def _comma_separated_ints(value: str, *, option: str) -> tuple[int, ...]:
+    try:
+        parsed = tuple(int(item.strip()) for item in value.split(",") if item.strip())
+    except ValueError as exc:
+        raise typer.BadParameter(f"{option} must be a comma-separated integer list") from exc
+    if not parsed:
+        raise typer.BadParameter(f"{option} cannot be empty")
+    return parsed
+
+
+@app.command("analyze-week6-pnl")
+def analyze_week6_pnl_command(
+    signals: Annotated[Path, typer.Option("--signals", help="Existing daily_signals.csv input.")],
+    prices: Annotated[Path, typer.Option("--prices", help="Corresponding prices.csv input.")],
+    run_id: Annotated[str, typer.Option("--run-id", help="New immutable run directory name.")],
+    output_root: Annotated[
+        Path,
+        typer.Option("--output-root", help="Parent directory for Week 6 runs."),
+    ] = Path("results/week6_pnl"),
+    scorer: Annotated[str, typer.Option("--scorer", help="One stock-day sentiment signal to analyse.")] = "headline/sentiment_all",
+    starting_capital: Annotated[float, typer.Option("--starting-capital", min=0.01)] = 100_000.0,
+    transaction_cost_bps_per_side: Annotated[
+        float,
+        typer.Option("--transaction-cost-bps-per-side", min=0.0),
+    ] = 10.0,
+    development_fraction: Annotated[float, typer.Option("--development-fraction", min=0.01, max=0.99)] = 0.6,
+    thresholds: Annotated[str, typer.Option("--thresholds", help="Small development-only threshold grid.")] = "0,0.05,0.10",
+    holding_periods: Annotated[
+        str,
+        typer.Option("--holding-periods", help="Small development-only holding-session grid."),
+    ] = "1,3,5,7",
+    min_joint_active_dates: Annotated[
+        int,
+        typer.Option("--min-joint-active-dates", min=1, help="Correlation support threshold."),
+    ] = 10,
+    low_correlation_stock_count: Annotated[
+        int | None,
+        typer.Option("--low-correlation-stock-count", min=2, help="Subset size; default is ceil(sqrt(universe))."),
+    ] = None,
+) -> None:
+    """Run the leak-controlled exploratory Week 6 daily P&L analysis."""
+
+    config = Week6PnlConfig(
+        run_id=run_id,
+        scorer_id=scorer,
+        starting_capital=starting_capital,
+        transaction_cost_bps_per_side=transaction_cost_bps_per_side,
+        development_fraction=development_fraction,
+        thresholds=_comma_separated_floats(thresholds, option="--thresholds"),
+        holding_periods=_comma_separated_ints(holding_periods, option="--holding-periods"),
+        min_joint_active_dates=min_joint_active_dates,
+        low_correlation_stock_count=low_correlation_stock_count,
+    )
+    try:
+        result = run_week6_pnl(
+            signals,
+            prices,
+            output_root,
+            config,
+            command=shlex.join(sys.argv),
+            repo_root=Path.cwd(),
+        )
+    except Week6PnlError as exc:
+        console.print(f"[red]Week 6 P&L analysis failed:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    console.print(f"[green]Week 6 P&L analysis complete:[/green] {result.output_dir}")
+    console.print(
+        f"Frozen rule: threshold={result.selected_threshold:g}, holding={result.selected_holding_period}; "
+        f"evaluation begins {result.split_date}."
+    )
 
 
 @app.command("score-corpus-matrix")
