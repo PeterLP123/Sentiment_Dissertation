@@ -195,6 +195,7 @@ Start here if you are setting up the project or writing the dissertation methods
 | [Frozen LSEG analysis workflow](docs/lseg_analysis_workflow.md) | How-to | The gated corpus → cohort → validation → crossed scoring → L2/L3 sequence. |
 | [Trading pipeline](docs/trading_pipeline.md) | How-to | Run, analyze, tune, and extend the news-to-price trading strategy. |
 | [Results and exports](docs/results_and_exports.md) | Reference | SQLite or Turso/libSQL storage, export files, metrics, figures, and reproducibility metadata. |
+| [Local Gemma 4 headline-return results](reports/local_gemma4_headline_return_study.md) | Technical report | Aggregate-only local scoring and held-out one-day return results for the 22-company study. |
 | [Architecture](docs/architecture.md) | Explanation | Why the project separates source data, runs, providers, news corpora, and exports. |
 | [Dataset card](docs/dataset_card.md) | Reference | Dataset identity, shape, label policy, limitations, and ethics. |
 | [Research protocol](docs/research_protocol.md) | Explanation | Dissertation research questions, hypotheses, metrics, and experiment rules. |

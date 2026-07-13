@@ -19,6 +19,7 @@ This documentation is organized by reader task ([Diátaxis](https://diataxis.fr/
 | [TUI guide](tui_guide.md) | How-to | Interactive model, prompt, run, results, and news workflows. |
 | [CLI reference](cli_reference.md) | Reference | Every command, option, default, and example. |
 | [Results and exports](results_and_exports.md) | Reference | Storage backends, export files, metrics, LaTeX tables, and trading artifacts. |
+| [Local Gemma 4 headline-return results](../reports/local_gemma4_headline_return_study.md) | Technical report | Frozen local scoring, benchmark, holdout trading results, uncertainty, and limitations without licensed text. |
 | [Dataset card](dataset_card.md) | Reference | Dataset identity, provenance, label policy, limitations, and ethics. |
 | [Architecture](architecture.md) | Explanation | Why source data, providers, runs, corpora, and exports are separated. |
 | [Research protocol](research_protocol.md) | Explanation | The refocused agreement-validity and incremental held-out market design, inference, artifacts, and interpretation limits. |
