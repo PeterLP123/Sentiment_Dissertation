@@ -50,7 +50,7 @@ def _config(tmp_path: Path) -> Path:
     path = tmp_path / "analysis.toml"
     path.write_text(
         "[cohort]\n"
-        f'output_dir = "{tmp_path / "out"}"\n'
+        f'output_dir = "{(tmp_path / "out").as_posix()}"\n'
         'timezone = "America/New_York"\n'
         "development_fraction = 0.7\n"
         "development_size = 8\n"

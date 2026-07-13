@@ -32,6 +32,10 @@ from sentiment_benchmark.trading_strategy import (
     score_articles,
 )
 
+
+def _toml_path(path: Path) -> str:
+    return path.resolve().as_posix()
+
 COMPANY = TradingCompany(
     symbol="AAPL",
     name="Apple Inc.",
@@ -474,19 +478,19 @@ notional_usd = 10000
 [scoring]
 models = ["a", "b", "c"]
 prompt_id = "target_company_news_label_only"
-prompts_path = "{Path('configs/default_prompts.toml').resolve()}"
+prompts_path = "{_toml_path(Path('configs/default_prompts.toml'))}"
 temperature = 0.0
 max_completion_tokens = 64
 concurrency = 2
 retries = 0
 [sources]
-tavily_package_manifest = "{package}"
+tavily_package_manifest = "{_toml_path(package)}"
 newsapi_max_pages = 1
 [outputs]
-news_output_root = "{tmp_path / 'news'}"
-derived_output_root = "{tmp_path / 'derived'}"
-results_output_root = "{tmp_path / 'results'}"
-experiment_registry = "{tmp_path / 'experiments.toml'}"
+news_output_root = "{_toml_path(tmp_path / 'news')}"
+derived_output_root = "{_toml_path(tmp_path / 'derived')}"
+results_output_root = "{_toml_path(tmp_path / 'results')}"
+experiment_registry = "{_toml_path(tmp_path / 'experiments.toml')}"
 [[companies]]
 symbol = "AAPL"
 name = "Apple Inc."
@@ -494,7 +498,8 @@ query = "Apple AAPL stock news"
 tavily_query_id = "us_aapl"
 family = "AAPL — Apple"
 aliases = ["Apple", "AAPL"]
-"""
+""",
+        encoding="utf-8",
     )
 
     def price_loader(_config):
@@ -559,13 +564,13 @@ notional_usd = 10000
 [scoring]
 models = ["a", "b", "c"]
 prompt_id = "target_company_news_label_only"
-prompts_path = "{Path('configs/default_prompts.toml').resolve()}"
+prompts_path = "{_toml_path(Path('configs/default_prompts.toml'))}"
 temperature = 0.0
 max_completion_tokens = 64
 concurrency = 2
 retries = 0
 [sources]
-tavily_package_manifest = "{package}"
+tavily_package_manifest = "{_toml_path(package)}"
 newsapi_max_pages = 1
 [strategy]
 id = "sentiment_threshold_v1"
@@ -581,10 +586,10 @@ periods_per_year = 252
 annual_risk_free_rate = 0.0
 estimate_shrunk_covariance = true
 [outputs]
-news_output_root = "{tmp_path / 'news'}"
-derived_output_root = "{tmp_path / 'derived'}"
-results_output_root = "{tmp_path / 'results'}"
-experiment_registry = "{tmp_path / 'experiments.toml'}"
+news_output_root = "{_toml_path(tmp_path / 'news')}"
+derived_output_root = "{_toml_path(tmp_path / 'derived')}"
+results_output_root = "{_toml_path(tmp_path / 'results')}"
+experiment_registry = "{_toml_path(tmp_path / 'experiments.toml')}"
 [[companies]]
 symbol = "AAPL"
 name = "Apple Inc."
@@ -592,7 +597,8 @@ query = "Apple AAPL stock news"
 tavily_query_id = "us_aapl"
 family = "AAPL — Apple"
 aliases = ["Apple", "AAPL"]
-"""
+""",
+        encoding="utf-8",
     )
 
     result = asyncio.run(
@@ -699,7 +705,7 @@ primary_model = "primary:exact"
 baselines = []
 consensus_enabled = false
 prompt_id = "target_company_news_label_only"
-prompts_path = "{Path('configs/default_prompts.toml').resolve()}"
+prompts_path = "{_toml_path(Path('configs/default_prompts.toml'))}"
 temperature = 0.0
 max_completion_tokens = 64
 concurrency = 1
@@ -708,7 +714,7 @@ ollama_keep_alive = "30m"
 ollama_think = false
 structured_output = true
 [sources]
-lseg_corpus_manifest = "{lseg_manifest}"
+lseg_corpus_manifest = "{_toml_path(lseg_manifest)}"
 newsapi_enabled = false
 tavily_gap_fetch = false
 [signal_policy]
@@ -717,14 +723,15 @@ threshold = 0.5
 transaction_cost_bps_per_side = 10
 short_borrow_bps_per_day = 0
 [outputs]
-derived_output_root = "{tmp_path / 'derived'}"
-results_output_root = "{tmp_path / 'results'}"
-experiment_registry = "{tmp_path / 'experiments.toml'}"
+derived_output_root = "{_toml_path(tmp_path / 'derived')}"
+results_output_root = "{_toml_path(tmp_path / 'results')}"
+experiment_registry = "{_toml_path(tmp_path / 'experiments.toml')}"
 [[companies]]
 symbol = "AAPL"
 name = "Apple Inc."
 aliases = ["Apple", "AAPL"]
-"""
+""",
+        encoding="utf-8",
     )
 
     result = asyncio.run(
