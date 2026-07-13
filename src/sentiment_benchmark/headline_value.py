@@ -77,6 +77,7 @@ class CompanyConfig:
     symbol: str
     name: str
     aliases: tuple[str, ...]
+    ric: str = ""
 
 
 @dataclass(frozen=True)
@@ -86,6 +87,19 @@ class Classification:
     expected_horizon: str
     sentiment_score: float
     alias_match: bool
+
+
+@dataclass(frozen=True)
+class ScorableHeadline:
+    """One deterministic unique-headline scoring item with analysis flags."""
+
+    headline_sha256: str
+    headline: str
+    matched_symbols: tuple[str, ...]
+    first_timestamp: str
+    explicit_target: bool
+    contextual: bool
+    market_price_technical: bool
 
 
 @dataclass
@@ -234,6 +248,24 @@ def collect_scorable_headlines(
     This is the exact population the panel aggregates, so scoring these (and
     nothing else) gives an LLM scorer the same corpus the lexicon scorers see.
     """
+    return [
+        (record.headline_sha256, record.headline)
+        for record in collect_scorable_headline_records(
+            collection_root,
+            source_codes=source_codes,
+            direct_company_only=direct_company_only,
+        )
+    ]
+
+
+def collect_scorable_headline_records(
+    collection_root: str | Path,
+    *,
+    source_codes: tuple[str, ...] = (),
+    direct_company_only: bool = False,
+) -> list[ScorableHeadline]:
+    """Return the frozen unique population plus reproducible sensitivity flags."""
+
     root = Path(collection_root)
     raw_dir = _resolve_raw_dir(root)
     headlines_path = raw_dir / "headlines.jsonl"
@@ -242,10 +274,14 @@ def collect_scorable_headlines(
     config = _config_from_manifest(read_json(raw_dir / "manifest.json"))
     companies = _companies_from_config(config)
     aliases_by_symbol = {company.symbol: company.aliases for company in companies}
+    identities_by_symbol = {
+        company.symbol: company.aliases + ((company.ric,) if company.ric else ())
+        for company in companies
+    }
     allowed_sources = {value.strip() for value in source_codes if value.strip()}
     start_date = _parse_date(config["collection"]["start"])
     end_date = _parse_date(config["collection"]["end"])
-    unique: dict[str, str] = {}
+    unique: dict[str, dict[str, Any]] = {}
     with headlines_path.open(encoding="utf-8") as handle:
         for line_number, line in enumerate(handle, start=1):
             if not line.strip():
@@ -267,8 +303,47 @@ def collect_scorable_headlines(
             timestamp = _parse_timestamp(row.get("version_created") or row.get("first_created"))
             if timestamp is None or not (start_date <= timestamp.date() < end_date):
                 continue
-            unique.setdefault(sha256_text(normalized), headline)
-    return sorted(unique.items())
+            sha = sha256_text(normalized)
+            classifications = [
+                classify_headline(
+                    headline,
+                    aliases=aliases_by_symbol[symbol],
+                    matched_symbol_count=len(matched_symbols),
+                    duplicate_count=1,
+                )
+                for symbol in matched_symbols
+            ]
+            explicit_target = any(
+                _headline_alias_match(headline, identities_by_symbol[symbol])
+                for symbol in matched_symbols
+            )
+            technical = any(item.event_type == "market_price_technical" for item in classifications)
+            existing = unique.get(sha)
+            if existing is None:
+                unique[sha] = {
+                    "headline": headline,
+                    "matched_symbols": set(matched_symbols),
+                    "first_timestamp": timestamp.isoformat(),
+                    "explicit_target": explicit_target,
+                    "market_price_technical": technical,
+                }
+            else:
+                existing["matched_symbols"].update(matched_symbols)
+                existing["first_timestamp"] = min(existing["first_timestamp"], timestamp.isoformat())
+                existing["explicit_target"] = bool(existing["explicit_target"] or explicit_target)
+                existing["market_price_technical"] = bool(existing["market_price_technical"] or technical)
+    return [
+        ScorableHeadline(
+            headline_sha256=sha,
+            headline=str(item["headline"]),
+            matched_symbols=tuple(sorted(item["matched_symbols"])),
+            first_timestamp=str(item["first_timestamp"]),
+            explicit_target=bool(item["explicit_target"]),
+            contextual=not bool(item["explicit_target"]),
+            market_price_technical=bool(item["market_price_technical"]),
+        )
+        for sha, item in sorted(unique.items())
+    ]
 
 
 def _population_selection(
@@ -673,7 +748,14 @@ def _companies_from_config(config: dict[str, Any]) -> tuple[CompanyConfig, ...]:
         if not isinstance(item, dict) or not item.get("symbol"):
             continue
         aliases = tuple(str(alias) for alias in item.get("aliases", []) if str(alias).strip())
-        companies.append(CompanyConfig(str(item["symbol"]), str(item.get("name") or item["symbol"]), aliases))
+        companies.append(
+            CompanyConfig(
+                str(item["symbol"]),
+                str(item.get("name") or item["symbol"]),
+                aliases,
+                str(item.get("ric") or ""),
+            )
+        )
     if not companies:
         raise HeadlineValueError("no valid company definitions found")
     return tuple(companies)

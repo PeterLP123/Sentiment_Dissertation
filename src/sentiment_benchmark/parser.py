@@ -57,22 +57,20 @@ _JSON_OBJECT = re.compile(r"\{[^{}]*\}")
 
 
 def parse_soft_label_probabilities(raw_content: str) -> dict[str, float] | None:
-    """Extract a normalized label-probability distribution from model output.
+    """Extract a strict label-probability distribution from model output.
 
     Accepts the JSON object anywhere in the response (models often wrap it in
-    code fences or prose). Keys must be allowed labels — an unknown key means
-    the model misunderstood the task, so the whole response is rejected rather
-    than silently dropped. Missing labels count as probability 0. Values must
-    be non-negative finite numbers with a positive sum; the distribution is
-    renormalized to sum to exactly 1 so downstream Brier/ECE math is stable
-    even when the model's numbers sum to 0.99 or 1.01.
+    code fences or prose). The object must contain exactly the three allowed
+    labels. Values must be finite numbers in [0, 1], and their sum must equal
+    1 within a small floating-point tolerance. Invalid distributions are
+    rejected rather than silently repaired.
     """
     for match in _JSON_OBJECT.finditer(raw_content):
         try:
             candidate = json.loads(match.group(0))
         except json.JSONDecodeError:
             continue
-        if not isinstance(candidate, dict) or not candidate:
+        if not isinstance(candidate, dict) or {str(key).strip().lower() for key in candidate} != set(ALLOWED_LABELS):
             continue
         cleaned: dict[str, float] = {}
         valid = True
@@ -85,16 +83,16 @@ def parse_soft_label_probabilities(raw_content: str) -> dict[str, float] | None:
                 valid = False
                 break
             number = float(value)
-            if number < 0 or number != number or number == float("inf"):
+            if number < 0 or number > 1 or number != number or number in {float("inf"), float("-inf")}:
                 valid = False
                 break
             cleaned[label] = number
         if not valid:
             continue
         total = sum(cleaned.values())
-        if total <= 0:
+        if abs(total - 1.0) > 1e-6:
             continue
-        return {label: cleaned.get(label, 0.0) / total for label in ALLOWED_LABELS}
+        return {label: cleaned[label] for label in ALLOWED_LABELS}
     return None
 
 
@@ -133,4 +131,3 @@ def parse_model_response(raw_content: str | None, output_mode: OutputMode) -> Pa
     label = parse_label_candidate(lines[0])
     explanation = "\n".join(lines[1:]).strip() or None
     return ParsedResponse(normalized_label=label, parse_status="valid" if label else "invalid", explanation=explanation)
-

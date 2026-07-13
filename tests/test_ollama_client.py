@@ -129,6 +129,45 @@ def test_ollama_structured_label_keep_alive_and_default_thinking() -> None:
     run(scenario())
 
 
+def test_ollama_never_unload_keep_alive_is_sent_as_integer() -> None:
+    async def scenario() -> None:
+        fake = FakeOllamaAsyncClient()
+        client = OllamaClient(client=fake, keep_alive="-1")
+        prompt = make_prompt("test", "Return a label.", "{sentence}", "label_only")
+
+        await client.classify("gemma4:e4b-it-qat", prompt, BlindExample(1, "Profits rose."))
+
+        assert fake.chat_calls[0]["keep_alive"] == -1
+
+    run(scenario())
+
+
+def test_ollama_structured_soft_label_uses_required_probability_schema() -> None:
+    async def scenario() -> None:
+        class SoftClient(FakeOllamaAsyncClient):
+            async def chat(self, **kwargs):
+                self.chat_calls.append(kwargs)
+                return {
+                    "model": kwargs["model"],
+                    "message": {"role": "assistant", "content": '{"positive":0.6,"negative":0.1,"neutral":0.3}'},
+                    "prompt_eval_count": 12,
+                    "eval_count": 12,
+                }
+
+        fake = SoftClient()
+        client = OllamaClient(client=fake, structured_label_output=True)
+        prompt = make_prompt("soft", "Return JSON.", "{sentence}", "soft_label")
+        record = await client.classify("gemma4:e4b-it-qat", prompt, BlindExample(1, "Profits rose."))
+
+        assert record.status == "success"
+        schema = fake.chat_calls[0]["format"]
+        assert schema["required"] == ["positive", "negative", "neutral"]
+        assert schema["additionalProperties"] is False
+        assert schema["properties"]["positive"] == {"type": "number", "minimum": 0, "maximum": 1}
+
+    run(scenario())
+
+
 def test_ollama_object_response_shape_is_supported() -> None:
     async def scenario() -> None:
         class ObjectResponseClient(FakeOllamaAsyncClient):

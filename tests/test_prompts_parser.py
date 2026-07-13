@@ -62,18 +62,16 @@ def test_soft_label_parser_accepts_fences_and_prose() -> None:
     assert parsed.normalized_label == "neutral"
 
 
-def test_soft_label_parser_renormalizes_imperfect_sums() -> None:
+def test_soft_label_parser_rejects_imperfect_sums() -> None:
     parsed = parse_model_response('{"positive": 0.7, "negative": 0.2, "neutral": 0.2}', "soft_label")
-    assert parsed.parse_status == "valid"
-    assert parsed.label_probabilities is not None
-    assert abs(sum(parsed.label_probabilities.values()) - 1.0) < 1e-12
-    assert abs(parsed.label_probabilities["positive"] - 0.7 / 1.1) < 1e-12
+    assert parsed.parse_status == "invalid"
+    assert parsed.label_probabilities is None
 
 
-def test_soft_label_parser_missing_label_counts_as_zero() -> None:
+def test_soft_label_parser_rejects_missing_label() -> None:
     parsed = parse_model_response('{"positive": 0.75, "negative": 0.25}', "soft_label")
-    assert parsed.parse_status == "valid"
-    assert parsed.label_probabilities == {"positive": 0.75, "negative": 0.25, "neutral": 0.0}
+    assert parsed.parse_status == "invalid"
+    assert parsed.label_probabilities is None
 
 
 def test_soft_label_parser_tie_breaks_in_allowed_label_order() -> None:

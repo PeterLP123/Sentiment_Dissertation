@@ -1202,6 +1202,21 @@ def score_headlines_command(
         bool,
         typer.Option("--dry-run", help="Count the frozen scoring population without opening a model client."),
     ] = False,
+    ollama_think: Annotated[
+        bool | None,
+        typer.Option(
+            "--ollama-think/--no-ollama-think",
+            help="Enable or disable Ollama thinking. Default: model/provider default.",
+        ),
+    ] = None,
+    ollama_keep_alive: Annotated[
+        str,
+        typer.Option("--ollama-keep-alive", help="Ollama keep-alive value, for example -1 or 30m."),
+    ] = os.getenv("OLLAMA_KEEP_ALIVE", "-1"),
+    structured_output: Annotated[
+        bool,
+        typer.Option("--structured-output/--no-structured-output", help="Request provider-supported JSON schema output."),
+    ] = True,
 ) -> None:
     """Score the collection's unique headlines with an LLM for analyze-headline-value --llm-scores."""
     resolved_provider = _resolve_provider(provider)
@@ -1235,7 +1250,14 @@ def score_headlines_command(
         return
 
     async def main() -> None:
-        async with make_llm_client(resolved_provider, base_url=base_url, ollama_host=ollama_host) as client:
+        async with make_llm_client(
+            resolved_provider,
+            base_url=base_url,
+            ollama_host=ollama_host,
+            ollama_keep_alive=ollama_keep_alive,
+            ollama_think=ollama_think,
+            structured_label_output=structured_output,
+        ) as client:
             summary = await score_headlines(
                 client,
                 collection_root=collection_root,
@@ -1250,6 +1272,8 @@ def score_headlines_command(
                 source_codes=source_codes,
                 direct_company_only=direct_company_only,
                 max_population=max_population,
+                ollama_think=ollama_think,
+                structured_output=structured_output,
                 callback=lambda message: console.print(f"[dim]{message}[/dim]"),
             )
         table = Table(title=f"Headline Scoring — {model}")
@@ -1261,6 +1285,7 @@ def score_headlines_command(
         table.add_row("Succeeded", f"{summary.succeeded:,}")
         table.add_row("Failed", f"{summary.failed:,}")
         table.add_row("Scores CSV", str(summary.output_path))
+        table.add_row("Manifest", str(summary.manifest_path))
         console.print(table)
         console.print(f"[dim]Backtest with: sentiment-bench analyze-headline-value --llm-scores {summary.output_path}[/dim]")
 

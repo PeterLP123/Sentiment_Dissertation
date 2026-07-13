@@ -9,6 +9,7 @@ from sentiment_benchmark.headline_scoring import score_headlines
 from sentiment_benchmark.headline_value import (
     HeadlineValueError,
     analyze_headline_value,
+    collect_scorable_headline_records,
     collect_scorable_headlines,
     headline_norm_sha256,
 )
@@ -29,8 +30,18 @@ def _fixture_collection(tmp_path: Path) -> Path:
         "config": {
             "collection": {"id": "fixture", "start": "2026-06-01T00:00:00Z", "end": "2026-06-03T00:00:00Z"},
             "companies": [
-                {"symbol": "AAPL", "name": "Apple Inc.", "aliases": ["Apple", "Apple Inc.", "AAPL"]},
-                {"symbol": "MSFT", "name": "Microsoft Corporation", "aliases": ["Microsoft", "MSFT"]},
+                {
+                    "symbol": "AAPL",
+                    "name": "Apple Inc.",
+                    "ric": "AAPL.O",
+                    "aliases": ["Apple", "Apple Inc.", "AAPL"],
+                },
+                {
+                    "symbol": "MSFT",
+                    "name": "Microsoft Corporation",
+                    "ric": "MSFT.O",
+                    "aliases": ["Microsoft", "MSFT"],
+                },
             ],
         },
     }
@@ -78,6 +89,10 @@ class FakeClient:
 
     def __init__(self) -> None:
         self.calls: list[str] = []
+        self.think_values: list[bool | None] = []
+
+    async def model_digest(self, model_id: str, retries: int = 3) -> str:
+        return f"digest-{model_id}"
 
     async def classify(
         self,
@@ -87,8 +102,10 @@ class FakeClient:
         temperature: float = 0.0,
         max_completion_tokens: int = 8,
         retries: int = 3,
+        ollama_think: bool | None = None,
     ) -> LLMResponseRecord:
         self.calls.append(example.sentence)
+        self.think_values.append(ollama_think)
         label = "positive" if "beats" in example.sentence else "negative"
         return LLMResponseRecord(
             row_number=example.row_number,
@@ -99,6 +116,10 @@ class FakeClient:
             parse_status="valid",
             status="success",
             latency_ms=5,
+            prompt_tokens=10,
+            completion_tokens=2,
+            total_tokens=12,
+            raw_response_json={"prompt_eval_duration": 1_000_000_000, "eval_duration": 500_000_000},
         )
 
 
@@ -113,6 +134,8 @@ def test_collect_scorable_headlines_dedupes_and_windows(tmp_path: Path) -> None:
     # Duplicate collapsed, out-of-window row excluded.
     assert texts == ["Apple beats earnings estimates", "Microsoft faces antitrust probe"]
     assert headlines[0][0] == headline_norm_sha256(dict(headlines)[headlines[0][0]])
+    records = collect_scorable_headline_records(root)
+    assert all(record.explicit_target and not record.contextual for record in records)
 
 
 def test_collect_scorable_headlines_filters_source_and_direct_company(tmp_path: Path) -> None:
@@ -146,6 +169,30 @@ def test_collect_scorable_headlines_filters_source_and_direct_company(tmp_path: 
     assert [text for _sha, text in direct] == ["Apple beats earnings estimates"]
 
 
+def test_exact_ric_counts_as_explicit_target_identity(tmp_path: Path) -> None:
+    root = _fixture_collection(tmp_path)
+    headlines_path = root / "raw" / "lseg_fixture" / "headlines.jsonl"
+    with headlines_path.open("a", encoding="utf-8") as handle:
+        handle.write(
+            json.dumps(
+                {
+                    "story_id": "urn:newsml:reuters.com:20260601:ric:1",
+                    "headline": "AAPL.O rises in afternoon trading",
+                    "version_created": "2026-06-01T17:00:00Z",
+                    "source_code": "NS:RTRS",
+                    "matched_symbols": ["AAPL"],
+                }
+            )
+            + "\n"
+        )
+
+    record = next(item for item in collect_scorable_headline_records(root) if item.headline.startswith("AAPL.O"))
+
+    assert record.explicit_target is True
+    assert record.contextual is False
+    assert record.market_price_technical is True
+
+
 def test_score_headlines_writes_scores_and_resumes(tmp_path: Path) -> None:
     root = _fixture_collection(tmp_path)
     output = tmp_path / "scores.csv"
@@ -159,6 +206,8 @@ def test_score_headlines_writes_scores_and_resumes(tmp_path: Path) -> None:
             prompt=_prompt(),
             output_path=output,
             concurrency=2,
+            ollama_think=False,
+            structured_output=True,
         )
     )
     assert summary.attempted == 2
@@ -168,6 +217,14 @@ def test_score_headlines_writes_scores_and_resumes(tmp_path: Path) -> None:
     assert {row["label"] for row in rows} == {"positive", "negative"}
     assert {row["score"] for row in rows} == {"1.0", "-1.0"}
     assert all(row["status"] == "success" for row in rows)
+    assert all(row["model_digest"] == "digest-fake/model" for row in rows)
+    assert all(row["prompt_hash"] for row in rows)
+    assert all(row["prompt_tokens"] == "10" for row in rows)
+    assert client.think_values == [False, False]
+    manifest = json.loads(summary.manifest_path.read_text(encoding="utf-8"))
+    assert manifest["counts"]["succeeded"] == 2
+    assert manifest["model"] == {"digest": "digest-fake/model", "tag": "fake/model"}
+    assert manifest["inference"]["structured_output"] is True
 
     # Second invocation skips everything already scored.
     resumed = asyncio.run(
@@ -214,6 +271,7 @@ class SoftLabelClient(FakeClient):
         temperature: float = 0.0,
         max_completion_tokens: int = 8,
         retries: int = 3,
+        ollama_think: bool | None = None,
     ) -> LLMResponseRecord:
         self.calls.append(example.sentence)
         positive = 0.7 if "beats" in example.sentence else 0.1
@@ -255,6 +313,10 @@ def test_score_headlines_soft_label_scores_probability_margin(tmp_path: Path) ->
     probe = rows["Microsoft faces antitrust probe"]
     # Score is P(positive) - P(negative), not the +1/0/-1 label map.
     assert float(beats["score"]) == pytest.approx(0.6)
+    assert float(beats["score_100"]) == pytest.approx(60.0)
+    assert float(beats["p_positive"]) == pytest.approx(0.7)
+    assert float(beats["p_negative"]) == pytest.approx(0.1)
+    assert float(beats["p_neutral"]) == pytest.approx(0.2)
     assert beats["label"] == "positive"
     assert float(probe["score"]) == pytest.approx(-0.5)
     assert probe["label"] == "negative"

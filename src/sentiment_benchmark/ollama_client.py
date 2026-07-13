@@ -18,6 +18,16 @@ from .utils import to_jsonable as _to_jsonable
 
 _TRANSIENT_STATUS_CODES = {429, 500, 502, 503, 504}
 _LABEL_SCHEMA = {"type": "string", "enum": ["positive", "negative", "neutral"]}
+_SOFT_LABEL_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "positive": {"type": "number", "minimum": 0, "maximum": 1},
+        "negative": {"type": "number", "minimum": 0, "maximum": 1},
+        "neutral": {"type": "number", "minimum": 0, "maximum": 1},
+    },
+    "required": ["positive", "negative", "neutral"],
+    "additionalProperties": False,
+}
 
 
 class OllamaDependencyError(RuntimeError):
@@ -56,6 +66,13 @@ def _as_int(value: Any) -> int | None:
     return None
 
 
+def _normalize_keep_alive(value: str | int | None) -> str | int | None:
+    """Preserve duration strings while sending Ollama's never-unload sentinel as an integer."""
+    if isinstance(value, str) and value.strip() == "-1":
+        return -1
+    return value
+
+
 def _format_ollama_error(exc: Exception) -> str:
     status_code = getattr(exc, "status_code", None)
     message = getattr(exc, "error", None) or str(exc)
@@ -89,7 +106,7 @@ class OllamaClient:
         self.timeout = timeout
         self._client = client
         self._owns_client = client is None
-        self.keep_alive = keep_alive
+        self.keep_alive = _normalize_keep_alive(keep_alive)
         self.structured_label_output = structured_label_output
         self.default_think = default_think
 
@@ -210,8 +227,11 @@ class OllamaClient:
             chat_kwargs["think"] = resolved_think
         if self.keep_alive is not None:
             chat_kwargs["keep_alive"] = self.keep_alive
-        if self.structured_label_output and prompt.output_mode == "label_only":
-            chat_kwargs["format"] = _LABEL_SCHEMA
+        if self.structured_label_output:
+            if prompt.output_mode == "label_only":
+                chat_kwargs["format"] = _LABEL_SCHEMA
+            elif prompt.output_mode == "soft_label":
+                chat_kwargs["format"] = _SOFT_LABEL_SCHEMA
         start = time.monotonic()
         try:
             response = await self._call_with_retries(
@@ -220,6 +240,11 @@ class OllamaClient:
             )
             latency_ms = (time.monotonic() - start) * 1000
             raw_json = _to_jsonable(response)
+            prompt_tokens = _as_int(_get_field(response, "prompt_eval_count"))
+            completion_tokens = _as_int(_get_field(response, "eval_count"))
+            total_tokens = _as_int(_get_field(response, "total_tokens"))
+            if total_tokens is None and prompt_tokens is not None and completion_tokens is not None:
+                total_tokens = prompt_tokens + completion_tokens
             message = _get_field(response, "message", {})
             raw_content = _get_field(message, "content")
             if not isinstance(raw_content, str):
@@ -233,6 +258,9 @@ class OllamaClient:
                     status="malformed_response",
                     raw_response_json=raw_json if isinstance(raw_json, dict) else {"raw": raw_json},
                     latency_ms=latency_ms,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    total_tokens=total_tokens,
                     error="Ollama response did not contain message.content",
                 )
 
@@ -247,6 +275,9 @@ class OllamaClient:
                     status="malformed_response",
                     raw_response_json=raw_json if isinstance(raw_json, dict) else {"raw": raw_json},
                     latency_ms=latency_ms,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    total_tokens=total_tokens,
                     error=(
                         "Ollama returned an empty completion. A thinking model may have spent "
                         "the whole completion budget on hidden thinking; disable thinking or "
@@ -255,11 +286,6 @@ class OllamaClient:
                 )
 
             parsed = parse_model_response(raw_content, prompt.output_mode)
-            prompt_tokens = _as_int(_get_field(response, "prompt_eval_count"))
-            completion_tokens = _as_int(_get_field(response, "eval_count"))
-            total_tokens = _as_int(_get_field(response, "total_tokens"))
-            if total_tokens is None and prompt_tokens is not None and completion_tokens is not None:
-                total_tokens = prompt_tokens + completion_tokens
             return LLMResponseRecord(
                 row_number=example.row_number,
                 model_id=model_id,
