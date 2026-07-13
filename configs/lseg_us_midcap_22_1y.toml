@@ -1,0 +1,205 @@
+# Deadline-bounded Reuters headline collection for a diversified US mid-cap panel.
+#
+# The one-year interval stays inside the LSEG news endpoint's documented
+# historical depth. Source:RTRS is applied in every query and story-body
+# retrieval is disabled, keeping the collection inside a single-day request
+# budget. This is an exploratory robustness panel, not the dissertation's
+# confirmatory core universe.
+
+[collection]
+id = "us_midcap_22_1y"
+start = "2025-06-26T00:00:00Z"
+end = "2026-06-26T00:00:00Z"
+language = "en"
+session = "desktop"
+page_size = 100
+max_pages = 50
+retries = 3
+requests_per_second = 3.0
+max_requests_per_run = 8000
+window_days = 7
+fetch_story_bodies = false
+
+[cleaning]
+min_text_chars = 0
+max_scoring_chars = 1000
+
+[outputs]
+raw_output_root = "Data/collections/lseg_us_midcap_22_1y/raw"
+derived_output_root = "Data/collections/lseg_us_midcap_22_1y/derived"
+
+# Information technology
+
+[[companies]]
+symbol = "DLB"
+name = "Dolby Laboratories Inc."
+ric = "DLB.N"
+news_query = "R:DLB.N and Language:LEN and Source:RTRS"
+aliases = ["Dolby", "Dolby Laboratories"]
+
+[[companies]]
+symbol = "LFUS"
+name = "Littelfuse Inc."
+ric = "LFUS.O"
+news_query = "R:LFUS.O and Language:LEN and Source:RTRS"
+aliases = ["Littelfuse", "Littelfuse Inc."]
+
+# Communication services
+
+[[companies]]
+symbol = "NYT"
+name = "The New York Times Company"
+ric = "NYT.N"
+news_query = "R:NYT.N and Language:LEN and Source:RTRS"
+aliases = ["New York Times", "The New York Times", "New York Times Company"]
+
+[[companies]]
+symbol = "NXST"
+name = "Nexstar Media Group Inc."
+ric = "NXST.O"
+news_query = "R:NXST.O and Language:LEN and Source:RTRS"
+aliases = ["Nexstar", "Nexstar Media", "Nexstar Media Group"]
+
+# Consumer discretionary
+
+[[companies]]
+symbol = "PAG"
+name = "Penske Automotive Group Inc."
+ric = "PAG.N"
+news_query = "R:PAG.N and Language:LEN and Source:RTRS"
+aliases = ["Penske Automotive", "Penske Automotive Group"]
+
+[[companies]]
+symbol = "MTN"
+name = "Vail Resorts Inc."
+ric = "MTN.N"
+news_query = "R:MTN.N and Language:LEN and Source:RTRS"
+aliases = ["Vail Resorts", "Vail Resorts Inc."]
+
+# Financials
+
+[[companies]]
+symbol = "SF"
+name = "Stifel Financial Corp."
+ric = "SF.N"
+news_query = "R:SF.N and Language:LEN and Source:RTRS"
+aliases = ["Stifel", "Stifel Financial"]
+
+[[companies]]
+symbol = "EWBC"
+name = "East West Bancorp Inc."
+ric = "EWBC.O"
+news_query = "R:EWBC.O and Language:LEN and Source:RTRS"
+aliases = ["East West Bancorp", "East West Bank"]
+
+# Healthcare
+
+[[companies]]
+symbol = "BIO"
+name = "Bio-Rad Laboratories Inc."
+ric = "BIO.N"
+news_query = "R:BIO.N and Language:LEN and Source:RTRS"
+aliases = ["Bio-Rad", "Bio-Rad Laboratories"]
+
+[[companies]]
+symbol = "EHC"
+name = "Encompass Health Corp."
+ric = "EHC.N"
+news_query = "R:EHC.N and Language:LEN and Source:RTRS"
+aliases = ["Encompass Health", "Encompass Health Corp."]
+
+# Energy
+
+[[companies]]
+symbol = "NOV"
+name = "NOV Inc."
+ric = "NOV.N"
+news_query = "R:NOV.N and Language:LEN and Source:RTRS"
+aliases = ["NOV Inc.", "National Oilwell Varco"]
+
+[[companies]]
+symbol = "PBF"
+name = "PBF Energy Inc."
+ric = "PBF.N"
+news_query = "R:PBF.N and Language:LEN and Source:RTRS"
+aliases = ["PBF Energy", "PBF Energy Inc."]
+
+# Industrials
+
+[[companies]]
+symbol = "DCI"
+name = "Donaldson Company Inc."
+ric = "DCI.N"
+news_query = "R:DCI.N and Language:LEN and Source:RTRS"
+aliases = ["Donaldson", "Donaldson Company"]
+
+[[companies]]
+symbol = "OSK"
+name = "Oshkosh Corp."
+ric = "OSK.N"
+news_query = "R:OSK.N and Language:LEN and Source:RTRS"
+aliases = ["Oshkosh", "Oshkosh Corporation"]
+
+# Consumer staples
+
+[[companies]]
+symbol = "INGR"
+name = "Ingredion Inc."
+ric = "INGR.N"
+news_query = "R:INGR.N and Language:LEN and Source:RTRS"
+aliases = ["Ingredion", "Ingredion Inc."]
+
+[[companies]]
+symbol = "POST"
+name = "Post Holdings Inc."
+ric = "POST.N"
+news_query = "R:POST.N and Language:LEN and Source:RTRS"
+aliases = ["Post Holdings", "Post Holdings Inc."]
+
+# Utilities
+
+[[companies]]
+symbol = "NJR"
+name = "New Jersey Resources Corp."
+ric = "NJR.N"
+news_query = "R:NJR.N and Language:LEN and Source:RTRS"
+aliases = ["New Jersey Resources", "New Jersey Resources Corp."]
+
+[[companies]]
+symbol = "OGE"
+name = "OGE Energy Corp."
+ric = "OGE.N"
+news_query = "R:OGE.N and Language:LEN and Source:RTRS"
+aliases = ["OGE Energy", "OGE Energy Corp."]
+
+# Real estate
+
+[[companies]]
+symbol = "CUBE"
+name = "CubeSmart"
+ric = "CUBE.N"
+news_query = "R:CUBE.N and Language:LEN and Source:RTRS"
+aliases = ["CubeSmart"]
+
+[[companies]]
+symbol = "BRX"
+name = "Brixmor Property Group Inc."
+ric = "BRX.N"
+news_query = "R:BRX.N and Language:LEN and Source:RTRS"
+aliases = ["Brixmor", "Brixmor Property Group"]
+
+# Materials
+
+[[companies]]
+symbol = "CMC"
+name = "Commercial Metals Company"
+ric = "CMC.N"
+news_query = "R:CMC.N and Language:LEN and Source:RTRS"
+aliases = ["Commercial Metals", "Commercial Metals Company"]
+
+[[companies]]
+symbol = "SON"
+name = "Sonoco Products Company"
+ric = "SON.N"
+news_query = "R:SON.N and Language:LEN and Source:RTRS"
+aliases = ["Sonoco", "Sonoco Products"]

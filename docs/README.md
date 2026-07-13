@@ -14,6 +14,7 @@ This documentation is organized by reader task ([Diátaxis](https://diataxis.fr/
 | [News sourcing](news_sourcing.md) | How-to | Search, extract, package, and troubleshoot Tavily and NewsAPI corpora. |
 | [LSEG to Ollama pipeline](lseg_ollama_pipeline.md) | How-to | Collect, clean, score, validate, and evaluate local-only Workspace news. |
 | [LSEG analysis workflow](lseg_analysis_workflow.md) | How-to + implementation plan | The gated corpus → price/timing dry run → lean four-scorer panel → held-out event-study sequence. |
+| [Mid-cap deadline runbook](midcap_deadline_runbook.md) | Exploratory runbook | One-day Reuters headline collection, bounded local scoring, LSEG prices and funded evaluation for the 22-company extension. |
 | [Trading pipeline](trading_pipeline.md) | How-to + explanation | The news-to-price pipeline: runs, effectiveness battery, sweeps, and pluggable strategies. |
 | [TUI guide](tui_guide.md) | How-to | Interactive model, prompt, run, results, and news workflows. |
 | [CLI reference](cli_reference.md) | Reference | Every command, option, default, and example. |

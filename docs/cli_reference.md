@@ -101,6 +101,7 @@ Commands grouped by workflow. Every command is documented in a section below or 
 | `lseg-init-config` | Write a preset collection TOML config. |
 | `lseg-news-check` | Test the Workspace session and entitlements without writing data. |
 | `fetch-lseg-news` | Atomically checkpoint an immutable, resumable raw collection. |
+| `fetch-lseg-prices` | Export a configured LSEG OHLCV panel with a hash manifest. |
 | `build-lseg-corpus` | Verify raw hashes and deterministically rebuild clean text offline. |
 | `build-lseg-analysis-cohort` | Apply the configured relevance rules and write hashed development/holdout/L3 cohorts. |
 | `lseg-catalog` | Refresh the metadata-only local corpus catalog. |
@@ -340,7 +341,7 @@ sentiment-bench score-headlines --model gemma-4-31b --provider cerebras \
   --limit 20000
 ```
 
-Scores the exact headline population `analyze-headline-value` aggregates (unique in-window company-matched headlines) with any provider, into an append-only CSV keyed by normalized-headline hash. Re-running skips already-successful rows and re-attempts failures; `--limit` takes a hash-ordered (effectively random) subsample for unbiased pilots. `label_only` prompts score +1/0/-1; `soft_label` prompts score `P(positive) - P(negative)` in [-1, 1]. Keep separate `--output` files per prompt mode. Reasoning models receive the automatic completion-budget bump.
+Scores the exact headline population `analyze-headline-value` aggregates (unique in-window company-matched headlines) with any provider, into an append-only CSV keyed by normalized-headline hash. Re-running skips already-successful rows and re-attempts failures; `--limit` takes a hash-ordered (effectively random) subsample for unbiased pilots. `--source-code` applies an exact repeatable source filter, `--direct-company-only` keeps only single-company actionable headlines, `--max-population` refuses an unexpectedly large final population, and `--dry-run` reports that frozen population without opening a model client. Pass the same `--source-code` and `--direct-company-only` options to `analyze-headline-value` so LLM and baseline scorers use one frozen population. `label_only` prompts score +1/0/-1; `soft_label` prompts score `P(positive) - P(negative)` in [-1, 1]. Keep separate `--output` files per prompt mode. Reasoning models receive the automatic completion-budget bump.
 
 ### Unattended full-collection runs
 
@@ -579,6 +580,8 @@ These commands require `python -m pip install -e ".[lseg]"` only on the collecti
 sentiment-bench lseg-init-config --collection-id my_lseg_collection --output configs/my_lseg_collection.toml
 sentiment-bench lseg-news-check --config configs/lseg_workspace_example.toml
 sentiment-bench fetch-lseg-news --config configs/lseg_workspace_example.toml
+sentiment-bench fetch-lseg-prices --config configs/lseg_workspace_example.toml \
+  --start 2025-06-20 --end 2026-07-10 --output Data/derived/prices/example.csv
 sentiment-bench build-lseg-corpus --source Data/news/lseg_lseg_workspace_example
 sentiment-bench build-lseg-analysis-cohort --corpus-manifest Data/derived/lseg/<id>/manifest.json
 sentiment-bench score-corpus-matrix \
@@ -588,7 +591,7 @@ sentiment-bench score-corpus-matrix \
 sentiment-bench lseg-catalog
 ```
 
-`lseg-init-config` writes a preset TOML config and refuses to replace an existing file unless `--overwrite` is passed. The default preset is the 8-company US mega-cap universe (`us-mega-eight`) over `2025-06-26T00:00:00Z` to `2026-06-26T00:00:00Z` with daily windows; `configs/lseg_us_mega_cap_1y.toml` is the checked-in template. `lseg-news-check` tests the desktop session plus headline and story entitlements without writing data. `fetch-lseg-news` atomically checkpoints an immutable collection. `build-lseg-corpus` verifies raw hashes and deterministically rebuilds clean text offline. `lseg-catalog` refreshes metadata-only `Data/derived/lseg/catalog.json` and `catalog.csv`.
+`lseg-init-config` writes a preset TOML config and refuses to replace an existing file unless `--overwrite` is passed. The default preset is the 8-company US mega-cap universe (`us-mega-eight`) over `2025-06-26T00:00:00Z` to `2026-06-26T00:00:00Z` with daily windows; `configs/lseg_us_mega_cap_1y.toml` is the checked-in template. `lseg-news-check` tests the desktop session plus headline and story entitlements without writing data; `--all-companies` checks every configured RIC. `fetch-lseg-news` atomically checkpoints an immutable collection. A collection can set `fetch_story_bodies = false` for an explicit headline-only artifact and `max_requests_per_run` for a resumable hard request ceiling. `fetch-lseg-prices` uses the same company/RIC definitions, writes canonical OHLCV CSV, and records coverage, hashes and the price-return convention in an adjacent manifest. `build-lseg-corpus` verifies raw hashes and deterministically rebuilds clean text offline. `lseg-catalog` refreshes metadata-only `Data/derived/lseg/catalog.json` and `catalog.csv`.
 
 `build-lseg-analysis-cohort` leaves the verified corpus unchanged, applies the configured relevance and earliest-revision rules, and writes hashed development, holdout, and L3 cohort artifacts. It refuses incomplete corpora, undersized splits, and existing output directories.
 
