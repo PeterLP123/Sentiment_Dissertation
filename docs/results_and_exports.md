@@ -25,7 +25,7 @@ flowchart LR
 | `Data/news/tavily_news_*/` | `fetch-news` or TUI News tab | Unlabeled Tavily article corpora. | Ignored except `.gitkeep`. |
 | `Data/news/newsapi_news_*/` | `fetch-newsapi` or the trading runner | NewsAPI titles, descriptions, timestamps, and provenance. | Ignored except `.gitkeep`. |
 | `Data/derived/trading/<run-id>/` | `run-trading-strategy` | Provider-neutral articles, screening decisions, and data manifest. | Ignored. |
-| `results/trading/<run-id>/` | `run-trading-strategy` | Sentiment outputs, daily signals, adjusted prices, horizon returns, contamination sensitivity tables, figures (incl. the equity curve), summary, and run manifest. | Ignored. |
+| `results/trading/<run-id>/` | `run-trading-strategy` | Sentiment outputs, daily signals, adjusted prices, event diagnostics, optional funded portfolio tables, sensitivity tables, figures, summary, and run manifest. | Ignored. |
 | `results/trading/<analysis-id>/` | `analyze-trading-run` | Robustness CSVs, plots, technical summary, source map, and hashed analysis manifest. | Ignored. |
 | `experiments/manifest.toml` | Manual curation | Formal dissertation experiment registry. | Source-controlled. |
 
@@ -246,13 +246,35 @@ For formal results:
 
 See the [trading pipeline guide](trading_pipeline.md) for how these artifacts are produced and interpreted.
 
-Completed trading runs write `trading_decisions.csv` alongside `sentiment_scores.csv`, `daily_signals.csv`, `prices.csv`, and `returns.csv`. Decisions retain holds and their reasons; return rows include trades only when the signal policy is enabled. Return exports contain gross and net return/P&L columns, availability timestamp, two-sided transaction costs, and the disclosed short-borrow assumption. Each sentiment score also carries its scorer's `model_knowledge_cutoff`/`is_post_cutoff` and `masking_mode`/`entity_masked`/`n_masked_tokens`. The run manifest records corpus hashes, model tags/digests, prompt and request identity, policy settings, and traded-decision counts.
+Completed trading runs write `trading_decisions.csv` alongside `sentiment_scores.csv`, `daily_signals.csv`, `prices.csv`, and `returns.csv`. Decisions retain holds and their reasons; return rows include trades only when the signal policy is enabled. `returns.csv` is the fixed-notional event diagnostic and contains gross and net return/P&L columns, availability timestamp, two-sided transaction costs, and the disclosed short-borrow assumption. Each sentiment score also carries its scorer's `model_knowledge_cutoff`/`is_post_cutoff` and `masking_mode`/`entity_masked`/`n_masked_tokens`. The run manifest records corpus hashes, model tags/digests, prompt and request identity, evaluation frame, policy settings, portfolio settings when applicable, and traded-decision counts.
+
+### Funded cross-sectional artifacts
+
+When `[strategy] eval_frame = "cross_sectional"`, the same decisions are also evaluated as one independently funded portfolio per `(scorer, horizon)`, initialized from `[run] notional_usd`. Decisions are grouped by their actual next-session entry date; each *H*-session entry cohort receives `gross_exposure / H` times starting NAV so overlapping cohorts divide the configured gross capital instead of each receiving a fresh full notional.
+
+| File | Contents |
+| --- | --- |
+| `portfolio_trades.csv` | Lot-level audit trail with scorer/horizon, source/traded symbol, direction, entry/exit sessions, target weight, shares, notional, and costs. |
+| `daily_stock_pnl.csv` | Dense stock×session panel of gross/net P&L, costs, return contribution, exposure, and cumulative contribution; inactive dates are explicit zeros. |
+| `daily_portfolio.csv` | Daily start/end NAV, return, gross/net P&L, cumulative profit, drawdown, gross/net exposure, turnover, and costs. |
+| `portfolio_summary.csv` | Per scorer/horizon total profit/return, geometric annual return, annualised volatility and Sharpe, drawdown, turnover, and cost metrics. |
+| `stock_summary.csv` | Per-stock total contribution, contribution Sharpe, portfolio correlation, peak-to-trough loss, and activity statistics. |
+| `pnl_correlation.csv` | Pairwise correlation of aligned daily net-return contributions, including sample count, simultaneous-active days, and a both-profitable flag. |
+| `pnl_covariance.csv` | Sample and Ledoit–Wolf covariance estimates for aligned daily net-return contributions. |
+| `portfolio_equity.png` | Funded end-of-day NAV curves by scorer and horizon. |
+| `stock_equity_curves.png` | Per-stock cumulative net P&L contributions for the finite-Sharpe leader (total-return fallback). |
+| `pnl_correlation_heatmap.png` | Stock contribution-correlation heatmap for that highlighted case. |
+| `summary.md` | Funded performance table ranked by annualised Sharpe plus the profitable, negatively correlated pair shortlist. |
+
+The row-wise stock net P&L reconciles to the portfolio net P&L for every date/cell, and the daily NAV path is the source for cumulative profit, drawdown, geometric annual return, and annual Sharpe. `periods_per_year` defaults to 252; the configured `annual_risk_free_rate` is converted to the matching daily rate before Sharpe is annualised. Transaction-cost and short-borrow assumptions continue to come from `[signal_policy]`: per-side costs apply to actual entry and exit notional, and borrow accrues daily on the absolute closing short market value.
+
+Correlations and covariance estimates are research inputs, not an automatic portfolio-selection result. Searching the complete sample for the highest Sharpe curve or most negative profitable pair and then reporting that same curve is in-sample optimisation. Estimate weights/pairs on a chronological training period, freeze the choice, and measure it once on untouched validation or holdout dates.
 
 For LSEG-sourced runs, `Data/news/lseg_<collection-id>/manifest.json` hashes raw aggregate files and checkpoint state, and `Data/derived/lseg/<collection-id>/manifest.json` hashes cleaned article revisions and records cleaner/package versions and quality counts. Both directories contain licensed local-only content and remain ignored.
 
 ### Contamination sensitivity and tuning artifacts
 
-Runs also write `sensitivity_cutoff.csv` (mean net return and hit rate split by post- vs pre-knowledge-cutoff per scorer and horizon) and, when a masked arm ran (`[scoring].masking_mode = both`), `sensitivity_masking.csv` (masked vs unmasked). `equity_curve.png` plots cumulative net P&L for the primary scorer. These are descriptive sensitivity layers and do not alter the declared primary cell.
+Runs also write `sensitivity_cutoff.csv` (mean net return and hit rate split by post- vs pre-knowledge-cutoff per scorer and horizon) and, when a masked arm ran (`[scoring].masking_mode = both`), `sensitivity_masking.csv` (masked vs unmasked). `equity_curve.png` plots event-study cumulative net P&L for the primary scorer; cross-sectional runs add the funded portfolio figures above. These are descriptive sensitivity layers and do not alter the declared primary cell.
 
 `sweep-trading-strategy` reads a completed run's `daily_signals.csv` and `prices.csv` and writes `sweep.csv` (every grid point with train/test metrics and the selected row) plus a `<stem>_heatmap.png` (threshold × horizon test metric, named after the sweep CSV). Parameters are selected on the training split only.
 

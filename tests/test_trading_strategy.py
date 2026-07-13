@@ -531,6 +531,121 @@ aliases = ["Apple", "AAPL"]
     assert resumed.return_count == result.return_count
 
 
+def test_end_to_end_cross_sectional_run_writes_funded_artifacts_and_resumes(tmp_path: Path) -> None:
+    corpus = tmp_path / "tavily"
+    corpus.mkdir()
+    record = _record("https://tavily.test/apple", "Apple wins large contract", "2026-06-10T13:00:00Z")
+    (corpus / "articles.jsonl").write_text(json.dumps(record.__dict__) + "\n")
+    package = tmp_path / "package.json"
+    package.write_text(
+        json.dumps(
+            {
+                "source_corpora": [
+                    {"path": str(corpus), "query_id": "us_aapl", "query": COMPANY.query}
+                ]
+            }
+        )
+    )
+    config_path = tmp_path / "portfolio.toml"
+    config_path.write_text(
+        f"""
+[run]
+id = "funded_test"
+title = "Funded test"
+timezone = "America/New_York"
+dates = ["2026-06-10"]
+horizons = [1]
+notional_usd = 10000
+[scoring]
+models = ["a", "b", "c"]
+prompt_id = "target_company_news_label_only"
+prompts_path = "{Path('configs/default_prompts.toml').resolve()}"
+temperature = 0.0
+max_completion_tokens = 64
+concurrency = 2
+retries = 0
+[sources]
+tavily_package_manifest = "{package}"
+newsapi_max_pages = 1
+[strategy]
+id = "sentiment_threshold_v1"
+eval_frame = "cross_sectional"
+[portfolio]
+gross_exposure = 0.8
+dollar_neutral = true
+require_two_sided = false
+weighting = "equal"
+max_abs_weight = 0.8
+duplicate_entry_policy = "error"
+periods_per_year = 252
+annual_risk_free_rate = 0.0
+estimate_shrunk_covariance = true
+[outputs]
+news_output_root = "{tmp_path / 'news'}"
+derived_output_root = "{tmp_path / 'derived'}"
+results_output_root = "{tmp_path / 'results'}"
+experiment_registry = "{tmp_path / 'experiments.toml'}"
+[[companies]]
+symbol = "AAPL"
+name = "Apple Inc."
+query = "Apple AAPL stock news"
+tavily_query_id = "us_aapl"
+family = "AAPL — Apple"
+aliases = ["Apple", "AAPL"]
+"""
+    )
+
+    result = asyncio.run(
+        run_trading_strategy(
+            config_path,
+            newsapi_client=FakeNewsApi(),
+            tavily_client=FakeTavily(),
+            llm_client=FakeLlm(),
+            price_loader=lambda _config: _prices()[:2],
+        )
+    )
+
+    assert result.portfolio_trade_count > 0
+    assert result.portfolio_day_count > 0
+    assert result.portfolio_summary_count > 0
+    expected = {
+        "returns.csv",
+        "portfolio_trades.csv",
+        "daily_stock_pnl.csv",
+        "daily_portfolio.csv",
+        "portfolio_summary.csv",
+        "stock_summary.csv",
+        "pnl_correlation.csv",
+        "pnl_covariance.csv",
+        "portfolio_equity.png",
+        "stock_equity_curves.png",
+        "pnl_correlation_heatmap.png",
+    }
+    assert expected <= {path.name for path in result.results_dir.iterdir()}
+    assert "annualized_sharpe" in (result.results_dir / "portfolio_summary.csv").read_text()
+    assert "Headline Result" in (result.results_dir / "summary.md").read_text()
+    manifest = json.loads((result.results_dir / "run_manifest.json").read_text())
+    assert manifest["schema_version"] == 2
+    assert manifest["settings"]["evaluation_frame"] == "cross_sectional"
+    assert manifest["settings"]["portfolio"]["gross_exposure"] == 0.8
+    assert manifest["evaluation"]["event_returns_role"] == "diagnostic"
+    assert manifest["counts"]["portfolio_trade_rows"] == result.portfolio_trade_count
+    assert str(result.results_dir / "portfolio_summary.csv") in manifest["files"]
+
+    resumed = asyncio.run(
+        run_trading_strategy(
+            config_path,
+            newsapi_client=object(),
+            tavily_client=object(),
+            llm_client=object(),
+            price_loader=lambda _config: [],
+        )
+    )
+    assert resumed.portfolio_trade_count == result.portfolio_trade_count
+    assert resumed.portfolio_day_count == result.portfolio_day_count
+    assert resumed.portfolio_summary_count == result.portfolio_summary_count
+
+
 def test_pure_lseg_ollama_run_needs_no_web_news_clients_and_writes_decisions(tmp_path: Path) -> None:
     corpus = tmp_path / "lseg_corpus"
     corpus.mkdir()
@@ -641,6 +756,52 @@ def test_fixed_config_loads() -> None:
     assert config.provider == "openrouter"
     assert config.lseg_corpus_manifest is None
     assert config.decision_policy_enabled is False
+    assert config.portfolio.gross_exposure == 1.0
+    assert config.portfolio.weighting == "signal"
+
+
+def test_cross_sectional_portfolio_config_parses_and_validates(tmp_path: Path) -> None:
+    config_path = tmp_path / "trade.toml"
+    base = Path("configs/trading_pilot_3co.toml").read_text()
+    config_path.write_text(
+        base
+        + """
+
+[strategy]
+id = "sentiment_threshold_v1"
+eval_frame = "cross_sectional"
+
+[portfolio]
+gross_exposure = 1.25
+dollar_neutral = false
+require_two_sided = false
+weighting = "equal"
+max_abs_weight = 0.15
+max_positions_per_side = 4
+duplicate_entry_policy = "aggregate"
+periods_per_year = 250
+annual_risk_free_rate = 0.02
+estimate_shrunk_covariance = false
+"""
+    )
+
+    config = load_trading_config(config_path)
+    assert config.eval_frame == "cross_sectional"
+    assert config.portfolio.gross_exposure == 1.25
+    assert config.portfolio.dollar_neutral is False
+    assert config.portfolio.require_two_sided is False
+    assert config.portfolio.weighting == "equal"
+    assert config.portfolio.max_abs_weight == 0.15
+    assert config.portfolio.max_positions_per_side == 4
+    assert config.portfolio.duplicate_entry_policy == "aggregate"
+    assert config.portfolio.periods_per_year == 250
+    assert config.portfolio.annual_risk_free_rate == 0.02
+    assert config.portfolio.estimate_shrunk_covariance is False
+
+    invalid_path = tmp_path / "invalid.toml"
+    invalid_path.write_text(base + '\n[portfolio]\nweighting = "rank"\n')
+    with pytest.raises(TradingStrategyError, match="weighting must be"):
+        load_trading_config(invalid_path)
 
 
 def test_broadened_reviewed_config_loads_fixed_panel() -> None:

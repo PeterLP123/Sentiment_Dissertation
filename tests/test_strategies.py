@@ -197,10 +197,29 @@ def test_event_study_evaluator_runs_backtest() -> None:
     assert result.equity_curve  # non-empty
 
 
-def test_portfolio_evaluator_is_not_yet_implemented() -> None:
+def test_portfolio_evaluator_runs_funded_book() -> None:
+    signals = [
+        _signal("2026-06-10", 1.0),
+        DailySignal("MSFT", "2026-06-10", "model", 3, 3, -1.0, "negative", -1),
+    ]
+    prices = _prices() + [
+        PriceRow("MSFT", "2026-06-10", 100.0, 101.0, 99.0, 100.0, 1000.0, False),
+        PriceRow("MSFT", "2026-06-11", 100.0, 101.0, 89.0, 90.0, 1000.0, False),
+        PriceRow("MSFT", "2026-06-12", 90.0, 91.0, 89.0, 90.0, 1000.0, False),
+    ]
+    result = PortfolioEvaluator().evaluate(
+        signals,
+        prices,
+        DecisionPolicyConfig(),
+        decision_fn=None,
+        horizons=(1,),
+        notional_usd=10_000.0,
+    )
+
     assert PortfolioEvaluator().frame == "cross_sectional"
-    with pytest.raises(NotImplementedError):
-        PortfolioEvaluator().evaluate()
+    assert len(result.trades) == 2
+    assert result.daily_portfolio[0].gross_pnl_usd == pytest.approx(1_000.0)
+    assert result.summaries[0].total_return == pytest.approx(0.10)
 
 
 # --------------------------------------------------------------------------- #

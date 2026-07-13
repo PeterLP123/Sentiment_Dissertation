@@ -19,13 +19,16 @@ import math
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from statistics import fmean
 from typing import Any
 
+import numpy as np
+
 from .backtest import EquityPoint, ReturnRow
 from .model_roster import is_post_cutoff, knowledge_cutoff, roster_cutoff
+from .portfolio import PortfolioBacktestResult
 from .strategy_sweep import SweepResult
 
 _MASKED_SUFFIX = "#masked"
@@ -181,6 +184,122 @@ def plot_equity_curve(points: list[EquityPoint], path: Path, *, title: str = "Eq
     fig.savefig(path, dpi=180)
     plt.close(fig)
     return path
+
+
+def write_portfolio_charts(result: PortfolioBacktestResult, results_dir: Path) -> list[Path]:
+    """Render funded equity, best-case stock contributions, and correlation.
+
+    The equity figure includes every scorer/horizon account.  The two detailed
+    figures use the finite-Sharpe leader (falling back to total return), making
+    the selection visible without pretending that it is out-of-sample evidence.
+    """
+
+    plt = _pyplot()
+    if plt is None or not result.daily_portfolio:
+        return []
+    results_dir.mkdir(parents=True, exist_ok=True)
+    written: list[Path] = []
+
+    books: dict[tuple[str, int], list[Any]] = defaultdict(list)
+    for row in result.daily_portfolio:
+        books[(row.scorer_id, row.horizon)].append(row)
+    fig, axis = plt.subplots(figsize=(11, 5.5))
+    for (scorer_id, horizon), rows in sorted(books.items()):
+        ordered = sorted(rows, key=lambda row: row.date)
+        sessions = [date.fromisoformat(row.date) for row in ordered]
+        axis.plot(
+            sessions,
+            [row.end_nav_usd for row in ordered],
+            linewidth=1.2,
+            marker="o",
+            markersize=2.5,
+            label=f"{scorer_id} H{horizon}",
+        )
+    axis.set(title="Funded portfolio equity curves", ylabel="End-of-day NAV (USD)", xlabel="Session")
+    axis.grid(alpha=0.2)
+    axis.legend(fontsize=6, ncol=max(1, min(4, len(books) // 5 + 1)))
+    all_sessions = sorted({date.fromisoformat(row.date) for row in result.daily_portfolio})
+    if len(all_sessions) == 1:
+        axis.set_xlim(all_sessions[0] - timedelta(days=1), all_sessions[0] + timedelta(days=1))
+    fig.autofmt_xdate()
+    fig.tight_layout()
+    path = results_dir / "portfolio_equity.png"
+    fig.savefig(path, dpi=180)
+    plt.close(fig)
+    written.append(path)
+
+    eligible = [row for row in result.summaries if row.trade_count > 0]
+    if not eligible:
+        return written
+    best = max(
+        eligible,
+        key=lambda row: (
+            row.annualized_sharpe is not None,
+            row.annualized_sharpe if row.annualized_sharpe is not None else row.total_return,
+        ),
+    )
+    best_stock_rows = [
+        row
+        for row in result.daily_stock_pnl
+        if row.scorer_id == best.scorer_id and row.horizon == best.horizon
+    ]
+    symbols = sorted({row.symbol for row in best_stock_rows})
+    if symbols:
+        fig, axis = plt.subplots(figsize=(11, 5.5))
+        for symbol in symbols:
+            rows = sorted((row for row in best_stock_rows if row.symbol == symbol), key=lambda row: row.date)
+            sessions = [date.fromisoformat(row.date) for row in rows]
+            axis.plot(
+                sessions,
+                [row.cumulative_net_pnl_usd for row in rows],
+                linewidth=1.0,
+                marker="o",
+                markersize=2.5,
+                label=symbol,
+            )
+        axis.axhline(0, color="black", linewidth=0.8)
+        axis.set(
+            title=f"Stock cumulative P&L — {best.scorer_id} H{best.horizon}",
+            ylabel="Cumulative net contribution (USD)",
+            xlabel="Session",
+        )
+        axis.grid(alpha=0.2)
+        axis.legend(fontsize=6, ncol=max(1, min(5, len(symbols) // 7 + 1)))
+        stock_sessions = sorted({date.fromisoformat(row.date) for row in best_stock_rows})
+        if len(stock_sessions) == 1:
+            axis.set_xlim(stock_sessions[0] - timedelta(days=1), stock_sessions[0] + timedelta(days=1))
+        fig.autofmt_xdate()
+        fig.tight_layout()
+        path = results_dir / "stock_equity_curves.png"
+        fig.savefig(path, dpi=180)
+        plt.close(fig)
+        written.append(path)
+
+        index = {symbol: offset for offset, symbol in enumerate(symbols)}
+        matrix = np.full((len(symbols), len(symbols)), np.nan, dtype=float)
+        np.fill_diagonal(matrix, 1.0)
+        for correlation_row in result.correlations:
+            if (
+                correlation_row.scorer_id != best.scorer_id
+                or correlation_row.horizon != best.horizon
+                or correlation_row.correlation is None
+            ):
+                continue
+            if correlation_row.symbol_a in index and correlation_row.symbol_b in index:
+                left, right = index[correlation_row.symbol_a], index[correlation_row.symbol_b]
+                matrix[left, right] = matrix[right, left] = correlation_row.correlation
+        fig, axis = plt.subplots(figsize=(max(6, len(symbols) * 0.45), max(5, len(symbols) * 0.4)))
+        image = axis.imshow(matrix, vmin=-1, vmax=1, cmap="RdBu_r")
+        axis.set_xticks(range(len(symbols)), symbols, rotation=90, fontsize=7)
+        axis.set_yticks(range(len(symbols)), symbols, fontsize=7)
+        axis.set(title=f"Daily stock-contribution correlation — {best.scorer_id} H{best.horizon}")
+        fig.colorbar(image, ax=axis, label="Correlation")
+        fig.tight_layout()
+        path = results_dir / "pnl_correlation_heatmap.png"
+        fig.savefig(path, dpi=180)
+        plt.close(fig)
+        written.append(path)
+    return written
 
 
 def plot_sweep_heatmap(

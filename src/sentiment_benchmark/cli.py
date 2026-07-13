@@ -1032,7 +1032,11 @@ def run_trading_strategy_command(
         table.add_row("Run ID", result.run_id)
         table.add_row("Accepted articles", str(result.accepted_article_count))
         table.add_row("Sentiment scores", str(result.sentiment_score_count))
-        table.add_row("Return rows", str(result.return_count))
+        table.add_row("Event return rows", str(result.return_count))
+        if result.portfolio_summary_count:
+            table.add_row("Portfolio trades", str(result.portfolio_trade_count))
+            table.add_row("Portfolio days", str(result.portfolio_day_count))
+            table.add_row("Funded cases", str(result.portfolio_summary_count))
         table.add_row("Derived data", str(result.derived_dir))
         table.add_row("Meeting report", str(result.results_dir / "summary.md"))
         console.print(table)
@@ -1353,7 +1357,10 @@ def list_strategies_command() -> None:
         space = "; ".join(f"{name}={list(values)}" for name, values in strat.param_space().items()) or "—"
         table.add_row(strat.id, ", ".join(strat.axes), strat.evaluator.frame, space, strat.description)
     console.print(table)
-    console.print("Evaluation frames: 'event_study' (implemented), 'cross_sectional' (planned fast-follow).")
+    console.print(
+        "Evaluation frames: 'event_study' (independent event diagnostics) and "
+        "'cross_sectional' (funded daily portfolios). The table shows each strategy's default frame."
+    )
 
 
 @app.command("list-models")

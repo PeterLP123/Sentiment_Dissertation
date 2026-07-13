@@ -1,8 +1,8 @@
 # Trading Pipeline And Backtesting
 
-Last updated: 2026-07-01
+Last updated: 2026-07-11
 
-This guide explains the news-to-price trading pipeline end to end: how articles become sentiment scores, how scores become daily signals and trades, how event returns are computed, and how the analysis, effectiveness battery, parameter sweep, and pluggable strategy layer fit together.
+This guide explains the news-to-price trading pipeline end to end: how articles become sentiment scores, how scores become daily signals and trades, how event returns and funded portfolio P&L are computed, and how the analysis, effectiveness battery, parameter sweep, and pluggable strategy layer fit together.
 
 > **Interpretation limit.** Everything here is research infrastructure for the dissertation's L1 layer, not a live-order system or investment advice. Company-day events overlap and are treated as independent by the statistics, so all p-values are optimistic *screening diagnostics* — a confirmatory claim requires a plan filed before its data, e.g. the (currently parked) [Trading pre-registration](trading_preregistration.md).
 
@@ -27,7 +27,9 @@ flowchart LR
     subgraph Backtest
         DS["daily_signals.csv<br/>per company-day mean"]
         DP["Decision policy<br/>threshold ±1 or sized"]
-        R["returns.csv<br/>D+1..D+7 horizons"]
+        EV{"Evaluation frame"}
+        R["event_study<br/>returns.csv"]
+        PF["cross_sectional<br/>funded daily portfolio"]
     end
     T --> M
     NA --> M
@@ -38,17 +40,20 @@ flowchart LR
     L --> CU
     L --> DS
     DS --> DP
-    P["yfinance prices<br/>(cached, adjusted)"] --> R
-    DP --> R
+    P["LSEG or yfinance prices<br/>(cached, adjusted)"] --> EV
+    DP --> EV
+    EV --> R
+    EV --> PF
     R --> AN["analyze-trading-run<br/>robustness + effectiveness"]
+    PF --> PM["daily P&L, NAV, risk,<br/>stock correlations"]
     DS --> SW["sweep-trading-strategy<br/>train/test tuning"]
 ```
 
-One command runs the left half through `returns.csv`; two more analyze and tune a completed run without re-scoring:
+One command runs the left half through the selected evaluation frame; two more analyze and tune a completed run without re-scoring:
 
 | Stage | Command | Re-runs APIs? |
 | --- | --- | --- |
-| Collect, screen, score, price, return | `run-trading-strategy` | Yes (resumable; cached parts skipped) |
+| Collect, screen, score, price, evaluate | `run-trading-strategy` | Yes (resumable; cached parts skipped) |
 | Robustness report + effectiveness battery | `analyze-trading-run` | No |
 | Parameter tuning on a training split | `sweep-trading-strategy` | No |
 | Headline-only value screen (LSEG) | `analyze-headline-value` | No |
@@ -86,12 +91,48 @@ flowchart LR
     E --> H7["D+7 close<br/>exit h=7"]
 ```
 
-Returns are computed on $10,000 notional per event, with gross and net columns (two-sided transaction costs and a disclosed short-borrow assumption). Prices come through the `PriceProvider` seam ([prices.py](../src/sentiment_benchmark/prices.py)) with an opt-in per-(symbol, window) cache (`[prices].cache_dir`), so completed runs are deterministic and offline-replayable. Two backends exist: `lseg` (preferred for formal runs — licensed daily bars through the same Workspace session as the news collection, split/correction-adjusted but not dividend-adjusted, i.e. price returns) and `yfinance` (the historical default; folds dividends in via `auto_adjust`). Configs that omit `[prices]` keep yfinance, so previously registered runs are unaffected.
+The default `event_study` frame computes each event on $10,000 notional, with gross and net columns (two-sided transaction costs and a disclosed short-borrow assumption). This remains the diagnostic frame used by the existing effectiveness battery and parameter sweep. The opt-in `cross_sectional` frame accounts for the same decisions as a funded, overlapping portfolio; its accounting is described below.
+
+Prices come through the `PriceProvider` seam ([prices.py](../src/sentiment_benchmark/prices.py)) with an opt-in per-(symbol, window) cache (`[prices].cache_dir`), so completed runs are deterministic and offline-replayable. Two backends exist: `lseg` (preferred for formal runs — licensed daily bars through the same Workspace session as the news collection, split/correction-adjusted but not dividend-adjusted, i.e. price returns) and `yfinance` (the historical default; folds dividends in via `auto_adjust`). Configs that omit `[prices]` keep yfinance, so previously registered runs are unaffected.
 
 Two policy options handle thin coverage:
 
 - A company-day with no accepted texts produces **no signal** — it is dropped, never imputed.
 - With `[index_fallback]` enabled, a company-day with fewer than `min_texts` accepted texts keeps its signal but trades a US index (for example `^GSPC`) instead of the stock; the rows are flagged `index_fallback` and counted in the manifest.
+
+### Funded cross-sectional evaluation
+
+Set `[strategy] eval_frame = "cross_sectional"` to turn the decisions into daily positions, P&L, and NAV. Each `(scorer, horizon)` cell is an independent portfolio with its own starting capital; results from different scorers or horizons are therefore comparable experiments, not simultaneous claims on the same cash balance.
+
+The evaluator groups signals by their **actual entry session**, rather than by publication date. This matters for after-close, weekend, and holiday news: different news dates can map to the same next tradable open, and the portfolio must size them together. For a horizon of *H* sessions, each entry cohort receives `gross_exposure / H` times that day's starting NAV. These rotating sleeves make overlapping cohorts share capital instead of each receiving a fresh full-capital allocation. Lots are marked open-to-close on entry day and close-to-close thereafter, then exit at the horizon close. Net P&L charges the configured per-side transaction cost on actual entry and exit notional, plus daily short borrow on the absolute closing short market value.
+
+Within a cohort, `weighting = "equal"` gives each active name equal weight on its side of the book, while `weighting = "signal"` scales by the decision magnitude. With `dollar_neutral = true`, the sleeve is split 50/50 between long and short notional; `require_two_sided = true` admits a cohort only when it contains at least one decision on each side. `max_abs_weight` and `max_positions_per_side` limit name concentration and cohort breadth. The evaluator records unused capacity rather than silently levering the remaining names past a cap. Its default `duplicate_entry_policy = "error"` also rejects duplicate `(scorer, symbol, entry session)` decisions instead of double-counting them.
+
+```toml
+[strategy]
+id = "sentiment_magnitude_v1"
+scale = 1.0
+max_position = 1.0
+eval_frame = "cross_sectional"
+
+[portfolio]
+gross_exposure = 1.0
+dollar_neutral = true
+weighting = "signal"            # equal | signal
+require_two_sided = true
+max_abs_weight = 0.10
+max_positions_per_side = 10
+duplicate_entry_policy = "error"
+periods_per_year = 252
+annual_risk_free_rate = 0.0
+estimate_shrunk_covariance = true
+```
+
+The run's `[run] notional_usd` is the initial NAV of each independent scorer/horizon portfolio. The daily portfolio table is the authoritative funded series. It contains start/end NAV, gross and net P&L, cumulative profit, daily return, drawdown, exposure, turnover, and costs. Annual Sharpe is calculated from daily net NAV returns using `periods_per_year`; annual percentage profit is the geometric annual return from the full NAV path. The stock-level table reconciles to the daily total and supports pairwise correlations of aligned daily net-return contributions (inactive names contribute zero). Both sample and Ledoit–Wolf covariance estimates of those contributions are exported when shrinkage is enabled.
+
+These statistics support model development, but they do not make selection bias disappear. Picking the highest Sharpe scorer/horizon, the smoothest equity curve, or the most negative stock pairs on the full sample is exploratory. Freeze the rule and correlation/covariance estimate on a chronological training window, then report performance once on untouched validation/holdout data.
+
+The funded book currently assumes one exchange calendar/timezone and one USD capital base, so it is appropriate for the configured US stock universe rather than an unhedged multi-currency portfolio. Prefer disabling `[index_fallback]` for stock-diversification research: several company signals can otherwise resolve to the same index symbol, which is not independent exposure. If fallback is retained, keep the source-symbol attribution in `portfolio_trades.csv` and use an explicit duplicate policy. Annualisation covers the portfolio's first-entry through final-exit sessions; the price provider's extra fetch buffer is not treated as additional zero-return history.
 
 ## Stage 4: Run Artifacts
 
@@ -103,10 +144,21 @@ A completed run writes to `results/trading/<run-id>/` and refuses to be overwrit
 | `daily_signals.csv` | Per company-day mean sentiment and accepted-text counts per scorer. |
 | `trading_decisions.csv` | Long/short/hold per signal, including hold reasons. |
 | `prices.csv` | Adjusted open/close series used for entries and exits. |
-| `returns.csv` | Per-event gross/net returns and P&L for horizons D+1..D+7. |
+| `returns.csv` | Per-event gross/net returns and P&L for horizons D+1..D+7; retained as event-level diagnostics. |
+| `portfolio_trades.csv` | Entry-lot audit trail: scorer/horizon, source/traded symbol, target weight, shares, entry/exit sessions, and costs. |
+| `daily_stock_pnl.csv` | Dense stock×session panel of gross/net P&L, costs, return contribution, exposure, and cumulative contribution; inactive dates are explicit zeros. |
+| `daily_portfolio.csv` | Funded daily NAV, return, cumulative profit, drawdown, exposure, turnover, and costs. |
+| `portfolio_summary.csv` | Per scorer/horizon total and annualised performance, risk, drawdown, turnover, and cost metrics. |
+| `stock_summary.csv` | Per-stock profit and risk contribution statistics. |
+| `pnl_correlation.csv` | Pairwise correlations of aligned daily net-return contributions, with sample size, simultaneous-active days, and a both-profitable flag. |
+| `pnl_covariance.csv` | Sample and Ledoit–Wolf covariance estimates for aligned daily net-return contributions. |
 | `sensitivity_cutoff.csv` | Mean net return and hit rate split by pre-/post-knowledge-cutoff. |
 | `sensitivity_masking.csv` | Masked vs unmasked comparison (only when a masked arm ran). |
-| `equity_curve.png` | Cumulative net P&L for the primary scorer. |
+| `equity_curve.png` | Event-study cumulative net P&L for the primary scorer. |
+| `portfolio_equity.png` | Funded end-of-day NAV curves by scorer and horizon. |
+| `stock_equity_curves.png` | Per-stock cumulative net P&L contributions for the finite-Sharpe leader (total-return fallback). |
+| `pnl_correlation_heatmap.png` | Stock contribution-correlation heatmap for that highlighted case. |
+| `summary.md` | Answer-first event or funded report; the funded version ranks scorer/horizon Sharpe and lists profitable negatively correlated pairs. |
 | `run_manifest.json` | Config hash, corpus hashes, model tags/digests, prompt identity, policy settings, event counts. |
 
 The run also registers in `experiments/manifest.toml` with its resolved `strategy_id` and parameters.
@@ -169,11 +221,9 @@ flowchart LR
     ES --> TE["tradeable events"]
     TE --> DP["DecisionPolicy<br/>(primary extension point)"]
     DP --> DE["decisions + sizes"]
-    DE --> EV["Evaluator<br/>event_study or cross_sectional*"]
-    EV --> RT["returns"]
+    DE --> EV["Evaluator<br/>event_study or cross_sectional"]
+    EV --> RT["event returns or<br/>funded portfolio series"]
 ```
-
-\* `event_study` is implemented; `cross_sectional` (a long/short portfolio book) is a guarded planned fast-follow and currently errors.
 
 Registered built-ins (`sentiment-bench list-strategies`):
 
@@ -190,10 +240,10 @@ A run selects its idea in the config; a sweep with `--strategy`:
 id = "sentiment_magnitude_v1"   # see `sentiment-bench list-strategies`
 scale = 1.0                      # idea-specific params
 max_position = 1.0
-eval_frame = "event_study"
+eval_frame = "cross_sectional"   # event_study | cross_sectional
 ```
 
-Shared decision parameters (`threshold`, `min_valid_stories`, costs) still come from `[signal_policy]`. Adding an idea usually means implementing one seam (typically a `DecisionPolicy`) and calling `register(Strategy(...))`; the sweep, effectiveness battery, and experiment registry then work on it unchanged.
+Shared decision parameters (`threshold`, `min_valid_stories`, costs) still come from `[signal_policy]`; funded-book settings come from `[portfolio]`. Adding an idea usually means implementing one seam (typically a `DecisionPolicy`) and calling `register(Strategy(...))`; the sweep, effectiveness battery, and experiment registry then work on it unchanged.
 
 ## Headline-Only Value Analysis
 

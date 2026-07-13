@@ -658,9 +658,26 @@ An optional `[strategy]` table selects which registered idea a run uses (default
 id = "sentiment_magnitude_v1"     # see `sentiment-bench list-strategies`
 scale = 1.0                        # idea-specific params (here: conviction sizing scale)
 max_position = 1.0
-eval_frame = "event_study"        # event_study (implemented) | cross_sectional (planned)
+eval_frame = "cross_sectional"     # event_study (default) | cross_sectional
+
+[portfolio]                        # used only by the cross_sectional frame
+gross_exposure = 1.0
+dollar_neutral = true
+weighting = "signal"               # equal | signal
+require_two_sided = true
+max_abs_weight = 0.10
+max_positions_per_side = 10
+duplicate_entry_policy = "error"
+periods_per_year = 252
+annual_risk_free_rate = 0.0
+estimate_shrunk_covariance = true
 ```
 
-- Shared decision params (`threshold`, `min_valid_stories`, costs) still come from `[signal_policy]`; `[strategy]` only adds the idea id, idea-specific params, and the evaluation frame.
+- Shared decision params (`threshold`, `min_valid_stories`, transaction costs, and short borrow) still come from `[signal_policy]`; `[strategy]` adds the idea id, idea-specific params, and the evaluation frame. `[portfolio]` controls only funded-book accounting.
 - The default `sentiment_threshold_v1` reproduces the legacy behaviour byte-for-byte; only opt-in ideas (e.g. the conviction-weighted `sentiment_magnitude_v1`) use fractional position sizing.
-- The resolved `strategy_id` and params are recorded in `experiments/manifest.toml` for each run. `eval_frame = "cross_sectional"` is a guarded planned fast-follow and currently errors.
+- `event_study` retains the existing fixed-notional event diagnostics. `cross_sectional` creates one independently funded book per `(scorer, horizon)`, initialized from `[run] notional_usd`, groups decisions by actual next-session entry date, and assigns each *H*-session cohort `gross_exposure / H` times starting NAV.
+- With `dollar_neutral = true`, each sleeve splits its notional 50/50 long/short. `weighting = "equal"` allocates equally within each side; `"signal"` uses absolute decision magnitude. `require_two_sided` controls whether one-sided cohorts are skipped; `max_abs_weight` limits per-name weight and `max_positions_per_side` limits each cohort's breadth. The default duplicate policy errors rather than double-counting a scorer/symbol/entry-session decision.
+- The cross-sectional outputs include `portfolio_trades.csv`, `daily_stock_pnl.csv`, `daily_portfolio.csv`, `portfolio_summary.csv`, `stock_summary.csv`, `pnl_correlation.csv`, `pnl_covariance.csv`, `portfolio_equity.png`, `stock_equity_curves.png`, and `pnl_correlation_heatmap.png`. The daily series report net P&L, NAV/cumulative profit, drawdown, turnover, exposure, transaction costs, and borrow; the summaries include annual Sharpe and geometric annual return. Risk tables align each stock's daily net-return contribution, filling inactive dates with zero. The two stock-level figures use the finite-Sharpe leader (falling back to total return) and are exploratory highlights.
+- The resolved `strategy_id`, params, evaluation frame, and portfolio settings are recorded with the run evidence and experiment registration.
+
+`returns.csv` remains available as an event-level diagnostic. Do not choose the best Sharpe scorer/horizon or the most negatively correlated stock pairs on the same period used to report performance; estimate and select on a chronological training window, then evaluate the frozen choice on untouched holdout data.

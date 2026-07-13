@@ -54,7 +54,7 @@ flowchart TB
         STORE["storage.py → libsql_backend.py"]
     end
     subgraph Leaves["Pure logic (no I/O)"]
-        BT["backtest.py / strategies.py"]
+        BT["backtest.py / portfolio.py / strategies.py"]
         MET["metrics.py / agreement.py / trading_effectiveness.py"]
         DATA["dataset.py / prompts.py / parser.py"]
     end
@@ -94,14 +94,15 @@ Core boundaries:
 | `src/sentiment_benchmark/corpus_scoring.py` | Plans and resumes the provider-aware crossed LSEG/labeled scoring matrix using exact response identities. |
 | `src/sentiment_benchmark/l2_event_study.py` | Builds consensus/ambiguity measures, market-model CARs, clustered inference, and declared H2 tests. |
 | `src/sentiment_benchmark/l3_reliability.py` | Fits crossed variance components, derives reliability, compares holdout rules, and combines H2/H3 correction. |
-| `src/sentiment_benchmark/trading_strategy.py` | Orchestrates a trading run: merges provider records, screens target relevance, scores sentiment (with optional entity-masking arm and cutoff annotation), aligns sessions, and exports event returns plus sensitivity tables. |
+| `src/sentiment_benchmark/trading_strategy.py` | Orchestrates a trading run: merges provider records, screens target relevance, scores sentiment (with optional entity-masking arm and cutoff annotation), aligns sessions, and exports event diagnostics or a funded cross-sectional portfolio plus sensitivity tables. |
 | `src/sentiment_benchmark/prices.py` | Price-data seam: `PriceProvider` protocol, LSEG Workspace (preferred, licensed, price-return convention) and yfinance providers, and a per-(symbol,window) cache so backtests are deterministic and offline-replayable. Owns `PriceRow`. |
 | `src/sentiment_benchmark/backtest.py` | Pure backtest core (no I/O): default decision policy, per-event return calculation (with signed fractional position sizing), and equity-curve aggregation. Accepts an injected `decision_fn` so alternative strategies plug in. A leaf module that `trading_strategy` re-exports. |
-| `src/sentiment_benchmark/strategies.py` | Pluggable strategy layer: `SignalBuilder`/`EventSelector`/`DecisionPolicy`/`Evaluator` seams, defaults that reproduce the legacy rule, the conviction-weighted `sentiment_magnitude_v1` idea, and a registry so runs/sweeps name an idea by id. |
+| `src/sentiment_benchmark/portfolio.py` | Pure funded-portfolio evaluator: groups decisions by actual entry session, allocates overlapping horizons through rotating sleeves, marks positions daily, reconciles stock P&L to NAV, and computes annualised risk/return plus sample and shrunk covariance evidence. |
+| `src/sentiment_benchmark/strategies.py` | Pluggable strategy layer: `SignalBuilder`/`EventSelector`/`DecisionPolicy`/`Evaluator` seams, event-study and funded cross-sectional evaluators, defaults that reproduce the legacy rule, the conviction-weighted `sentiment_magnitude_v1` idea, and a registry so runs/sweeps name an idea by id. |
 | `src/sentiment_benchmark/model_roster.py` | Knowledge-cutoff registry and `is_post_cutoff` logic for contamination stratification. |
 | `src/sentiment_benchmark/entity_masking.py` | Replaces company name/ticker/aliases with placeholders for the masked-vs-unmasked ablation. |
 | `src/sentiment_benchmark/strategy_sweep.py` | Parameter sweep over any registered strategy's declared parameter space × horizon, selecting on the training split only and reporting held-out test metrics. |
-| `src/sentiment_benchmark/trading_plots.py` | Cutoff/masking sensitivity summaries and the equity-curve and parameter-sweep-heatmap figures (matplotlib optional). |
+| `src/sentiment_benchmark/trading_plots.py` | Cutoff/masking sensitivity summaries plus event-equity, funded portfolio, stock-contribution, correlation, and parameter-sweep figures (matplotlib optional). |
 | `src/sentiment_benchmark/tui.py` + `tui_*.py` | Interactive Textual interface over the same services: an app shell (`tui.py`) that composes per-feature mixins (`tui_run`, `tui_results`, `tui_queue`, `tui_models`, `tui_monitor`, `tui_news`, `tui_baselines`) on a shared `tui_base` foundation, with `tui_format`/`tui_screens` helpers. |
 
 ## The LSEG Research Path
@@ -176,12 +177,13 @@ A trading "idea" spans four seams of one pipeline:
 
 ```text
 raw scores → [SignalBuilder] → daily signals → [EventSelector] → tradeable
-           → [DecisionPolicy] → decisions → [Evaluator] → returns
+           → [DecisionPolicy] → decisions → [Evaluator] ─┬─→ event returns
+                                                        └─→ funded daily portfolio
 ```
 
 `strategies.py` makes each seam a small protocol with a default that reproduces the current behaviour, bundles a choice per seam into a registered `Strategy`, and lets a run or sweep name an idea by id. The decision/sizing seam is the primary extension point: `ThresholdPolicy` is the equal-weight ±1 default and `sentiment_magnitude_v1` (`MagnitudePolicy`) is a conviction-weighted variant whose position size scales with |mean sentiment|. Position sizing is additive — a full ±1 position reproduces the legacy result byte-for-byte, so the filed trading pre-registration is untouched and only opt-in strategies use fractional sizes.
 
-Adding an idea usually means implementing one seam (a `DecisionPolicy`) and calling `register(Strategy(...))`; the sweep, effectiveness battery, and experiment registry then work on it unchanged. A run selects its idea with the config `[strategy]` table (`id`, optional idea params, and `eval_frame`) and records the resolved `strategy_id`/params in `experiments/manifest.toml`; a sweep selects it with `--strategy`. The evaluation-frame seam is designed but only `event_study` is implemented — `cross_sectional` (a long/short portfolio book) is a guarded fast-follow. List the registry with `sentiment-bench list-strategies`.
+Adding an idea usually means implementing one seam (a `DecisionPolicy`) and calling `register(Strategy(...))`; the sweep, effectiveness battery, and experiment registry then work on it unchanged. A run selects its idea with the config `[strategy]` table (`id`, optional idea params, and `eval_frame`) and records the resolved `strategy_id`/params in `experiments/manifest.toml`; a sweep selects it with `--strategy`. `event_study` preserves the fixed-notional per-event diagnostic, while `cross_sectional` evaluates the same decisions as a funded long/short book configured in `[portfolio]`. Each scorer/horizon owns an independent NAV, and multi-session holdings use rotating sleeves so overlapping cohorts cannot each consume the full capital base. List the registry with `sentiment-bench list-strategies`.
 
 ## Trade-Offs
 
@@ -194,6 +196,7 @@ Adding an idea usually means implementing one seam (a `DecisionPolicy`) and call
 | Primary/all scopes | Separates headline comparison from ambiguity audit. | Readers must understand which scope is being discussed. |
 | Tavily corpora unlabeled by default | Prevents accidental weak labeling. | A later labeling workflow is required before articles can become benchmark rows. |
 | Next-session-open trading entry | Permits all news on day D without look-ahead. | It differs from a literal close-to-close teaching example. |
+| Funded rotating-sleeve portfolio | Converts overlapping events into capital-conserving daily P&L and risk metrics. | Capacity can remain unused when a cohort is one-sided or concentration caps bind. |
 
 ## Alternatives Considered
 

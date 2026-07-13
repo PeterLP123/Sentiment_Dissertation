@@ -22,7 +22,7 @@ The former L1–L4 layer programme (threshold trading, crowding/reversal, G-theo
 - **LSEG collection — complete.** The 33-company six-month raw collection finished 2026-06-30 (complete cross-source headlines; story bodies scoped to a source allowlist). Next: the canonical corpus rebuild, event-study price panel, and 100-event dry run feeding the **19 July market-feasibility gate** — current blockers are recorded in the [LSEG workflow](docs/lseg_analysis_workflow.md).
 - **PhraseBank agreement validation — next (due 18 Jul).** Reuses the registered benchmark predictions; no new hosted calls required.
 - **Held-out event study — gated.** If the 19 July gate passes, the lean four-scorer panel (~6,000 hosted calls) and the nested mean-vs-agreement comparison run by 27 July; results freeze 31 July. On failure, the measurement-validity fallback activates — no third design.
-- **Backtesting infrastructure — merged.** The trading pipeline has a pure backtest core, a price-provider cache, contamination controls (knowledge-cutoff stratification, entity masking), an effectiveness battery, a leak-free parameter sweep, and a pluggable strategy registry. See [Trading pipeline](docs/trading_pipeline.md). It now serves the optional economic-translation extension, not the core research question.
+- **Backtesting infrastructure — merged.** The trading pipeline has a pure event-study core, a funded cross-sectional portfolio evaluator, a price-provider cache, contamination controls (knowledge-cutoff stratification, entity masking), an effectiveness battery, a leak-free parameter sweep, and a pluggable strategy registry. See [Trading pipeline](docs/trading_pipeline.md). It now serves the optional economic-translation extension, not the core research question.
 - **Legacy trading tests — exploratory context.** The 22-event Week 3 pilot found no scorer-horizon mean return significant after Benjamini–Hochberg correction; the filed confirmatory Week 4+ collection is parked and binds only if executed.
 
 > Trading results to date are screening diagnostics that assume event independence — not confirmed findings.
@@ -40,7 +40,8 @@ The former L1–L4 layer programme (threshold trading, crowding/reversal, G-theo
 | Tavily news sourcing | Search and extract current articles into reproducible derived corpora. | `sentiment-bench fetch-news` |
 | NewsAPI sourcing | Page through dated article titles and descriptions with source manifests. | `sentiment-bench newsapi-check`, `fetch-newsapi` |
 | LSEG Workspace research corpus | Create preset collection configs, collect entitled stories immutably, clean them offline, catalog corpora, and create seeded local validation sheets. | `lseg-init-config`, `fetch-lseg-news`, `build-lseg-corpus`, `lseg-catalog` |
-| Trading pilot | Merge and screen news, score three LLMs plus VADER, optionally run an entity-masked arm and knowledge-cutoff stratification, and calculate next-session event returns. | `sentiment-bench run-trading-strategy` |
+| Trading pilot | Merge and screen news, score three LLMs plus VADER, optionally run an entity-masked arm and knowledge-cutoff stratification, and calculate next-session event returns or funded daily portfolio P&L. | `sentiment-bench run-trading-strategy` |
+| Funded portfolio evaluation | Reconcile stock P&L to portfolio NAV, annualised Sharpe/return, drawdown, turnover, costs, and stock correlation/covariance evidence. | `[strategy] eval_frame = "cross_sectional"` |
 | Trading robustness report | Bootstrap event means, run the effectiveness battery (significance, benchmark, economics; BH-corrected), test company sensitivity, and render meeting-ready plots. | `sentiment-bench analyze-trading-run` |
 | Parameter sweep | Tune any registered strategy's parameters and horizon on a completed run, selecting on a training split only. | `sentiment-bench sweep-trading-strategy` |
 | Week 6 daily P&L | Run the exploratory, cost-aware fixed-capital stock and portfolio analysis with a frozen chronological evaluation. | `sentiment-bench analyze-week6-pnl` |
@@ -214,8 +215,8 @@ flowchart LR
     O --> L
     O --> X["score-corpus-matrix<br/>frozen crossed scoring"]
     X --> Y["analyze-l2 / analyze-l3<br/>event study + reliability"]
-    H --> L["run-trading-strategy<br/>screen + score + price horizons"]
-    L --> M["results/trading<br/>run evidence + equity curve"]
+    H --> L["run-trading-strategy<br/>screen + score + evaluate"]
+    L --> M["results/trading<br/>event returns or funded portfolio"]
     M --> Q["analyze-trading-run<br/>effectiveness battery"]
     M --> S["sweep-trading-strategy<br/>leak-free tuning"]
     I["OpenRouter"] --> C
@@ -236,7 +237,7 @@ Generated artifacts are intentionally separated:
 | `Data/news/` | Tavily and NewsAPI article corpora for later review or trading inputs. | Ignored except `.gitkeep`. |
 | `Data/derived/lseg/` | Clean, manifest-backed LSEG corpora and local annotation sheets. | Ignored. |
 | `Data/derived/trading/` | Provider-neutral merged articles and screening decisions. | Ignored. |
-| `results/trading/` | Trading scores, signals, prices, returns, sensitivity tables, charts, and run manifests. | Ignored. |
+| `results/trading/` | Trading scores, signals, prices, event returns, funded daily portfolio tables, sensitivity evidence, charts, and run manifests. | Ignored. |
 | `results/sentiment_benchmark.sqlite` | Local run database when using SQLite. | Ignored. |
 | `results/turso_replica.db` | Local embedded libSQL replica when using Turso. | Ignored. |
 | `results/exports/run_<id>/` | Reproducible run exports and optional figures. | Ignored. |

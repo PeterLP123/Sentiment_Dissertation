@@ -4,21 +4,23 @@ import asyncio
 import csv
 import hashlib
 import json
+import math
 import os
 import re
 import tomllib
 from collections import Counter, defaultdict
 from collections.abc import Callable
-from dataclasses import asdict, dataclass, field, replace
+from dataclasses import asdict, dataclass, field, fields, replace
 from datetime import UTC, date, datetime, time, timedelta
 from email.utils import parsedate_to_datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 from zoneinfo import ZoneInfo
 
 from .artifact_io import canonical_json, sha256_text
 from .backtest import (
+    BacktestResult,
     DailySignal,
     DecisionPolicyConfig,
     IndexFallback,
@@ -40,12 +42,25 @@ from .model_roster import is_post_cutoff, knowledge_cutoff, roster_cutoff
 from .models import BlindExample, LLMResponseRecord, PromptConfig
 from .news_source import NewsArticleRecord, make_news_fetch_config, write_news_corpus
 from .newsapi_source import make_newsapi_fetch_config, write_newsapi_corpus
+from .portfolio import (
+    CorrelationRow,
+    CovarianceRow,
+    DailyPortfolioRow,
+    DailyStockPnlRow,
+    DuplicateEntryPolicy,
+    PortfolioBacktestResult,
+    PortfolioConfig,
+    PortfolioSummary,
+    PortfolioTradeRow,
+    StockSummary,
+    WeightingMethod,
+)
 from .prices import PriceProviderError, PriceRow, make_price_provider
 from .prompts import load_prompts
 from .runtime_metadata import collect_run_environment
-from .strategies import MeanSignalBuilder
+from .strategies import Evaluator, EventStudyEvaluator, MeanSignalBuilder, PortfolioEvaluator
 from .strategies import get as get_strategy
-from .trading_plots import plot_equity_curve, write_sensitivity_csvs
+from .trading_plots import plot_equity_curve, write_portfolio_charts, write_sensitivity_csvs
 
 LABEL_VALUES = {"positive": 1, "neutral": 0, "negative": -1}
 TRACKING_QUERY_KEYS = {
@@ -153,8 +168,9 @@ class TradingStrategyConfig:
     # params (shared threshold/min_valid/cost still come from [signal_policy]).
     strategy_id: str = "sentiment_threshold_v1"
     strategy_params: dict[str, float] = field(default_factory=dict)
-    # Evaluation frame: "event_study" (implemented) or "cross_sectional" (planned).
+    # Evaluation frame: independent event returns or a funded daily portfolio.
     eval_frame: str = "event_study"
+    portfolio: PortfolioConfig = field(default_factory=PortfolioConfig)
 
     @property
     def derived_dir(self) -> Path:
@@ -252,6 +268,9 @@ class TradingRunResult:
     sentiment_score_count: int
     return_count: int
     source_corpora: tuple[str, ...]
+    portfolio_trade_count: int = 0
+    portfolio_day_count: int = 0
+    portfolio_summary_count: int = 0
 
 
 def _as_tuple(value: Any, *, field: str) -> tuple[Any, ...]:
@@ -287,6 +306,7 @@ def _build_trading_config(raw: dict[str, Any], config_path: Path) -> TradingStra
     outputs = raw.get("outputs") or {}
     signal_policy_raw = raw.get("signal_policy") or {}
     index_fallback_raw = raw.get("index_fallback") or {}
+    portfolio_raw = raw.get("portfolio") or {}
     company_items = raw.get("companies") or []
     try:
         dates = tuple(str(value) for value in _as_tuple(run["dates"], field="run.dates"))
@@ -354,6 +374,22 @@ def _build_trading_config(raw: dict[str, Any], config_path: Path) -> TradingStra
         strategy_params = {
             str(key): float(value) for key, value in strategy_raw.items() if key not in ("id", "eval_frame")
         }
+        max_positions_raw = portfolio_raw.get("max_positions_per_side")
+        portfolio = PortfolioConfig(
+            gross_exposure=float(portfolio_raw.get("gross_exposure", 1.0)),
+            dollar_neutral=bool(portfolio_raw.get("dollar_neutral", True)),
+            require_two_sided=bool(portfolio_raw.get("require_two_sided", True)),
+            weighting=cast(WeightingMethod, str(portfolio_raw.get("weighting", "signal")).strip().lower()),
+            max_abs_weight=float(portfolio_raw.get("max_abs_weight", 1.0)),
+            max_positions_per_side=(int(max_positions_raw) if max_positions_raw is not None else None),
+            duplicate_entry_policy=cast(
+                DuplicateEntryPolicy,
+                str(portfolio_raw.get("duplicate_entry_policy", "error")).strip().lower(),
+            ),
+            periods_per_year=int(portfolio_raw.get("periods_per_year", 252)),
+            annual_risk_free_rate=float(portfolio_raw.get("annual_risk_free_rate", 0.0)),
+            estimate_shrunk_covariance=bool(portfolio_raw.get("estimate_shrunk_covariance", True)),
+        )
         config = TradingStrategyConfig(
             run_id=str(run["id"]).strip(),
             title=str(run["title"]).strip(),
@@ -400,6 +436,7 @@ def _build_trading_config(raw: dict[str, Any], config_path: Path) -> TradingStra
             strategy_id=strategy_id,
             strategy_params=strategy_params,
             eval_frame=eval_frame,
+            portfolio=portfolio,
         )
     except (KeyError, TypeError, ValueError) as exc:
         raise TradingStrategyError(f"invalid trading config {config_path}: {exc}") from exc
@@ -1362,6 +1399,23 @@ def _markdown_table(headers: list[str], rows: list[list[str]]) -> str:
     return "\n".join(lines)
 
 
+def _signal_summary_row(
+    signal: DailySignal,
+    decisions: dict[tuple[str, str, str], TradingDecision],
+) -> list[str]:
+    decision = decisions.get((signal.news_date, signal.symbol, signal.scorer_id))
+    return [
+        signal.news_date,
+        signal.symbol,
+        signal.scorer_id,
+        str(signal.valid_count),
+        "-" if signal.mean_score is None else f"{signal.mean_score:.3f}",
+        signal.signal or "no signal",
+        decision.action if decision is not None else "not selected",
+        decision.reason if decision is not None else "event_selector_excluded",
+    ]
+
+
 def write_summary(
     config: TradingStrategyConfig,
     articles: list[MergedArticle],
@@ -1373,19 +1427,7 @@ def write_summary(
     event_count = len({(row.symbol, row.news_date) for row in returns})
     source_counts = Counter((article.symbol, article.published_date_local) for article in accepted)
     decision_by_key = {(row.news_date, row.symbol, row.scorer_id): row for row in decisions}
-    signal_rows = [
-        [
-            signal.news_date,
-            signal.symbol,
-            signal.scorer_id,
-            str(signal.valid_count),
-            "-" if signal.mean_score is None else f"{signal.mean_score:.3f}",
-            signal.signal or "no signal",
-            decision_by_key[(signal.news_date, signal.symbol, signal.scorer_id)].action,
-            decision_by_key[(signal.news_date, signal.symbol, signal.scorer_id)].reason,
-        ]
-        for signal in signals
-    ]
+    signal_rows = [_signal_summary_row(signal, decision_by_key) for signal in signals]
     mean_by_horizon: dict[tuple[str, int], list[tuple[float, float]]] = defaultdict(list)
     for row in returns:
         mean_by_horizon[(row.scorer_id, row.horizon)].append(
@@ -1464,6 +1506,173 @@ These are simple means of event-level returns, not returns on a capital-constrai
     return path
 
 
+def _optional_number(value: float | None, *, suffix: str = "", decimals: int = 2) -> str:
+    return "-" if value is None or not math.isfinite(value) else f"{value:.{decimals}f}{suffix}"
+
+
+def write_portfolio_summary(
+    config: TradingStrategyConfig,
+    articles: list[MergedArticle],
+    result: PortfolioBacktestResult,
+) -> Path:
+    """Write the answer-first funded-book report for a cross-sectional run."""
+
+    ranked = sorted(
+        result.summaries,
+        key=lambda row: (
+            row.annualized_sharpe is None,
+            -(row.annualized_sharpe or 0.0),
+            row.scorer_id,
+            row.horizon,
+        ),
+    )
+    best = next((row for row in ranked if row.annualized_sharpe is not None), None)
+    case_rows = [
+        [
+            row.scorer_id,
+            str(row.horizon),
+            str(row.observations),
+            str(row.trade_count),
+            f"${row.total_profit_usd:,.2f}",
+            f"{row.total_return_pct:.2f}%",
+            _optional_number(row.annualized_return_pct, suffix="%"),
+            _optional_number(row.annualized_sharpe),
+            f"{row.max_drawdown_pct:.2f}%",
+            f"{row.average_daily_turnover:.3f}",
+            f"${row.total_transaction_cost_usd + row.total_borrow_cost_usd:,.2f}",
+        ]
+        for row in ranked
+    ]
+    profit_by_stock = {
+        (row.scorer_id, row.horizon, row.symbol): row.net_pnl_usd for row in result.stock_summaries
+    }
+    negative_pairs = sorted(
+        (
+            row
+            for row in result.correlations
+            if row.correlation is not None
+            and row.correlation < 0
+            and row.both_profitable
+            and profit_by_stock.get((row.scorer_id, row.horizon, row.symbol_a), 0.0) > 0
+            and profit_by_stock.get((row.scorer_id, row.horizon, row.symbol_b), 0.0) > 0
+        ),
+        key=lambda row: (row.correlation or 0.0, row.scorer_id, row.horizon, row.symbol_a, row.symbol_b),
+    )
+    pair_rows = [
+        [
+            row.scorer_id,
+            str(row.horizon),
+            row.symbol_a,
+            row.symbol_b,
+            f"{row.correlation:.3f}" if row.correlation is not None else "-",
+            str(row.simultaneous_active_days),
+            f"${profit_by_stock[(row.scorer_id, row.horizon, row.symbol_a)]:,.2f}",
+            f"${profit_by_stock[(row.scorer_id, row.horizon, row.symbol_b)]:,.2f}",
+        ]
+        for row in negative_pairs[:20]
+    ]
+    best_line = (
+        f"The highest funded annualized Sharpe is **{best.annualized_sharpe:.2f}** for "
+        f"`{best.scorer_id}` at H{best.horizon}, with ${best.total_profit_usd:,.2f} total profit "
+        f"({best.total_return_pct:.2f}%) and {best.max_drawdown_pct:.2f}% maximum drawdown."
+        if best is not None
+        else "No case has enough non-zero-variance daily observations for a finite annualized Sharpe."
+    )
+    pair_section = (
+        _markdown_table(
+            ["Scorer", "Horizon", "Stock A", "Stock B", "Correlation", "Overlap days", "A profit", "B profit"],
+            pair_rows,
+        )
+        if pair_rows
+        else "No pair is both profitable and negatively correlated in this sample."
+    )
+    accepted_count = sum(article.screening_decision == "include" for article in articles)
+    max_positions = config.portfolio.max_positions_per_side
+    case_table = _markdown_table(
+        [
+            "Scorer",
+            "Horizon",
+            "Days",
+            "Trades",
+            "Net profit",
+            "Total return",
+            "Annual return",
+            "Sharpe",
+            "Max drawdown",
+            "Avg turnover",
+            "Costs",
+        ],
+        case_rows,
+    )
+    construction_line = (
+        f"Construction: weighting `{config.portfolio.weighting}`, dollar neutral "
+        f"`{str(config.portfolio.dollar_neutral).lower()}`, require two sides "
+        f"`{str(config.portfolio.require_two_sided).lower()}`."
+    )
+    concentration_line = (
+        f"Concentration cap: {config.portfolio.max_abs_weight:.3f} of NAV per stock; "
+        f"maximum positions per side: {max_positions or 'unlimited'}."
+    )
+    annualization_line = (
+        f"Duplicate entry handling: `{config.portfolio.duplicate_entry_policy}`; annualization: "
+        f"{config.portfolio.periods_per_year} sessions; annual risk-free rate: "
+        f"{config.portfolio.annual_risk_free_rate:.2%}."
+    )
+    cost_line = (
+        f"Costs: {config.decision_policy.transaction_cost_bps_per_side:g} bps per traded side; "
+        f"short borrow: {config.decision_policy.short_borrow_bps_per_day:g} bps per held session "
+        "on marked short value."
+    )
+    text = f"""# {config.title}
+
+Generated: {datetime.now(UTC).isoformat()}
+
+This is an exploratory, non-preregistered funded portfolio simulation. It is not
+causal evidence or investment advice.
+
+## Headline Result
+
+{best_line}
+
+Each scorer/horizon is an independent account starting with ${config.notional_usd:,.2f}; metrics must not be
+added across cases. Event-level `returns.csv` is retained only as a compatibility diagnostic.
+
+## Funded Performance By Case
+
+{case_table}
+
+## Profitable Negative-Correlation Pairs
+
+{pair_section}
+
+## Portfolio Method
+
+- Accepted articles: {accepted_count:,}; companies: {len(config.companies)}.
+- Entry: first observed 09:30 exchange-local open strictly after information availability; exit: horizon-session close.
+- Initial NAV per scorer/horizon: ${config.notional_usd:,.2f}; gross exposure: {config.portfolio.gross_exposure:.2f}x.
+- {construction_line}
+- {concentration_line}
+- {annualization_line}
+- {cost_line}
+
+## Interpretation Limits
+
+- Daily funded returns, not overlapping event observations, drive Sharpe, annual return, and drawdown.
+- Selecting the best Sharpe case or most negative pair on this same sample is
+  exploratory and selection-biased; freeze choices on training data and report
+  them once on an untouched chronological holdout.
+- Pair correlations use aligned daily return contributions with inactive
+  stock-days set to zero. Undefined zero-variance correlations remain blank.
+- Prices share one configured exchange timezone and USD accounting convention.
+  LSEG rows are price returns without dividends; yfinance adjusted rows include
+  distributions.
+- Transaction costs and borrow are simplified; taxes, market impact, locate availability, financing constraints, and capacity are excluded.
+"""
+    path = config.results_dir / "summary.md"
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
 def write_charts(config: TradingStrategyConfig, articles: list[MergedArticle], returns: list[ReturnRow]) -> list[Path]:
     try:
         import matplotlib
@@ -1490,11 +1699,15 @@ def write_charts(config: TradingStrategyConfig, articles: list[MergedArticle], r
         grouped[(row.scorer_id, row.horizon)].append(row.strategy_return_pct)
     fig, axis = plt.subplots(figsize=(9, 5))
     for scorer in sorted({row.scorer_id for row in returns}):
-        means = [sum(grouped[(scorer, horizon)]) / len(grouped[(scorer, horizon)]) for horizon in config.horizons]
-        axis.plot(config.horizons, means, marker="o", label=scorer)
+        scorer_horizons = [horizon for horizon in config.horizons if grouped[(scorer, horizon)]]
+        means = [sum(grouped[(scorer, horizon)]) / len(grouped[(scorer, horizon)]) for horizon in scorer_horizons]
+        if scorer_horizons:
+            axis.plot(scorer_horizons, means, marker="o", label=scorer)
     axis.axhline(0, color="black", linewidth=0.8)
     axis.set(title="Mean event return by trading-session horizon", xlabel="Horizon", ylabel="Strategy return (%)")
-    axis.legend(fontsize=7)
+    handles, _labels = axis.get_legend_handles_labels()
+    if handles:
+        axis.legend(fontsize=7)
     fig.tight_layout()
     path = config.results_dir / "horizon_returns.png"
     fig.savefig(path, dpi=180)
@@ -1533,6 +1746,8 @@ def write_run_outputs(
     prices: list[PriceRow],
     returns: list[ReturnRow],
     source_corpora: list[str],
+    *,
+    portfolio_result: PortfolioBacktestResult | None = None,
 ) -> None:
     config.results_dir.mkdir(parents=True, exist_ok=True)
     score_csv = config.results_dir / "sentiment_scores.csv"
@@ -1547,9 +1762,34 @@ def write_run_outputs(
     _write_csv(return_csv, [asdict(row) for row in returns])
     # Contamination sensitivity tables (layered on top of the frozen primary):
     # cutoff stratification always; masked-vs-unmasked only when a masked arm ran.
-    write_sensitivity_csvs(config.results_dir, returns, config.models, config.cutoff.overrides)
-    summary_path = write_summary(config, articles, signals, decisions, returns)
+    sensitivity_paths = write_sensitivity_csvs(config.results_dir, returns, config.models, config.cutoff.overrides)
+    portfolio_files: list[Path] = []
+    if portfolio_result is not None:
+        portfolio_exports: list[tuple[str, list[Any], type[Any]]] = [
+            ("portfolio_trades.csv", portfolio_result.trades, PortfolioTradeRow),
+            ("daily_stock_pnl.csv", portfolio_result.daily_stock_pnl, DailyStockPnlRow),
+            ("daily_portfolio.csv", portfolio_result.daily_portfolio, DailyPortfolioRow),
+            ("portfolio_summary.csv", portfolio_result.summaries, PortfolioSummary),
+            ("stock_summary.csv", portfolio_result.stock_summaries, StockSummary),
+            ("pnl_correlation.csv", portfolio_result.correlations, CorrelationRow),
+            ("pnl_covariance.csv", portfolio_result.covariances, CovarianceRow),
+        ]
+        for filename, rows, row_type in portfolio_exports:
+            output_path = config.results_dir / filename
+            _write_csv(
+                output_path,
+                [asdict(row) for row in rows],
+                fieldnames=[item.name for item in fields(row_type)],
+            )
+            portfolio_files.append(output_path)
+    summary_path = (
+        write_portfolio_summary(config, articles, portfolio_result)
+        if portfolio_result is not None
+        else write_summary(config, articles, signals, decisions, returns)
+    )
     charts = write_charts(config, articles, returns)
+    if portfolio_result is not None:
+        charts.extend(write_portfolio_charts(portfolio_result, config.results_dir))
     lseg_source_manifest: dict[str, Any] | None = None
     if config.lseg_corpus_manifest is not None:
         lseg_payload = json.loads(config.lseg_corpus_manifest.read_text(encoding="utf-8"))
@@ -1569,11 +1809,13 @@ def write_run_outputs(
         decision_csv,
         price_csv,
         return_csv,
+        *sensitivity_paths,
+        *portfolio_files,
         summary_path,
         *charts,
     ]
     manifest = {
-        "schema_version": 1,
+        "schema_version": 2,
         "run_id": config.run_id,
         "title": config.title,
         "status": "completed",
@@ -1617,6 +1859,10 @@ def write_run_outputs(
             "request_hashes": sorted({row.request_sha256 for row in scores if row.request_sha256}),
             "horizons": config.horizons,
             "notional_usd": config.notional_usd,
+            "strategy_id": config.strategy_id,
+            "strategy_params": config.strategy_params,
+            "evaluation_frame": config.eval_frame,
+            "portfolio": asdict(config.portfolio) if portfolio_result is not None else None,
             "entry_rule": "next_observed_session_adjusted_open",
             "price_source": config.prices.source_description,
             "decision_policy": asdict(config.decision_policy),
@@ -1636,13 +1882,30 @@ def write_run_outputs(
             "traded_decisions": sum(decision.action != "hold" for decision in decisions),
             "return_rows": len(returns),
             "index_fallback_events": len({(row.symbol, row.news_date) for row in returns if row.index_fallback}),
+            "portfolio_trade_rows": len(portfolio_result.trades) if portfolio_result is not None else 0,
+            "daily_stock_pnl_rows": len(portfolio_result.daily_stock_pnl) if portfolio_result is not None else 0,
+            "daily_portfolio_rows": len(portfolio_result.daily_portfolio) if portfolio_result is not None else 0,
+            "portfolio_summary_rows": len(portfolio_result.summaries) if portfolio_result is not None else 0,
+            "stock_summary_rows": len(portfolio_result.stock_summaries) if portfolio_result is not None else 0,
+        },
+        "evaluation": {
+            "primary_frame": config.eval_frame,
+            "event_returns_role": "diagnostic" if portfolio_result is not None else "primary",
         },
         "environment": collect_run_environment(),
         "files": {str(path): _sha256(path) for path in files if path.exists()},
-        "notes": [
-            "Event returns overlap and are not combined into a funded portfolio.",
-            "This exploratory pilot is not causal evidence or investment advice.",
-        ],
+        "notes": (
+            [
+                "Funded metrics are reported independently for each scorer and horizon; event returns are diagnostics.",
+                "Best-Sharpe and correlation-pair selection on this sample is exploratory and requires holdout confirmation.",
+                "This exploratory pilot is not causal evidence or investment advice.",
+            ]
+            if portfolio_result is not None
+            else [
+                "Event returns overlap and are not combined into a funded portfolio.",
+                "This exploratory pilot is not causal evidence or investment advice.",
+            ]
+        ),
     }
     (config.results_dir / "run_manifest.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True, ensure_ascii=False), encoding="utf-8"
@@ -1651,6 +1914,10 @@ def write_run_outputs(
 
 def _toml_string(value: str) -> str:
     return json.dumps(value, ensure_ascii=False)
+
+
+def _toml_bool(value: bool) -> str:
+    return "true" if value else "false"
 
 
 def register_completed_experiment(config: TradingStrategyConfig) -> None:
@@ -1676,6 +1943,17 @@ def register_completed_experiment(config: TradingStrategyConfig) -> None:
     symbols = ", ".join(_toml_string(company.symbol) for company in config.companies)
     strategy_params_items = ", ".join(f"{key} = {value}" for key, value in sorted(config.strategy_params.items()))
     strategy_params_toml = f"{{ {strategy_params_items} }}" if strategy_params_items else "{}"
+    portfolio_positions = (
+        str(config.portfolio.max_positions_per_side)
+        if config.portfolio.max_positions_per_side is not None
+        else _toml_string("unlimited")
+    )
+    interpretation_notes = (
+        "Funded daily portfolio metrics are primary; event returns remain compatibility diagnostics. "
+        "Any best-Sharpe or correlation-pair selection is exploratory until confirmed on a chronological holdout."
+        if config.eval_frame == "cross_sectional"
+        else "Event-level and equal-weight mean returns only; overlapping events are not a funded portfolio."
+    )
     entry = f"""
 
 [[experiments]]
@@ -1707,12 +1985,23 @@ short_borrow_bps_per_day = {config.decision_policy.short_borrow_bps_per_day}
 decision_policy_version = {_toml_string(config.decision_policy.policy_version)}
 strategy_id = {_toml_string(config.strategy_id)}
 strategy_params = {strategy_params_toml}
+evaluation_frame = {_toml_string(config.eval_frame)}
+portfolio_gross_exposure = {config.portfolio.gross_exposure}
+portfolio_dollar_neutral = {_toml_bool(config.portfolio.dollar_neutral)}
+portfolio_require_two_sided = {_toml_bool(config.portfolio.require_two_sided)}
+portfolio_weighting = {_toml_string(config.portfolio.weighting)}
+portfolio_max_abs_weight = {config.portfolio.max_abs_weight}
+portfolio_max_positions_per_side = {portfolio_positions}
+portfolio_duplicate_entry_policy = {_toml_string(config.portfolio.duplicate_entry_policy)}
+portfolio_periods_per_year = {config.portfolio.periods_per_year}
+portfolio_annual_risk_free_rate = {config.portfolio.annual_risk_free_rate}
+portfolio_estimate_shrunk_covariance = {_toml_bool(config.portfolio.estimate_shrunk_covariance)}
 
 [experiments.analysis]
 exploratory = true
 preregistered = false
 causal_claim = false
-interpretation_notes = "Event-level and equal-weight mean returns only; overlapping events are not a funded portfolio."
+interpretation_notes = {_toml_string(interpretation_notes)}
 """
     registry.parent.mkdir(parents=True, exist_ok=True)
     registry.write_text(existing_text.rstrip() + entry, encoding="utf-8")
@@ -1763,6 +2052,9 @@ async def run_trading_strategy(
                 sentiment_score_count=int(counts.get("sentiment_scores", 0)),
                 return_count=int(counts.get("return_rows", 0)),
                 source_corpora=tuple(completed.get("source_corpora") or ()),
+                portfolio_trade_count=int(counts.get("portfolio_trade_rows", 0)),
+                portfolio_day_count=int(counts.get("daily_portfolio_rows", 0)),
+                portfolio_summary_count=int(counts.get("portfolio_summary_rows", 0)),
             )
     config.derived_dir.mkdir(parents=True, exist_ok=True)
     config.results_dir.mkdir(parents=True, exist_ok=True)
@@ -1857,10 +2149,6 @@ async def run_trading_strategy(
         else all_scores
     )
     strategy = get_strategy(config.strategy_id)
-    if config.eval_frame != "event_study":
-        raise TradingStrategyError(
-            f"eval_frame {config.eval_frame!r} is a planned fast-follow; only 'event_study' is implemented"
-        )
     signals = strategy.signal_builder.build(
         articles,
         signal_scores,
@@ -1870,29 +2158,66 @@ async def run_trading_strategy(
     )
     tradeable = strategy.event_selector.select(signals)
     decision_policy = strategy.make_policy(**config.strategy_params)
-    decisions = decision_policy.decide(tradeable, config.decision_policy)
     prices = price_loader(config)
-    returns = calculate_returns(
-        decisions if config.decision_policy_enabled else tradeable,
+    evaluator: Evaluator
+    if config.eval_frame == "cross_sectional":
+        evaluator = PortfolioEvaluator(config.portfolio)
+    elif strategy.evaluator.frame == "event_study":
+        evaluator = strategy.evaluator
+    else:
+        evaluator = EventStudyEvaluator()
+    evaluation = evaluator.evaluate(
+        tradeable,
         prices,
+        config.decision_policy,
+        decision_fn=decision_policy.decide,
         horizons=config.horizons,
         notional_usd=config.notional_usd,
         index_fallback=config.index_fallback,
-        transaction_cost_bps_per_side=(
-            config.decision_policy.transaction_cost_bps_per_side if config.decision_policy_enabled else 0.0
-        ),
-        short_borrow_bps_per_day=(
-            config.decision_policy.short_borrow_bps_per_day if config.decision_policy_enabled else 0.0
-        ),
         timezone=config.timezone,
+        use_decision_policy=config.decision_policy_enabled,
     )
+    decisions = evaluation.decisions
+    portfolio_result: PortfolioBacktestResult | None = None
+    if isinstance(evaluation, BacktestResult):
+        returns = evaluation.returns
+    else:
+        portfolio_result = evaluation
+        # Keep the event-level file as a diagnostic input for the existing
+        # robustness report and contamination-sensitivity tools.  The funded
+        # daily NAV series remains the primary result for this evaluation frame.
+        returns = calculate_returns(
+            decisions if config.decision_policy_enabled else tradeable,
+            prices,
+            horizons=config.horizons,
+            notional_usd=config.notional_usd,
+            index_fallback=config.index_fallback,
+            transaction_cost_bps_per_side=(
+                config.decision_policy.transaction_cost_bps_per_side if config.decision_policy_enabled else 0.0
+            ),
+            short_borrow_bps_per_day=(
+                config.decision_policy.short_borrow_bps_per_day if config.decision_policy_enabled else 0.0
+            ),
+            timezone=config.timezone,
+        )
     source_corpora = sorted(
         {candidate.source_corpus for candidate in tavily_candidates}
         | set(newsapi_corpora)
         | set(gap_corpora)
         | set(lseg_corpora)
     )
-    write_run_outputs(config, path, articles, all_scores, signals, decisions, prices, returns, source_corpora)
+    write_run_outputs(
+        config,
+        path,
+        articles,
+        all_scores,
+        signals,
+        decisions,
+        prices,
+        returns,
+        source_corpora,
+        portfolio_result=portfolio_result,
+    )
     register_completed_experiment(config)
     return TradingRunResult(
         run_id=config.run_id,
@@ -1902,6 +2227,9 @@ async def run_trading_strategy(
         sentiment_score_count=len(all_scores),
         return_count=len(returns),
         source_corpora=tuple(source_corpora),
+        portfolio_trade_count=len(portfolio_result.trades) if portfolio_result is not None else 0,
+        portfolio_day_count=len(portfolio_result.daily_portfolio) if portfolio_result is not None else 0,
+        portfolio_summary_count=len(portfolio_result.summaries) if portfolio_result is not None else 0,
     )
 
 
@@ -1924,6 +2252,8 @@ def describe_trading_plan(config: TradingStrategyConfig) -> dict[str, Any]:
         "strategy": config.strategy_id,
         "strategy_params": config.strategy_params or "defaults",
         "eval_frame": config.eval_frame,
+        "portfolio_initial_nav_usd": config.notional_usd if config.eval_frame == "cross_sectional" else "not applicable",
+        "portfolio": asdict(config.portfolio) if config.eval_frame == "cross_sectional" else "not applicable",
         "decision_policy": asdict(config.decision_policy) if config.decision_policy_enabled else "legacy signal rule",
         "index_fallback": (
             f"{config.index_fallback.symbol} when a company-day has fewer than {config.index_fallback.min_texts} texts"

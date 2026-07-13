@@ -36,6 +36,7 @@ from .backtest import (
     make_trading_decisions,
     run_backtest,
 )
+from .portfolio import PortfolioBacktestResult, PortfolioConfig, run_portfolio_backtest
 from .prices import PriceRow
 
 # The four seams an idea can customise (used for discovery in ``list-strategies``).
@@ -275,6 +276,9 @@ class MagnitudePolicy:
 # --------------------------------------------------------------------------- #
 # Seam 4: evaluation frame  (decisions + prices → returns)
 # --------------------------------------------------------------------------- #
+EvaluationResult = BacktestResult | PortfolioBacktestResult
+
+
 class Evaluator(Protocol):
     @property
     def frame(self) -> str: ...
@@ -292,7 +296,7 @@ class Evaluator(Protocol):
         timezone: str = "America/New_York",
         use_decision_policy: bool = True,
         equity_horizon: int | None = None,
-    ) -> BacktestResult: ...
+    ) -> EvaluationResult: ...
 
 
 @dataclass(frozen=True)
@@ -333,16 +337,44 @@ class EventStudyEvaluator:
 
 @dataclass(frozen=True)
 class PortfolioEvaluator:
-    """Cross-sectional long/short book (rank events per day, form baskets).
+    """Funded cross-sectional long/short book with staggered horizon sleeves.
 
-    Interface only in this first pass — the evaluation-frame axis is designed so
-    ideas can opt in later; the full build is a flagged fast-follow."""
+    ``notional_usd`` in the common evaluator interface is this frame's initial
+    NAV, rather than a fresh notional block for every event.  Each scorer and
+    horizon receives an independent book so their results remain comparable.
+    """
 
+    config: PortfolioConfig = field(default_factory=PortfolioConfig)
     frame: str = "cross_sectional"
 
-    def evaluate(self, *args: object, **kwargs: object) -> BacktestResult:
-        raise NotImplementedError(
-            "cross-sectional portfolio evaluation is a planned fast-follow; use eval_frame='event_study'"
+    def evaluate(
+        self,
+        signals: Sequence[DailySignal],
+        prices: Sequence[PriceRow],
+        config: DecisionPolicyConfig,
+        *,
+        decision_fn: Callable[[list[DailySignal], DecisionPolicyConfig], list[TradingDecision]] | None,
+        horizons: tuple[int, ...],
+        notional_usd: float,
+        index_fallback: IndexFallback | None = None,
+        timezone: str = "America/New_York",
+        use_decision_policy: bool = True,
+        equity_horizon: int | None = None,
+    ) -> PortfolioBacktestResult:
+        # Portfolio books expose a curve for every requested horizon, so the
+        # event-frame-only equity selector has no role here.
+        del equity_horizon
+        return run_portfolio_backtest(
+            signals,
+            prices,
+            config,
+            horizons=horizons,
+            initial_nav_usd=notional_usd,
+            portfolio_config=self.config,
+            index_fallback=index_fallback,
+            timezone=timezone,
+            use_decision_policy=use_decision_policy,
+            decision_fn=decision_fn,
         )
 
 

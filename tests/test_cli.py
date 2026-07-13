@@ -207,6 +207,14 @@ def test_cli_trading_strategy_dry_run_has_no_credential_dependency() -> None:
     assert "Entry Rule" in result.output
 
 
+def test_cli_lists_funded_cross_sectional_evaluation_frame() -> None:
+    result = runner.invoke(app, ["list-strategies"])
+    assert result.exit_code == 0
+    assert "cross_sectional" in result.output
+    assert "funded daily portfolios" in result.output
+    assert "planned fast-follow" not in result.output
+
+
 def test_cli_newsapi_check_reports_missing_key(monkeypatch) -> None:
     def missing():
         raise NewsApiConfigurationError("NEWSAPI_API_KEY is required for NewsAPI sourcing")
@@ -547,5 +555,4 @@ def test_cli_fetch_news_rejects_invalid_topic(tmp_path: Path) -> None:
 
     assert result.exit_code != 0
     assert "topic must be one of" in result.output
-
 
