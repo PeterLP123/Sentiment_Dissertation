@@ -6,7 +6,12 @@ from pathlib import Path
 import pytest
 
 from sentiment_benchmark.baseline_runner import run_baselines
-from sentiment_benchmark.baselines import BASELINE_SPECS, predict_baseline
+from sentiment_benchmark.baselines import (
+    BASELINE_SPECS,
+    _soft_sentiment_from_scores,
+    predict_baseline,
+    score_vader_text,
+)
 from sentiment_benchmark.constants import ALLOWED_LABELS
 from sentiment_benchmark.exporter import export_run
 from sentiment_benchmark.models import DatasetRow
@@ -63,6 +68,32 @@ def test_tfidf_logreg_returns_valid_labels() -> None:
 def test_unknown_baseline_raises() -> None:
     with pytest.raises(ValueError):
         predict_baseline("does_not_exist", _synthetic_rows())
+
+
+def test_finbert_distribution_uses_positive_minus_negative_score() -> None:
+    result = _soft_sentiment_from_scores(
+        [
+            {"label": "negative", "score": 0.1},
+            {"label": "neutral", "score": 0.2},
+            {"label": "positive", "score": 0.7},
+        ]
+    )
+
+    assert result.label == "positive"
+    assert result.score == pytest.approx(0.6)
+    assert result.p_positive + result.p_negative + result.p_neutral == pytest.approx(1.0)
+
+
+def test_vader_distribution_is_normalized_after_lexicon_rounding(monkeypatch) -> None:
+    class RoundedAnalyzer:
+        def polarity_scores(self, _text: str) -> dict[str, float]:
+            return {"pos": 0.333, "neg": 0.333, "neu": 0.333, "compound": 0.0}
+
+    monkeypatch.setattr("sentiment_benchmark.baselines._vader_analyzer", lambda: RoundedAnalyzer())
+
+    result = score_vader_text("synthetic")
+
+    assert result.p_positive + result.p_negative + result.p_neutral == pytest.approx(1.0)
 
 
 def _write_csv(path: Path, rows: list[DatasetRow]) -> None:

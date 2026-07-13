@@ -14,10 +14,12 @@ Two families are provided:
 
 from __future__ import annotations
 
+import os
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import lru_cache
+from typing import Any
 
 from .constants import ALLOWED_LABELS, DEFAULT_SEED
 from .models import DatasetRow
@@ -30,6 +32,20 @@ VADER_THRESHOLD = 0.05
 class VaderSentiment:
     label: str
     compound: float
+
+
+@dataclass(frozen=True)
+class SoftSentiment:
+    """Three-class probabilities and their positive-minus-negative score."""
+
+    label: str
+    p_positive: float
+    p_negative: float
+    p_neutral: float
+
+    @property
+    def score(self) -> float:
+        return self.p_positive - self.p_negative
 
 
 @dataclass(frozen=True)
@@ -161,6 +177,23 @@ def classify_vader_text(text: str) -> VaderSentiment:
     return VaderSentiment(label=label, compound=compound)
 
 
+def score_vader_text(text: str) -> SoftSentiment:
+    """Return VADER's full distribution on the common soft-label scale."""
+    values = _vader_analyzer().polarity_scores(text)
+    probabilities = {label: float(values[{"positive": "pos", "negative": "neg", "neutral": "neu"}[label]]) for label in ALLOWED_LABELS}
+    total = sum(probabilities.values())
+    if total <= 0:
+        raise ValueError("VADER returned a non-positive probability sum")
+    probabilities = {label: probabilities[label] / total for label in ALLOWED_LABELS}
+    label = max(ALLOWED_LABELS, key=lambda candidate: probabilities[candidate])
+    return SoftSentiment(
+        label=label,
+        p_positive=probabilities["positive"],
+        p_negative=probabilities["negative"],
+        p_neutral=probabilities["neutral"],
+    )
+
+
 def _predict_vader(rows: list[DatasetRow]) -> list[str | None]:
     analyzer = _vader_analyzer()
 
@@ -186,8 +219,6 @@ def _disable_hf_progress_bars() -> None:
     a plain thread lock keeps it off the multiprocessing path even if something
     else instantiates it.
     """
-    import os
-
     os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
     os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
     try:
@@ -230,6 +261,58 @@ def classify_finbert_texts(texts: list[str], batch_size: int = 32) -> list[str |
             label = str(output.get("label", "")).strip().lower()
             predictions.append(label if label in ALLOWED_LABELS else None)
     return predictions
+
+
+def _soft_sentiment_from_scores(scores: list[dict[str, object]]) -> SoftSentiment:
+    probabilities: dict[str, float] = {}
+    for item in scores:
+        raw_score = item.get("score", 0.0)
+        if isinstance(raw_score, bool) or not isinstance(raw_score, int | float):
+            raise ValueError(f"FinBERT returned a non-numeric probability: {raw_score!r}")
+        probabilities[str(item.get("label", "")).strip().lower()] = float(raw_score)
+    if set(probabilities) != set(ALLOWED_LABELS):
+        raise ValueError(f"FinBERT returned unexpected labels: {sorted(probabilities)}")
+    total = sum(probabilities.values())
+    if total <= 0:
+        raise ValueError("FinBERT returned a non-positive probability sum")
+    probabilities = {label: probabilities[label] / total for label in ALLOWED_LABELS}
+    label = max(ALLOWED_LABELS, key=lambda candidate: probabilities[candidate])
+    return SoftSentiment(
+        label=label,
+        p_positive=probabilities["positive"],
+        p_negative=probabilities["negative"],
+        p_neutral=probabilities["neutral"],
+    )
+
+
+def score_finbert_texts(
+    texts: list[str],
+    batch_size: int = 32,
+    model_path: str | None = None,
+) -> list[SoftSentiment]:
+    """Score financial texts locally with all three FinBERT probabilities."""
+    try:
+        import torch
+        from transformers import pipeline as hf_pipeline
+    except ImportError as exc:  # pragma: no cover - exercised only without optional dependencies
+        raise RuntimeError(
+            "FinBERT baseline requires transformers and torch. Install with: pip install '.[finbert]'"
+        ) from exc
+
+    _disable_hf_progress_bars()
+    device = 0 if torch.cuda.is_available() else -1
+    model_reference = model_path or os.getenv("SENTIMENT_FINBERT_MODEL") or "ProsusAI/finbert"
+    classifier = hf_pipeline(
+        "text-classification",
+        model=model_reference,
+        truncation=True,
+        device=device,
+    )
+    results: list[SoftSentiment] = []
+    for start in range(0, len(texts), batch_size):
+        outputs: Any = classifier(texts[start : start + batch_size], top_k=None)
+        results.extend(_soft_sentiment_from_scores(output) for output in outputs)
+    return results
 
 
 def _predict_finbert(rows: list[DatasetRow], batch_size: int = 32) -> list[str | None]:
