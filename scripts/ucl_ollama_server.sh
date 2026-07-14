@@ -4,11 +4,12 @@ set -euo pipefail
 project_root="${UCL_PROJECT_ROOT:-/cs/student/project_msc/2025/cf/pprender}"
 ollama_bin="${OLLAMA_BIN:-${project_root}/envs/ollama/bin/ollama}"
 models_dir="${OLLAMA_MODELS:-${project_root}/artifacts/models/ollama}"
+ollama_home="${OLLAMA_HOME:-${project_root}/artifacts/ollama-home}"
 log_dir="${project_root}/artifacts/logs"
 session_name="${OLLAMA_TMUX_SESSION:-ollama-ucl}"
 api_url="${OLLAMA_API_URL:-http://127.0.0.1:11434}"
 
-mkdir -p "${models_dir}" "${log_dir}"
+mkdir -p "${models_dir}" "${ollama_home}" "${log_dir}"
 
 if [[ ! -x "${ollama_bin}" ]]; then
   echo "Missing Ollama executable: ${ollama_bin}" >&2
@@ -35,7 +36,7 @@ fi
 
 log_path="${log_dir}/ollama-$(hostname -s).log"
 tmux new-session -d -s "${session_name}" bash -lc \
-  "exec env OLLAMA_HOST=127.0.0.1:11434 OLLAMA_MODELS='${models_dir}' OLLAMA_KEEP_ALIVE=-1 OLLAMA_NUM_PARALLEL=1 '${ollama_bin}' serve >>'${log_path}' 2>&1"
+  "exec env HOME='${ollama_home}' OLLAMA_HOST=127.0.0.1:11434 OLLAMA_MODELS='${models_dir}' OLLAMA_KEEP_ALIVE=-1 OLLAMA_NUM_PARALLEL=1 '${ollama_bin}' serve >>'${log_path}' 2>&1"
 
 for _ in $(seq 1 30); do
   if curl --fail --silent --max-time 2 "${api_url}/api/version" >/dev/null; then

@@ -27,6 +27,7 @@ envs/ollama/                    User-space Ollama runtime
 data/raw/                       Licensed immutable inputs
 runs/labels/                    Append-only score checkpoints
 artifacts/models/ollama/        Ignored model blobs
+artifacts/ollama-home/          Ollama identity and user state
 artifacts/logs/                 Runtime logs
 ```
 
