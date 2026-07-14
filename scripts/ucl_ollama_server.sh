@@ -34,7 +34,7 @@ if tmux has-session -t "${session_name}" 2>/dev/null; then
 fi
 
 log_path="${log_dir}/ollama-$(hostname -s).log"
-tmux new-session -d -s "${session_name}" \
+tmux new-session -d -s "${session_name}" bash -lc \
   "exec env OLLAMA_HOST=127.0.0.1:11434 OLLAMA_MODELS='${models_dir}' OLLAMA_KEEP_ALIVE=-1 OLLAMA_NUM_PARALLEL=1 '${ollama_bin}' serve >>'${log_path}' 2>&1"
 
 for _ in $(seq 1 30); do

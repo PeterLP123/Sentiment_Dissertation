@@ -21,7 +21,7 @@ if [[ "${UCL_LABEL_INNER:-0}" != "1" ]]; then
     echo "tmux session ${session_name} already exists; attach with: tmux attach -t ${session_name}" >&2
     exit 1
   fi
-  tmux new-session -d -s "${session_name}" \
+  tmux new-session -d -s "${session_name}" bash -lc \
     "cd '${repo_root}' && exec env UCL_LABEL_INNER=1 UCL_PROJECT_ROOT='${project_root}' COLLECTION_ROOT='${collection_root}' RUN_ROOT='${run_root}' MODEL='${model}' PROMPT_ID='${prompt_id}' LIMIT='${limit}' MAX_POPULATION='${max_population}' CONCURRENCY='${concurrency}' OUTPUT_PATH='${output_path}' '${repo_root}/scripts/ucl_label_headlines.sh'"
   echo "Labelling started in tmux session ${session_name}."
   echo "Attach with: tmux attach -t ${session_name}"
