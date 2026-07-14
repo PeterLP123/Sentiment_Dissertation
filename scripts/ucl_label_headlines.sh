@@ -10,11 +10,13 @@ prompt_id="${PROMPT_ID:-financial_soft_label_base}"
 limit="${LIMIT:-100}"
 max_population="${MAX_POPULATION:-2282}"
 concurrency="${CONCURRENCY:-1}"
+max_completion_tokens="${MAX_COMPLETION_TOKENS:-64}"
 api_url="${OLLAMA_API_URL:-http://127.0.0.1:11434}"
 sentiment_bench="${project_root}/envs/sentiment/bin/sentiment-bench"
 safe_model="${model//[\/:]/_}"
-output_path="${OUTPUT_PATH:-${run_root}/headline_scores_${safe_model}.csv}"
-session_name="${LABEL_TMUX_SESSION:-labels-${safe_model}}"
+safe_prompt="${prompt_id//[\/:]/_}"
+output_path="${OUTPUT_PATH:-${run_root}/headline_scores_${safe_model}_${safe_prompt}_t${max_completion_tokens}.csv}"
+session_name="${LABEL_TMUX_SESSION:-labels-${safe_model}-t${max_completion_tokens}}"
 
 if [[ "${UCL_LABEL_INNER:-0}" != "1" ]]; then
   if tmux has-session -t "${session_name}" 2>/dev/null; then
@@ -22,7 +24,7 @@ if [[ "${UCL_LABEL_INNER:-0}" != "1" ]]; then
     exit 1
   fi
   tmux new-session -d -s "${session_name}" bash -lc \
-    "cd '${repo_root}' && exec env UCL_LABEL_INNER=1 UCL_PROJECT_ROOT='${project_root}' COLLECTION_ROOT='${collection_root}' RUN_ROOT='${run_root}' MODEL='${model}' PROMPT_ID='${prompt_id}' LIMIT='${limit}' MAX_POPULATION='${max_population}' CONCURRENCY='${concurrency}' OUTPUT_PATH='${output_path}' '${repo_root}/scripts/ucl_label_headlines.sh'"
+    "cd '${repo_root}' && exec env UCL_LABEL_INNER=1 UCL_PROJECT_ROOT='${project_root}' COLLECTION_ROOT='${collection_root}' RUN_ROOT='${run_root}' MODEL='${model}' PROMPT_ID='${prompt_id}' LIMIT='${limit}' MAX_POPULATION='${max_population}' CONCURRENCY='${concurrency}' MAX_COMPLETION_TOKENS='${max_completion_tokens}' OUTPUT_PATH='${output_path}' '${repo_root}/scripts/ucl_label_headlines.sh'"
   echo "Labelling started in tmux session ${session_name}."
   echo "Attach with: tmux attach -t ${session_name}"
   echo "Checkpointed output: ${output_path}"
@@ -52,7 +54,7 @@ common_args=(
   --prompt-id "${prompt_id}"
   --output "${output_path}"
   --temperature 0
-  --max-completion-tokens 32
+  --max-completion-tokens "${max_completion_tokens}"
   --concurrency "${concurrency}"
   --source-code NS:RTRS
   --direct-company-only

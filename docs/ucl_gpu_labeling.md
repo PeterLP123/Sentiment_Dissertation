@@ -46,7 +46,7 @@ The default launcher scores the same hash-ordered population used by the mid-cap
 ```bash
 cd /cs/student/project_msc/2025/cf/pprender/repos/Sentiment_Dissertation
 scripts/ucl_label_headlines.sh
-tmux attach -t labels-gemma4_12b
+tmux attach -t labels-gemma4_12b-t64
 ```
 
 Rerunning the launcher resumes from successful rows. To continue from the pilot through the complete frozen population, use an empty `LIMIT` while retaining the same output path:
@@ -55,7 +55,9 @@ Rerunning the launcher resumes from successful rows. To continue from the pilot 
 LIMIT= scripts/ucl_label_headlines.sh
 ```
 
-Override `MODEL`, `PROMPT_ID`, `COLLECTION_ROOT`, `OUTPUT_PATH`, or `CONCURRENCY` explicitly for a different registered experiment. Do not change those settings while reusing an existing score file.
+The default 64-token completion budget leaves enough room for the structured three-probability response. The output filename records the model, prompt, and token budget so a changed request cannot silently append to an earlier score file.
+
+Override `MODEL`, `PROMPT_ID`, `MAX_COMPLETION_TOKENS`, `COLLECTION_ROOT`, `OUTPUT_PATH`, or `CONCURRENCY` explicitly for a different registered experiment. Do not change those settings while reusing an existing score file.
 
 ## Git access
 
