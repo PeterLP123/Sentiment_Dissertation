@@ -1,0 +1,1115 @@
+<div id="week6-trade-explorer">
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap");
+
+    #week6-trade-explorer {
+      --font-size-base: 16px;
+      --font-sans: "IBM Plex Sans", "Segoe UI", sans-serif;
+      --font-mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+      color: var(--foreground);
+      font-family: var(--font-sans);
+      width: 100%;
+    }
+    #week6-trade-explorer #w6-content {
+      display: grid;
+      gap: 24px;
+    }
+    #week6-trade-explorer #w6-content[hidden] {
+      display: none;
+    }
+    #week6-trade-explorer .w6-toolbar {
+      align-items: end;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px 24px;
+      justify-content: space-between;
+    }
+    #week6-trade-explorer .w6-toolbar .viz-controls {
+      flex: 1 1 520px;
+    }
+    #week6-trade-explorer .w6-control-field {
+      display: grid;
+      gap: 6px;
+      min-width: min(210px, 100%);
+    }
+    #week6-trade-explorer .w6-rule-badge {
+      flex: 0 0 auto;
+      white-space: nowrap;
+    }
+    #week6-trade-explorer .w6-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    #week6-trade-explorer .w6-metric {
+      min-width: 0;
+      padding: 4px 20px;
+    }
+    #week6-trade-explorer .w6-metric:first-child {
+      padding-left: 0;
+    }
+    #week6-trade-explorer .w6-metric + .w6-metric {
+      border-left: 1px solid var(--border);
+    }
+    #week6-trade-explorer .w6-metric-label {
+      color: var(--muted-foreground);
+      margin-bottom: 3px;
+    }
+    #week6-trade-explorer .w6-rule-details summary {
+      cursor: pointer;
+      font-weight: 500;
+    }
+    #week6-trade-explorer .w6-rule-details[open] summary {
+      margin-bottom: 10px;
+    }
+    #week6-trade-explorer .w6-context,
+    #week6-trade-explorer .w6-rule,
+    #week6-trade-explorer .w6-audit {
+      color: var(--muted-foreground);
+    }
+    #week6-trade-explorer .w6-rule + .w6-context {
+      margin-top: 7px;
+    }
+    #week6-trade-explorer .w6-workspace {
+      align-items: start;
+      display: grid;
+      gap: 24px;
+      grid-template-columns: minmax(0, 1.9fr) minmax(290px, 0.8fr);
+    }
+    #week6-trade-explorer .w6-chart-region {
+      display: grid;
+      gap: 12px;
+      min-width: 0;
+    }
+    #week6-trade-explorer .w6-chart-shell {
+      position: relative;
+      width: 100%;
+    }
+    #week6-trade-explorer .w6-chart {
+      display: block;
+      height: auto;
+      width: 100%;
+    }
+    #week6-trade-explorer .w6-chart .w6-grid-line,
+    #week6-trade-explorer .w6-chart .w6-axis-line {
+      stroke: var(--border);
+      stroke-width: 1;
+      vector-effect: non-scaling-stroke;
+    }
+    #week6-trade-explorer .w6-chart .w6-zero-line {
+      stroke: var(--muted-foreground);
+      stroke-width: 1;
+      vector-effect: non-scaling-stroke;
+    }
+    #week6-trade-explorer .w6-chart .w6-price-line {
+      fill: none;
+      stroke: var(--viz-series-1);
+      stroke-width: 2.5;
+      vector-effect: non-scaling-stroke;
+    }
+    #week6-trade-explorer .w6-chart .w6-pnl-line {
+      fill: none;
+      stroke: var(--viz-series-4);
+      stroke-width: 2.5;
+      vector-effect: non-scaling-stroke;
+    }
+    #week6-trade-explorer .w6-chart .w6-select-line {
+      stroke: var(--foreground);
+      stroke-width: 1;
+      vector-effect: non-scaling-stroke;
+    }
+    #week6-trade-explorer .w6-chart .w6-axis-text,
+    #week6-trade-explorer .w6-chart .w6-panel-label {
+      fill: var(--muted-foreground);
+      font-size: 12px;
+      font-weight: 400;
+    }
+    #week6-trade-explorer .w6-chart .w6-panel-label {
+      fill: var(--foreground);
+      font-weight: 500;
+    }
+    #week6-trade-explorer .w6-chart .w6-split-line {
+      stroke: var(--muted-foreground);
+      stroke-dasharray: 5 4;
+      stroke-width: 1;
+      vector-effect: non-scaling-stroke;
+    }
+    #week6-trade-explorer .w6-chart-hit {
+      fill: transparent;
+      cursor: crosshair;
+    }
+    #week6-trade-explorer .w6-chart-shell .tooltip {
+      display: none;
+      max-width: calc(100% - 12px);
+      opacity: 0;
+      pointer-events: none;
+      position: absolute;
+      transform: translate(-50%, calc(-100% - 10px));
+      transition: opacity 100ms ease;
+      z-index: 2;
+    }
+    #week6-trade-explorer .w6-chart-shell .tooltip.is-visible {
+      display: block;
+      opacity: 1;
+    }
+    #week6-trade-explorer .w6-slider-label {
+      align-items: baseline;
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+    }
+    #week6-trade-explorer .w6-inspector-head {
+      align-items: baseline;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 12px;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    #week6-trade-explorer .w6-day-grid {
+      display: grid;
+      gap: 14px 16px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    #week6-trade-explorer .w6-day-label {
+      color: var(--muted-foreground);
+      margin-bottom: 3px;
+    }
+    #week6-trade-explorer .w6-day-value {
+      overflow-wrap: anywhere;
+    }
+    #week6-trade-explorer .w6-equation {
+      border-top: 1px solid var(--border);
+      margin-top: 12px;
+      padding-top: 10px;
+    }
+    #week6-trade-explorer .w6-inspector-action {
+      margin-top: 14px;
+    }
+    #week6-trade-explorer .w6-section-head {
+      align-items: end;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 18px;
+      justify-content: space-between;
+    }
+    #week6-trade-explorer .w6-section-head h3 {
+      margin: 0;
+    }
+    #week6-trade-explorer .w6-tabbar {
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding-bottom: 8px;
+    }
+    #week6-trade-explorer .w6-tab-count {
+      font-variant-numeric: tabular-nums;
+    }
+    #week6-trade-explorer .w6-panel {
+      display: grid;
+      gap: 14px;
+    }
+    #week6-trade-explorer .w6-panel[hidden] {
+      display: none;
+    }
+    #week6-trade-explorer .w6-table {
+      border-collapse: collapse;
+      table-layout: fixed;
+      width: 100%;
+    }
+    #week6-trade-explorer .w6-table th,
+    #week6-trade-explorer .w6-table td {
+      border-bottom: 1px solid var(--border);
+      overflow-wrap: anywhere;
+      padding: 8px 7px;
+      text-align: left;
+      vertical-align: top;
+    }
+    #week6-trade-explorer .w6-table th {
+      color: var(--muted-foreground);
+      font-weight: 500;
+    }
+    #week6-trade-explorer .w6-table tbody tr.is-selected {
+      background: var(--accent);
+      color: var(--accent-foreground);
+    }
+    #week6-trade-explorer .w6-num {
+      font-variant-numeric: tabular-nums;
+      text-align: right !important;
+    }
+    #week6-trade-explorer .w6-positive,
+    #week6-trade-explorer .w6-negative {
+      color: var(--foreground);
+      font-weight: 500;
+    }
+    #week6-trade-explorer .w6-headlines {
+      display: grid;
+      gap: 0;
+    }
+    #week6-trade-explorer .w6-headline-row {
+      border-bottom: 1px solid var(--border);
+      display: grid;
+      gap: 7px 18px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      padding: 14px 0;
+    }
+    #week6-trade-explorer .w6-headline-text,
+    #week6-trade-explorer .w6-story-id {
+      overflow-wrap: anywhere;
+    }
+    #week6-trade-explorer .w6-headline-meta {
+      color: var(--muted-foreground);
+      grid-column: 1 / -1;
+    }
+    #week6-trade-explorer .w6-contribution {
+      display: grid;
+      gap: 8px;
+    }
+    #week6-trade-explorer .w6-contribution[hidden] {
+      display: none;
+    }
+    #week6-trade-explorer .w6-contribution-bar {
+      display: flex;
+      height: 10px;
+      overflow: hidden;
+    }
+    #week6-trade-explorer .w6-contribution-positive {
+      background: var(--viz-series-2);
+    }
+    #week6-trade-explorer .w6-contribution-negative {
+      background: var(--viz-series-3);
+    }
+    #week6-trade-explorer .w6-contribution-zero {
+      background: var(--muted);
+    }
+    #week6-trade-explorer .w6-contribution-key {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 18px;
+    }
+    #week6-trade-explorer .w6-key-item {
+      align-items: center;
+      display: inline-flex;
+      gap: 6px;
+    }
+    #week6-trade-explorer .w6-swatch {
+      display: inline-block;
+      height: 8px;
+      width: 16px;
+    }
+    #week6-trade-explorer .w6-swatch-positive {
+      background: var(--viz-series-2);
+    }
+    #week6-trade-explorer .w6-swatch-negative {
+      background: var(--viz-series-3);
+    }
+    #week6-trade-explorer .w6-swatch-zero {
+      background: var(--muted);
+    }
+    #week6-trade-explorer .w6-pager {
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 9px;
+    }
+    #week6-trade-explorer .w6-empty {
+      color: var(--muted-foreground);
+      padding: 12px 0;
+    }
+    #week6-trade-explorer .w6-loading {
+      color: var(--muted-foreground);
+      padding: 20px 0;
+    }
+    #week6-trade-explorer .w6-audit {
+      border-top: 1px solid var(--border);
+      padding-top: 14px;
+    }
+    @media (max-width: 920px) {
+      #week6-trade-explorer .w6-workspace {
+        grid-template-columns: 1fr;
+      }
+      #week6-trade-explorer .w6-day-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+    }
+    @media (max-width: 700px) {
+      #week6-trade-explorer #w6-content {
+        gap: 20px;
+      }
+      #week6-trade-explorer .w6-toolbar {
+        align-items: stretch;
+      }
+      #week6-trade-explorer .w6-rule-badge {
+        white-space: normal;
+      }
+      #week6-trade-explorer .w6-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      #week6-trade-explorer .w6-metric {
+        padding: 4px 12px;
+      }
+      #week6-trade-explorer .w6-metric:nth-child(3) {
+        border-left: 0;
+        border-top: 1px solid var(--border);
+        grid-column: 1 / -1;
+        margin-top: 10px;
+        padding-left: 0;
+        padding-top: 12px;
+      }
+      #week6-trade-explorer .w6-day-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      #week6-trade-explorer .w6-hide-narrow {
+        display: none;
+      }
+      #week6-trade-explorer .w6-headline-row {
+        grid-template-columns: 1fr;
+      }
+      #week6-trade-explorer .w6-headline-meta {
+        grid-column: 1;
+      }
+      #week6-trade-explorer .w6-section-head {
+        align-items: stretch;
+      }
+    }
+    @media (max-width: 420px) {
+      #week6-trade-explorer .w6-chart .w6-axis-text,
+      #week6-trade-explorer .w6-chart .w6-panel-label {
+        font-size: 18px;
+      }
+      #week6-trade-explorer .w6-table th,
+      #week6-trade-explorer .w6-table td {
+        padding: 7px 3px;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #week6-trade-explorer .w6-chart-shell .tooltip {
+        transition: none;
+      }
+    }
+  </style>
+
+  <div id="w6-loading" class="w6-loading">Loading and verifying the frozen run…</div>
+
+  <div id="w6-content" hidden>
+    <div class="w6-toolbar">
+      <div class="viz-controls" aria-label="Trade explorer controls">
+        <label class="form-label w6-control-field" for="w6-symbol">
+          Stock
+          <select id="w6-symbol" class="form-select"></select>
+        </label>
+        <label class="form-label w6-control-field" for="w6-period">
+          Analysis window
+          <select id="w6-period" class="form-select">
+            <option value="evaluation">Evaluation only</option>
+            <option value="development">Development only</option>
+            <option value="all">Full sample</option>
+          </select>
+        </label>
+      </div>
+      <span id="w6-rule-badge" class="viz-badge w6-rule-badge">Frozen rule</span>
+    </div>
+
+    <div class="w6-metrics" aria-label="Selected stock effectiveness metrics">
+      <div class="w6-metric">
+        <div class="w6-metric-label text-small">Net P&amp;L</div>
+        <div id="w6-net" class="viz-stat-value">—</div>
+        <div id="w6-gross-context" class="text-small"></div>
+      </div>
+      <div class="w6-metric">
+        <div class="w6-metric-label text-small">Trading costs</div>
+        <div id="w6-cost" class="viz-stat-value">—</div>
+        <div id="w6-execution-context" class="text-small"></div>
+      </div>
+      <div class="w6-metric">
+        <div class="w6-metric-label text-small">Active-day hit rate</div>
+        <div id="w6-hit" class="viz-stat-value">—</div>
+        <div id="w6-active-context" class="text-small"></div>
+      </div>
+    </div>
+
+    <details class="w6-rule-details">
+      <summary>How the frozen rule was applied and selected</summary>
+      <div id="w6-rule" class="w6-rule text-small"></div>
+      <div id="w6-portfolio-context" class="w6-context text-small"></div>
+    </details>
+
+    <section class="w6-workspace" aria-label="Price and selected-session workspace">
+      <div class="w6-chart-region">
+        <div class="w6-section-head">
+          <div>
+            <h2>Price, position and profit</h2>
+            <div class="text-small text-muted">Hover the chart or move the session control.</div>
+          </div>
+        </div>
+        <div>
+          <div class="w6-slider-label">
+            <span class="form-label">Session</span>
+            <span id="w6-slider-date" class="text-small text-muted">—</span>
+          </div>
+          <input id="w6-day-slider" class="form-range" type="range" min="0" max="1" value="0" aria-label="Select a trading session">
+        </div>
+        <div class="w6-chart-shell">
+          <svg id="w6-chart" class="w6-chart" viewBox="0 0 900 430" role="img" aria-labelledby="w6-chart-title w6-chart-desc">
+            <title id="w6-chart-title">Stock price, position state, executions and cumulative net profit</title>
+            <desc id="w6-chart-desc">Hover or use the selected-session slider to inspect a date. Shading shows long or short exposure; markers show executions.</desc>
+          </svg>
+          <div id="w6-tooltip" class="tooltip text-small" role="status"></div>
+        </div>
+      </div>
+
+      <aside id="w6-day-card" class="card" aria-live="polite">
+        <div class="w6-inspector-head">
+          <span class="form-label">Selected session</span>
+          <span id="w6-selected-date" class="text-small text-muted">—</span>
+        </div>
+        <div id="w6-day-grid" class="w6-day-grid"></div>
+        <div id="w6-equation" class="w6-equation text-small"></div>
+        <div class="w6-inspector-action">
+          <button id="w6-open-evidence" type="button" class="btn btn-primary btn-block">Inspect headline evidence</button>
+        </div>
+      </aside>
+    </section>
+
+    <div class="w6-tabbar" role="tablist" aria-label="Decision evidence views">
+      <button id="w6-tab-executions" type="button" class="btn" role="tab" aria-selected="true" aria-controls="w6-panel-executions">
+        Executions <span id="w6-execution-count" class="w6-tab-count"></span>
+      </button>
+      <button id="w6-tab-evidence" type="button" class="btn btn-ghost" role="tab" aria-selected="false" aria-controls="w6-panel-evidence">
+        Headline evidence <span id="w6-evidence-count" class="w6-tab-count"></span>
+      </button>
+    </div>
+
+    <section id="w6-panel-executions" class="w6-panel" role="tabpanel" aria-labelledby="w6-tab-executions">
+      <div class="w6-section-head">
+        <div>
+          <h2>Position-changing executions</h2>
+          <div id="w6-ledger-context" class="text-small text-muted"></div>
+        </div>
+      </div>
+      <table class="w6-table text-small" aria-label="Position-changing executions">
+        <colgroup>
+          <col style="width: 17%">
+          <col style="width: 21%">
+          <col class="w6-hide-narrow" style="width: 34%">
+          <col style="width: 13%">
+          <col style="width: 15%">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Execution</th>
+            <th class="w6-hide-narrow">Signal</th>
+            <th class="w6-num">Cost</th>
+            <th class="w6-num">Net P&amp;L</th>
+          </tr>
+        </thead>
+        <tbody id="w6-ledger-body"></tbody>
+      </table>
+      <div class="w6-pager">
+        <button id="w6-ledger-prev" type="button" class="btn btn-ghost">Previous</button>
+        <span id="w6-ledger-page" class="text-small text-muted"></span>
+        <button id="w6-ledger-next" type="button" class="btn btn-ghost">Next</button>
+      </div>
+    </section>
+
+    <section id="w6-panel-evidence" class="w6-panel" role="tabpanel" aria-labelledby="w6-tab-evidence" hidden>
+      <div class="w6-section-head">
+        <div>
+          <h2>Headline contribution audit</h2>
+          <div id="w6-headline-summary" class="text-small text-muted"></div>
+        </div>
+        <label class="form-label w6-control-field" for="w6-headline-filter">
+          Contribution
+          <select id="w6-headline-filter" class="form-select">
+            <option value="all">All retained</option>
+            <option value="positive">Positive</option>
+            <option value="negative">Negative</option>
+            <option value="zero">Zero-score examples</option>
+          </select>
+        </label>
+      </div>
+      <div id="w6-contribution" class="w6-contribution" hidden>
+        <div id="w6-contribution-bar" class="w6-contribution-bar" role="img" aria-label="Headline association composition"></div>
+        <div class="w6-contribution-key text-small">
+          <span class="w6-key-item"><span class="w6-swatch w6-swatch-positive"></span><span id="w6-positive-key">Positive</span></span>
+          <span class="w6-key-item"><span class="w6-swatch w6-swatch-negative"></span><span id="w6-negative-key">Negative</span></span>
+          <span class="w6-key-item"><span class="w6-swatch w6-swatch-zero"></span><span id="w6-zero-key">Zero-score</span></span>
+        </div>
+      </div>
+      <div id="w6-headlines" class="w6-headlines" aria-live="polite"></div>
+      <div class="w6-pager">
+        <button id="w6-headline-prev" type="button" class="btn btn-ghost">Previous</button>
+        <span id="w6-headline-page" class="text-small text-muted"></span>
+        <button id="w6-headline-next" type="button" class="btn btn-ghost">Next</button>
+      </div>
+    </section>
+
+    <div id="w6-audit" class="w6-audit text-small"></div>
+  </div>
+
+  <script>
+    (() => {
+      const root = document.getElementById("week6-trade-explorer");
+      const byId = (id) => root.querySelector(`#${id}`);
+      const DATA_B64 = "__WEEK6_DATA_B64__";
+      const state = {
+        data: null,
+        symbolIndex: 0,
+        period: "evaluation",
+        rows: [],
+        selectedIndex: 0,
+        activePanel: "executions",
+        ledgerPage: 0,
+        headlinePage: 0,
+        headlineFilter: "all",
+        pricesBySymbol: [],
+        dailyBySymbol: []
+      };
+      const ledgerPageSize = 9;
+      const headlinePageSize = 8;
+      const svgNS = "http://www.w3.org/2000/svg";
+
+      const money = (value) => `${value < 0 ? "−" : ""}£${Math.abs(value).toLocaleString("en-GB", {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+      const signed = (value, digits = 3) => `${value > 0 ? "+" : value < 0 ? "−" : ""}${Math.abs(value).toFixed(digits)}`;
+      const percent = (value, digits = 1) => `${signed(value * 100, digits)}%`;
+      const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
+      const positionLabel = (value) => value > 0 ? "Long +1" : value < 0 ? "Short −1" : "Flat 0";
+      const splitLabel = (value) => value === 0 ? "Development" : "Evaluation";
+      const dateLabel = (value) => new Date(`${value}T12:00:00Z`).toLocaleDateString("en-GB", {day: "2-digit", month: "short", year: "numeric"});
+      const humanStatus = (value) => ({
+        aligned_next_session_close: "New headline signal",
+        aligned_after_timestamp_close: "New timestamped signal",
+        aligned_missing_score_flat: "Missing score → flat",
+        carried_existing_signal: "Existing signal carried",
+        holding_expired: "Five-session holding expired",
+        no_eligible_signal: "No eligible signal",
+        split_boundary_or_sample_end_exit: "Boundary or sample-end exit"
+      })[value] || value.replaceAll("_", " ");
+
+      function transitionLabel(previous, current) {
+        if (previous === current) return current === 0 ? "Remain flat" : `Maintain ${current > 0 ? "long" : "short"}`;
+        if (previous === 0) return `Open ${current > 0 ? "long" : "short"}`;
+        if (current === 0) return `Close ${previous > 0 ? "long" : "short"}`;
+        return previous < current ? "Flip short → long" : "Flip long → short";
+      }
+
+      function svgElement(name, attributes = {}, text = "") {
+        const element = document.createElementNS(svgNS, name);
+        for (const [key, value] of Object.entries(attributes)) element.setAttribute(key, value);
+        if (text) element.textContent = text;
+        return element;
+      }
+
+      async function unpackPayload() {
+        if (typeof DecompressionStream === "undefined") throw new Error("This browser does not support the local compressed dashboard payload.");
+        const bytes = Uint8Array.from(atob(DATA_B64), (character) => character.charCodeAt(0));
+        const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+        return JSON.parse(await new Response(stream).text());
+      }
+
+      function indexData() {
+        const data = state.data;
+        state.pricesBySymbol = data.symbols.map(() => new Map());
+        state.dailyBySymbol = data.symbols.map(() => []);
+        for (const [symbol, day, close] of data.prices) state.pricesBySymbol[symbol].set(day, close);
+        for (const item of data.daily) {
+          const [symbol, day, signalDate, signal, position, previous, gross, cost, net, split, active, executed, status] = item;
+          state.dailyBySymbol[symbol].push({
+            symbol,
+            day,
+            date: data.dates[day],
+            close: state.pricesBySymbol[symbol].get(day),
+            signalDate,
+            signal,
+            position,
+            previous,
+            gross,
+            cost,
+            net,
+            split,
+            active: Boolean(active),
+            executed: Boolean(executed),
+            status: data.statuses[status]
+          });
+        }
+        for (const rows of state.dailyBySymbol) rows.sort((a, b) => a.day - b.day);
+      }
+
+      function filteredRows() {
+        const rows = state.dailyBySymbol[state.symbolIndex] || [];
+        if (state.period === "all") return rows;
+        const split = state.period === "development" ? 0 : 1;
+        return rows.filter((row) => row.split === split);
+      }
+
+      function updateMetrics() {
+        const rows = state.rows;
+        const gross = rows.reduce((sum, row) => sum + row.gross, 0);
+        const cost = rows.reduce((sum, row) => sum + row.cost, 0);
+        const net = rows.reduce((sum, row) => sum + row.net, 0);
+        const active = rows.filter((row) => row.active);
+        const winners = active.filter((row) => row.net > 0).length;
+        const executions = rows.filter((row) => row.executed).length;
+        byId("w6-net").textContent = money(net);
+        byId("w6-net").className = `viz-stat-value ${net >= 0 ? "w6-positive" : "w6-negative"}`;
+        byId("w6-gross-context").textContent = `${money(gross)} gross before costs`;
+        byId("w6-cost").textContent = money(cost);
+        byId("w6-execution-context").textContent = `${executions} position-changing executions`;
+        byId("w6-hit").textContent = active.length ? percent(winners / active.length, 1) : "—";
+        byId("w6-active-context").textContent = `${winners} positive of ${active.length} active stock-days`;
+      }
+
+      function scales(rows) {
+        const width = root.clientWidth <= 420 ? 520 : 900;
+        const left = 62;
+        const right = 22;
+        const priceTop = 34;
+        const priceBottom = 235;
+        const pnlTop = 292;
+        const pnlBottom = 395;
+        const closes = rows.map((row) => row.close).filter(Number.isFinite);
+        let priceMin = Math.min(...closes);
+        let priceMax = Math.max(...closes);
+        const pricePad = Math.max((priceMax - priceMin) * 0.08, Math.abs(priceMax) * 0.005, 0.01);
+        priceMin -= pricePad;
+        priceMax += pricePad;
+        let running = 0;
+        const cumulative = rows.map((row) => running += row.net);
+        let pnlMin = Math.min(0, ...cumulative);
+        let pnlMax = Math.max(0, ...cumulative);
+        const pnlPad = Math.max((pnlMax - pnlMin) * 0.12, 1);
+        pnlMin -= pnlPad;
+        pnlMax += pnlPad;
+        const x = (index) => left + (rows.length <= 1 ? 0 : index / (rows.length - 1)) * (width - left - right);
+        const priceY = (value) => priceBottom - ((value - priceMin) / (priceMax - priceMin || 1)) * (priceBottom - priceTop);
+        const pnlY = (value) => pnlBottom - ((value - pnlMin) / (pnlMax - pnlMin || 1)) * (pnlBottom - pnlTop);
+        return {width, left, right, priceTop, priceBottom, pnlTop, pnlBottom, priceMin, priceMax, pnlMin, pnlMax, cumulative, x, priceY, pnlY};
+      }
+
+      function pathFor(values, x, y) {
+        return values.map((value, index) => `${index ? "L" : "M"}${x(index).toFixed(2)},${y(value).toFixed(2)}`).join(" ");
+      }
+
+      function drawChart() {
+        const svg = byId("w6-chart");
+        const rows = state.rows;
+        while (svg.lastChild && !["title", "desc"].includes(svg.lastChild.tagName)) svg.removeChild(svg.lastChild);
+        if (!rows.length) return;
+        const s = scales(rows);
+        svg.setAttribute("viewBox", `0 0 ${s.width} 430`);
+        state.chartScales = s;
+
+        for (let index = 0; index < rows.length; index++) {
+          const row = rows[index];
+          if (!row.position) continue;
+          const x0 = index === 0 ? s.left : (s.x(index - 1) + s.x(index)) / 2;
+          const x1 = index === rows.length - 1 ? s.width - s.right : (s.x(index) + s.x(index + 1)) / 2;
+          svg.appendChild(svgElement("rect", {
+            x: x0,
+            y: s.priceTop,
+            width: Math.max(0, x1 - x0),
+            height: s.priceBottom - s.priceTop,
+            fill: row.position > 0 ? "var(--viz-series-2)" : "var(--viz-series-3)",
+            opacity: "0.10"
+          }));
+        }
+
+        for (let tick = 0; tick <= 4; tick++) {
+          const value = s.priceMin + (s.priceMax - s.priceMin) * tick / 4;
+          const y = s.priceY(value);
+          svg.appendChild(svgElement("line", {x1: s.left, x2: s.width - s.right, y1: y, y2: y, class: "w6-grid-line"}));
+          svg.appendChild(svgElement("text", {x: s.left - 8, y: y + 4, "text-anchor": "end", class: "w6-axis-text"}, value.toFixed(0)));
+        }
+        for (let tick = 0; tick <= 3; tick++) {
+          const value = s.pnlMin + (s.pnlMax - s.pnlMin) * tick / 3;
+          const y = s.pnlY(value);
+          svg.appendChild(svgElement("line", {x1: s.left, x2: s.width - s.right, y1: y, y2: y, class: value === 0 ? "w6-zero-line" : "w6-grid-line"}));
+          const axisMoney = `${value < 0 ? "−" : ""}£${Math.abs(value).toFixed(0)}`;
+          svg.appendChild(svgElement("text", {x: s.left - 8, y: y + 4, "text-anchor": "end", class: "w6-axis-text"}, axisMoney));
+        }
+        const tickCount = Math.min(5, rows.length);
+        for (let tick = 0; tick < tickCount; tick++) {
+          const index = tickCount === 1 ? 0 : Math.round(tick * (rows.length - 1) / (tickCount - 1));
+          svg.appendChild(svgElement("text", {x: s.x(index), y: 420, "text-anchor": tick === 0 ? "start" : tick === tickCount - 1 ? "end" : "middle", class: "w6-axis-text"}, rows[index].date.slice(5)));
+        }
+        svg.appendChild(svgElement("text", {x: s.left, y: 21, class: "w6-panel-label"}, "Close price · ▲ long · ▼ short · ○ flat"));
+        svg.appendChild(svgElement("text", {x: s.left, y: 279, class: "w6-panel-label"}, "Cumulative fixed-allocation net P&L"));
+        svg.appendChild(svgElement("path", {d: pathFor(rows.map((row) => row.close), s.x, s.priceY), class: "w6-price-line"}));
+        svg.appendChild(svgElement("path", {d: pathFor(s.cumulative, s.x, s.pnlY), class: "w6-pnl-line"}));
+
+        if (state.period === "all") {
+          const splitIndex = rows.findIndex((row) => row.split === 1);
+          if (splitIndex > 0) {
+            const splitX = (s.x(splitIndex - 1) + s.x(splitIndex)) / 2;
+            svg.appendChild(svgElement("line", {x1: splitX, x2: splitX, y1: s.priceTop, y2: s.pnlBottom, class: "w6-split-line"}));
+            svg.appendChild(svgElement("text", {x: splitX + 5, y: s.priceTop + 14, class: "w6-axis-text"}, "Evaluation"));
+          }
+        }
+
+        rows.forEach((row, index) => {
+          if (!row.executed) return;
+          const x = s.x(index);
+          const y = s.priceY(row.close);
+          const fill = row.position > 0 ? "var(--viz-series-2)" : row.position < 0 ? "var(--viz-series-3)" : "var(--muted-foreground)";
+          if (row.position !== 0) {
+            const points = row.position > 0 ? `${x},${y - 7} ${x + 6},${y + 5} ${x - 6},${y + 5}` : `${x},${y + 7} ${x + 6},${y - 5} ${x - 6},${y - 5}`;
+            svg.appendChild(svgElement("polygon", {points, fill}));
+          } else {
+            svg.appendChild(svgElement("circle", {cx: x, cy: y, r: 4.5, fill: "var(--background)", stroke: fill, "stroke-width": 2}));
+          }
+        });
+
+        const selection = svgElement("g", {id: "w6-chart-selection", "aria-hidden": "true"});
+        selection.appendChild(svgElement("line", {class: "w6-select-line", y1: s.priceTop, y2: s.pnlBottom}));
+        selection.appendChild(svgElement("circle", {r: 4, fill: "var(--viz-series-1)"}));
+        selection.appendChild(svgElement("circle", {r: 4, fill: "var(--viz-series-4)"}));
+        svg.appendChild(selection);
+        const hit = svgElement("rect", {x: s.left, y: s.priceTop, width: s.width - s.left - s.right, height: s.pnlBottom - s.priceTop, class: "w6-chart-hit", role: "presentation"});
+        hit.addEventListener("pointermove", chartPointerMove);
+        hit.addEventListener("pointerleave", () => byId("w6-tooltip").classList.remove("is-visible"));
+        hit.addEventListener("click", chartPointerMove);
+        svg.appendChild(hit);
+        updateChartSelection();
+      }
+
+      function chartPointerMove(event) {
+        const rect = byId("w6-chart").getBoundingClientRect();
+        const s = state.chartScales;
+        const localX = (event.clientX - rect.left) / rect.width * s.width;
+        const index = clamp(Math.round((localX - s.left) / (s.width - s.left - s.right) * (state.rows.length - 1)), 0, state.rows.length - 1);
+        selectIndex(index, true);
+        const row = state.rows[index];
+        const tooltip = byId("w6-tooltip");
+        tooltip.textContent = `${dateLabel(row.date)} · ${money(row.net)} net · ${positionLabel(row.position)}`;
+        tooltip.classList.add("is-visible");
+        const shell = tooltip.parentElement.getBoundingClientRect();
+        const x = s.x(index) / s.width * rect.width;
+        const y = s.priceY(row.close) / 430 * rect.height;
+        const halfWidth = tooltip.offsetWidth / 2 + 6;
+        tooltip.style.left = `${clamp(x, halfWidth, shell.width - halfWidth)}px`;
+        tooltip.style.top = `${Math.max(32, y)}px`;
+      }
+
+      function updateChartSelection() {
+        const selection = byId("w6-chart-selection");
+        if (!selection || !state.rows.length) return;
+        const s = state.chartScales;
+        const index = clamp(state.selectedIndex, 0, state.rows.length - 1);
+        const row = state.rows[index];
+        const x = s.x(index);
+        const children = selection.children;
+        children[0].setAttribute("x1", x);
+        children[0].setAttribute("x2", x);
+        children[1].setAttribute("cx", x);
+        children[1].setAttribute("cy", s.priceY(row.close));
+        children[2].setAttribute("cx", x);
+        children[2].setAttribute("cy", s.pnlY(s.cumulative[index]));
+      }
+
+      function detailCell(label, value, className = "") {
+        const cell = document.createElement("div");
+        const lab = document.createElement("div");
+        lab.className = "w6-day-label text-small";
+        lab.textContent = label;
+        const val = document.createElement("div");
+        val.className = `w6-day-value ${className}`.trim();
+        val.textContent = value;
+        cell.append(lab, val);
+        return cell;
+      }
+
+      function renderSelectedDay() {
+        const row = state.rows[state.selectedIndex];
+        if (!row) return;
+        const selectedDate = `${dateLabel(row.date)} · ${state.data.symbols[state.symbolIndex]}`;
+        byId("w6-selected-date").textContent = selectedDate;
+        byId("w6-slider-date").textContent = selectedDate;
+        const grid = byId("w6-day-grid");
+        grid.replaceChildren(
+          detailCell("Session close", row.close.toLocaleString("en-GB", {minimumFractionDigits: 2, maximumFractionDigits: 2})),
+          detailCell("Position", positionLabel(row.position), row.position > 0 ? "w6-positive" : row.position < 0 ? "w6-negative" : ""),
+          detailCell("Decision", row.executed ? transitionLabel(row.previous, row.position) : humanStatus(row.status)),
+          detailCell("Signal", row.signal === null ? "No active headline score" : `${signed(row.signal, 3)} from ${row.signalDate}`),
+          detailCell("Split", splitLabel(row.split)),
+          detailCell("Gross P&L", money(row.gross)),
+          detailCell("Transaction cost", money(row.cost)),
+          detailCell("Net P&L", money(row.net), row.net >= 0 ? "w6-positive" : "w6-negative")
+        );
+        const implied = row.position ? row.gross / state.data.rule.allocation / row.position : 0;
+        byId("w6-equation").textContent = row.position
+          ? `${money(state.data.rule.allocation)} × ${row.position > 0 ? "+1 long" : "−1 short"} × ${percent(implied, 3)} close return = ${money(row.gross)} gross; ${money(row.gross)} − ${money(row.cost)} cost = ${money(row.net)} net.`
+          : `${positionLabel(row.previous)} → flat. No market return is earned; any ${money(row.cost)} amount is the execution cost of changing position.`;
+        const decision = decisionFor(row);
+        const evidenceButton = byId("w6-open-evidence");
+        evidenceButton.disabled = !decision;
+        evidenceButton.textContent = decision
+          ? decision.n === 1 ? "Inspect 1 headline association" : `Inspect ${decision.n.toLocaleString()} headline associations`
+          : "No headline evidence for this session";
+      }
+
+      function selectIndex(index, fromHover = false) {
+        state.selectedIndex = clamp(Number(index), 0, state.rows.length - 1);
+        byId("w6-day-slider").value = String(state.selectedIndex);
+        renderSelectedDay();
+        renderHeadlines();
+        updateChartSelection();
+        updateLedgerSelection();
+        if (!fromHover) byId("w6-tooltip").classList.remove("is-visible");
+      }
+
+      function executionRows() {
+        return state.rows.filter((row) => row.executed);
+      }
+
+      function decisionFor(row) {
+        if (!row || !row.signalDate) return null;
+        return state.data.decisions[`${state.data.symbols[state.symbolIndex]}|${row.signalDate}`] || null;
+      }
+
+      function renderLedger() {
+        const executions = executionRows();
+        const pages = Math.max(1, Math.ceil(executions.length / ledgerPageSize));
+        state.ledgerPage = clamp(state.ledgerPage, 0, pages - 1);
+        const visible = executions.slice(state.ledgerPage * ledgerPageSize, (state.ledgerPage + 1) * ledgerPageSize);
+        const body = byId("w6-ledger-body");
+        body.replaceChildren();
+        for (const row of visible) {
+          const rowIndex = state.rows.indexOf(row);
+          const tableRow = document.createElement("tr");
+          tableRow.dataset.rowIndex = String(rowIndex);
+          if (rowIndex === state.selectedIndex) tableRow.classList.add("is-selected");
+          const dateCell = document.createElement("td");
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "btn btn-ghost";
+          button.textContent = row.date;
+          button.setAttribute("aria-label", `Inspect ${transitionLabel(row.previous, row.position)} on ${dateLabel(row.date)}`);
+          button.addEventListener("click", () => {
+            selectIndex(rowIndex);
+          });
+          dateCell.appendChild(button);
+          const executionCell = document.createElement("td");
+          executionCell.textContent = transitionLabel(row.previous, row.position);
+          const signalCell = document.createElement("td");
+          signalCell.className = "w6-hide-narrow";
+          const decision = decisionFor(row);
+          signalCell.textContent = row.signal === null ? humanStatus(row.status) : `${signed(row.signal, 3)} · ${decision ? `${decision.n} headlines` : row.signalDate}`;
+          const costCell = document.createElement("td");
+          costCell.className = "w6-num";
+          costCell.textContent = money(row.cost);
+          const pnlCell = document.createElement("td");
+          pnlCell.className = `w6-num ${row.net >= 0 ? "w6-positive" : "w6-negative"}`;
+          pnlCell.textContent = money(row.net);
+          tableRow.append(dateCell, executionCell, signalCell, costCell, pnlCell);
+          body.appendChild(tableRow);
+        }
+        byId("w6-ledger-context").textContent = `${executions.length} executions for ${state.data.symbols[state.symbolIndex]} in the selected period. Opening, closing and direct reversals are shown separately.`;
+        byId("w6-execution-count").textContent = `(${executions.length})`;
+        byId("w6-ledger-page").textContent = `Page ${state.ledgerPage + 1} of ${pages}`;
+        byId("w6-ledger-prev").disabled = state.ledgerPage === 0;
+        byId("w6-ledger-next").disabled = state.ledgerPage >= pages - 1;
+      }
+
+      function updateLedgerSelection() {
+        byId("w6-ledger-body").querySelectorAll("tr[data-row-index]").forEach((row) => {
+          row.classList.toggle("is-selected", Number(row.dataset.rowIndex) === state.selectedIndex);
+        });
+      }
+
+      function headlineItems(decision) {
+        if (!decision) return [];
+        const filter = state.headlineFilter;
+        return decision.h.filter((item) => filter === "all" || filter === "positive" && item[2] > 0 || filter === "negative" && item[2] < 0 || filter === "zero" && item[2] === 0);
+      }
+
+      function renderHeadlines() {
+        const row = state.rows[state.selectedIndex];
+        const decision = decisionFor(row);
+        const container = byId("w6-headlines");
+        const composition = byId("w6-contribution");
+        container.replaceChildren();
+        if (!decision) {
+          byId("w6-evidence-count").textContent = "(0)";
+          composition.hidden = true;
+          byId("w6-headline-summary").textContent = row && row.status === "holding_expired"
+            ? "This execution was caused by the five-session expiry rule, not by a new headline signal."
+            : "No headline-triggering signal is attached to this session.";
+          const empty = document.createElement("div");
+          empty.className = "w6-empty";
+          empty.textContent = row && row.signalDate ? "The referenced signal has no retained provenance row." : "Select an active or headline-triggered session to inspect its contributors.";
+          container.appendChild(empty);
+          byId("w6-headline-page").textContent = "";
+          byId("w6-headline-prev").disabled = true;
+          byId("w6-headline-next").disabled = true;
+          return;
+        }
+        byId("w6-evidence-count").textContent = `(${decision.n.toLocaleString()})`;
+        renderContribution(decision);
+        byId("w6-headline-summary").textContent = decision.n === 0
+          ? "No accepted headline association was available for this signal date. The missing score deterministically forced the position flat."
+          : `Frozen mean ${signed(decision.mu, 3)} = ${signed(decision.sum, 3)} total score ÷ ${decision.n.toLocaleString()} headline associations. ${decision.p.toLocaleString()} positive, ${decision.m.toLocaleString()} negative and ${decision.z.toLocaleString()} zero-score associations; exact reconstruction passed.`;
+        const items = headlineItems(decision);
+        const pages = Math.max(1, Math.ceil(items.length / headlinePageSize));
+        state.headlinePage = clamp(state.headlinePage, 0, pages - 1);
+        const visible = items.slice(state.headlinePage * headlinePageSize, (state.headlinePage + 1) * headlinePageSize);
+        for (const item of visible) {
+          const [hash, headline, score, count, timestamp, sources, familyCount, family] = item;
+          const entry = document.createElement("div");
+          entry.className = "w6-headline-row";
+          const text = document.createElement("div");
+          text.className = "w6-headline-text";
+          text.textContent = headline || "[Blank headline row]";
+          const contribution = document.createElement("div");
+          contribution.className = "w6-num";
+          const contributionCode = document.createElement("code");
+          contributionCode.textContent = `${signed(score, 3)} × ${count} = ${signed(score * count, 3)}`;
+          contribution.appendChild(contributionCode);
+          const meta = document.createElement("div");
+          meta.className = "w6-headline-meta text-small";
+          const sourceText = sources ? sources.replaceAll("|", ", ") : "unknown source";
+          const timestampText = timestamp
+            ? new Date(timestamp).toLocaleString("en-GB", {dateStyle: "medium", timeStyle: "short"})
+            : "unknown time";
+          meta.textContent = `${timestampText} · ${sourceText} · hash ${hash} · ${familyCount} story ${familyCount === 1 ? "family" : "families"}${family ? ` · ${family}` : ""}`;
+          entry.append(text, contribution, meta);
+          container.appendChild(entry);
+        }
+        if (!visible.length) {
+          const empty = document.createElement("div");
+          empty.className = "w6-empty";
+          empty.textContent = "No contributors match this filter.";
+          container.appendChild(empty);
+        }
+        const neutralNote = decision.zu > decision.ze ? ` Zero-score text is summarized: ${decision.ze} representative unique headlines shown from ${decision.zu}.` : "";
+        byId("w6-headline-page").textContent = `Page ${state.headlinePage + 1} of ${pages}.${neutralNote}`;
+        byId("w6-headline-prev").disabled = state.headlinePage === 0;
+        byId("w6-headline-next").disabled = state.headlinePage >= pages - 1;
+      }
+
+      function renderContribution(decision) {
+        const composition = byId("w6-contribution");
+        const bar = byId("w6-contribution-bar");
+        if (!decision.n) {
+          composition.hidden = true;
+          return;
+        }
+        composition.hidden = false;
+        bar.replaceChildren();
+        const segments = [
+          ["positive", decision.p, "w6-contribution-positive"],
+          ["negative", decision.m, "w6-contribution-negative"],
+          ["zero-score", decision.z, "w6-contribution-zero"]
+        ];
+        for (const [label, count, className] of segments) {
+          if (!count) continue;
+          const segment = document.createElement("span");
+          segment.className = className;
+          segment.style.width = `${count / decision.n * 100}%`;
+          segment.setAttribute("aria-hidden", "true");
+          bar.appendChild(segment);
+        }
+        bar.setAttribute("aria-label", `${decision.p} positive, ${decision.m} negative and ${decision.z} zero-score headline associations`);
+        byId("w6-positive-key").textContent = `Positive ${decision.p.toLocaleString()}`;
+        byId("w6-negative-key").textContent = `Negative ${decision.m.toLocaleString()}`;
+        byId("w6-zero-key").textContent = `Zero-score ${decision.z.toLocaleString()}`;
+      }
+
+      function renderRuleContext() {
+        const rule = state.data.rule;
+        byId("w6-rule-badge").textContent = `Frozen · ±${rule.threshold.toFixed(2)} · ${rule.holding} sessions · ${rule.cost_bps} bps`;
+        byId("w6-rule").textContent = `Frozen operational rule · company-day signal = mean headline-lexicon score over every matched headline association · strict > +${rule.threshold.toFixed(2)}: long · < −${rule.threshold.toFixed(2)}: short · otherwise or missing: flat · next-session close sets the position and earns only the following close-to-close return · hold ${rule.holding} sessions unless a newer signal supersedes and restarts it · incomplete cross-split or trailing holds are omitted · ${money(rule.allocation)} fixed allocation per stock · ${rule.cost_bps} bps per side on absolute position change.`;
+        const evaluation = state.data.portfolio.filter((item) => item.period === "evaluation");
+        const all = evaluation.find((item) => item.portfolio === "all_stock_equal_weight");
+        const low = evaluation.find((item) => item.portfolio === "development_low_correlation");
+        const thresholdGrid = rule.candidate_thresholds.map((value) => Number(value).toFixed(2)).join(" / ");
+        byId("w6-portfolio-context").textContent = `Development-only selection · ${rule.candidate_thresholds.length * rule.candidate_holds.length} candidates from thresholds ${thresholdGrid} × holds ${rule.candidate_holds.join(" / ")} · ${rule.selection_reason}. Evaluation reference · all 33 stocks: ${signed(all.actual_sample_percentage_return, 3)}% net, Sharpe ${signed(all.annualized_sharpe, 3)}, max drawdown ${signed(all.maximum_drawdown, 3)}% · development-selected ${rule.selected_stocks.join(" / ")}: ${signed(low.actual_sample_percentage_return, 3)}% net, Sharpe ${signed(low.annualized_sharpe, 3)}, max drawdown ${signed(low.maximum_drawdown, 3)}%.`;
+        byId("w6-audit").textContent = `Provenance verified · ${state.data.audit.signal_references.toLocaleString()} decision-driving signal dates reconciled to ${state.data.audit.raw_associations.toLocaleString()} raw headline associations. All non-zero contributors and up to five representative zero-score headlines per signal are retained. Licensed text: local use only; do not redistribute.`;
+      }
+
+      function setActivePanel(panel, bringIntoView = false) {
+        state.activePanel = panel;
+        const executionsActive = panel === "executions";
+        byId("w6-tab-executions").setAttribute("aria-selected", String(executionsActive));
+        byId("w6-tab-evidence").setAttribute("aria-selected", String(!executionsActive));
+        byId("w6-panel-executions").hidden = !executionsActive;
+        byId("w6-panel-evidence").hidden = executionsActive;
+        if (bringIntoView) byId(executionsActive ? "w6-panel-executions" : "w6-panel-evidence").scrollIntoView({block: "start"});
+      }
+
+      function refreshSelection(preferredDate = null) {
+        state.rows = filteredRows();
+        const slider = byId("w6-day-slider");
+        slider.max = String(Math.max(0, state.rows.length - 1));
+        const executions = state.rows.map((row, index) => ({row, index})).filter((item) => item.row.executed);
+        let index = executions.length ? executions[0].index : 0;
+        if (preferredDate) {
+          const found = state.rows.findIndex((row) => row.date === preferredDate);
+          if (found >= 0) index = found;
+        }
+        state.selectedIndex = index;
+        state.ledgerPage = 0;
+        state.headlinePage = 0;
+        updateMetrics();
+        drawChart();
+        renderLedger();
+        selectIndex(index);
+      }
+
+      function bindControls() {
+        byId("w6-symbol").addEventListener("change", (event) => {
+          state.symbolIndex = Number(event.target.value);
+          refreshSelection();
+        });
+        byId("w6-period").addEventListener("change", (event) => {
+          const date = state.rows[state.selectedIndex]?.date || null;
+          state.period = event.target.value;
+          refreshSelection(date);
+        });
+        byId("w6-day-slider").addEventListener("input", (event) => selectIndex(Number(event.target.value)));
+        byId("w6-ledger-prev").addEventListener("click", () => { state.ledgerPage -= 1; renderLedger(); });
+        byId("w6-ledger-next").addEventListener("click", () => { state.ledgerPage += 1; renderLedger(); });
+        byId("w6-headline-filter").addEventListener("change", (event) => {
+          state.headlineFilter = event.target.value;
+          state.headlinePage = 0;
+          renderHeadlines();
+        });
+        byId("w6-headline-prev").addEventListener("click", () => { state.headlinePage -= 1; renderHeadlines(); });
+        byId("w6-headline-next").addEventListener("click", () => { state.headlinePage += 1; renderHeadlines(); });
+        byId("w6-tab-executions").addEventListener("click", () => setActivePanel("executions"));
+        byId("w6-tab-evidence").addEventListener("click", () => setActivePanel("evidence"));
+        byId("w6-open-evidence").addEventListener("click", () => setActivePanel("evidence", true));
+        window.addEventListener("resize", drawChart);
+      }
+
+      async function boot() {
+        try {
+          state.data = await unpackPayload();
+          indexData();
+          const symbolSelect = byId("w6-symbol");
+          state.data.symbols.forEach((symbol, index) => {
+            const option = document.createElement("option");
+            option.value = String(index);
+            option.textContent = `${symbol}${state.data.rule.selected_stocks.includes(symbol) ? " · low-correlation subset" : ""}`;
+            symbolSelect.appendChild(option);
+          });
+          state.symbolIndex = Math.max(0, state.data.symbols.indexOf("FCX"));
+          symbolSelect.value = String(state.symbolIndex);
+          bindControls();
+          renderRuleContext();
+          refreshSelection();
+          setActivePanel("executions");
+          byId("w6-loading").hidden = true;
+          byId("w6-content").hidden = false;
+        } catch (error) {
+          byId("w6-loading").className = "w6-loading text-destructive";
+          byId("w6-loading").textContent = `Unable to load the frozen dashboard: ${error.message}`;
+        }
+      }
+
+      boot();
+    })();
+  </script>
+</div>
