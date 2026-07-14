@@ -7,7 +7,7 @@ collection_root="${COLLECTION_ROOT:-${project_root}/data/raw/lseg_us_midcap_22_1
 run_root="${RUN_ROOT:-${project_root}/runs/labels/lseg_us_midcap_22_1y}"
 model="${MODEL:-gemma4:12b}"
 prompt_id="${PROMPT_ID:-financial_soft_label_base}"
-limit="${LIMIT:-100}"
+limit="${LIMIT-100}"
 max_population="${MAX_POPULATION:-2282}"
 concurrency="${CONCURRENCY:-1}"
 max_completion_tokens="${MAX_COMPLETION_TOKENS:-64}"
@@ -16,6 +16,7 @@ sentiment_bench="${project_root}/envs/sentiment/bin/sentiment-bench"
 safe_model="${model//[\/:]/_}"
 safe_prompt="${prompt_id//[\/:]/_}"
 output_path="${OUTPUT_PATH:-${run_root}/headline_scores_${safe_model}_${safe_prompt}_t${max_completion_tokens}.csv}"
+log_path="${LABEL_LOG_PATH:-${output_path}.log}"
 session_name="${LABEL_TMUX_SESSION:-labels-${safe_model}-t${max_completion_tokens}}"
 
 if [[ "${UCL_LABEL_INNER:-0}" != "1" ]]; then
@@ -23,11 +24,13 @@ if [[ "${UCL_LABEL_INNER:-0}" != "1" ]]; then
     echo "tmux session ${session_name} already exists; attach with: tmux attach -t ${session_name}" >&2
     exit 1
   fi
+  mkdir -p "$(dirname "${output_path}")"
   tmux new-session -d -s "${session_name}" bash -lc \
-    "cd '${repo_root}' && exec env UCL_LABEL_INNER=1 UCL_PROJECT_ROOT='${project_root}' COLLECTION_ROOT='${collection_root}' RUN_ROOT='${run_root}' MODEL='${model}' PROMPT_ID='${prompt_id}' LIMIT='${limit}' MAX_POPULATION='${max_population}' CONCURRENCY='${concurrency}' MAX_COMPLETION_TOKENS='${max_completion_tokens}' OUTPUT_PATH='${output_path}' '${repo_root}/scripts/ucl_label_headlines.sh'"
+    "cd '${repo_root}' && exec env UCL_LABEL_INNER=1 UCL_PROJECT_ROOT='${project_root}' COLLECTION_ROOT='${collection_root}' RUN_ROOT='${run_root}' MODEL='${model}' PROMPT_ID='${prompt_id}' LIMIT='${limit}' MAX_POPULATION='${max_population}' CONCURRENCY='${concurrency}' MAX_COMPLETION_TOKENS='${max_completion_tokens}' OUTPUT_PATH='${output_path}' LABEL_LOG_PATH='${log_path}' '${repo_root}/scripts/ucl_label_headlines.sh' >>'${log_path}' 2>&1"
   echo "Labelling started in tmux session ${session_name}."
   echo "Attach with: tmux attach -t ${session_name}"
   echo "Checkpointed output: ${output_path}"
+  echo "Persistent log: ${log_path}"
   exit 0
 fi
 

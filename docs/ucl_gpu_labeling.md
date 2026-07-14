@@ -49,7 +49,7 @@ scripts/ucl_label_headlines.sh
 tmux attach -t labels-gemma4_12b-t64
 ```
 
-Rerunning the launcher resumes from successful rows. To continue from the pilot through the complete frozen population, use an empty `LIMIT` while retaining the same output path:
+Rerunning the launcher resumes from successful rows. To continue from the pilot through the complete frozen population, set an explicitly empty `LIMIT` while retaining the same output path:
 
 ```bash
 LIMIT= scripts/ucl_label_headlines.sh
