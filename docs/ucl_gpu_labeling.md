@@ -10,6 +10,35 @@ The bootstrap layout keeps repositories, environments, licensed input data, run 
 
 ## Connect and check the GPU
 
+To scan every public lab GPU from the Mac without password prompts:
+
+```bash
+python scripts/ucl_gpu_status.py
+```
+
+The checker uses the hostnames published on the [UCL CS GPU page](https://tsg.cs.ucl.ac.uk/gpus/), checks them concurrently through the `ucl-knuckles` SSH alias, and reports `FREE`, `TAKEN`, `OFFLINE`, `AUTH`, `HOST_KEY`, or `ERROR`. `FREE` means that `nvidia-smi` returned successfully and listed no compute processes; ordinary driver/display memory by itself does not count as taken. Use `--lab lab105`, `--lab lab121`, `--host canada-l`, or `--json` to narrow or automate the check.
+
+The published page currently describes 25 lab105 and 30 lab121 PCs, but lists 23 and 31 hostnames respectively. The dated inventory in `scripts/ucl_gpu_status.py` preserves all 54 names actually published so stale or offline entries remain visible rather than being silently omitted; it does not guess the two unlisted lab105 names.
+
+The script sets SSH `BatchMode=yes`, so it never asks for or stores a password. Public-key authentication must already work. On macOS, use an SSH configuration like this (substitute your UCL CS username):
+
+```sshconfig
+Host ucl-knuckles
+    HostName knuckles.cs.ucl.ac.uk
+    User <ucl-cs-username>
+    IdentityFile ~/.ssh/id_ed25519
+    IdentitiesOnly yes
+    AddKeysToAgent yes
+    UseKeychain yes
+    ControlMaster auto
+    ControlPersist 10m
+    ControlPath ~/.ssh/cm-%C
+```
+
+Add the key to the macOS keychain once with `ssh-add --apple-use-keychain ~/.ssh/id_ed25519`. If the public key has not yet been registered in the CS account's `~/.ssh/authorized_keys`, that server-side setup still requires one initial authenticated login (or help from TSG); the checker deliberately does not work around UCL authentication.
+
+For a single reserved workstation, continue to use the existing alias:
+
 ```bash
 ssh rachet
 bash
