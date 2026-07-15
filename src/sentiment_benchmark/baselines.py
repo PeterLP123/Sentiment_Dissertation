@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import os
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any
@@ -285,12 +285,13 @@ def _soft_sentiment_from_scores(scores: list[dict[str, object]]) -> SoftSentimen
     )
 
 
-def score_finbert_texts(
+def iter_finbert_text_batches(
     texts: list[str],
     batch_size: int = 32,
     model_path: str | None = None,
-) -> list[SoftSentiment]:
-    """Score financial texts locally with all three FinBERT probabilities."""
+    inference_batch_size: int | None = None,
+) -> Iterator[list[SoftSentiment]]:
+    """Yield FinBERT probability batches while keeping one model pipeline loaded."""
     try:
         import torch
         from transformers import pipeline as hf_pipeline
@@ -300,7 +301,12 @@ def score_finbert_texts(
         ) from exc
 
     _disable_hf_progress_bars()
-    device = 0 if torch.cuda.is_available() else -1
+    if torch.cuda.is_available():
+        device: int | str = 0
+    elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        device = "mps"
+    else:
+        device = -1
     model_reference = model_path or os.getenv("SENTIMENT_FINBERT_MODEL") or "ProsusAI/finbert"
     classifier = hf_pipeline(
         "text-classification",
@@ -308,10 +314,24 @@ def score_finbert_texts(
         truncation=True,
         device=device,
     )
-    results: list[SoftSentiment] = []
     for start in range(0, len(texts), batch_size):
-        outputs: Any = classifier(texts[start : start + batch_size], top_k=None)
-        results.extend(_soft_sentiment_from_scores(output) for output in outputs)
+        outputs: Any = classifier(
+            texts[start : start + batch_size],
+            top_k=None,
+            batch_size=inference_batch_size or batch_size,
+        )
+        yield [_soft_sentiment_from_scores(output) for output in outputs]
+
+
+def score_finbert_texts(
+    texts: list[str],
+    batch_size: int = 32,
+    model_path: str | None = None,
+) -> list[SoftSentiment]:
+    """Score financial texts locally with all three FinBERT probabilities."""
+    results: list[SoftSentiment] = []
+    for batch in iter_finbert_text_batches(texts, batch_size=batch_size, model_path=model_path):
+        results.extend(batch)
     return results
 
 

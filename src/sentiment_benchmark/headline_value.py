@@ -377,7 +377,7 @@ def _population_selection(
 
 
 def _load_llm_scores(paths: tuple[str | Path, ...]) -> dict[str, dict[str, float]]:
-    """Read score-headlines CSVs into {norm sha256: {model_id: score}}."""
+    """Read model or baseline score CSVs into {norm sha256: {model_id: score}}."""
     scores: dict[str, dict[str, float]] = {}
     for raw_path in paths:
         path = Path(raw_path)
@@ -388,7 +388,7 @@ def _load_llm_scores(paths: tuple[str | Path, ...]) -> dict[str, dict[str, float
                 if str(row.get("status") or "") != "success":
                     continue
                 sha = str(row.get("headline_sha256") or "")
-                model_id = str(row.get("model_id") or "")
+                model_id = str(row.get("model_id") or row.get("baseline") or "")
                 raw_score = str(row.get("score") or "")
                 if not sha or not model_id or raw_score == "":
                     continue

@@ -133,6 +133,17 @@ be recorded before restarting in a new score file.
 The adjacent manifest records the RIC mapping, coverage, config hash, output
 hash and price-return convention.
 
+Before the shared signal build, score the exact successful Gemma population with
+the local baselines. This output is immutable and retains the normalized headline
+hash needed for the join:
+
+```bash
+.venv/bin/python scripts/run_lseg_headline_study.py score-baselines \
+  --gemma-scores Data/collections/lseg_us_midcap_22_1y/derived/headline_scores_ollama_primary.csv \
+  --output Data/collections/lseg_us_midcap_22_1y/derived/headline_scores_finbert_vader.csv \
+  --finbert-batch-size 256
+```
+
 ## 6. Build signals and event-level diagnostics
 
 ```bash
@@ -144,7 +155,8 @@ hash and price-return convention.
   --direct-company-only \
   --horizons 1,3,5,7 \
   --transaction-cost-bps-per-side 10 \
-  --llm-scores Data/collections/lseg_us_midcap_22_1y/derived/headline_scores_ollama_primary.csv
+  --llm-scores Data/collections/lseg_us_midcap_22_1y/derived/headline_scores_ollama_primary.csv \
+  --llm-scores Data/collections/lseg_us_midcap_22_1y/derived/headline_scores_finbert_vader.csv
 ```
 
 ## 7. Run the funded chronological evaluation
@@ -165,6 +177,21 @@ The scorer ID in `daily_signals.csv` is `llm/<exact model tag>`:
 
 Treat the all-company portfolio as primary. The low-correlation subset is a
 predeclared sensitivity, not a replacement when the primary result is weak.
+
+Then run the common-split, quantile-calibrated funded comparison. Replace the
+Gemma scorer with the exact `llm/<model tag>` written to `daily_signals.csv`:
+
+```bash
+.venv/bin/sentiment-bench compare-week6-models \
+  --signals Data/collections/lseg_us_midcap_22_1y/derived/headline_value_ollama_v1/daily_signals.csv \
+  --prices Data/derived/prices/lseg_us_midcap_22_1y.csv \
+  --scorers "llm/$OLLAMA_MODEL,llm/finbert,llm/vader" \
+  --run-id us_midcap22_models_20260715 \
+  --development-fraction 0.75 \
+  --threshold-quantiles 0,0.5,0.7 \
+  --holding-periods 1,3,5,7 \
+  --transaction-cost-bps-per-side 10
+```
 
 ## Completion checks
 

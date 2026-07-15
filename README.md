@@ -45,6 +45,7 @@ The former L1–L4 layer programme (threshold trading, crowding/reversal, G-theo
 | Trading robustness report | Bootstrap event means, run the effectiveness battery (significance, benchmark, economics; BH-corrected), test company sensitivity, and render meeting-ready plots. | `sentiment-bench analyze-trading-run` |
 | Parameter sweep | Tune any registered strategy's parameters and horizon on a completed run, selecting on a training split only. | `sentiment-bench sweep-trading-strategy` |
 | Week 6 daily P&L | Run the exploratory, cost-aware fixed-capital stock and portfolio analysis with a frozen chronological evaluation. | `sentiment-bench analyze-week6-pnl` |
+| Week 6 model comparison | Calibrate scorer-specific gates on development data, rank frozen evaluation strategies, and conditionally test a profitable pairwise-negative portfolio. | `sentiment-bench compare-week6-models` |
 | Pluggable strategies | Register trading ideas across four pipeline seams; equal-weight threshold and conviction-weighted sizing built in. | `sentiment-bench list-strategies` |
 | Headline value screen | Assess LSEG headline-only coverage, taxonomy, and lexicon-scored trading value without story bodies. | `sentiment-bench analyze-headline-value` |
 | L2 / L3 analyses | Consensus event study with clustered inference, and G-theory reliability with holdout trading rules. | `sentiment-bench analyze-l2`, `analyze-l3` |
@@ -194,6 +195,8 @@ Start here if you are setting up the project or writing the dissertation methods
 | [LSEG to Ollama pipeline](docs/lseg_ollama_pipeline.md) | How-to | Collect, clean, score, validate, and evaluate local-only Workspace news. |
 | [Frozen LSEG analysis workflow](docs/lseg_analysis_workflow.md) | How-to | The gated corpus → cohort → validation → crossed scoring → L2/L3 sequence. |
 | [Trading pipeline](docs/trading_pipeline.md) | How-to | Run, analyze, tune, and extend the news-to-price trading strategy. |
+| [Week 6 scoring rerun requirement](reports/week6_model_comparison_rerun_required.md) | Blocking research note | Why the current Gemma/FinBERT/VADER comparison is provisional and what must be rerun. |
+| [Full-population FinBERT/VADER test](reports/week6_finbert_vader_full_population_test.md) | Technical report | Complete 568,707-headline score comparison and funded Week 6 evaluation. |
 | [Results and exports](docs/results_and_exports.md) | Reference | SQLite or Turso/libSQL storage, export files, metrics, figures, and reproducibility metadata. |
 | [Local Gemma 4 headline-return results](reports/local_gemma4_headline_return_study.md) | Technical report | Aggregate-only local scoring and held-out one-day return results for the 22-company study. |
 | [Architecture](docs/architecture.md) | Explanation | Why the project separates source data, runs, providers, news corpora, and exports. |

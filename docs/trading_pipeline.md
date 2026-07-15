@@ -132,6 +132,14 @@ The run's `[run] notional_usd` is the initial NAV of each independent scorer/hor
 
 These statistics support model development, but they do not make selection bias disappear. Picking the highest Sharpe scorer/horizon, the smoothest equity curve, or the most negative stock pairs on the full sample is exploratory. Freeze the rule and correlation/covariance estimate on a chronological training window, then report performance once on untouched validation/holdout data.
 
+For the supervisor's Week 6 cross-model comparison, `compare-week6-models`
+enforces one shared split and identical company-day keys. It calibrates absolute
+score gates by scorer-specific development quantiles, freezes each rule, and
+reports the untouched evaluation. Its optional combined portfolio requires every
+selected pair to be supported, development-profitable, and negatively correlated;
+if no pair qualifies, the command reports that result rather than substituting a
+merely low-absolute-correlation portfolio.
+
 The funded book currently assumes one exchange calendar/timezone and one USD capital base, so it is appropriate for the configured US stock universe rather than an unhedged multi-currency portfolio. Prefer disabling `[index_fallback]` for stock-diversification research: several company signals can otherwise resolve to the same index symbol, which is not independent exposure. If fallback is retained, keep the source-symbol attribution in `portfolio_trades.csv` and use an explicit duplicate policy. Annualisation covers the portfolio's first-entry through final-exit sessions; the price provider's extra fetch buffer is not treated as additional zero-return history.
 
 ## Stage 4: Run Artifacts

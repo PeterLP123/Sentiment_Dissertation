@@ -131,6 +131,10 @@ from .trading_strategy import (
 from .trading_strategy import (
     run_trading_strategy as execute_trading_strategy,
 )
+from .week6_model_comparison import (
+    Week6ModelComparisonConfig,
+    run_week6_model_comparison,
+)
 from .week6_pnl import Week6PnlConfig, Week6PnlError, run_week6_pnl
 
 console = Console()
@@ -223,6 +227,83 @@ def analyze_week6_pnl_command(
         f"Frozen rule: threshold={result.selected_threshold:g}, holding={result.selected_holding_period}; "
         f"evaluation begins {result.split_date}."
     )
+
+
+@app.command("compare-week6-models")
+def compare_week6_models_command(
+    signals: Annotated[Path, typer.Option("--signals", help="Multi-scorer daily_signals.csv input.")],
+    prices: Annotated[Path, typer.Option("--prices", help="Corresponding daily OHLCV prices CSV.")],
+    run_id: Annotated[str, typer.Option("--run-id", help="New immutable comparison directory name.")],
+    scorers: Annotated[str, typer.Option("--scorers", help="Comma-separated scorer ids compared on identical company-days.")],
+    output_root: Annotated[
+        Path,
+        typer.Option("--output-root", help="Parent directory for Week 6 model comparisons."),
+    ] = Path("results/week6_model_comparison"),
+    starting_capital: Annotated[float, typer.Option("--starting-capital", min=0.01)] = 100_000.0,
+    transaction_cost_bps_per_side: Annotated[
+        float,
+        typer.Option("--transaction-cost-bps-per-side", min=0.0),
+    ] = 10.0,
+    development_fraction: Annotated[float, typer.Option("--development-fraction", min=0.01, max=0.99)] = 0.7,
+    threshold_quantiles: Annotated[
+        str,
+        typer.Option("--threshold-quantiles", help="Development-only absolute-score quantile gates."),
+    ] = "0,0.5,0.7",
+    holding_periods: Annotated[
+        str,
+        typer.Option("--holding-periods", help="Development-only holding-session grid."),
+    ] = "1,3,5,7",
+    min_joint_active_dates: Annotated[
+        int,
+        typer.Option("--min-joint-active-dates", min=1, help="Joint activity required for a supported correlation."),
+    ] = 10,
+    min_stock_active_days: Annotated[
+        int,
+        typer.Option("--min-stock-active-days", min=1, help="Development activity required for diversification."),
+    ] = 10,
+    negative_portfolio_stock_count: Annotated[
+        int | None,
+        typer.Option("--negative-portfolio-stock-count", min=2, help="Maximum negative-correlation clique size."),
+    ] = None,
+    maximum_stock_weight: Annotated[
+        float,
+        typer.Option("--maximum-stock-weight", min=0.01, max=1.0, help="Development-fitted portfolio weight cap."),
+    ] = 0.6,
+) -> None:
+    """Compare frozen funded model strategies and a gated negative-correlation portfolio."""
+
+    scorer_ids = tuple(value.strip() for value in scorers.split(",") if value.strip())
+    config = Week6ModelComparisonConfig(
+        run_id=run_id,
+        scorer_ids=scorer_ids,
+        starting_capital=starting_capital,
+        transaction_cost_bps_per_side=transaction_cost_bps_per_side,
+        development_fraction=development_fraction,
+        threshold_quantiles=_comma_separated_floats(threshold_quantiles, option="--threshold-quantiles"),
+        holding_periods=_comma_separated_ints(holding_periods, option="--holding-periods"),
+        min_joint_active_dates=min_joint_active_dates,
+        min_stock_active_days=min_stock_active_days,
+        negative_portfolio_stock_count=negative_portfolio_stock_count,
+        maximum_stock_weight=maximum_stock_weight,
+    )
+    try:
+        result = run_week6_model_comparison(
+            signals,
+            prices,
+            output_root,
+            config,
+            command=shlex.join(sys.argv),
+            repo_root=Path.cwd(),
+        )
+    except Week6PnlError as exc:
+        console.print(f"[red]Week 6 model comparison failed:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    console.print(f"[green]Week 6 model comparison complete:[/green] {result.output_dir}")
+    console.print(f"Frozen evaluation begins {result.split_date}.")
+    for scorer_id, quantile, threshold, holding in result.selected_rules:
+        console.print(
+            f"{scorer_id}: development gate q={quantile:.0%} -> {threshold:.4f}; holding={holding}."
+        )
 
 
 @app.command("score-corpus-matrix")
@@ -1326,7 +1407,7 @@ def analyze_headline_value_command(
         list[Path] | None,
         typer.Option(
             "--llm-scores",
-            help="score-headlines CSV adding llm/<model> scorers next to the lexicon ones. Repeat for multiple files.",
+            help="Model/baseline score CSV adding llm/<model> scorers next to lexicon ones. Repeat for multiple files.",
         ),
     ] = None,
     source_code: Annotated[

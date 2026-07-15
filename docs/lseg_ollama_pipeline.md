@@ -100,6 +100,22 @@ Pin the complete digest returned by Ollama and verify `ollama ps` reports `100% 
 
 After Gemma scoring, `scripts/run_lseg_headline_study.py` can run local VADER/FinBERT baselines, audit the score arithmetic, and produce the frozen next-open to following-open study. The analysis assigns a pre-open headline to that session's open and any later headline to the next observed open, aggregates scores by company-entry date, and reserves the final 30% of dates as untouched holdout. Text-bearing score files remain local and ignored; the study directory contains aggregate-only metrics and a manifest.
 
+For a coverage-independent local comparison, score VADER and FinBERT directly
+from every unique headline in the frozen collection rather than inheriting the
+successful rows of an incomplete LLM run:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/run_lseg_headline_study.py score-baselines \
+  --collection-root Data/collections/lseg_us_sector_33_6m \
+  --output Data/collections/lseg_us_sector_33_6m/derived/headline_scores_finbert_vader_full.csv \
+  --finbert-batch-size 8
+```
+
+This mode is append-only and resumable by unique headline hash and baseline.
+It records the frozen-population hash, per-model completion counts, FinBERT
+revision, device, batch/checkpoint sizes and final output hash. Keep the output
+local because it contains licensed headline text.
+
 The policy maps positive/neutral/negative to `1/0/-1` and equally averages valid story revisions by ticker and exchange-local date. It holds below three valid stories, buys at a mean of at least `0.5`, sells at at most `-0.5`, and holds inside the band. Every action and hold is written to `trading_decisions.csv` with the count, mean, threshold, policy version, and reason. Hold rows remain in coverage/signal outputs but do not appear in traded returns.
 
 For LSEG decisions, availability is the latest `versionCreated` among valid contributing stories. Entry is the first observed 09:30 exchange-local session open strictly after that timestamp. A pre-open story may enter the same session; an intraday, after-hours, weekend, or holiday story waits for the next observed open. Gross returns use the existing 1–7-session price machinery. Net returns subtract the configured entry and exit cost (10 basis points each in the example); short borrow defaults to zero. Index fallback is disabled so each signal trades its own security.

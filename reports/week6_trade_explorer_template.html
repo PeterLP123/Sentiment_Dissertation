@@ -948,9 +948,10 @@
         }
         byId("w6-evidence-count").textContent = `(${decision.n.toLocaleString()})`;
         renderContribution(decision);
+        const unscoredNote = decision.x ? ` ${decision.x.toLocaleString()} raw associations had no valid model score and were excluded from the mean.` : "";
         byId("w6-headline-summary").textContent = decision.n === 0
           ? "No accepted headline association was available for this signal date. The missing score deterministically forced the position flat."
-          : `Frozen mean ${signed(decision.mu, 3)} = ${signed(decision.sum, 3)} total score ÷ ${decision.n.toLocaleString()} headline associations. ${decision.p.toLocaleString()} positive, ${decision.m.toLocaleString()} negative and ${decision.z.toLocaleString()} zero-score associations; exact reconstruction passed.`;
+          : `Frozen mean ${signed(decision.mu, 3)} = ${signed(decision.sum, 3)} total score ÷ ${decision.n.toLocaleString()} valid headline associations. ${decision.p.toLocaleString()} positive, ${decision.m.toLocaleString()} negative and ${decision.z.toLocaleString()} zero-score associations; exact reconstruction passed.${unscoredNote}`;
         const items = headlineItems(decision);
         const pages = Math.max(1, Math.ceil(items.length / headlinePageSize));
         state.headlinePage = clamp(state.headlinePage, 0, pages - 1);
@@ -1020,13 +1021,14 @@
       function renderRuleContext() {
         const rule = state.data.rule;
         byId("w6-rule-badge").textContent = `Frozen · ±${rule.threshold.toFixed(2)} · ${rule.holding} sessions · ${rule.cost_bps} bps`;
-        byId("w6-rule").textContent = `Frozen operational rule · company-day signal = mean headline-lexicon score over every matched headline association · strict > +${rule.threshold.toFixed(2)}: long · < −${rule.threshold.toFixed(2)}: short · otherwise or missing: flat · next-session close sets the position and earns only the following close-to-close return · hold ${rule.holding} sessions unless a newer signal supersedes and restarts it · incomplete cross-split or trailing holds are omitted · ${money(rule.allocation)} fixed allocation per stock · ${rule.cost_bps} bps per side on absolute position change.`;
+        byId("w6-rule").textContent = `Frozen operational rule · company-day signal = mean ${rule.scorer} score over every matched headline association · strict > +${rule.threshold.toFixed(2)}: long · < −${rule.threshold.toFixed(2)}: short · otherwise or missing: flat · next-session close sets the position and earns only the following close-to-close return · hold ${rule.holding} sessions unless a newer signal supersedes and restarts it · incomplete cross-split or trailing holds are omitted · ${money(rule.allocation)} fixed allocation per stock · ${rule.cost_bps} bps per side on absolute position change.`;
         const evaluation = state.data.portfolio.filter((item) => item.period === "evaluation");
         const all = evaluation.find((item) => item.portfolio === "all_stock_equal_weight");
-        const low = evaluation.find((item) => item.portfolio === "development_low_correlation");
+        const low = evaluation.find((item) => item.portfolio !== "all_stock_equal_weight");
         const thresholdGrid = rule.candidate_thresholds.map((value) => Number(value).toFixed(2)).join(" / ");
-        byId("w6-portfolio-context").textContent = `Development-only selection · ${rule.candidate_thresholds.length * rule.candidate_holds.length} candidates from thresholds ${thresholdGrid} × holds ${rule.candidate_holds.join(" / ")} · ${rule.selection_reason}. Evaluation reference · all 33 stocks: ${signed(all.actual_sample_percentage_return, 3)}% net, Sharpe ${signed(all.annualized_sharpe, 3)}, max drawdown ${signed(all.maximum_drawdown, 3)}% · development-selected ${rule.selected_stocks.join(" / ")}: ${signed(low.actual_sample_percentage_return, 3)}% net, Sharpe ${signed(low.annualized_sharpe, 3)}, max drawdown ${signed(low.maximum_drawdown, 3)}%.`;
-        byId("w6-audit").textContent = `Provenance verified · ${state.data.audit.signal_references.toLocaleString()} decision-driving signal dates reconciled to ${state.data.audit.raw_associations.toLocaleString()} raw headline associations. All non-zero contributors and up to five representative zero-score headlines per signal are retained. Licensed text: local use only; do not redistribute.`;
+        const selectedContext = low ? ` · development-selected ${rule.selected_stocks.join(" / ")}: ${signed(low.actual_sample_percentage_return, 3)}% net, Sharpe ${signed(low.annualized_sharpe, 3)}, max drawdown ${signed(low.maximum_drawdown, 3)}%` : "";
+        byId("w6-portfolio-context").textContent = `Development-only selection · ${rule.candidate_thresholds.length * rule.candidate_holds.length} candidates from thresholds ${thresholdGrid} × holds ${rule.candidate_holds.join(" / ")} · ${rule.selection_reason}. Evaluation reference · all ${all.stock_count} stocks: ${signed(all.actual_sample_percentage_return, 3)}% net, Sharpe ${signed(all.annualized_sharpe, 3)}, max drawdown ${signed(all.maximum_drawdown, 3)}%${selectedContext}.`;
+        byId("w6-audit").textContent = `Provenance verified · ${state.data.audit.signal_references.toLocaleString()} decision-driving signal dates reconciled to ${state.data.audit.raw_associations.toLocaleString()} raw headline associations. Display policy: ${state.data.audit.neutral_text_policy}. Licensed text: local use only; do not redistribute.`;
       }
 
       function setActivePanel(panel, bringIntoView = false) {

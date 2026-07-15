@@ -23,9 +23,9 @@ they embed licensed LSEG headline text and must not be redistributed.
    per side on the absolute position change; a direct `-1` to `+1` reversal
    therefore costs two sides.
 
-The `0.10` threshold and five-session hold were selected using development data
-only from 12 threshold/holding-period candidates. Evaluation results were not
-used to select the rule.
+The default command below reconstructs the lexicon run. Model-comparison runs
+use their own frozen development-selected threshold and holding period. In all
+cases, evaluation results were not used to select the rule.
 
 ## Rebuild and run locally
 
@@ -49,3 +49,28 @@ python3 -m http.server 8765 --bind 127.0.0.1
 Open `http://127.0.0.1:8765/`. The build fails rather than publishing a
 dashboard when the reconstructed headline counts or mean scores disagree with
 the frozen signal artifacts.
+
+## Rebuild a model-comparison viewer
+
+Use `--scorer-id` and `--score-file` to reconstruct FinBERT or VADER evidence
+from a model-comparison run. The score file is read-only and every displayed
+company-day mean is checked against the frozen signal artifact. This example
+builds the full-population FinBERT viewer:
+
+```bash
+.venv/bin/python scripts/build_week6_trade_dashboard.py \
+  --run-dir results/week6_model_comparison/week6_finbert_vader_full_20260715 \
+  --signals Data/collections/lseg_us_sector_33_6m/derived/headline_value_finbert_vader_full_20260715/daily_signals.csv \
+  --prices Data/collections/lseg_us_sector_33_6m/derived/headline_value_analysis_lseg_priced/sweep_ws/prices.csv \
+  --raw-dir Data/collections/lseg_us_sector_33_6m/raw/lseg_us_sector_33_6m \
+  --scorer-id llm/finbert \
+  --score-file Data/collections/lseg_us_sector_33_6m/derived/headline_scores_finbert_vader_full_20260715.csv \
+  --nonzero-examples 3 \
+  --neutral-examples 1 \
+  --output results/week6_trade_explorer_finbert_vader_full_20260715/finbert-fragment.html \
+  --standalone-output results/week6_trade_explorer_finbert_vader_full_20260715/finbert.html
+```
+
+`--nonzero-examples` bounds the licensed text embedded per decision while the
+audit still reconciles every raw association, every valid model score, and the
+exact frozen mean. Generated viewers remain local under `results/`.

@@ -3,12 +3,16 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
+import sentiment_benchmark.headline_return_study as headline_return_study
+from sentiment_benchmark.baselines import SoftSentiment
 from sentiment_benchmark.headline_return_study import (
     align_next_open_returns,
     audit_headline_scores,
     calculate_return_metrics,
     run_headline_return_study,
+    score_collection_baselines,
 )
+from sentiment_benchmark.headline_value import ScorableHeadline
 
 
 def _signal(timestamp: str, score: float, sha: str) -> dict[str, object]:
@@ -105,6 +109,41 @@ def test_score_audit_checks_probability_arithmetic_without_copying_text(tmp_path
 
     assert summary.valid is True
     assert "licensed text" not in audit_path.read_text(encoding="utf-8")
+
+
+def test_complete_collection_baselines_are_resumable(tmp_path, monkeypatch) -> None:
+    records = [
+        ScorableHeadline("a", "positive headline", ("AAA",), "2026-01-01T00:00:00Z", True, False, False),
+        ScorableHeadline("b", "negative headline", ("BBB",), "2026-01-02T00:00:00Z", False, True, False),
+    ]
+    monkeypatch.setattr(headline_return_study, "collect_scorable_headline_records", lambda _: records)
+    monkeypatch.setattr(
+        headline_return_study,
+        "score_vader_text",
+        lambda text: SoftSentiment("positive", 0.7, 0.1, 0.2),
+    )
+
+    def fake_finbert_batches(texts, *, batch_size, inference_batch_size):
+        del batch_size, inference_batch_size
+        for _text in texts:
+            yield [SoftSentiment("negative", 0.1, 0.7, 0.2)]
+
+    monkeypatch.setattr(headline_return_study, "iter_finbert_text_batches", fake_finbert_batches)
+    output = tmp_path / "complete_baselines.csv"
+
+    first = score_collection_baselines(tmp_path / "collection", output, finbert_batch_size=2, vader_flush_size=1)
+    initial_bytes = output.read_bytes()
+    second = score_collection_baselines(tmp_path / "collection", output, finbert_batch_size=2, vader_flush_size=1)
+
+    scores = pd.read_csv(output)
+    assert first.input_rows == second.input_rows == 2
+    assert first.succeeded == second.succeeded == 4
+    assert output.read_bytes() == initial_bytes
+    assert not scores.duplicated(["headline_sha256", "baseline"]).any()
+    assert set(scores["baseline"]) == {"finbert", "vader"}
+    manifest = pd.read_json(first.manifest_path, typ="series")
+    assert manifest["status"] == "completed"
+    assert manifest["counts"]["remaining"] == 0
 
 
 def test_return_study_writes_aggregate_outputs_for_all_scorers(tmp_path) -> None:

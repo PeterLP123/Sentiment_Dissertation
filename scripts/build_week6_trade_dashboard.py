@@ -101,6 +101,7 @@ def _aliases(raw_manifest: dict[str, Any]) -> dict[str, tuple[str, ...]]:
 def _collect_contributions(
     raw_dir: Path,
     references: set[tuple[str, str]],
+    score_lookup: dict[str, float] | None = None,
 ) -> tuple[dict[tuple[str, str, str], HeadlineContribution], dict[tuple[str, str], int]]:
     raw_manifest = _read_json(raw_dir / "manifest.json")
     aliases = _aliases(raw_manifest)
@@ -122,7 +123,8 @@ def _collect_contributions(
             matched = tuple(dict.fromkeys(str(value) for value in (row.get("matched_symbols") or ())))
             headline = str(row.get("headline") or "")
             normalized = normalize_headline(headline)
-            norm_hash = hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:12] if normalized else "blank"
+            full_hash = hashlib.sha256(normalized.encode("utf-8")).hexdigest() if normalized else ""
+            norm_hash = full_hash[:12] if full_hash else "blank"
             timestamp_text = timestamp.isoformat()
             source = str(row.get("source_code") or "unknown")
             story_id = str(row.get("story_id") or "")
@@ -132,12 +134,17 @@ def _collect_contributions(
                 if ref not in references:
                     continue
                 association_counts[ref] += 1
-                score = classify_headline(
-                    headline,
-                    aliases=aliases.get(symbol, ()),
-                    matched_symbol_count=len(matched),
-                    duplicate_count=1,
-                ).sentiment_score
+                if score_lookup is None:
+                    score = classify_headline(
+                        headline,
+                        aliases=aliases.get(symbol, ()),
+                        matched_symbol_count=len(matched),
+                        duplicate_count=1,
+                    ).sentiment_score
+                else:
+                    if full_hash not in score_lookup:
+                        continue
+                    score = score_lookup[full_hash]
                 key = (symbol, news_date, norm_hash)
                 contribution = contributions.get(key)
                 if contribution is None:
@@ -161,9 +168,11 @@ def _decision_payload(
     signals: pd.DataFrame,
     references: set[tuple[str, str]],
     *,
+    scorer_id: str,
+    nonzero_examples: int | None,
     neutral_examples: int,
 ) -> dict[str, Any]:
-    selected = signals.loc[signals["scorer_id"].astype(str) == "headline/sentiment_all"].copy()
+    selected = signals.loc[signals["scorer_id"].astype(str) == scorer_id].copy()
     selected["news_date"] = selected["news_date"].astype(str)
     selected = selected.set_index(["symbol", "news_date"], verify_integrity=True)
     by_reference: dict[tuple[str, str], list[HeadlineContribution]] = defaultdict(list)
@@ -176,13 +185,20 @@ def _decision_payload(
             raise ValueError(f"missing frozen signal for {reference}")
         frozen = selected.loc[reference]
         expected_count = int(frozen["article_count"])
+        expected_valid_count = int(frozen["valid_count"])
         actual_count = int(association_counts.get(reference, 0))
         if actual_count != expected_count:
             raise ValueError(f"headline count mismatch for {reference}: reconstructed {actual_count}, frozen {expected_count}")
 
         items = by_reference.get(reference, [])
+        actual_valid_count = sum(item.raw_count for item in items)
+        if actual_valid_count != expected_valid_count:
+            raise ValueError(
+                f"valid headline count mismatch for {reference}: "
+                f"reconstructed {actual_valid_count}, frozen {expected_valid_count}"
+            )
         score_sum = sum(item.score * item.raw_count for item in items)
-        reconstructed = score_sum / actual_count if actual_count else float("nan")
+        reconstructed = score_sum / actual_valid_count if actual_valid_count else float("nan")
         recorded = float(frozen["mean_score"])
         both_missing = actual_count == 0 and math.isnan(reconstructed) and math.isnan(recorded)
         if not both_missing and not math.isclose(reconstructed, recorded, rel_tol=0.0, abs_tol=1e-12):
@@ -190,7 +206,8 @@ def _decision_payload(
 
         positive = sum(item.raw_count for item in items if item.score > 0)
         negative = sum(item.raw_count for item in items if item.score < 0)
-        zero = actual_count - positive - negative
+        zero = actual_valid_count - positive - negative
+        unscored = actual_count - actual_valid_count
         nonzero = sorted(
             (item for item in items if item.score != 0),
             key=lambda item: (-abs(item.score * item.raw_count), item.first_timestamp, item.norm_hash),
@@ -199,7 +216,8 @@ def _decision_payload(
             (item for item in items if item.score == 0),
             key=lambda item: (-item.raw_count, item.first_timestamp, item.norm_hash),
         )
-        retained = [*nonzero, *neutral[:neutral_examples]]
+        retained_nonzero = nonzero if nonzero_examples is None else nonzero[:nonzero_examples]
+        retained = [*retained_nonzero, *neutral[:neutral_examples]]
         headline_rows = []
         for item in retained:
             families = sorted(item.story_families)
@@ -217,7 +235,9 @@ def _decision_payload(
             )
         key = f"{reference[0]}|{reference[1]}"
         output[key] = {
-            "n": actual_count,
+            "n": actual_valid_count,
+            "raw_n": actual_count,
+            "x": unscored,
             "u": len(items),
             "p": positive,
             "m": negative,
@@ -231,7 +251,7 @@ def _decision_payload(
     return output
 
 
-def _portfolio_metrics(path: Path) -> list[dict[str, Any]]:
+def _portfolio_metrics(path: Path, *, scorer_id: str) -> list[dict[str, Any]]:
     frame = _required(
         path,
         {
@@ -243,6 +263,8 @@ def _portfolio_metrics(path: Path) -> list[dict[str, Any]]:
             "maximum_drawdown",
         },
     )
+    if "scorer_id" in frame.columns:
+        frame = frame.loc[frame["scorer_id"].astype(str) == scorer_id]
     frame = frame.loc[frame["return_variant"].astype(str) == "net"]
     fields = [
         "portfolio",
@@ -259,10 +281,35 @@ def _portfolio_metrics(path: Path) -> list[dict[str, Any]]:
     return frame[fields].where(pd.notna(frame[fields]), None).to_dict("records")
 
 
+def _model_score_lookup(path: Path, scorer_id: str) -> dict[str, float]:
+    if not path.is_file():
+        raise FileNotFoundError(path)
+    columns = set(pd.read_csv(path, nrows=0).columns)
+    model_column = "baseline" if "baseline" in columns else "model_id"
+    if model_column not in columns:
+        raise ValueError(f"{path} lacks baseline/model_id")
+    required = {"headline_sha256", "score", "status", model_column}
+    missing = required - columns
+    if missing:
+        raise ValueError(f"{path} lacks required columns: {sorted(missing)}")
+    frame = pd.read_csv(path, usecols=sorted(required))
+    model_name = scorer_id.removeprefix("llm/")
+    selected = frame.loc[
+        frame["status"].astype(str).eq("success") & frame[model_column].astype(str).eq(model_name)
+    ].copy()
+    if selected.empty:
+        raise ValueError(f"no successful {model_name!r} scores in {path}")
+    if selected["headline_sha256"].duplicated().any():
+        raise ValueError(f"duplicated successful {model_name!r} headline hashes in {path}")
+    return dict(zip(selected["headline_sha256"].astype(str), selected["score"].astype(float), strict=True))
+
+
 def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     run_dir = args.run_dir.resolve()
+    model_run = (run_dir / "model_stock_daily_pnl.csv").is_file()
+    stock_name = "model_stock_daily_pnl.csv" if model_run else "stock_daily_pnl.csv"
     stock_daily = _required(
-        run_dir / "stock_daily_pnl.csv",
+        run_dir / stock_name,
         {
             "date",
             "symbol",
@@ -279,18 +326,31 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             "timing_attrition_status",
         },
     )
+    if "scorer_id" in stock_daily.columns:
+        stock_daily = stock_daily.loc[stock_daily["scorer_id"].astype(str) == args.scorer_id].copy()
+    if stock_daily.empty:
+        raise ValueError(f"no stock P&L rows for scorer {args.scorer_id!r}")
     signals = _required(
         args.signals.resolve(),
         {"symbol", "news_date", "scorer_id", "article_count", "valid_count", "mean_score"},
     )
     prices = _required(args.prices.resolve(), {"symbol", "session_date", "close"})
     references = _signal_references(stock_daily)
-    contributions, association_counts = _collect_contributions(args.raw_dir.resolve(), references)
+    score_lookup = _model_score_lookup(args.score_file.resolve(), args.scorer_id) if args.score_file else None
+    if args.scorer_id != "headline/sentiment_all" and score_lookup is None:
+        raise ValueError("non-lexicon viewers require --score-file for audited headline attribution")
+    contributions, association_counts = _collect_contributions(
+        args.raw_dir.resolve(),
+        references,
+        score_lookup,
+    )
     decisions = _decision_payload(
         contributions,
         association_counts,
         signals,
         references,
+        scorer_id=args.scorer_id,
+        nonzero_examples=args.nonzero_examples,
         neutral_examples=args.neutral_examples,
     )
 
@@ -328,15 +388,41 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
         )
 
     run_manifest = _read_json(run_dir / "manifest.json")
+    grid_name = "model_strategy_grid.csv" if model_run else "strategy_grid.csv"
     strategy_grid = _required(
-        run_dir / "strategy_grid.csv",
+        run_dir / grid_name,
         {"threshold", "holding_period", "selected", "selection_reason"},
     )
+    if "scorer_id" in strategy_grid.columns:
+        strategy_grid = strategy_grid.loc[strategy_grid["scorer_id"].astype(str) == args.scorer_id].copy()
     selected_candidates = strategy_grid.loc[_truthy(strategy_grid["selected"])]
     if len(selected_candidates) != 1:
         raise ValueError(f"expected exactly one selected strategy candidate, found {len(selected_candidates)}")
     selected_candidate = selected_candidates.iloc[0]
-    selected_stocks = pd.read_csv(run_dir / "selected_low_correlation_stocks.csv")["symbol"].astype(str).tolist()
+    if model_run:
+        rule_rows = _required(
+            run_dir / "selected_model_rules.csv",
+            {"scorer_id", "selected_absolute_threshold", "selected_holding_period"},
+        )
+        rule_rows = rule_rows.loc[rule_rows["scorer_id"].astype(str) == args.scorer_id]
+        if len(rule_rows) != 1:
+            raise ValueError(f"expected one selected rule for {args.scorer_id!r}, found {len(rule_rows)}")
+        selected_rule = rule_rows.iloc[0]
+        selected_stocks = _required(
+            run_dir / "selected_negative_portfolio_weights.csv",
+            {"symbol", "scorer_id"},
+        )
+        selected_stocks = selected_stocks.loc[
+            selected_stocks["scorer_id"].astype(str) == args.scorer_id, "symbol"
+        ].astype(str).tolist()
+        threshold = float(selected_rule["selected_absolute_threshold"])
+        holding = int(selected_rule["selected_holding_period"])
+        portfolio_name = "model_portfolio_performance.csv"
+    else:
+        selected_stocks = pd.read_csv(run_dir / "selected_low_correlation_stocks.csv")["symbol"].astype(str).tolist()
+        threshold = float(run_manifest["selected_rule"]["threshold"])
+        holding = int(run_manifest["selected_rule"]["holding_period"])
+        portfolio_name = "portfolio_performance.csv"
     return {
         "symbols": symbols,
         "dates": dates,
@@ -344,25 +430,28 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
         "prices": price_rows,
         "daily": daily_rows,
         "decisions": decisions,
-        "portfolio": _portfolio_metrics(run_dir / "portfolio_performance.csv"),
+        "portfolio": _portfolio_metrics(run_dir / portfolio_name, scorer_id=args.scorer_id),
         "rule": {
-            "threshold": run_manifest["selected_rule"]["threshold"],
-            "holding": run_manifest["selected_rule"]["holding_period"],
+            "threshold": threshold,
+            "holding": holding,
             "capital": run_manifest["configuration"]["starting_capital"],
             "allocation": run_manifest["configuration"]["starting_capital"] / len(symbols),
             "cost_bps": run_manifest["configuration"]["transaction_cost_bps_per_side"],
             "split_date": run_manifest["development_evaluation"]["split_date"],
             "selected_stocks": selected_stocks,
-            "scorer": run_manifest["configuration"]["scorer_id"],
-            "candidate_thresholds": run_manifest["configuration"]["thresholds"],
-            "candidate_holds": run_manifest["configuration"]["holding_periods"],
+            "scorer": args.scorer_id,
+            "candidate_thresholds": sorted(strategy_grid["threshold"].astype(float).unique().tolist()),
+            "candidate_holds": sorted(strategy_grid["holding_period"].astype(int).unique().tolist()),
             "selection_reason": str(selected_candidate["selection_reason"]),
         },
         "audit": {
             "signal_references": len(references),
             "raw_associations": sum(association_counts.values()),
             "retained_headline_rows": sum(len(item["h"]) for item in decisions.values()),
-            "neutral_text_policy": f"all non-zero contributors plus {args.neutral_examples} representative zero-score headlines per signal",
+            "neutral_text_policy": (
+                f"{'all' if args.nonzero_examples is None else args.nonzero_examples} highest-impact non-zero contributors "
+                f"plus {args.neutral_examples} representative zero-score headlines per signal"
+            ),
             "validated": True,
         },
     }
@@ -374,6 +463,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--signals", type=Path, required=True)
     parser.add_argument("--prices", type=Path, required=True)
     parser.add_argument("--raw-dir", type=Path, required=True)
+    parser.add_argument("--scorer-id", default="headline/sentiment_all")
+    parser.add_argument(
+        "--score-file",
+        type=Path,
+        help="Model/baseline score CSV used to audit non-lexicon headline contributions.",
+    )
     parser.add_argument(
         "--template",
         type=Path,
@@ -387,6 +482,11 @@ def parse_args() -> argparse.Namespace:
         help="optional browser-ready HTML output; licensed headline text remains embedded locally",
     )
     parser.add_argument("--neutral-examples", type=int, default=5)
+    parser.add_argument(
+        "--nonzero-examples",
+        type=int,
+        help="Retain at most this many highest-impact non-zero headlines per signal (default: all).",
+    )
     return parser.parse_args()
 
 
@@ -394,6 +494,8 @@ def main() -> None:
     args = parse_args()
     if args.neutral_examples < 0:
         raise ValueError("--neutral-examples must be non-negative")
+    if args.nonzero_examples is not None and args.nonzero_examples < 1:
+        raise ValueError("--nonzero-examples must be positive")
     template = args.template.read_text(encoding="utf-8")
     payload = build_payload(args)
     compact_json = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
@@ -422,7 +524,7 @@ def main() -> None:
         if standalone_template.count(FRAGMENT_MARKER) != 1 or standalone_template.count(RUN_META_MARKER) != 1:
             raise ValueError("standalone template must contain exactly one fragment marker and one run-meta marker")
         execution_count = sum(row[11] for row in payload["daily"])
-        run_meta = f"Frozen final run · {len(payload['symbols'])} stocks · {execution_count} executions"
+        run_meta = f"{payload['rule']['scorer']} · {len(payload['symbols'])} stocks · {execution_count} executions"
         standalone = standalone_template.replace(FRAGMENT_MARKER, html.escape(output_text, quote=True))
         standalone = standalone.replace(RUN_META_MARKER, html.escape(run_meta))
         args.standalone_output.parent.mkdir(parents=True, exist_ok=True)

@@ -10,6 +10,7 @@ from pathlib import Path
 from sentiment_benchmark.headline_return_study import (
     audit_headline_scores,
     run_headline_return_study,
+    score_collection_baselines,
     score_headline_baselines,
 )
 
@@ -19,7 +20,13 @@ def _parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     baselines = subparsers.add_parser("score-baselines", help="Score the frozen population with local baselines.")
-    baselines.add_argument("--gemma-scores", type=Path, required=True)
+    baseline_source = baselines.add_mutually_exclusive_group(required=True)
+    baseline_source.add_argument("--gemma-scores", type=Path)
+    baseline_source.add_argument(
+        "--collection-root",
+        type=Path,
+        help="Score every unique in-window company-matched headline directly from the frozen collection.",
+    )
     baselines.add_argument("--output", type=Path, required=True)
     baselines.add_argument("--finbert-batch-size", type=int, default=32)
 
@@ -43,11 +50,18 @@ def _parser() -> argparse.ArgumentParser:
 def main() -> None:
     args = _parser().parse_args()
     if args.command == "score-baselines":
-        summary = score_headline_baselines(
-            args.gemma_scores,
-            args.output,
-            finbert_batch_size=args.finbert_batch_size,
-        )
+        if args.collection_root is not None:
+            summary = score_collection_baselines(
+                args.collection_root,
+                args.output,
+                finbert_batch_size=args.finbert_batch_size,
+            )
+        else:
+            summary = score_headline_baselines(
+                args.gemma_scores,
+                args.output,
+                finbert_batch_size=args.finbert_batch_size,
+            )
     elif args.command == "analyze":
         summary = run_headline_return_study(
             args.gemma_scores,

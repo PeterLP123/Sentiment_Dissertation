@@ -414,6 +414,49 @@ Builds the Week 6 exploratory daily P&L evidence without re-scoring news. Untime
 | `--min-joint-active-dates` | `10` | Support needed before a correlation can guide selection; counts remain explicitly reported. |
 | `--low-correlation-stock-count` | `ceil(sqrt(universe))` | Optional frozen subset size. |
 
+## `compare-week6-models`
+
+```bash
+sentiment-bench compare-week6-models \
+  --signals <multi-model-run>/daily_signals.csv \
+  --prices <multi-model-run>/prices.csv \
+  --scorers llm/gemma,llm/finbert,llm/vader \
+  --run-id week6_models_20260715
+```
+
+Runs the same funded Week 6 accounting for two or more scorers on identical
+company-days. Absolute score gates are derived separately for each scorer from
+prespecified development-only quantiles, which avoids treating differently
+calibrated model scores as interchangeable. The stable threshold/holding rule is
+then frozen and evaluated once.
+
+The diversification stage is deliberately strict. A pair must have a supported
+development correlation, negative correlation, positive net development profit
+for both stocks, and the configured minimum active days. A combined portfolio is
+created only when at least one pair passes. Every added stock must be negatively
+correlated with every stock already selected. Capped minimum-variance weights use
+a Ledoit-Wolf development covariance estimate and remain fixed in evaluation.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `--signals` | required | One `daily_signals.csv` containing identical company-day keys for every scorer. |
+| `--prices` | required | Corresponding daily OHLCV panel. |
+| `--scorers` | required | Comma-separated scorer IDs. |
+| `--threshold-quantiles` | `0,0.5,0.7` | Development-only absolute-score quantile gates; zero always means no gate. |
+| `--holding-periods` | `1,3,5,7` | Development-only holding-session grid. |
+| `--development-fraction` | `0.7` | Common chronological development share. |
+| `--min-joint-active-dates` | `10` | Joint activity needed for a supported correlation. |
+| `--min-stock-active-days` | `10` | Individual development activity needed for diversification. |
+| `--negative-portfolio-stock-count` | `ceil(sqrt(eligible universe))` | Maximum pairwise-negative clique size. |
+| `--maximum-stock-weight` | `0.6` | Cap in the development-fitted minimum-variance portfolio. |
+
+Outputs under `results/week6_model_comparison/<run-id>/` include model-level
+daily stock and portfolio P&L, performance and strategy grids, correlation support,
+eligible negative pairs, frozen weights, equity/correlation figures, a ranked
+`best_strategies.md` plus local `best_strategies.html` page, manual arithmetic
+checks, and a hashed manifest. An empty
+weights file and an explicit “no eligible pair” conclusion are valid results.
+
 ## `sweep-trading-strategy`
 
 ```bash

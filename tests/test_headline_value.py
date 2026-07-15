@@ -9,11 +9,21 @@ import pytest
 from sentiment_benchmark.headline_value import (
     EVENT_TYPES,
     TRADABILITY_CLASSES,
+    _load_llm_scores,
     analyze_headline_value,
     classify_headline,
     classify_tradability,
     normalize_headline,
 )
+
+
+def test_baseline_score_files_are_accepted_as_model_scorers(tmp_path: Path) -> None:
+    path = tmp_path / "baseline_scores.csv"
+    path.write_text(
+        "headline_sha256,baseline,score,status\nabc,finbert,0.75,success\nabc,vader,-0.25,success\n",
+        encoding="utf-8",
+    )
+    assert _load_llm_scores((path,)) == {"abc": {"finbert": 0.75, "vader": -0.25}}
 
 
 def _write_jsonl(path: Path, rows: list[dict]) -> None:

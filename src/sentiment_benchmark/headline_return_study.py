@@ -18,8 +18,9 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from .artifact_io import sha256_file
-from .baselines import SoftSentiment, score_finbert_texts, score_vader_text
+from .artifact_io import atomic_write_text, sha256_file, sha256_text
+from .baselines import SoftSentiment, iter_finbert_text_batches, score_finbert_texts, score_vader_text
+from .headline_value import collect_scorable_headline_records
 from .runtime_metadata import collect_run_environment
 
 BASELINE_COLUMNS = (
@@ -184,7 +185,7 @@ def _append_csv(path: Path, rows: Iterable[dict[str, Any]], columns: tuple[str, 
 
 def _baseline_row(source: dict[str, str], name: str, result: SoftSentiment) -> dict[str, Any]:
     return {
-        **{key: source[key] for key in BASELINE_COLUMNS[:7]},
+        **{key: source.get(key, "") for key in BASELINE_COLUMNS[:7]},
         "baseline": name,
         "label": result.label,
         "p_positive": result.p_positive,
@@ -238,7 +239,7 @@ def score_headline_baselines(
             failures += 1
             vader_rows.append(
                 {
-                    **{key: row[key] for key in BASELINE_COLUMNS[:7]},
+                    **{key: row.get(key, "") for key in BASELINE_COLUMNS[:7]},
                     "baseline": "vader",
                     "label": "",
                     "p_positive": "",
@@ -265,7 +266,7 @@ def score_headline_baselines(
         failures += len(source_rows)
         finbert_rows = [
             {
-                **{key: row[key] for key in BASELINE_COLUMNS[:7]},
+                **{key: row.get(key, "") for key in BASELINE_COLUMNS[:7]},
                 "baseline": "finbert",
                 "label": "",
                 "p_positive": "",
@@ -300,7 +301,7 @@ def score_headline_baselines(
         "inference": {
             "local_only": True,
             "finbert_batch_size": finbert_batch_size,
-            "torch_device": "cuda" if _torch_cuda_available() else "cpu",
+            "torch_device": _torch_device(),
         },
         "environment": {
             "run": collect_run_environment(),
@@ -317,13 +318,170 @@ def score_headline_baselines(
     return BaselineScoringSummary(output, manifest_path, len(source_rows), succeeded, failures, runtime)
 
 
-def _torch_cuda_available() -> bool:
+def _collection_baseline_source_rows(collection_root: str | Path) -> list[dict[str, str]]:
+    records = collect_scorable_headline_records(collection_root)
+    return [
+        {
+            "headline_sha256": record.headline_sha256,
+            "headline": record.headline,
+            "matched_symbols": "|".join(record.matched_symbols),
+            "first_timestamp": record.first_timestamp,
+            "explicit_target": str(record.explicit_target),
+            "contextual": str(record.contextual),
+            "market_price_technical": str(record.market_price_technical),
+        }
+        for record in records
+    ]
+
+
+def _existing_baseline_successes(path: Path, population: set[str]) -> set[tuple[str, str]]:
+    if not path.exists():
+        return set()
+    with path.open(encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        if tuple(reader.fieldnames or ()) != BASELINE_COLUMNS:
+            raise ValueError(f"cannot resume baseline scores with an incompatible schema: {path}")
+        successes: set[tuple[str, str]] = set()
+        for row in reader:
+            if row.get("status") != "success":
+                continue
+            key = (str(row.get("headline_sha256") or ""), str(row.get("baseline") or ""))
+            if key[0] not in population or key[1] not in {"finbert", "vader"}:
+                raise ValueError(f"cannot resume baseline scores with an unexpected successful row: {key}")
+            if key in successes:
+                raise ValueError(f"cannot resume baseline scores with a duplicated successful row: {key}")
+            successes.add(key)
+    return successes
+
+
+def score_collection_baselines(
+    collection_root: str | Path,
+    output_path: str | Path,
+    *,
+    finbert_batch_size: int = 32,
+    finbert_checkpoint_size: int = 256,
+    vader_flush_size: int = 5_000,
+) -> BaselineScoringSummary:
+    """Resumably score the complete frozen collection with local VADER and FinBERT."""
+    started = time.monotonic()
+    started_at = datetime.now(UTC)
+    root = Path(collection_root)
+    output = Path(output_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    source_rows = _collection_baseline_source_rows(root)
+    population = {row["headline_sha256"] for row in source_rows}
+    if len(population) != len(source_rows):
+        raise ValueError("collection population contains duplicated headline hashes")
+    population_sha256 = sha256_text("\n".join(sorted(population)))
+    manifest_path = output.with_suffix(output.suffix + ".manifest.json")
+    if manifest_path.exists():
+        previous = json.loads(manifest_path.read_text(encoding="utf-8"))
+        previous_population = str(previous.get("input", {}).get("population_sha256") or "")
+        if previous_population and previous_population != population_sha256:
+            raise ValueError("cannot resume baseline scores after the frozen population changed")
+    successes = _existing_baseline_successes(output, population)
+    finbert_revision = os.getenv("SENTIMENT_FINBERT_REVISION") or _finbert_revision()
+    run_environment = collect_run_environment()
+    package_versions = {
+        name: importlib.metadata.version(name)
+        for name in ("nltk", "torch", "transformers")
+    }
+
+    def write_manifest(*, status: str) -> None:
+        completed = len(successes)
+        manifest = {
+            "schema_version": 1,
+            "status": status,
+            "started_at": started_at.isoformat(),
+            "updated_at": datetime.now(UTC).isoformat(),
+            "runtime_seconds_this_invocation": time.monotonic() - started,
+            "input": {
+                "collection_root": str(root),
+                "unique_headlines": len(source_rows),
+                "population_sha256": population_sha256,
+            },
+            "models": {
+                "vader": {"implementation": "nltk.sentiment.vader"},
+                "finbert": {
+                    "model_id": "ProsusAI/finbert",
+                    "local_model_path": os.getenv("SENTIMENT_FINBERT_MODEL"),
+                    "revision": finbert_revision,
+                },
+            },
+            "inference": {
+                "local_only": True,
+                "finbert_batch_size": finbert_batch_size,
+                "finbert_checkpoint_size": finbert_checkpoint_size,
+                "torch_device": _torch_device(),
+            },
+            "environment": {
+                "run": run_environment,
+                "packages": package_versions,
+            },
+            "counts": {
+                "expected": 2 * len(source_rows),
+                "successful_unique_model_headlines": completed,
+                "remaining": 2 * len(source_rows) - completed,
+                "vader_successes": sum(name == "vader" for _, name in successes),
+                "finbert_successes": sum(name == "finbert" for _, name in successes),
+            },
+            "output": {
+                "path": str(output),
+                "sha256": sha256_file(output) if status == "completed" else None,
+            },
+            "sharing": {"contains_licensed_headline_text": True, "source_control": False, "redistribute": False},
+        }
+        atomic_write_text(manifest_path, json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+
+    vader_pending = [row for row in source_rows if (row["headline_sha256"], "vader") not in successes]
+    for start in range(0, len(vader_pending), vader_flush_size):
+        batch_rows: list[dict[str, Any]] = []
+        for row in vader_pending[start : start + vader_flush_size]:
+            result = score_vader_text(row["headline"])
+            batch_rows.append(_baseline_row(row, "vader", result))
+            successes.add((row["headline_sha256"], "vader"))
+        _append_csv(output, batch_rows, BASELINE_COLUMNS)
+        write_manifest(status="running")
+
+    finbert_pending = [row for row in source_rows if (row["headline_sha256"], "finbert") not in successes]
+    texts = [row["headline"] for row in finbert_pending]
+    offset = 0
+    for result_batch in iter_finbert_text_batches(
+        texts,
+        batch_size=finbert_checkpoint_size,
+        inference_batch_size=finbert_batch_size,
+    ):
+        batch_sources = finbert_pending[offset : offset + len(result_batch)]
+        if len(batch_sources) != len(result_batch):
+            raise ValueError("FinBERT returned more scores than requested")
+        _append_csv(
+            output,
+            [_baseline_row(row, "finbert", result) for row, result in zip(batch_sources, result_batch, strict=True)],
+            BASELINE_COLUMNS,
+        )
+        successes.update((row["headline_sha256"], "finbert") for row in batch_sources)
+        offset += len(result_batch)
+        write_manifest(status="running")
+    if offset != len(finbert_pending):
+        raise ValueError(f"FinBERT returned {offset} scores for {len(finbert_pending)} requested headlines")
+    if len(successes) != 2 * len(source_rows):
+        raise ValueError("baseline scoring finished without complete unique model/headline coverage")
+    write_manifest(status="completed")
+    runtime = time.monotonic() - started
+    return BaselineScoringSummary(output, manifest_path, len(source_rows), len(successes), 0, runtime)
+
+
+def _torch_device() -> str:
     try:
         import torch
 
-        return bool(torch.cuda.is_available())
+        if torch.cuda.is_available():
+            return "cuda"
+        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            return "mps"
     except ImportError:
-        return False
+        pass
+    return "cpu"
 
 
 def _load_signal_frames(gemma_path: Path, baseline_path: Path) -> pd.DataFrame:
