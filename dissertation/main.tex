@@ -198,11 +198,13 @@ The valid exploratory threshold evidence is retained in \cref{app:exploratory}; 
 The use of text in finance begins from the observation that public information is not exhausted by structured variables.
 News reports convey tone, uncertainty and context that can affect how market participants interpret an event.
 \Textcite{tetlock2007} shows that pessimistic media content is associated with market activity and temporary price pressure, establishing both the relevance of textual measures and the possibility that an initial reaction can subsequently reverse.
+\Textcite{tetlock2008words} extend the evidence beyond mood: the fraction of negative words in firm-specific news predicts earnings as well as returns, indicating that language can carry information about fundamentals rather than sentiment alone.
 This literature motivates the use of post-event returns, but it does not imply that every automated sentiment score contains incremental predictive information.
 
 Much empirical work converts text into a single polarity measure and relates that measure to contemporaneous or future returns.
 This approach is attractive because the output is comparable across documents and can be inserted into conventional statistical models.
 Its limitation is that it treats the scoring process as a black box.
+The limitation is not only conceptual: \textcite{li2014news} find that polarity-only sentiment adds little to stock-return prediction in a five-year Hong Kong news sample, whereas richer sentiment representations built from domain dictionaries do.
 If two models generate the same average score through different combinations of labels, the mean alone cannot reveal that distinction.
 The present study asks whether the discarded cross-model variation is measurable and useful after the mean is already included.
 
@@ -213,11 +215,21 @@ Sentiment methods differ in the information they use.
 Lexicon systems infer polarity from predefined word-level rules.
 VADER, for example, combines a sentiment lexicon with rules for punctuation, emphasis, negation and degree modifiers \parencite{hutto2014vader}.
 Such systems are transparent and inexpensive, but a general-purpose lexicon can misread financial expressions whose polarity depends on expectations or firm context.
+\Textcite{loughran2011liability} document this problem directly: a large share of the words counted as negative by a widely used general dictionary, such as \emph{liability} or \emph{tax}, are not negative in a financial register, and finance-specific word lists materially change the resulting inference.
+The general lesson is that the construct a sentiment system measures depends on the language its rules or parameters were formed on.
 
 Domain-adapted language models address part of this problem by learning contextual representations from financial text.
 FinBERT adapts a pretrained transformer to financial sentiment classification and is an important benchmark for testing whether general or generative models add value beyond a specialised classifier \parencite{araci2019finbert}.
-Large language models offer greater flexibility and can follow target-specific prompts, but their output depends on training data, model version, prompt design and provider behaviour.
+Large language models offer greater flexibility and can follow target-specific prompts.
+\Textcite{lopezlira2023chatgpt} report that ChatGPT-based news scores predicted next-day returns in their sample, particularly for smaller firms and negative news, and \textcite{kirtac2024llm} find that scoring with a large language model outperformed FinBERT and dictionary methods in a large-scale news-trading comparison.
+Generative output nevertheless depends on training data, model version, prompt design and provider behaviour.
 The comparison in this dissertation therefore uses fixed model identities and a fixed label mapping rather than treating all model outputs as interchangeable.
+
+Backtests that score historical news with models trained on later data face an additional threat.
+\Textcite{glasserman2023lookahead} use entity anonymisation to separate two in-sample effects in GPT sentiment backtests: look-ahead bias, in which the model may know how a story ended, and a distraction effect, in which background company knowledge pulls the model away from the text it is asked to score.
+In their tests the distraction effect dominates, which warns against reading in-sample predictive fit as clean evidence in either direction.
+\Textcite{sharma2026leakage} add counterevidence of a different kind: under a leakage-safe design, higher classification fidelity did not reliably translate into risk-adjusted trading value.
+These results motivate the timestamp discipline, the chronological development--evaluation split and the staged separation of competence, validity and market value adopted here.
 
 Model competence must be established before model agreement is interpreted.
 High agreement among weak classifiers can simply reproduce a common error, while a heterogeneous group can disagree because its members respond to genuinely different aspects of the text.
@@ -227,7 +239,12 @@ The benchmark analysis therefore reports macro-averaged F1 and class-level perfo
 \section{Human Annotation and Measurement Difficulty}
 \label{sec:lit-human-agreement}
 
-Financial PhraseBank is particularly useful because its sentence labels are accompanied by subsets defined by annotator agreement \parencite{malo2014phrasebank}.
+Sentiment classification is usually evaluated against a single gold label, yet human annotators frequently disagree.
+A growing body of natural-language-processing research argues that this label variation is signal rather than noise: it can encode ambiguity, legitimate differences in perspective or missing context \parencite{plank2022variation}.
+\Textcite{pavlick2019inherent} show for textual inference that disagreement persists under careful data collection and is not an artefact removed by aggregation, and \textcite{uma2021disagreement} survey methods that learn from disagreement directly rather than discarding it.
+An evaluation restricted to majority-label accuracy therefore misses part of the measurement problem.
+
+Financial PhraseBank is particularly useful in this respect because its sentence labels are accompanied by subsets defined by annotator agreement \parencite{malo2014phrasebank}.
 The 50, 66, 75 and 100 per cent tiers retain information that would be lost if only a single consensus label were used.
 These tiers do not provide a perfect measure of ambiguity: disagreement can reflect annotator error, insufficient context or different reasonable readings.
 Nevertheless, they offer an ordered external reference against which model agreement can be tested.
@@ -238,6 +255,11 @@ Neither relationship is guaranteed.
 Models may share training material or architectural biases, causing them to agree on mistakes, and the selected roster is a set of engineered systems rather than a random sample of independent raters.
 For that reason, agreement is described as an observed property of the roster, not as reliability, confidence or truth.
 
+Recent evidence extends this caution to large language models specifically.
+\Textcite{ni2026reasoning} find across tasks and model configurations that the ability to represent annotator disagreement is an empirical property separate from classification accuracy, and one that reasoning interventions can improve or degrade.
+Zero-shot models can likewise match dominant emotion labels while failing to reproduce the distribution of human uncertainty around them \parencite{inoshita2026emotion}.
+These results support testing model agreement against the graded PhraseBank tiers explicitly rather than assuming that competent classifiers inherit the structure of human uncertainty.
+
 Calibration research supplies a related warning.
 Modern neural networks can be overconfident even when their class predictions are wrong \parencite{guo2017calibration}.
 Confidence reported by one model and agreement observed across models are therefore distinct quantities.
@@ -247,14 +269,36 @@ This dissertation focuses on the latter and does not infer that agreement automa
 \section{Disagreement and Financial Interpretation}
 \label{sec:lit-disagreement}
 
-Differences-of-opinion models show that heterogeneous interpretations can matter for trading and prices \parencite{harris1993differences,kandel1995differential,hong2007disagreement}.
+Differences-of-opinion models show that heterogeneous interpretations can matter for trading and prices \parencite{harris1993differences}.
+\Textcite{kandel1995differential} document that market participants appear to interpret the same public signal differently, which is the behavioural analogue of the quantity measured in this study.
+\Textcite{hong2007disagreement} survey this literature and argue that disagreement models can jointly explain price and volume regularities that representative-agent models struggle to produce, with heterogeneous priors and short-sale constraints generating overpricing and changes in disagreement generating volume.
 That theory helps explain why disagreement is worth measuring, but it does not license a direct mapping from model disagreement to investor disagreement.
 The scorers do not observe positions, beliefs or order flow, and several may share training data or design conventions.
+
+A second literature cuts the other way: it suggests that agreement among machine-learning systems may be systematically inflated.
+\Textcite{kleinberg2021monoculture} show that many decision-makers adopting the same algorithm can be collectively costly even when that algorithm is individually superior, and \textcite{bommasani2022homogenization} document outcome homogenisation when different applications share a common foundation model.
+For a sentiment roster, shared pretraining corpora, finance vocabulary and label conventions imply that high cross-model agreement can reflect a common error as easily as a clear text.
+These results are conceptual analogies rather than market evidence, but they motivate two design choices in this study: the deliberately heterogeneous roster and the refusal to interpret agreement as truth.
 
 Accordingly, the empirical market question is predictive rather than causal.
 The analysis asks whether model agreement improves prediction of subsequent abnormal returns after mean sentiment and the initial reaction have been included.
 A useful relationship may be consistent with several mechanisms, including textual clarity, event type, common model bias or market processing of the underlying news.
 Distinguishing those mechanisms would require additional data and a different identification strategy.
+
+\section{Machine Disagreement in Recent Financial Research}
+\label{sec:lit-machine-disagreement}
+
+The question studied here sits inside a rapidly forming literature that derives disagreement measures from panels of language models rather than from human forecasters or analysts.
+\Textcite{liu2025disagreement} score earnings calls with six large language models and relate the resulting disagreement to established human and machine-learning disagreement measures, cross-sectional returns, trading volume and spreads.
+\Textcite{bhagwat2026mirror} simulate a large panel of investor personas responding to several million firm-news headlines and find that the dispersion of simulated responses matches survey-based disagreement benchmarks and predicts abnormal trading volume.
+On the classification side, agreement and divergence within a multi-model ensemble have been used as features that improve financial sentiment classification \parencite{zhang2025finsentllm}, and selective consensus among trading agents has been used as a decision filter intended to improve stability and risk-adjusted performance \parencite{li2026trusttrade}.
+
+Two observations follow from this frontier.
+First, cross-model disagreement in finance is no longer unclaimed territory, and this dissertation makes no first-use claim.
+Second, the existing designs differ from the present one in instructive ways.
+The earnings-call and persona studies validate their dispersion measures against other market or survey quantities rather than against graded human annotation of the scored text itself, and the ensemble studies treat agreement as a confidence or filtering device whose validity is assumed rather than tested.
+None of the located studies combines construct validation against human-agreement tiers with a timestamp-aligned event study of post-initial-reaction abnormal returns.
+Several of these papers are, at the time of writing, unreviewed working papers or preprints, so their findings are treated as indicative rather than settled.
 
 \section{Event Studies and Predictive Evaluation}
 \label{sec:lit-event-studies}
@@ -262,6 +306,12 @@ Distinguishing those mechanisms would require additional data and a different id
 Event studies provide a standard framework for separating security returns associated with an event from broader market movements \parencite{mackinlay1997event}.
 The key design decisions are the event timestamp, expected-return model, estimation window and event window.
 In news research, publication timing is especially important because a calendar date does not necessarily identify the first tradable session after an article appeared.
+
+Post-news horizons deserve particular care because both drift and reversal are documented.
+\Textcite{chan2003news} finds drift after public news, especially bad news, but reversal after large price moves without identifiable news, and \textcite{savor2012information} reports the same information-conditional pattern for major price shocks.
+\Textcite{tetlock2011stale} adds that investors react to stale, reprinted news, so the novelty of an item affects how its aftermath should be read.
+These results imply that the meaning of a post-event window depends on whether an identifiable, novel news event anchors it.
+That dependence motivates the timestamp-to-session rules and the earliest-revision canonicalisation applied to the LSEG corpus in \cref{ch:data}.
 
 The present design separates the event-session abnormal return from the subsequent cumulative abnormal return.
 This prevents the initial response from being silently included in the outcome that is meant to describe later resolution.
@@ -274,11 +324,18 @@ Where families of inferential tests are reported, false-discovery control follow
 \section{Research Gap}
 \label{sec:lit-gap}
 
-Existing financial sentiment research establishes that text can be measured and related to returns, while disagreement research establishes that heterogeneous interpretations can matter.
-What remains unclear is whether disagreement among contemporary sentiment scorers is a valid item-level signal and whether it adds market information after the ensemble mean is known.
-The gap has two parts: a measurement question against graded human annotations and an external predictive question on timestamped news events.
-Addressing only one part would be incomplete.
+Existing research establishes that financial text carries return-relevant information, that human annotators disagree in structured and meaningful ways, and that disagreement among investors matters for prices and volume.
+A recent frontier extends disagreement measurement to panels of language models and begins to relate it to markets.
+Among the sources located in a targeted search conducted in July 2026, however, no study validates a cross-model agreement measure against graded human annotation agreement and then tests, on timestamp-aligned company news with a chronological evaluation split, whether the same fixed measure adds information about post-initial-reaction abnormal returns beyond mean sentiment and the initial reaction itself.
+That positioning is search-bounded rather than a proof of absence, and it is deliberately narrower than a claim of first use.
+
+The gap accordingly has two linked parts.
+The measurement part asks whether agreement behaves as a valid indicator of item difficulty against the PhraseBank human-agreement tiers, including whether errors concentrate on low-agreement items and whether the pattern survives leave-one-model-out analysis.
+The market part asks whether the identical fixed construct adds incremental out-of-sample information in an event study that separates the initial reaction from subsequent resolution.
+Addressing only one part would be incomplete, and conflating them would repeat the pattern this review has criticised: treating agreement as confidence without validation, or as an investor quantity without evidence.
 The methodology in \cref{ch:methodology} therefore uses the same fixed agreement construct in both settings and treats transfer between them as a hypothesis to test rather than an assumption.
+
+\draftnote{Several nearest-neighbour papers cited in \cref{sec:lit-machine-disagreement} and \cref{sec:lit-sentiment-models} are working papers or preprints with metadata still to be confirmed (Liu et al.\ 2025; Bhagwat et al.\ 2026; Zhang et al.\ 2025; Li et al.\ 2026; Sharma and Baruah 2026; Ni et al.\ 2026; Inoshita et al.\ 2026). Verify authors, venues and findings against full text and rerun forward-citation checks before submission; the corresponding \texttt{references.bib} entries are flagged with VERIFY comments.}
 
 \chapter{Data and Provenance}
 \label{ch:data}
@@ -290,7 +347,7 @@ The default labelled dataset is \path{Data/derived/labeled/financial_sentiment_v
 It is rebuilt by the repository's dataset-construction script from Financial PhraseBank and FiQA sources rather than edited manually.
 The merged benchmark contains 5,947 observations.
 The construct-validity analysis is restricted to the 4,836 Financial PhraseBank rows for which the original human-agreement tier can be recovered.
-FiQA complements the classification benchmark but is not treated as if it supplied an equivalent annotation-agreement measure.
+FiQA complements the classification benchmark but is not treated as if it supplied an equivalent annotation-agreement measure \parencite{maia2018fiqa}.
 
 The repository also contains a legacy Kaggle-derived file, \texttt{Data/data.csv}.
 That file is not used as the default benchmark because it contains documented merge corruption: 514 negative PhraseBank sentences were duplicated with an incorrect neutral label.

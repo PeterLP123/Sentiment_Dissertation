@@ -30,3 +30,21 @@ exports/
 /outputs/
 # Tavily shared news packages are out-of-band deliverables, not source.
 tavily_shared_*.zip
+# LaTeX build artifacts; dissertation/main.pdf is reproducible via latexmk -pdf,
+# so only main.tex and references.bib are tracked.
+dissertation/*.aux
+dissertation/*.bbl
+dissertation/*.bcf
+dissertation/*.blg
+dissertation/*.fdb_latexmk
+dissertation/*.fls
+dissertation/*.lof
+dissertation/*.log
+dissertation/*.lot
+dissertation/*.out
+dissertation/*.pdf
+dissertation/*.run.xml
+dissertation/*.synctex.gz
+dissertation/*.toc
+.foglamp/
+.gstack/
