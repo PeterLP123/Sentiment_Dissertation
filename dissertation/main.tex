@@ -196,17 +196,18 @@ The valid exploratory threshold evidence is retained in \cref{app:exploratory}; 
 \label{sec:lit-financial-text}
 
 Text matters in finance because prices and accounting numbers do not carry everything investors act on.
-News stories carry tone, uncertainty and context, and those features can change how a market reads an event.
-\Textcite{tetlock2007} shows that pessimistic media coverage predicts price pressure that later partly reverses, which establishes two things at once: text carries usable information, and the first reaction to it is not always the lasting one.
-\Textcite{tetlock2008words} push the point further: the fraction of negative words in firm-specific news predicts earnings as well as returns, so the language is picking up fundamentals, not just mood.
-This literature is the reason the study looks at post-event returns at all, but it does not mean that every automated sentiment score adds predictive information.
+A news story has a tone; it hedges or it does not; it frames an event one way rather than another.
+\Textcite{tetlock2007} shows that pessimistic media coverage predicts price pressure that later partly reverses, which establishes two things at once: the text carries usable information, and the first reaction to it is not always the one that lasts.
+\Textcite{tetlock2008words} push further and find that the fraction of negative words in firm news predicts earnings as well as returns, so the language is picking up something about fundamentals, not just mood.
+That work is the reason this study looks at post-event returns at all.
+It does not mean that every automated sentiment score earns its place in a forecasting model.
 
 Most empirical work compresses an article into a single polarity score and relates that score to returns.
-The attraction is obvious: one number per document is easy to compare, store and model.
-The cost is that the scoring process becomes a black box.
-That cost is not only conceptual: \textcite{li2014news} find that in five years of Hong Kong news, polarity alone added little to return prediction, while richer sentiment representations built from domain dictionaries did.
-Two models can also produce the same average score through very different combinations of labels, and the mean cannot tell those cases apart.
-This study asks whether the variation the mean throws away is measurable and useful once the mean itself is already in the model.
+The appeal is easy to see, because one number per document is simple to compare, store and model.
+The price is that the scoring process becomes a black box, and the black box hides real differences.
+\Textcite{li2014news} find as much in five years of Hong Kong news: polarity on its own added little to return prediction, while richer sentiment representations built from domain dictionaries did.
+Two models can also arrive at the same average score by very different routes, and the mean cannot tell those cases apart.
+This study asks whether the variation the mean throws away is worth keeping once the mean itself is already in the model.
 
 \section{From Lexicons to Financial Language Models}
 \label{sec:lit-sentiment-models}
@@ -222,43 +223,43 @@ Domain-adapted language models fix part of this by learning contextual represent
 FinBERT adapts a pretrained transformer to financial sentiment classification, and it is the natural benchmark for asking whether newer generative models actually add anything \parencite{araci2019finbert}.
 Large language models are more flexible again and can follow a prompt aimed at a specific company.
 \Textcite{lopezlira2023chatgpt} report that ChatGPT-based news scores predicted next-day returns in their sample, most clearly for smaller firms and negative news, and \textcite{kirtac2024llm} find a large language model beating FinBERT and dictionary methods in a large news-trading comparison.
-The catch is that generative output depends on training data, model version, prompt wording and provider behaviour.
-This dissertation therefore fixes the model identities and the label mapping instead of treating model outputs as interchangeable.
+The catch is that generative output depends on training data, model version, prompt wording and provider behaviour, so this dissertation fixes the model identities and the label mapping up front instead of treating model outputs as interchangeable.
 
-There is a further problem with scoring historical news using a model trained on later data.
+Scoring historical news with a model trained on later data brings a subtler problem.
 \Textcite{glasserman2023lookahead} use entity anonymisation to pull apart two effects in GPT sentiment backtests: look-ahead bias, where the model may know how the story ended, and a distraction effect, where background knowledge about the company pulls the model away from the text in front of it.
 In their tests distraction dominates, so in-sample predictive fit is not clean evidence in either direction.
 \Textcite{sharma2026leakage} add a different warning: in a leakage-safe design, better classification did not reliably turn into risk-adjusted trading value.
 Both results shaped the choices made here: timestamped data, a chronological development--evaluation split, and separate claims for competence, validity and market value.
 
-Competence has to be established before agreement is interpreted.
-High agreement among weak classifiers can just be a shared mistake, while a genuinely heterogeneous group can disagree because its members respond to different parts of the text.
+Competence has to come first, because agreement between bad classifiers means very little.
+Four weak systems agreeing can just be four systems making the same mistake, while a genuinely mixed group can disagree because its members are responding to different parts of the text.
 Accuracy alone is also not enough when the classes are imbalanced.
-The benchmark analysis therefore reports macro-averaged F1 and class-level performance alongside accuracy, and it keeps parsing and request failures visible rather than dropping them.
+The benchmark analysis therefore reports macro-averaged F1 and class-level performance alongside accuracy, and it keeps parsing and request failures visible rather than quietly dropping them.
 
 \section{Human Annotation and Measurement Difficulty}
 \label{sec:lit-human-agreement}
 
 Sentiment classifiers are usually scored against a single gold label, but the humans who produce those labels disagree with each other.
-A growing body of natural-language-processing research treats that variation as signal rather than noise: disagreement can encode ambiguity, a legitimate difference in perspective or missing context \parencite{plank2022variation}.
+Work in natural language processing has started to treat that variation as signal rather than noise: disagreement can mean a sentence is ambiguous, that two readings are both reasonable, or that the annotators lacked context \parencite{plank2022variation}.
 \Textcite{pavlick2019inherent} show for textual inference that the disagreement survives careful data collection, so it is not an artefact that aggregation can remove, and \textcite{uma2021disagreement} survey methods that learn from it directly rather than discarding it.
 An evaluation that stops at majority-label accuracy misses this part of the measurement problem.
 
 Financial PhraseBank is useful here because its sentence labels come with subsets defined by annotator agreement \parencite{malo2014phrasebank}.
 The 50, 66, 75 and 100 per cent tiers keep information that a single consensus label would have thrown away.
-The tiers are not a perfect measure of ambiguity, since disagreement can also reflect annotator error, missing context or several reasonable readings.
-They are, however, an ordered external reference that model agreement can be tested against.
+The tiers are not a clean measure of ambiguity, and some of the disagreement is surely just annotator error.
+But they are ordered, they are external, and they are independent of the models being tested, which makes them the natural reference for this study.
 
-The measurement expectation in this study is deliberately modest.
+The expectation being tested is modest.
 If cross-model agreement says anything about item difficulty, it should rise with human agreement, and low model agreement should coincide with a higher risk of classification error.
 Neither is guaranteed.
 Models can share training material or architectural biases and agree on the same mistakes, and the roster is a set of engineered systems, not a random sample of independent raters.
-So agreement is described as an observed property of this roster, not as reliability, confidence or truth.
+So agreement is treated throughout as a property of this particular roster, not as reliability, confidence or truth.
 
 Recent work extends the caution to large language models specifically.
 \Textcite{ni2026reasoning} find that how well a model represents annotator disagreement is a separate empirical property from how accurate it is, and that reasoning interventions can push it either way.
 Zero-shot models can also match the dominant emotion label while missing the human uncertainty around it \parencite{inoshita2026emotion}.
-That is why this study tests model agreement against the graded PhraseBank tiers directly instead of assuming a competent classifier inherits the structure of human uncertainty.
+Getting the label right and knowing when humans would hesitate are, it turns out, different skills.
+That is why this study tests model agreement against the graded PhraseBank tiers directly rather than assuming a competent classifier inherits the structure of human uncertainty.
 
 Calibration research adds a related warning.
 Modern neural networks can be confidently wrong \parencite{guo2017calibration}.
@@ -272,7 +273,7 @@ Differences-of-opinion models show that heterogeneous interpretations can matter
 \Textcite{kandel1995differential} document that market participants appear to read the same public signal differently, which is the human counterpart of the quantity measured here.
 \Textcite{hong2007disagreement} survey the area and argue that disagreement models explain price and volume patterns together, where representative-agent models struggle: heterogeneous priors plus short-sale constraints produce overpricing, and changes in disagreement produce volume.
 The theory explains why disagreement is worth measuring, but it does not let model disagreement stand in for investor disagreement.
-The scorers observe no positions, beliefs or order flow, and several of them may share training data or design conventions.
+Four models scoring a headline see no positions, no beliefs and no order flow, and several of them were probably trained on overlapping text.
 
 A second literature points the other way and suggests that machine agreement may be inflated.
 \Textcite{kleinberg2021monoculture} show that many decision-makers adopting the same algorithm can be collectively costly even when the algorithm is individually the best choice, and \textcite{bommasani2022homogenization} document homogenised outcomes when applications share one foundation model.
@@ -286,14 +287,15 @@ A positive answer would still be consistent with several mechanisms, from textua
 \section{Machine Disagreement in Recent Financial Research}
 \label{sec:lit-machine-disagreement}
 
-The question studied here sits inside a literature that has formed quickly and that derives disagreement from panels of language models rather than from human forecasters or analysts.
+This question does not sit in empty space.
+A literature has formed quickly around deriving disagreement from panels of language models rather than from human forecasters or analysts, and most of it is very recent.
 \Textcite{liu2025disagreement} score earnings calls with six large language models and relate the resulting disagreement to established disagreement measures, cross-sectional returns, trading volume and spreads.
 \Textcite{bhagwat2026mirror} simulate a large panel of investor personas responding to several million firm-news headlines, and the dispersion of the simulated responses matches survey-based disagreement and predicts abnormal trading volume.
 On the classification side, agreement and divergence inside a multi-model ensemble have been used as features that improve financial sentiment classification \parencite{zhang2025finsentllm}, and selective consensus among trading agents has been used as a decision filter \parencite{li2026trusttrade}.
 
 Two things follow.
-First, cross-model disagreement in finance is no longer unclaimed territory, and this dissertation makes no first-use claim.
-Second, the existing designs leave a specific opening.
+The first is simple: cross-model disagreement in finance is no longer unclaimed territory, and this dissertation makes no first-use claim.
+The second is more useful: the existing designs leave a specific opening.
 The earnings-call and persona studies validate their dispersion measures against other market or survey quantities, not against graded human annotation of the text actually scored, and the ensemble studies treat agreement as confidence without testing whether it deserves to be.
 None of the located studies combines construct validation against human-agreement tiers with a timestamp-aligned event study of post-initial-reaction abnormal returns.
 Several of these papers are still unreviewed working papers or preprints, so their findings are treated as indicative rather than settled.
@@ -303,7 +305,7 @@ Several of these papers are still unreviewed working papers or preprints, so the
 
 Event studies are the standard way to separate the return attached to an event from the market's general movement \parencite{mackinlay1997event}.
 The design decisions that matter are the event timestamp, the expected-return model, the estimation window and the event window.
-For news the timestamp matters most, because a calendar date does not identify the first session in which a story was tradable.
+For news the timestamp matters most: a story published after the close belongs to the next day's trading, and a join on calendar date gets that wrong.
 
 Post-news horizons need care because the literature documents both drift and reversal.
 \Textcite{chan2003news} finds drift after public news, bad news especially, but reversal after large price moves with no identifiable news, and \textcite{savor2012information} reports the same information-conditional pattern after major price shocks.
@@ -315,7 +317,7 @@ The design here separates the event-session abnormal return from the cumulative 
 That stops the initial response leaking into the outcome that is supposed to describe later resolution.
 It also keeps the predictive comparison honest: mean sentiment and agreement have to add information beyond what the event-session return already shows.
 
-Repeated model selection across multiple horizons can manufacture patterns by chance, and the asset-pricing literature takes that problem seriously \parencite{harvey2016multiple}.
+Try enough models over enough horizons and something will look good by chance, a problem the asset-pricing literature now takes very seriously \parencite{harvey2016multiple}.
 Where families of inferential tests are reported, false-discovery control follows \textcite{benjamini1995fdr}, but the primary predictive conclusion rests on a pre-specified held-out loss comparison with date-block bootstrap uncertainty.
 
 \section{Research Gap}
