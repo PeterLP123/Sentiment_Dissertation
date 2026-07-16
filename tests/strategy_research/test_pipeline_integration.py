@@ -354,6 +354,7 @@ def test_local_canary_is_bounded_resumable_and_does_not_finalize_early(
             model="gemma4:e4b-it-qat",
             endpoint="http://local-gpu:11434",
             model_digest=digest,
+            ollama_think=False,
             scores_path=None,
             minimum_success_rate=0.98,
         ),
@@ -361,7 +362,8 @@ def test_local_canary_is_bounded_resumable_and_does_not_finalize_early(
     clients: list[LocalCanaryClient] = []
 
     def client_factory(*args, **kwargs):
-        del args, kwargs
+        del args
+        assert kwargs["ollama_think"] is False
         client = LocalCanaryClient(digest)
         clients.append(client)
         return client

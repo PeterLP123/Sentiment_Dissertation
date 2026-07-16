@@ -213,6 +213,7 @@ def resolved_scoring_identity(config: StrategyResearchConfig) -> ScoringIdentity
         temperature=config.scoring.temperature,
         sample_count=config.scoring.samples,
         max_completion_tokens=config.scoring.max_completion_tokens,
+        ollama_think=config.scoring.ollama_think,
         retries=config.scoring.retries,
         agreement_conditioning=config.agreement_conditioning.enabled,
         prompt_config=configured,
@@ -820,6 +821,7 @@ def scores_stage(
                     ollama_host=endpoint,
                     cerebras_base_url=endpoint,
                     structured_label_output=True,
+                    ollama_think=identity.ollama_think,
                 )
                 async with client:
                     if provider == "ollama":
@@ -886,6 +888,7 @@ def scores_stage(
             "provider": identity.provider,
             "model": identity.model_id,
             "model_digest": identity.model_digest,
+            "ollama_think": identity.ollama_think,
             "endpoint": identity.resolved_endpoint,
             "prompt_id": identity.prompt.prompt_id,
             "prompt_hash": identity.prompt.prompt_hash,

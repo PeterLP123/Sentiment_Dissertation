@@ -230,6 +230,23 @@ def test_ollama_scoring_requires_a_frozen_model_digest(tmp_path: Path) -> None:
         load_strategy_config(path)
 
 
+def test_ollama_scoring_requires_thinking_to_be_explicitly_disabled(tmp_path: Path) -> None:
+    path = _write_ready_smoke_config(tmp_path)
+    text = path.read_text(encoding="utf-8").replace(
+        "[scoring]\n",
+        '[scoring]\nprovider = "ollama"\nmodel = "gemma4:12b"\nmodel_digest = "digest"\n',
+        1,
+    )
+    path.write_text(text, encoding="utf-8")
+
+    with pytest.raises(StrategyConfigurationError, match="ollama_think = false"):
+        load_strategy_config(path)
+
+    path.write_text(text.replace('model_digest = "digest"\n', 'model_digest = "digest"\nollama_think = false\n'), encoding="utf-8")
+    config = load_strategy_config(path)
+    assert config.scoring.ollama_think is False
+
+
 def test_missing_inputs_are_part_of_blocked_identity(tmp_path: Path) -> None:
     path = tmp_path / "blocked.toml"
     path.write_text(

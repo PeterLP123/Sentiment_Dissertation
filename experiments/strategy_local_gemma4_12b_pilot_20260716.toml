@@ -1,0 +1,53 @@
+[[experiments]]
+id = "strategy-local-gemma4-12b-pilot-20260716"
+title = "UCL-hosted local Gemma 4 12B strategy scorer pilot"
+status = "completed"
+dissertation_relevance = "Pre-news competence and operational gate for the local-only historical strategy scorer."
+run_ids = [28]
+commit_sha = "2d6200f5fe7019c2d2c8970279df146ca6086a0e"
+export_path = "results/exports/local_gemma4_12b_ucl_pilot_run_28"
+created_at = "2026-07-16T11:08:38.193469+00:00"
+completed_at = "2026-07-16T11:09:48.135139+00:00"
+
+[experiments.dataset]
+path = "Data/derived/labeled/financial_sentiment_v2.csv"
+sha256 = "514dfc90316ec43617b7d59ac89a29d1063549ed91b08ef21cd11f5a8ac9ea9e"
+rows = 5947
+sample_rows = 90
+sample_logic = "Balanced deterministic pilot: 30 primary rows per class, seed 42."
+
+[experiments.prompt]
+id = "finance_calibrated_label_only"
+hash = "87df1fb474b85af4"
+output_mode = "label_only"
+
+[experiments.models]
+ids = ["gemma4:12b"]
+provider = "ollama"
+digest = "4eb23ef187e2c5462566d6a1d3bbbc2f1346d0b4327cbb66d58fffbcc9b2b05c"
+quantization = "Q4_K_M"
+parameter_size = "11.9B"
+execution_host = "UCL CS lab105 smew-l, NVIDIA GeForce RTX 3090 Ti"
+transport = "Ollama bound to remote 127.0.0.1:11434 and reached through an SSH local forward."
+
+[experiments.settings]
+mode = "pilot"
+seed = 42
+sample_per_class = 30
+temperature = 0.0
+max_completion_tokens = 64
+concurrency = 1
+retries = 3
+ollama_think = false
+
+[experiments.analysis]
+primary_scope = "primary"
+accuracy = 0.8111111111111111
+balanced_accuracy = 0.8111111111111112
+macro_f1 = 0.8121832277296918
+mcc = 0.7175974893368582
+mean_latency_ms = 495.62689172323894
+invalid_outputs = 0
+api_errors = 0
+interpretation_notes = "Operational pilot only, not a full-dataset model comparison. All 90 responses parsed successfully; neutral was the weakest class. The benchmark used the configured libSQL replica and synced run 28 metadata/results to its hosted primary; subsequent strategy artifacts use local files only."
+

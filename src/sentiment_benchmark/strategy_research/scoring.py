@@ -25,6 +25,7 @@ class ScoringIdentity:
     temperature: float = 0.0
     sample_count: int = 1
     max_completion_tokens: int = 16
+    ollama_think: bool | None = None
     retries: int = 3
     agreement_conditioning: bool = False
 
@@ -40,6 +41,10 @@ class ScoringIdentity:
             raise ValueError("completion tokens must be positive and retries cannot be negative")
         if self.agreement_conditioning:
             raise ValueError("agreement-conditioned impulses are not enabled in strategy v1")
+        if self.provider == "ollama" and self.ollama_think is not False:
+            raise ValueError("strategy Ollama scoring requires ollama_think=False")
+        if self.provider != "ollama" and self.ollama_think is not None:
+            raise ValueError("ollama_think is valid only for the Ollama provider")
         if self.prompt.output_mode != "label_only":
             raise ValueError("strategy scoring v1 requires a strict label_only prompt")
         _ = self.resolved_endpoint
@@ -87,6 +92,8 @@ class ScoringIdentity:
         # request. Hosted/local-model identities always bind the exact endpoint.
         if self.provider != "fixture":
             payload["endpoint"] = self.resolved_endpoint
+        if self.provider == "ollama":
+            payload["ollama_think"] = self.ollama_think
         return sha256_text(canonical_json(payload))
 
 

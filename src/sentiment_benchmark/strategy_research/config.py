@@ -63,6 +63,7 @@ class ScoringSettings:
     allow_missing_as_neutral: bool = False
     minimum_success_rate: float = 0.98
     max_completion_tokens: int = 64
+    ollama_think: bool | None = None
     concurrency: int = 1
     retries: int = 3
 
@@ -482,6 +483,7 @@ def _build_config(raw: dict[str, Any]) -> StrategyResearchConfig:
             "allow_missing_as_neutral",
             "minimum_success_rate",
             "max_completion_tokens",
+            "ollama_think",
             "concurrency",
             "retries",
         },
@@ -508,6 +510,11 @@ def _build_config(raw: dict[str, Any]) -> StrategyResearchConfig:
         allow_missing_as_neutral=_boolean(scoring_raw, "allow_missing_as_neutral", False, "scoring"),
         minimum_success_rate=_number(scoring_raw, "minimum_success_rate", 0.98, "scoring"),
         max_completion_tokens=_integer(scoring_raw, "max_completion_tokens", 64, "scoring"),
+        ollama_think=(
+            _boolean(scoring_raw, "ollama_think", False, "scoring")
+            if "ollama_think" in scoring_raw
+            else None
+        ),
         concurrency=_integer(scoring_raw, "concurrency", 1, "scoring"),
         retries=_integer(scoring_raw, "retries", 3, "scoring"),
     )
@@ -538,6 +545,12 @@ def _build_config(raw: dict[str, Any]) -> StrategyResearchConfig:
         raise StrategyConfigurationError(
             "strategy scoring with Ollama requires an explicit scoring.model_digest"
         )
+    if scoring.provider == "ollama" and scoring.ollama_think is not False:
+        raise StrategyConfigurationError(
+            "strategy scoring with Ollama requires scoring.ollama_think = false so label tokens are not consumed by hidden thinking"
+        )
+    if scoring.provider != "ollama" and scoring.ollama_think is not None:
+        raise StrategyConfigurationError("scoring.ollama_think is valid only when scoring.provider = 'ollama'")
     if (scoring.competence_evidence_path is None) != (scoring.competence_experiment_id is None):
         raise StrategyConfigurationError(
             "scoring.competence_evidence_path and scoring.competence_experiment_id must be set together"

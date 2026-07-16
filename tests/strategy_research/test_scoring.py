@@ -93,6 +93,21 @@ def test_hosted_score_identity_binds_the_exact_endpoint() -> None:
     assert first.config_hash != second.config_hash
 
 
+def test_ollama_score_identity_binds_disabled_thinking() -> None:
+    identity = ScoringIdentity(
+        "three_class",
+        "ollama",
+        "gemma4:12b",
+        model_digest="digest",
+        endpoint="http://127.0.0.1:11435",
+        ollama_think=False,
+    )
+
+    assert identity.ollama_think is False
+    with pytest.raises(ValueError, match="requires ollama_think=False"):
+        replace(identity, ollama_think=None)
+
+
 def test_score_cache_is_target_specific_resumable_and_deterministic(tmp_path) -> None:
     identity = ScoringIdentity("five_level", "cerebras", "gemma-4-31b")
     first_event = _event()
