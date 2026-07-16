@@ -106,6 +106,23 @@ sentiment-bench strategy report --config <config>
 sentiment-bench strategy paper
 ```
 
+For a local Ollama canary, first freeze the formal evaluation boundary, endpoint,
+model tag, and digest. Then bound the number of new calls while retaining the
+same resumable cache used by the eventual full run:
+
+```bash
+sentiment-bench strategy score \
+  --config <local-ollama-config> \
+  --max-new-scores 200
+```
+
+Bounded scoring is Ollama-only and selects events strictly before
+`evaluation_start`. It leaves the score stage `in_progress` and does not create
+the immutable `scores.jsonl` until every event has a successful cached score.
+Repeating the command reuses prior successes and makes at most the requested
+number of additional calls. The configured Ollama digest is verified before any
+classification request.
+
 The main LSEG configuration intentionally remains blocked until it has an explicit evaluation boundary, a completed canonical corpus, and a sufficiently long verified adjusted-open price panel. Dry-run reports these blockers and the resolved identity before any scoring.
 
 ## Artifacts and replay

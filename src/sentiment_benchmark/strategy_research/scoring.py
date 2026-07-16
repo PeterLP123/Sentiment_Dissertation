@@ -320,6 +320,7 @@ async def score_events(
     client: Any | None = None,
     *,
     allow_calls: bool = False,
+    max_new_scores: int | None = None,
 ) -> ScoreBatchResult:
     """Reuse completed scores and optionally make explicitly authorised calls.
 
@@ -327,6 +328,8 @@ async def score_events(
     an existing provider client before any model request can occur.
     """
 
+    if max_new_scores is not None and max_new_scores < 1:
+        raise ValueError("max_new_scores must be positive when supplied")
     root = Path(cache_dir)
     records: list[ScoreRecord] = []
     missing: list[str] = []
@@ -343,6 +346,9 @@ async def score_events(
             cache_hits += 1
             continue
         if not allow_calls:
+            missing.append(event.event_id)
+            continue
+        if max_new_scores is not None and calls_made >= max_new_scores:
             missing.append(event.event_id)
             continue
         if client is None:

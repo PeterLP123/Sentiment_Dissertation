@@ -12,6 +12,7 @@ from typer.testing import CliRunner
 
 from sentiment_benchmark.artifact_io import sha256_file
 from sentiment_benchmark.cli import app as root_app
+from sentiment_benchmark.models import LLMResponseRecord
 from sentiment_benchmark.strategy_research import pipeline
 from sentiment_benchmark.strategy_research.config import OutputSettings, load_strategy_config
 from sentiment_benchmark.strategy_research.pipeline import (
@@ -306,6 +307,115 @@ def test_ordinary_pipeline_run_never_crosses_paid_boundary(
             repo_root=Path.cwd(),
             command=("test", "strategy", "run"),
         )
+
+
+class LocalCanaryClient:
+    def __init__(self, digest: str) -> None:
+        self.digest = digest
+        self.calls = 0
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, traceback) -> None:
+        del exc_type, exc, traceback
+
+    async def model_digest(self, model_id: str, retries: int = 3) -> str:
+        del model_id, retries
+        return self.digest
+
+    async def classify(self, model_id, prompt, example, **kwargs):
+        del kwargs
+        self.calls += 1
+        return LLMResponseRecord(
+            row_number=example.row_number,
+            model_id=model_id,
+            prompt_hash=prompt.prompt_hash,
+            raw_content="neutral",
+            normalized_label="neutral",
+            parse_status="valid",
+            status="success",
+            latency_ms=5.0,
+            attempt_count=1,
+        )
+
+
+def test_local_canary_is_bounded_resumable_and_does_not_finalize_early(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = isolated_smoke_config(tmp_path)
+    digest = "sha256:local-canary"
+    config = replace(
+        config,
+        scoring=replace(
+            config.scoring,
+            provider="ollama",
+            model="gemma4:e4b-it-qat",
+            endpoint="http://local-gpu:11434",
+            model_digest=digest,
+            scores_path=None,
+            minimum_success_rate=0.98,
+        ),
+    )
+    clients: list[LocalCanaryClient] = []
+
+    def client_factory(*args, **kwargs):
+        del args, kwargs
+        client = LocalCanaryClient(digest)
+        clients.append(client)
+        return client
+
+    monkeypatch.setattr(pipeline, "make_llm_client", client_factory)
+    first = execute_pipeline(
+        config,
+        through="scores",
+        allow_paid=True,
+        max_new_scores=3,
+        repo_root=Path.cwd(),
+        command=("test", "strategy", "score", "--max-new-scores", "3"),
+    )
+    assert first.score_progress is not None
+    assert first.score_progress.calls_made == 3
+    assert first.score_progress.successful_scores == 3
+    assert first.score_progress.missing_scores == 9
+    assert not first.scores_path.exists()
+    score_manifest = json.loads(first.paths.stage_manifest("scores").read_text(encoding="utf-8"))
+    assert score_manifest["status"] == "in_progress"
+
+    second = execute_pipeline(
+        config,
+        through="scores",
+        allow_paid=True,
+        max_new_scores=20,
+        repo_root=Path.cwd(),
+        command=("test", "strategy", "score", "--max-new-scores", "20"),
+    )
+    assert second.score_progress is not None
+    assert second.score_progress.calls_made == 9
+    assert second.score_progress.successful_scores == 12
+    assert second.score_progress.complete
+    assert second.scores_path.exists()
+    score_manifest = json.loads(second.paths.stage_manifest("scores").read_text(encoding="utf-8"))
+    assert score_manifest["status"] == "completed"
+    assert sum(client.calls for client in clients) == 12
+
+
+def test_bounded_canary_rejects_nonlocal_provider_without_creating_score_stage(tmp_path: Path) -> None:
+    config = isolated_smoke_config(tmp_path)
+    config = replace(config, scoring=replace(config.scoring, provider="cerebras", scores_path=None))
+
+    with pytest.raises(StrategyPipelineError, match="only for live local Ollama"):
+        execute_pipeline(
+            config,
+            through="scores",
+            allow_paid=True,
+            max_new_scores=2,
+            repo_root=Path.cwd(),
+            command=("test", "strategy", "score"),
+        )
+    paths = pipeline.resolve_pipeline_paths(config)
+    assert not paths.stage_manifest("scores").exists()
 
 
 def test_strategy_cli_is_registered_and_paper_phase_is_gated() -> None:

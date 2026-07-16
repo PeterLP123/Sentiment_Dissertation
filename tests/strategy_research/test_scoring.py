@@ -171,3 +171,56 @@ def test_successful_attempt_journal_recovers_without_a_second_model_call(tmp_pat
     assert recovered.calls_made == 0
     assert second_client.calls == []
     assert completed.exists()
+
+
+def test_bounded_scoring_stops_after_new_call_limit_and_resumes(tmp_path) -> None:
+    identity = ScoringIdentity("three_class", "cerebras", "gemma-4-31b")
+    events = [_event(f"event-{index}") for index in range(4)]
+    cache = tmp_path / "cache"
+    first_client = FakeClient("positive")
+
+    first = asyncio.run(
+        score_events(
+            events,
+            identity,
+            cache,
+            first_client,
+            allow_calls=True,
+            max_new_scores=2,
+        )
+    )
+    second_client = FakeClient("negative")
+    second = asyncio.run(
+        score_events(
+            events,
+            identity,
+            cache,
+            second_client,
+            allow_calls=True,
+            max_new_scores=1,
+        )
+    )
+
+    assert first.calls_made == 2
+    assert first.cache_hits == 0
+    assert len(first.missing_event_ids) == 2
+    assert len(first_client.calls) == 2
+    assert second.calls_made == 1
+    assert second.cache_hits == 2
+    assert len(second.missing_event_ids) == 1
+    assert len(second_client.calls) == 1
+    assert inspect_score_cache(events, identity, cache).cache_hits == 3
+
+
+def test_bounded_scoring_rejects_nonpositive_limit(tmp_path) -> None:
+    with pytest.raises(ValueError, match="max_new_scores must be positive"):
+        asyncio.run(
+            score_events(
+                [_event()],
+                ScoringIdentity("three_class", "cerebras", "gemma-4-31b"),
+                tmp_path / "cache",
+                FakeClient("positive"),
+                allow_calls=True,
+                max_new_scores=0,
+            )
+        )

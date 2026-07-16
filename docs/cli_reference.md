@@ -147,6 +147,7 @@ sentiment-bench strategy run --config configs/strategy_research/smoke.toml --dry
 sentiment-bench strategy run --config configs/strategy_research/smoke.toml
 sentiment-bench strategy run --config configs/strategy_research/lseg_llm_decay_v1.toml --dry-run
 sentiment-bench strategy score --config <ready-formal-config>
+sentiment-bench strategy score --config <local-ollama-config> --max-new-scores 200
 ```
 
 All historical subcommands except the gated `paper` command require `--config`. Invoking `strategy score` is itself the explicit hosted-call authorization; full `strategy run` still requires `--allow-paid`. Hosted routes are taken only from the run-hashed `scoring.endpoint`, never silently from endpoint environment variables; Ollama additionally requires a declared model digest. Formal model selection cites a run-hashed competence experiment. Stage commands execute their named stage after validating or reusing matching prerequisite stages. A completed stage is immutable: changed inputs or configuration resolve to a different run identity, while a manifest mismatch fails instead of overwriting evidence.
@@ -156,6 +157,7 @@ All historical subcommands except the gated `paper` command require `--config`. 
 | `--config PATH` | Historical stage commands and `run` | Strategy TOML; the checked-in formal config is deliberately blocked until its evaluation boundary and adjusted-open price manifest are frozen. |
 | `--dry-run` | `strategy run` | Resolve input hashes, event and price coverage, score-cache hits, split feasibility, candidate count, outputs, and blockers without writes, provider construction, or model calls. |
 | `--allow-paid` | `strategy run` | Explicitly authorize missing hosted-model calls in a full run. Omitting it never silently crosses the paid-call boundary. |
+| `--max-new-scores N` | `strategy score` | Make at most `N` new local Ollama calls against development-period events. Requires a frozen evaluation boundary and model digest; successful cache entries resume into the full score run without finalizing a partial `scores.jsonl`. |
 
 The synthetic smoke config uses checked-in fixtures and requires no network, credentials, licensed text, or paid calls. Historical outputs resolve to `<logical-run-id>-<identity-hash-prefix>` below `Data/derived/strategy_research/` and `results/strategy_research/`; see [Results and exports](results_and_exports.md#historical-strategy-research-artifacts).
 

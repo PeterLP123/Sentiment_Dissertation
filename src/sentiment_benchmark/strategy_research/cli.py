@@ -26,20 +26,37 @@ def _config(path: Path):
         raise typer.Exit(code=1) from exc
 
 
-def _execute(path: Path, through: str, *, allow_paid: bool = False) -> None:
+def _execute(
+    path: Path,
+    through: str,
+    *,
+    allow_paid: bool = False,
+    max_new_scores: int | None = None,
+) -> None:
     config = _config(path)
     try:
         result = execute_pipeline(
             config,
             through=through,  # type: ignore[arg-type]
             allow_paid=allow_paid,
+            max_new_scores=max_new_scores,
             repo_root=Path.cwd(),
             command=sys.argv,
         )
     except (StrategyConfigurationError, StrategyPipelineError, StrategyArtifactError, ValueError) as exc:
         console.print(f"[red]Strategy {through} failed:[/red] {exc}")
         raise typer.Exit(code=1) from exc
-    console.print(f"[green]Strategy {through} complete:[/green] {result.paths.identity.resolved_run_id}")
+    progress = result.score_progress
+    if progress is not None and not progress.complete:
+        console.print(f"[green]Local scoring canary paused safely:[/green] {result.paths.identity.resolved_run_id}")
+        console.print(
+            f"New calls: {progress.calls_made}; cached successes: {progress.successful_scores}; "
+            f"remaining full-universe scores: {progress.missing_scores}"
+        )
+        console.print(f"Development-period canary population: {progress.canary_eligible_events}")
+        console.print("The score stage remains in_progress; no scores.jsonl was finalized.")
+    else:
+        console.print(f"[green]Strategy {through} complete:[/green] {result.paths.identity.resolved_run_id}")
     console.print(f"Derived: {result.paths.derived_dir}")
     console.print(f"Results: {result.paths.results_dir}")
     if result.reused_stages:
@@ -58,10 +75,18 @@ def build_events_command(
 @app.command("score")
 def score_command(
     config: Annotated[Path, typer.Option("--config", help="Strategy TOML configuration.")],
+    max_new_scores: Annotated[
+        int | None,
+        typer.Option(
+            "--max-new-scores",
+            min=1,
+            help="Bound new local Ollama calls for a resumable development-only canary.",
+        ),
+    ] = None,
 ) -> None:
     """Explicitly score missing events and materialize frozen scores."""
 
-    _execute(config, "scores", allow_paid=True)
+    _execute(config, "scores", allow_paid=True, max_new_scores=max_new_scores)
 
 
 @app.command("tune")

@@ -166,6 +166,16 @@ class TuningRun:
 
 
 @dataclass(frozen=True)
+class ScoreProgress:
+    total_events: int
+    canary_eligible_events: int
+    successful_scores: int
+    missing_scores: int
+    calls_made: int
+    complete: bool
+
+
+@dataclass(frozen=True)
 class PipelineResult:
     paths: RunPaths
     events_path: Path
@@ -174,6 +184,7 @@ class PipelineResult:
     evaluation_metrics_path: Path | None
     summary_path: Path | None
     reused_stages: tuple[str, ...]
+    score_progress: ScoreProgress | None = None
 
 
 def resolved_scoring_identity(config: StrategyResearchConfig) -> ScoringIdentity:
@@ -739,7 +750,8 @@ def scores_stage(
     repo_root: Path,
     command: Sequence[str] | None = None,
     allow_paid: bool = False,
-) -> tuple[Path, bool]:
+    max_new_scores: int | None = None,
+) -> tuple[Path, bool, ScoreProgress]:
     """Materialize frozen scores from a fixture or explicitly-authorized provider."""
 
     output_dir = paths.derived_stage("scores")
@@ -747,6 +759,22 @@ def scores_stage(
     coverage_path = output_dir / "score_coverage.json"
     identity = resolved_scoring_identity(config)
     events = load_strategy_events(events_path)
+    if max_new_scores is not None:
+        if max_new_scores < 1:
+            raise StrategyPipelineError("max_new_scores must be positive")
+        if config.scoring.provider != "ollama" or config.scoring.scores_path is not None:
+            raise StrategyPipelineError("bounded canary scoring is available only for live local Ollama runs")
+        if config.run.evaluation_start is None:
+            raise StrategyPipelineError(
+                "bounded canary scoring requires a frozen run.evaluation_start so only development events are used"
+            )
+    canary_events = events
+    if max_new_scores is not None:
+        boundary = config.run.evaluation_start
+        assert boundary is not None  # validated above; narrows the type for static checking
+        canary_events = tuple(event for event in events if event.eligible_execution_session < boundary)
+        if not canary_events:
+            raise StrategyPipelineError("no development-period events are available for bounded canary scoring")
     inputs = _input_identities(
         paths,
         events_sha256=sha256_file(events_path),
@@ -755,7 +783,17 @@ def scores_stage(
     store = _stage_store(paths, "scores", repo_root=repo_root)
     inspection = store.inspect(config=config, input_identities=inputs, verify_outputs=True)
     if inspection.reusable:
-        return scores_path, True
+        records = load_score_records(scores_path)
+        successful = sum(record.status == "success" for record in records)
+        progress = ScoreProgress(
+            len(events),
+            len(canary_events),
+            successful,
+            len(events) - successful,
+            0,
+            True,
+        )
+        return scores_path, True, progress
     opened = store.begin(config=config, input_identities=inputs, command=_command(command))
 
     if config.scoring.scores_path is not None:
@@ -794,14 +832,37 @@ def scores_stage(
                                 f"Ollama model digest mismatch for {identity.model_id!r}: "
                                 f"expected {identity.model_digest!r}, got {actual_digest!r}"
                             )
-                    return await score_events(events, identity, cache_dir, client, allow_calls=True)
+                    return await score_events(
+                        canary_events,
+                        identity,
+                        cache_dir,
+                        client,
+                        allow_calls=True,
+                        max_new_scores=max_new_scores,
+                    )
 
             batch = asyncio.run(execute())
         else:
             batch = asyncio.run(score_events(events, identity, cache_dir, allow_calls=False))
-        records = _validate_scores(events, batch.records, config, identity)
         calls_made = batch.calls_made
         cache_hits = batch.cache_hits
+
+        final_cache = inspect_score_cache(events, identity, cache_dir)
+        successful = final_cache.cache_hits
+        missing = final_cache.expected_score_calls
+        cache_hits = successful
+        progress = ScoreProgress(
+            total_events=len(events),
+            canary_eligible_events=len(canary_events),
+            successful_scores=successful,
+            missing_scores=missing,
+            calls_made=calls_made,
+            complete=missing == 0,
+        )
+        if max_new_scores is not None and missing:
+            return scores_path, False, progress
+        completed_batch = asyncio.run(score_events(events, identity, cache_dir, allow_calls=False))
+        records = _validate_scores(events, completed_batch.records, config, identity)
 
     event_ids = {event.event_id for event in events}
     successful_ids = {record.event_id for record in records if record.status == "success"}
@@ -837,7 +898,15 @@ def scores_stage(
         exclusions={"missing_score": len(missing_ids)},
         warnings=("fixture scores; no model call was made",) if config.scoring.scores_path is not None else (),
     )
-    return scores_path, opened.action == "reuse"
+    progress = ScoreProgress(
+        total_events=len(event_ids),
+        canary_eligible_events=len(canary_events),
+        successful_scores=len(successful_ids),
+        missing_scores=len(missing_ids),
+        calls_made=calls_made,
+        complete=True,
+    )
+    return scores_path, opened.action == "reuse", progress
 
 
 def _validate_scores(
@@ -1850,6 +1919,7 @@ def execute_pipeline(
     *,
     through: PipelineStage = "report",
     allow_paid: bool = False,
+    max_new_scores: int | None = None,
     repo_root: str | Path = ".",
     command: Sequence[str] | None = None,
 ) -> PipelineResult:
@@ -1860,6 +1930,8 @@ def execute_pipeline(
     stage_order: tuple[PipelineStage, ...] = ("events", "scores", "tuning", "state", "backtest", "report")
     if through not in stage_order:
         raise StrategyPipelineError(f"unsupported pipeline stage: {through}")
+    if max_new_scores is not None and through != "scores":
+        raise StrategyPipelineError("max_new_scores is supported only by the explicit strategy score command")
     if stage_order.index(through) >= stage_order.index("tuning"):
         config.require_ready(check_files=True)
     elif through == "events":
@@ -1878,18 +1950,28 @@ def execute_pipeline(
     if through == "events":
         return PipelineResult(paths, events_path, Path(), None, None, None, tuple(reused))
 
-    scores_path, was_reused = scores_stage(
+    scores_path, was_reused, score_progress = scores_stage(
         config,
         paths,
         events_path,
         repo_root=repo,
         command=command,
         allow_paid=allow_paid,
+        max_new_scores=max_new_scores,
     )
     if was_reused:
         reused.append("scores")
     if through == "scores":
-        return PipelineResult(paths, events_path, scores_path, None, None, None, tuple(reused))
+        return PipelineResult(
+            paths,
+            events_path,
+            scores_path,
+            None,
+            None,
+            None,
+            tuple(reused),
+            score_progress,
+        )
 
     inputs = prepare_strategy_inputs(config, events_path, scores_path)
     inputs = replace(inputs, event_build_counts=_load_event_build_counts(paths))
