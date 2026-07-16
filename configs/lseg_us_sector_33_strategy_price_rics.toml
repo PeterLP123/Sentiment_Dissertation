@@ -1,0 +1,5 @@
+# Price-only RIC override. The news collection remains frozen on its original
+# query RICs; this mapping records the continuous historical-pricing instrument.
+
+[rics]
+WMT = "WMT.O"

@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from ..artifact_io import atomic_write_json, canonical_json, read_json, sha256_text
+from ..artifact_io import atomic_write_json, canonical_json, directory_digest, read_json, sha256_text
 from ..constants import DEFAULT_BASE_URL, DEFAULT_CEREBRAS_BASE_URL, DEFAULT_OLLAMA_HOST
 from ..models import BlindExample, LLMResponseRecord, PromptConfig
 from .prompts import strategy_prompt
@@ -116,6 +116,47 @@ class ScoreBatchResult:
     missing_event_ids: tuple[str, ...]
     cache_hits: int
     calls_made: int
+
+
+def import_completed_score_cache(
+    events: tuple[StrategyEvent, ...] | list[StrategyEvent],
+    identity: ScoringIdentity,
+    source_cache_dir: str | Path,
+    target_cache_dir: str | Path,
+) -> dict[str, Any]:
+    """Import only fully validated immutable successes into another run cache."""
+
+    source = Path(source_cache_dir).resolve()
+    target = Path(target_cache_dir).resolve()
+    if source == target:
+        raise ValueError("source and target score caches must differ")
+    ordered_events = sorted(events, key=lambda value: (value.available_at_utc, value.event_id))
+    records: list[ScoreRecord] = []
+    source_paths: list[Path] = []
+    for event in ordered_events:
+        record = _load_completed(event, identity, source)
+        if record is None:
+            raise ValueError(f"source score cache is incomplete for event {event.event_id}")
+        records.append(record)
+        source_paths.append(_completed_path(source, record.cache_key))
+    source_digest = directory_digest(source, source_paths)
+    for record in records:
+        _write_completed(target, record)
+    inspection = inspect_score_cache(events, identity, target)
+    if inspection.expected_score_calls:
+        raise ValueError("target score cache remained incomplete after import")
+    return {
+        "schema_version": 1,
+        "status": "completed",
+        "source_cache": source.as_posix(),
+        "source_completed_sha256": source_digest,
+        "imported_records": len(records),
+        "event_count": len(events),
+        "scoring_config_hash": identity.config_hash,
+        "model_id": identity.model_id,
+        "model_digest": identity.model_digest,
+        "prompt_hash": identity.prompt.prompt_hash,
+    }
 
 
 def score_cache_key(event: StrategyEvent, identity: ScoringIdentity) -> str:

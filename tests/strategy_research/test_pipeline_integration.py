@@ -402,6 +402,33 @@ def test_local_canary_is_bounded_resumable_and_does_not_finalize_early(
     assert score_manifest["status"] == "completed"
     assert sum(client.calls for client in clients) == 12
 
+    imported_config = replace(
+        config,
+        outputs=OutputSettings(
+            derived_root=tmp_path / "imported-derived",
+            results_root=tmp_path / "imported-results",
+        ),
+    )
+    imported = execute_pipeline(
+        imported_config,
+        through="scores",
+        allow_paid=True,
+        score_cache_from=second.paths.derived_stage("scores") / "cache",
+        repo_root=Path.cwd(),
+        command=("test", "strategy", "score", "--cache-from"),
+    )
+    assert imported.score_progress is not None
+    assert imported.score_progress.complete
+    assert imported.score_progress.calls_made == 0
+    assert sha256_file(imported.scores_path) == sha256_file(second.scores_path)
+    import_payload = json.loads(
+        (imported.paths.derived_stage("scores") / "cache_import.json").read_text(encoding="utf-8")
+    )
+    assert import_payload["imported_records"] == 12
+    imported_manifest = json.loads(imported.paths.stage_manifest("scores").read_text(encoding="utf-8"))
+    assert "score_cache_import" in imported_manifest["outputs"]
+    assert sum(client.calls for client in clients) == 12
+
 
 def test_bounded_canary_rejects_nonlocal_provider_without_creating_score_stage(tmp_path: Path) -> None:
     config = isolated_smoke_config(tmp_path)

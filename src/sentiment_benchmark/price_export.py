@@ -5,7 +5,7 @@ from __future__ import annotations
 import csv
 import io
 from collections import Counter, defaultdict
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from datetime import date
 from pathlib import Path
@@ -57,6 +57,7 @@ def export_lseg_prices(
     output: str | Path,
     overwrite: bool = False,
     provider: PriceProvider | None = None,
+    ric_overrides: Mapping[str, str] | None = None,
 ) -> PriceExportResult:
     """Fetch one deterministic OHLCV panel and write a hash manifest beside it."""
 
@@ -67,8 +68,16 @@ def export_lseg_prices(
         raise PriceExportError(f"refusing to overwrite existing price export: {output_path}")
 
     symbols = tuple(company.symbol for company in config.companies)
-    ric_overrides = {company.symbol: company.ric for company in config.companies}
-    active_provider = provider or LsegPriceProvider(ric_overrides=ric_overrides)
+    resolved_rics = {company.symbol: company.ric for company in config.companies}
+    for symbol, ric in (ric_overrides or {}).items():
+        normalized_symbol = symbol.strip().upper()
+        normalized_ric = ric.strip()
+        if normalized_symbol not in resolved_rics:
+            raise PriceExportError(f"price RIC override references unknown symbol: {normalized_symbol}")
+        if not normalized_ric:
+            raise PriceExportError(f"price RIC override for {normalized_symbol} is blank")
+        resolved_rics[normalized_symbol] = normalized_ric
+    active_provider = provider or LsegPriceProvider(ric_overrides=resolved_rics)
     try:
         rows = active_provider.fetch(symbols, start, end)
     except PriceProviderError as exc:
@@ -94,7 +103,8 @@ def export_lseg_prices(
             "requested_start": start,
             "requested_end": end,
             "symbols": list(symbols),
-            "rics": ric_overrides,
+            "rics": resolved_rics,
+            "ric_overrides": dict(sorted((ric_overrides or {}).items())),
             "counts": {
                 "rows": len(rows),
                 "symbols": len(symbols),

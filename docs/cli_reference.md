@@ -158,6 +158,7 @@ All historical subcommands except the gated `paper` command require `--config`. 
 | `--dry-run` | `strategy run` | Resolve input hashes, event and price coverage, score-cache hits, split feasibility, candidate count, outputs, and blockers without writes, provider construction, or model calls. |
 | `--allow-paid` | `strategy run` | Explicitly authorize missing hosted-model calls in a full run. Omitting it never silently crosses the paid-call boundary. |
 | `--max-new-scores N` | `strategy score` | Make at most `N` new local Ollama calls against development-period events. Requires a frozen evaluation boundary and model digest; successful cache entries resume into the full score run without finalizing a partial `scores.jsonl`. |
+| `--cache-from PATH` | `strategy score` | Import a complete score cache from a prior run identity. Every event/content/target/model/digest/prompt/config key is validated before any record is copied; the import digest is recorded in the completed stage manifest. |
 
 The synthetic smoke config uses checked-in fixtures and requires no network, credentials, licensed text, or paid calls. Historical outputs resolve to `<logical-run-id>-<identity-hash-prefix>` below `Data/derived/strategy_research/` and `results/strategy_research/`; see [Results and exports](results_and_exports.md#historical-strategy-research-artifacts).
 
@@ -675,6 +676,10 @@ sentiment-bench lseg-catalog
 ```
 
 `lseg-init-config` writes a preset TOML config and refuses to replace an existing file unless `--overwrite` is passed. The default preset is the 8-company US mega-cap universe (`us-mega-eight`) over `2025-06-26T00:00:00Z` to `2026-06-26T00:00:00Z` with daily windows; `configs/lseg_us_mega_cap_1y.toml` is the checked-in template. `lseg-news-check` tests the desktop session plus headline and story entitlements without writing data; `--all-companies` checks every configured RIC. `fetch-lseg-news` atomically checkpoints an immutable collection. A collection can set `fetch_story_bodies = false` for an explicit headline-only artifact and `max_requests_per_run` for a resumable hard request ceiling. `fetch-lseg-prices` uses the same company/RIC definitions, writes canonical OHLCV CSV, and records coverage, hashes and the price-return convention in an adjacent manifest. `build-lseg-corpus` verifies raw hashes and deterministically rebuilds clean text offline. `lseg-catalog` refreshes metadata-only `Data/derived/lseg/catalog.json` and `catalog.csv`.
+
+`fetch-lseg-prices --ric-overrides PATH` accepts a TOML `[rics]` table for a
+price-only instrument mapping without changing the frozen news-query RICs. The
+resolved mapping and explicit overrides are recorded in the price manifest.
 
 `build-lseg-analysis-cohort` leaves the verified corpus unchanged, applies the configured relevance and earliest-revision rules, and writes hashed development, holdout, and L3 cohort artifacts. It refuses incomplete corpora, undersized splits, and existing output directories.
 

@@ -32,6 +32,7 @@ def _execute(
     *,
     allow_paid: bool = False,
     max_new_scores: int | None = None,
+    score_cache_from: Path | None = None,
 ) -> None:
     config = _config(path)
     try:
@@ -40,6 +41,7 @@ def _execute(
             through=through,  # type: ignore[arg-type]
             allow_paid=allow_paid,
             max_new_scores=max_new_scores,
+            score_cache_from=score_cache_from,
             repo_root=Path.cwd(),
             command=sys.argv,
         )
@@ -83,10 +85,23 @@ def score_command(
             help="Bound new local Ollama calls for a resumable development-only canary.",
         ),
     ] = None,
+    cache_from: Annotated[
+        Path | None,
+        typer.Option(
+            "--cache-from",
+            help="Import a complete, identity-verified score cache from a prior pipeline run.",
+        ),
+    ] = None,
 ) -> None:
     """Explicitly score missing events and materialize frozen scores."""
 
-    _execute(config, "scores", allow_paid=True, max_new_scores=max_new_scores)
+    _execute(
+        config,
+        "scores",
+        allow_paid=True,
+        max_new_scores=max_new_scores,
+        score_cache_from=cache_from,
+    )
 
 
 @app.command("tune")

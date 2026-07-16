@@ -65,3 +65,32 @@ def test_export_lseg_prices_refuses_overwrite(tmp_path: Path) -> None:
             output=output,
             provider=FakeProvider(),
         )
+
+
+def test_export_lseg_prices_records_price_only_ric_override(tmp_path: Path) -> None:
+    output = tmp_path / "prices.csv"
+
+    result = export_lseg_prices(
+        _config(tmp_path),
+        start="2025-06-20",
+        end="2026-07-10",
+        output=output,
+        provider=FakeProvider(),
+        ric_overrides={"LFUS": "LFUS.NEW"},
+    )
+
+    manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+    assert manifest["rics"] == {"DLB": "DLB.N", "LFUS": "LFUS.NEW"}
+    assert manifest["ric_overrides"] == {"LFUS": "LFUS.NEW"}
+
+
+def test_export_lseg_prices_rejects_unknown_ric_override(tmp_path: Path) -> None:
+    with pytest.raises(PriceExportError, match="unknown symbol"):
+        export_lseg_prices(
+            _config(tmp_path),
+            start="2025-06-20",
+            end="2026-07-10",
+            output=tmp_path / "prices.csv",
+            provider=FakeProvider(),
+            ric_overrides={"UNKNOWN": "UNKNOWN.N"},
+        )

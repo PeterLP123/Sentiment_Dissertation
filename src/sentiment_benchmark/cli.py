@@ -6,6 +6,7 @@ import os
 import shlex
 import sys
 import time
+import tomllib
 from contextlib import AsyncExitStack
 from pathlib import Path
 from typing import Annotated, Any
@@ -887,19 +888,38 @@ def fetch_lseg_prices_command(
         bool,
         typer.Option("--overwrite", help="Replace an existing CSV and manifest."),
     ] = False,
+    ric_overrides_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--ric-overrides",
+            help="Optional TOML file with a [rics] symbol-to-RIC table used only for prices.",
+        ),
+    ] = None,
 ) -> None:
     """Fetch a hash-manifested LSEG price panel for a configured company universe."""
 
     try:
         config = load_lseg_collection_config(config_path)
+        ric_overrides: dict[str, str] | None = None
+        if ric_overrides_path is not None:
+            with ric_overrides_path.open("rb") as handle:
+                override_payload = tomllib.load(handle)
+            raw_rics = override_payload.get("rics")
+            if not isinstance(raw_rics, dict) or not all(
+                isinstance(symbol, str) and isinstance(ric, str)
+                for symbol, ric in raw_rics.items()
+            ):
+                raise PriceExportError("price RIC override file must contain a [rics] string table")
+            ric_overrides = dict(raw_rics)
         result = export_lseg_prices(
             config,
             start=start,
             end=end,
             output=output,
             overwrite=overwrite,
+            ric_overrides=ric_overrides,
         )
-    except (LsegNewsError, PriceExportError) as exc:
+    except (OSError, tomllib.TOMLDecodeError, LsegNewsError, PriceExportError) as exc:
         raise typer.BadParameter(str(exc)) from exc
     table = Table(title="LSEG Price Export")
     table.add_column("Metric")

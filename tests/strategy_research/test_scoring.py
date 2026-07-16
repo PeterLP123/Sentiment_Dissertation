@@ -14,6 +14,7 @@ from sentiment_benchmark.strategy_research.schemas import StrategyEvent, load_sc
 from sentiment_benchmark.strategy_research.score_mapping import FIVE_LEVEL_LABELS, map_score_label
 from sentiment_benchmark.strategy_research.scoring import (
     ScoringIdentity,
+    import_completed_score_cache,
     inspect_score_cache,
     materialize_scores,
     score_cache_key,
@@ -239,3 +240,34 @@ def test_bounded_scoring_rejects_nonpositive_limit(tmp_path) -> None:
                 max_new_scores=0,
             )
         )
+
+
+def test_complete_score_cache_can_be_imported_across_run_identities(tmp_path) -> None:
+    identity = ScoringIdentity("three_class", "cerebras", "gemma-4-31b")
+    events = [_event(f"event-{index}") for index in range(3)]
+    source = tmp_path / "source"
+    target = tmp_path / "target"
+    first = asyncio.run(score_events(events, identity, source, FakeClient("positive"), allow_calls=True))
+    assert first.calls_made == 3
+
+    provenance = import_completed_score_cache(events, identity, source, target)
+    reused = asyncio.run(score_events(events, identity, target, allow_calls=False))
+
+    assert provenance["imported_records"] == 3
+    assert provenance["source_completed_sha256"]
+    assert reused.cache_hits == 3
+    assert reused.calls_made == 0
+    assert reused.missing_event_ids == ()
+
+
+def test_incomplete_score_cache_import_is_rejected_before_target_writes(tmp_path) -> None:
+    identity = ScoringIdentity("three_class", "cerebras", "gemma-4-31b")
+    events = [_event("one"), _event("two")]
+    source = tmp_path / "source"
+    target = tmp_path / "target"
+    asyncio.run(score_events(events[:1], identity, source, FakeClient("neutral"), allow_calls=True))
+
+    with pytest.raises(ValueError, match="source score cache is incomplete"):
+        import_completed_score_cache(events, identity, source, target)
+
+    assert not target.exists()

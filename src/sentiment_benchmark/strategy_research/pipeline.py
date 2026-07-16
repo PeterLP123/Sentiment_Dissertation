@@ -60,7 +60,13 @@ from .reporting import (
 )
 from .schemas import ScoreRecord, StrategyEvent, load_score_records, load_strategy_events, write_score_records, write_strategy_events
 from .score_mapping import map_score_label, score_mapping_hash
-from .scoring import ScoringIdentity, inspect_score_cache, score_cache_key, score_events
+from .scoring import (
+    ScoringIdentity,
+    import_completed_score_cache,
+    inspect_score_cache,
+    score_cache_key,
+    score_events,
+)
 from .sources import LsegEventSettings, build_strategy_events, write_event_build_artifacts
 from .state import (
     ScaleEstimate,
@@ -752,6 +758,7 @@ def scores_stage(
     command: Sequence[str] | None = None,
     allow_paid: bool = False,
     max_new_scores: int | None = None,
+    cache_from: Path | None = None,
 ) -> tuple[Path, bool, ScoreProgress]:
     """Materialize frozen scores from a fixture or explicitly-authorized provider."""
 
@@ -795,6 +802,10 @@ def scores_stage(
             True,
         )
         return scores_path, True, progress
+    cache_import_path = output_dir / "cache_import.json"
+    if cache_from is not None:
+        cache_import = import_completed_score_cache(events, identity, cache_from, output_dir / "cache")
+        write_immutable_json(cache_import_path, cache_import)
     opened = store.begin(config=config, input_identities=inputs, command=_command(command))
 
     if config.scoring.scores_path is not None:
@@ -895,11 +906,15 @@ def scores_stage(
             "scoring_config_hash": identity.config_hash,
         },
     )
+    outputs = {"scores": scores_path, "score_coverage": coverage_path}
+    if cache_import_path.is_file():
+        outputs["score_cache_import"] = cache_import_path
     store.complete(
-        outputs={"scores": scores_path, "score_coverage": coverage_path},
+        outputs=outputs,
         row_counts={"scores": len(records), "successful_scores": len(successful_ids)},
         exclusions={"missing_score": len(missing_ids)},
         warnings=("fixture scores; no model call was made",) if config.scoring.scores_path is not None else (),
+        deviations=("validated score cache imported from a prior run identity",) if cache_import_path.is_file() else (),
     )
     progress = ScoreProgress(
         total_events=len(event_ids),
@@ -1923,6 +1938,7 @@ def execute_pipeline(
     through: PipelineStage = "report",
     allow_paid: bool = False,
     max_new_scores: int | None = None,
+    score_cache_from: str | Path | None = None,
     repo_root: str | Path = ".",
     command: Sequence[str] | None = None,
 ) -> PipelineResult:
@@ -1935,6 +1951,8 @@ def execute_pipeline(
         raise StrategyPipelineError(f"unsupported pipeline stage: {through}")
     if max_new_scores is not None and through != "scores":
         raise StrategyPipelineError("max_new_scores is supported only by the explicit strategy score command")
+    if score_cache_from is not None and through != "scores":
+        raise StrategyPipelineError("score_cache_from is supported only by the explicit strategy score command")
     if stage_order.index(through) >= stage_order.index("tuning"):
         config.require_ready(check_files=True)
     elif through == "events":
@@ -1961,6 +1979,7 @@ def execute_pipeline(
         command=command,
         allow_paid=allow_paid,
         max_new_scores=max_new_scores,
+        cache_from=Path(score_cache_from) if score_cache_from is not None else None,
     )
     if was_reused:
         reused.append("scores")

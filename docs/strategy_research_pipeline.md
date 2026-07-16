@@ -123,6 +123,32 @@ Repeating the command reuses prior successes and makes at most the requested
 number of additional calls. The configured Ollama digest is verified before any
 classification request.
 
+Build the strategy price artifact from a completed, hash-verified LSEG export:
+
+```bash
+sentiment-bench fetch-lseg-prices \
+  --config configs/lseg_us_sector_33_6m.toml \
+  --ric-overrides configs/lseg_us_sector_33_strategy_price_rics.toml \
+  --start 2025-11-13 --end 2026-07-01 \
+  --output Data/derived/prices/lseg_us_sector_33_strategy_source_v2.csv
+
+python scripts/build_strategy_price_panel.py \
+  --source-panel Data/derived/prices/lseg_us_sector_33_strategy_source_v2.csv \
+  --source-manifest Data/derived/prices/lseg_us_sector_33_strategy_source_v2.manifest.json \
+  --output-panel Data/derived/prices/lseg_us_sector_33_strategy_adjusted_open.csv \
+  --output-manifest Data/derived/prices/lseg_us_sector_33_strategy_adjusted_open.manifest.json
+```
+
+The converter refuses incomplete symbol-session grids, hash mismatches, ambiguous
+adjustment provenance, or overwrites. If adding the price manifest changes the
+overall run identity after scoring, the complete price-independent cache can be
+verified and imported without another model call:
+
+```bash
+sentiment-bench strategy score --config <config> \
+  --cache-from Data/derived/strategy_research/<prior-run>/scores/cache
+```
+
 The main LSEG configuration intentionally remains blocked until it has an explicit evaluation boundary, a completed canonical corpus, and a sufficiently long verified adjusted-open price panel. Dry-run reports these blockers and the resolved identity before any scoring.
 
 ## Artifacts and replay
