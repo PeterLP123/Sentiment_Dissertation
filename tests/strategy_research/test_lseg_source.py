@@ -67,6 +67,9 @@ def _corpus(tmp_path: Path) -> Path:
             body="No named company is discussed.",
         ),
     ]
+    # Reproduce a real-corpus boundary where truncation lands on whitespace.
+    # Event hashing must use the same normalized text exposed by StrategyEvent.
+    rows[0]["max_scoring_chars"] = 11
     articles = root / "articles.jsonl"
     articles.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
     screening = root / "screening_index.csv"

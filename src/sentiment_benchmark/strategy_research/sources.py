@@ -300,7 +300,7 @@ def build_strategy_events(
         source_text_limit = int(chosen.record.get("max_scoring_chars") or resolved_settings.max_text_chars)
         text_limit = min(source_text_limit, resolved_settings.max_text_chars, resolved_settings.lead_window_chars)
         lead_or_body = str(chosen.record.get("clean_text") or "").strip()[:text_limit]
-        scoring_text = "\n\n".join(value for value in (headline, lead_or_body) if value)
+        scoring_text = "\n\n".join(value.strip() for value in (headline, lead_or_body) if value.strip())
         family, symbol = key
         revision_id = str(chosen.record.get("revision_id") or "").strip()
         event_id = sha256_text(f"strategy-event-v1|lseg|{family}|{revision_id}|{symbol}")
