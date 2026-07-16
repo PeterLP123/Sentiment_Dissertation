@@ -94,6 +94,7 @@ def test_cerebras_retries_429_using_retry_header() -> None:
 
         assert attempts == 2
         assert record.normalized_label == "neutral"
+        assert record.attempt_count == 2
         assert wall_ms >= 45
         assert record.latency_ms is not None and record.latency_ms < 45
 

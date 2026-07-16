@@ -62,6 +62,27 @@ def test_openrouter_retries_429_then_success() -> None:
         await client.close()
         assert attempts["count"] == 2
         assert record.normalized_label == "neutral"
+        assert record.attempt_count == 2
+
+    run(scenario())
+
+
+def test_openrouter_accepts_an_explicit_enum_contract() -> None:
+    async def scenario():
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"choices": [{"message": {"content": "very_positive"}}]})
+
+        client = make_client(handler)
+        prompt = make_prompt("strategy", "Return an enum.", "{sentence}", "label_only")
+        record = await client.classify(
+            "test/model",
+            prompt,
+            BlindExample(2, "sentence"),
+            allowed_labels=("very_negative", "negative", "neutral", "positive", "very_positive"),
+        )
+        await client.close()
+        assert record.status == "success"
+        assert record.normalized_label == "very_positive"
 
     run(scenario())
 

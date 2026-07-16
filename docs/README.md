@@ -16,6 +16,7 @@ This documentation is organized by reader task ([Diátaxis](https://diataxis.fr/
 | [LSEG analysis workflow](lseg_analysis_workflow.md) | How-to + implementation plan | The gated corpus → price/timing dry run → lean four-scorer panel → held-out event-study sequence. |
 | [Mid-cap deadline runbook](midcap_deadline_runbook.md) | Exploratory runbook | One-day Reuters headline collection, bounded local scoring, LSEG prices and funded evaluation for the 22-company extension. |
 | [Trading pipeline](trading_pipeline.md) | How-to + explanation | The news-to-price pipeline: runs, effectiveness battery, sweeps, and pluggable strategies. |
+| [Historical strategy-research pipeline](strategy_research_pipeline.md) | Technical guide | The separate point-in-time LSEG state, portfolio, ledger, tuning, and paper-order pipeline. |
 | [TUI guide](tui_guide.md) | How-to | Interactive model, prompt, run, results, and news workflows. |
 | [CLI reference](cli_reference.md) | Reference | Every command, option, default, and example. |
 | [Results and exports](results_and_exports.md) | Reference | Storage backends, export files, metrics, LaTeX tables, and trading artifacts. |
@@ -38,6 +39,7 @@ This documentation is organized by reader task ([Diátaxis](https://diataxis.fr/
 | Build the licensed Workspace-to-local-model pipeline. | [LSEG to Ollama pipeline](lseg_ollama_pipeline.md) |
 | Execute the refocused 33-company LSEG feasibility, scoring, and event-study workflow. | [LSEG analysis workflow](lseg_analysis_workflow.md) |
 | Run, analyze, tune, or extend the trading strategy. | [Trading pipeline](trading_pipeline.md) |
+| Run the separate historical sentiment-state research portfolio. | [Historical strategy-research pipeline](strategy_research_pipeline.md) |
 | Understand the filed (currently parked) confirmatory trading test. | [Trading pre-registration](trading_preregistration.md) |
 | Work through the terminal UI. | [TUI guide](tui_guide.md) |
 | Look up a command, option, or default. | [CLI reference](cli_reference.md) |

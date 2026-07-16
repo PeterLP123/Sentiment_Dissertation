@@ -27,6 +27,9 @@ flowchart LR
 | `Data/derived/trading/<run-id>/` | `run-trading-strategy` | Provider-neutral articles, screening decisions, and data manifest. | Ignored. |
 | `results/trading/<run-id>/` | `run-trading-strategy` | Sentiment outputs, daily signals, adjusted prices, event diagnostics, optional funded portfolio tables, sensitivity tables, figures, summary, and run manifest. | Ignored. |
 | `results/trading/<analysis-id>/` | `analyze-trading-run` | Robustness CSVs, plots, technical summary, source map, and hashed analysis manifest. | Ignored. |
+| `Data/derived/strategy_research/<logical-id>-<identity-prefix>/` | `strategy build-events`, `strategy score`, or `strategy run` | Separate target-specific event and scoring evidence, including licensed text hashes and resumable score-cache records. | Ignored. |
+| `results/strategy_research/<logical-id>-<identity-prefix>/` | `strategy tune`, `strategy build-state`, `strategy backtest`, `strategy report`, or `strategy run` | Separate state, targets, ledger, development tuning, chronological evaluation, diagnostics, figures, and stage manifests. | Ignored. |
+| `results/strategy_research/paper/journal.jsonl` | Future accepted `strategy paper` phase | Prospective-only, append-only hash-chained observation/order/outcome journal; the current command is write-gated. | Ignored. |
 | `experiments/manifest.toml` | Manual curation | Formal dissertation experiment registry. | Source-controlled. |
 
 ## Optional Turso/libSQL Cloud Database
@@ -241,6 +244,31 @@ For formal results:
 3. Record the code commit SHA.
 4. Preserve `run.json`, `metrics.json`, `statistics.json`, and `summary.md`.
 5. Interpret headline metrics with `primary` scope and report `all` as an audit scope.
+
+## Historical Strategy-Research Artifacts
+
+The historical strategy pipeline has an explicit boundary from the benchmark database and the existing event-study, fixed-horizon, rotating-sleeve, and Week 6 directories. It consumes the verified canonical LSEG corpus and a separately hash-manifested adjusted-open panel; it does not copy, amend, or reinterpret their existing outputs. See the [historical strategy-research guide](strategy_research_pipeline.md).
+
+Each run resolves to `<logical-run-id>-<identity-hash-prefix>`. Text-bearing derivatives remain below `Data/derived/strategy_research/<resolved-run-id>/`:
+
+| Directory | Main contents |
+| --- | --- |
+| `events/` | Deterministically ordered `events.jsonl`, per-record screening evidence, and filter attrition. |
+| `scores/` | Immutable `scores.jsonl`, score coverage, and an operational per-identity cache while scoring is incomplete. Missing or invalid scores are excluded rather than converted to neutral. |
+
+Portfolio state and evidence remain below the matching `results/strategy_research/<resolved-run-id>/`:
+
+| Directory | Main contents |
+| --- | --- |
+| `tuning/` | Every candidate and fold result plus `selected_config.json`; only development sessions enter selection. |
+| `state/` | State transitions, actions, and development-fitted stock scales. |
+| `backtest/` | Positions, orders, daily gross/net P&L, `evaluation_metrics.json`, stock diagnostics, leave-one-stock-out evidence, and paired block-bootstrap comparisons. |
+| `report/` | Technical `summary.md`, leakage checklist, and deterministic SVG figures. |
+| `manifests/` and `manifest.json` | Per-stage status/input/output hashes and the completed run identity, configuration, runtime, exclusions, limitations, and output hashes. |
+
+Stages are immutable after completion. A matching stage is hash-verified and reused; incompatible inputs fail closed instead of overwriting evidence. `strategy run --dry-run` is the preflight surface: it reports identities, coverage, score calls/cache hits, split feasibility, grid size, output paths, and exact blockers without creating directories or clients.
+
+`evaluation_metrics.json` describes a chronological evaluation block, not a pristine holdout, because earlier exploratory work used inconsistent boundaries. Reports must keep observed results separate from interpretation and must not describe a successful backtest as deployable or profitable alpha.
 
 ## Trading Artifacts
 

@@ -114,6 +114,7 @@ from .self_consistency import SelfConsistencyResult
 from .storage import BenchmarkStore
 from .strategies import available as available_strategies
 from .strategies import get as get_strategy
+from .strategy_research.cli import app as strategy_research_app
 from .strategy_sweep import (
     chronological_split_date,
     load_prices_csv,
@@ -139,6 +140,7 @@ from .week6_pnl import Week6PnlConfig, Week6PnlError, run_week6_pnl
 
 console = Console()
 app = typer.Typer(help="Benchmark OpenRouter and Ollama LLMs on dissertation sentiment data.")
+app.add_typer(strategy_research_app, name="strategy")
 load_env_file()
 
 # Tavily batch fetches retry transient failures (timeouts, dropped connections)

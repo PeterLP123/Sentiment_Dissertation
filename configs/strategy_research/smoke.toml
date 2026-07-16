@@ -1,0 +1,104 @@
+# Offline deterministic smoke run. All inputs are synthetic test fixtures and
+# no provider call is required or permitted by the normal smoke path.
+
+[run]
+id = "strategy-smoke"
+title = "Synthetic strategy-research smoke run"
+mode = "smoke"
+evaluation_start = "2026-01-12"
+
+[data]
+source = "synthetic"
+events_path = "tests/fixtures/strategy_research/events.jsonl"
+event_identity = "earliest_story_family_symbol"
+text_unit = "headline_plus_lead"
+exchange_calendar = "XNYS"
+exchange_timezone = "America/New_York"
+processing_buffer_minutes = 15
+fail_on_invalid_timestamp = true
+
+[scoring]
+provider = "fixture"
+model = "fixture-direction-v1"
+scheme = "three_class"
+prompt_id = "strategy_target_direction_3class_v1"
+prompts_path = "configs/strategy_research/prompts.toml"
+scores_path = "tests/fixtures/strategy_research/scores.jsonl"
+temperature = 0.0
+samples = 1
+target_specific = true
+allow_missing_as_neutral = false
+minimum_success_rate = 0.90
+max_completion_tokens = 64
+concurrency = 1
+retries = 0
+
+[signal]
+variant = "decay_with_reset"
+fixed_hold_sessions = 3
+half_life_sessions = 3
+severity_power = 1.5
+reversal_reset = 0.75
+impulse_scale = 1.0
+state_cap = 3.0
+state_scale_quantile = 0.75
+scale_shrinkage_k = 50
+minimum_state_scale = 0.05
+no_trade_band = 0.10
+
+[prices]
+panel_path = "tests/fixtures/strategy_research/prices.csv"
+manifest_path = "tests/fixtures/strategy_research/prices.manifest.json"
+execution_field = "adjusted_open"
+return_convention = "open_to_open"
+volatility_window_sessions = 5
+volatility_minimum_sessions = 3
+volatility_floor = 0.005
+fail_on_unsupported_adjustment = true
+
+[execution]
+fill_rule = "next_eligible_open"
+cost_bps_per_side = 10
+allow_same_session_open_only_if_available_before_open = true
+
+[portfolio]
+mode = "long_short"
+gross_limit = 1.0
+net_limit = 0.20
+single_name_limit = 0.05
+volatility_scaling = true
+preserve_signal_sign = true
+
+[tuning]
+method = "expanding_chronological"
+folds = 2
+minimum_training_sessions = 5
+validation_sessions = 3
+minimum_validation_sessions = 2
+half_life_grid = [2, 3]
+state_scale_quantile_grid = [0.75]
+no_trade_band_grid = [0.00, 0.10]
+stability_penalty = 0.5
+selection_metric = "median_sharpe_minus_iqr_penalty"
+maximum_exposure_violations = 0
+minimum_supported_stocks = 1
+minimum_active_validation_days = 1
+
+[inference]
+method = "paired_block_bootstrap"
+block_length_sessions = 2
+replications = 100
+seed = 20260715
+
+[reporting]
+write_intermediate_artifacts = true
+include_gross_and_net = true
+include_stock_diagnostics = true
+include_leave_one_stock_out = true
+
+[agreement_conditioning]
+enabled = false
+
+[outputs]
+derived_root = "Data/derived/strategy_research"
+results_root = "results/strategy_research"

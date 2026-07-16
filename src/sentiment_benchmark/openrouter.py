@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import os
 import time
+from collections.abc import Sequence
 from typing import Any
 
 import httpx
@@ -12,6 +13,8 @@ from .env import load_env_file
 from .models import BlindExample, LLMResponseRecord, ModelConfig, PromptConfig
 from .parser import parse_model_response
 from .prompts import render_messages
+
+_ATTEMPT_COUNT_EXTENSION = "sentiment_benchmark_attempt_count"
 
 
 class OpenRouterClient:
@@ -80,6 +83,7 @@ class OpenRouterClient:
                 if response.status_code in {429, 500, 502, 503, 504} and attempt < retries:
                     await asyncio.sleep(min(2**attempt, 8))
                     continue
+                response.extensions[_ATTEMPT_COUNT_EXTENSION] = attempt + 1
                 return response
             except (httpx.TimeoutException, httpx.TransportError) as exc:
                 last_error = exc
@@ -116,6 +120,7 @@ class OpenRouterClient:
         temperature: float = 0.0,
         max_completion_tokens: int = 64,
         retries: int = 3,
+        allowed_labels: Sequence[str] | None = None,
     ) -> LLMResponseRecord:
         payload = {
             "model": model_id,
@@ -125,8 +130,10 @@ class OpenRouterClient:
             "stream": False,
         }
         start = time.monotonic()
+        attempt_count = 1
         try:
             response = await self._request_with_retries("POST", "chat/completions", retries, json=payload)
+            attempt_count = int(response.extensions.get(_ATTEMPT_COUNT_EXTENSION, 1))
             latency_ms = float(response.extensions.get("sentiment_benchmark_request_latency_ms", (time.monotonic() - start) * 1000))
             if response.status_code >= 400:
                 return LLMResponseRecord(
@@ -138,6 +145,7 @@ class OpenRouterClient:
                     parse_status="error",
                     status="api_error",
                     latency_ms=latency_ms,
+                    attempt_count=attempt_count,
                     error=f"HTTP {response.status_code}: {response.text[:500]}",
                 )
 
@@ -163,6 +171,7 @@ class OpenRouterClient:
                     status="malformed_response",
                     raw_response_json=raw_json,
                     latency_ms=latency_ms,
+                    attempt_count=attempt_count,
                     error=error,
                     generation_id=raw_json.get("id"),
                 )
@@ -184,10 +193,11 @@ class OpenRouterClient:
                     status="malformed_response",
                     raw_response_json=raw_json,
                     latency_ms=latency_ms,
+                    attempt_count=attempt_count,
                     error=error,
                     generation_id=raw_json.get("id"),
                 )
-            parsed = parse_model_response(raw_content, prompt.output_mode)
+            parsed = parse_model_response(raw_content, prompt.output_mode, allowed_labels)
             usage = raw_json.get("usage") or {}
             return LLMResponseRecord(
                 row_number=example.row_number,
@@ -201,6 +211,7 @@ class OpenRouterClient:
                 label_probabilities=parsed.label_probabilities,
                 raw_response_json=raw_json,
                 latency_ms=latency_ms,
+                attempt_count=attempt_count,
                 prompt_tokens=usage.get("prompt_tokens"),
                 completion_tokens=usage.get("completion_tokens"),
                 total_tokens=usage.get("total_tokens"),
@@ -216,6 +227,7 @@ class OpenRouterClient:
                 parse_status="error",
                 status="transport_error",
                 latency_ms=(time.monotonic() - start) * 1000,
+                attempt_count=retries + 1,
                 error=str(exc),
             )
         except ValueError as exc:
@@ -228,6 +240,7 @@ class OpenRouterClient:
                 parse_status="error",
                 status="malformed_response",
                 latency_ms=(time.monotonic() - start) * 1000,
+                attempt_count=attempt_count,
                 error=str(exc),
             )
 

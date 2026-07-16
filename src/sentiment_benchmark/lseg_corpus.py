@@ -90,6 +90,64 @@ def _build_fingerprint(raw_manifest_path: Path, config: LsegCollectionConfig) ->
     )
 
 
+def _verified_csv_auxiliary(csv_dir: Path, raw_manifest_sha256: str) -> bool:
+    """Verify the one permitted auxiliary subtree and all of its contents."""
+
+    if not csv_dir.is_dir():
+        return False
+    csv_manifest_path = csv_dir / "manifest.json"
+    if not csv_manifest_path.is_file():
+        return False
+    try:
+        csv_manifest = read_json(csv_manifest_path)
+    except (OSError, ValueError):
+        return False
+    if csv_manifest.get("status") != "completed":
+        return False
+    if csv_manifest.get("exporter_version") != "lseg_clean_csv_v1":
+        return False
+    if csv_manifest.get("source_manifest_sha256") != raw_manifest_sha256:
+        return False
+    files_value = csv_manifest.get("files")
+    if not isinstance(files_value, dict) or set(files_value) != {"headlines_csv", "main_bodies_csv"}:
+        return False
+    expected_names = {"headlines_csv": "headlines.csv", "main_bodies_csv": "main_bodies.csv"}
+    declared = {csv_manifest_path.resolve()}
+    for key, entry in files_value.items():
+        if not isinstance(entry, dict) or not entry.get("path") or not entry.get("sha256"):
+            return False
+        candidate = csv_dir / str(entry["path"])
+        try:
+            resolved = candidate.resolve()
+            resolved.relative_to(csv_dir.resolve())
+        except (OSError, ValueError):
+            return False
+        if resolved.parent != csv_dir.resolve() or resolved.name != expected_names[key]:
+            return False
+        if not resolved.is_file() or sha256_file(resolved) != entry["sha256"]:
+            return False
+        declared.add(resolved)
+    actual = {path.resolve() for path in csv_dir.iterdir()}
+    return actual == declared
+
+
+def _has_verified_csv_auxiliary(derived_dir: Path, raw_manifest_path: Path) -> bool:
+    """Return whether ``derived_dir`` contains only a verified CSV export.
+
+    The clean-CSV exporter predates the canonical corpus builder and writes to
+    ``<derived>/csv``. That auxiliary export must not prevent the canonical
+    corpus from being built, but its completed manifest, source identity,
+    declared paths, and file hashes must all verify first.
+    """
+
+    children = list(derived_dir.iterdir())
+    return (
+        len(children) == 1
+        and children[0].name == "csv"
+        and _verified_csv_auxiliary(children[0], sha256_file(raw_manifest_path))
+    )
+
+
 def _write_screening_csv(path: Path, articles: list[dict[str, Any]]) -> Path:
     fields = [
         "article_id",
@@ -143,18 +201,23 @@ def build_lseg_corpus(raw_source: str | Path) -> LsegCorpusResult:
                 "choose a new collection.id"
             )
         if existing.get("status") == "completed":
+            verified_articles, verified_screening = _verify_completed_corpus_files(derived_manifest_path, existing)
+            if verified_screening is None:
+                raise LsegNewsError(
+                    f"completed corpus resume manifest is missing files.screening_index_csv: {derived_manifest_path}"
+                )
             counts_value = existing.get("counts")
             counts: dict[str, Any] = counts_value if isinstance(counts_value, dict) else {}
             return LsegCorpusResult(
                 derived_dir=derived_dir,
-                articles_path=derived_dir / "articles.jsonl",
-                screening_path=derived_dir / "screening_index.csv",
+                articles_path=verified_articles,
+                screening_path=verified_screening,
                 manifest_path=derived_manifest_path,
                 article_count=int(counts.get("articles", 0)),
                 eligible_count=int(counts.get("eligible", 0)),
                 resumed=True,
             )
-    elif derived_dir.exists() and any(derived_dir.iterdir()):
+    elif derived_dir.exists() and any(derived_dir.iterdir()) and not _has_verified_csv_auxiliary(derived_dir, manifest_path):
         raise LsegNewsError(f"refusing to overwrite non-empty derived corpus without a manifest: {derived_dir}")
 
     derived_dir.mkdir(parents=True, exist_ok=True)
@@ -288,21 +351,57 @@ def build_lseg_corpus(raw_source: str | Path) -> LsegCorpusResult:
     )
 
 
+def _verify_completed_corpus_files(path: Path, manifest: dict[str, Any]) -> tuple[Path, Path | None]:
+    """Verify all declared corpus outputs and reject every undeclared sibling."""
+
+    files_value = manifest.get("files")
+    files: dict[str, Any] = files_value if isinstance(files_value, dict) else {}
+    expected_names = {
+        "articles_jsonl": "articles.jsonl",
+        "screening_index_csv": "screening_index.csv",
+    }
+    if "articles_jsonl" not in files or not set(files) <= set(expected_names):
+        raise LsegNewsError(f"LSEG corpus manifest has an unexpected files inventory: {path}")
+    verified: dict[str, Path] = {}
+    for key in sorted(files):
+        expected_name = expected_names[key]
+        entry = files[key]
+        if not isinstance(entry, dict) or not entry.get("path") or not entry.get("sha256"):
+            raise LsegNewsError(f"LSEG corpus manifest is missing a hashed files.{key}: {path}")
+        candidate = path.parent / str(entry["path"])
+        try:
+            resolved = candidate.resolve()
+            resolved.relative_to(path.parent.resolve())
+        except (OSError, ValueError) as exc:
+            raise LsegNewsError(f"LSEG corpus file escapes its derived directory: {candidate}") from exc
+        if resolved.parent != path.parent.resolve() or resolved.name != expected_name or not resolved.is_file():
+            raise LsegNewsError(f"LSEG corpus file path is invalid or missing: {candidate}")
+        actual = sha256_file(resolved)
+        expected = str(entry["sha256"])
+        if actual != expected:
+            raise LsegNewsError(f"LSEG corpus hash mismatch for {resolved}: expected {expected}, got {actual}")
+        verified[key] = resolved
+
+    allowed = {path.resolve(), *verified.values()}
+    csv_dir = path.parent / "csv"
+    if csv_dir.exists():
+        raw_manifest_sha256 = str(manifest.get("raw_manifest_sha256") or "")
+        if not _verified_csv_auxiliary(csv_dir, raw_manifest_sha256):
+            raise LsegNewsError(f"LSEG corpus contains an unverified csv auxiliary subtree: {csv_dir}")
+        allowed.add(csv_dir.resolve())
+    actual_entries = {entry.resolve() for entry in path.parent.iterdir()}
+    if actual_entries != allowed:
+        unexpected = sorted(entry.name for entry in actual_entries - allowed)
+        raise LsegNewsError(
+            f"LSEG corpus contains unexpected or unmanifested files in {path.parent}: {unexpected}"
+        )
+    return verified["articles_jsonl"], verified.get("screening_index_csv")
+
+
 def load_verified_lseg_corpus(manifest_path: str | Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     path = Path(manifest_path)
     manifest = read_json(path)
     if manifest.get("status") != "completed" or manifest.get("schema_version") != LSEG_CORPUS_SCHEMA_VERSION:
         raise LsegNewsError(f"LSEG corpus manifest is not a completed schema-v{LSEG_CORPUS_SCHEMA_VERSION} corpus: {path}")
-    files_value = manifest.get("files")
-    files: dict[str, Any] = files_value if isinstance(files_value, dict) else {}
-    articles_entry = files.get("articles_jsonl")
-    if not isinstance(articles_entry, dict):
-        raise LsegNewsError(f"LSEG corpus manifest is missing files.articles_jsonl: {path}")
-    articles_path = path.parent / str(articles_entry.get("path") or "")
-    expected = str(articles_entry.get("sha256") or "")
-    if not articles_path.exists() or not expected:
-        raise LsegNewsError(f"LSEG corpus articles file is missing or unhashed: {articles_path}")
-    actual = sha256_file(articles_path)
-    if actual != expected:
-        raise LsegNewsError(f"LSEG corpus hash mismatch for {articles_path}: expected {expected}, got {actual}")
+    articles_path, _ = _verify_completed_corpus_files(path, manifest)
     return manifest, read_jsonl(articles_path)

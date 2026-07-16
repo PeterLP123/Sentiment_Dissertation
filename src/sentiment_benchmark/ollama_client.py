@@ -4,7 +4,7 @@ import asyncio
 import inspect
 import os
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from typing import Any
 
 import httpx
@@ -17,17 +17,20 @@ from .prompts import render_messages
 from .utils import to_jsonable as _to_jsonable
 
 _TRANSIENT_STATUS_CODES = {429, 500, 502, 503, 504}
-_LABEL_SCHEMA = {"type": "string", "enum": ["positive", "negative", "neutral"]}
-_SOFT_LABEL_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "positive": {"type": "number", "minimum": 0, "maximum": 1},
-        "negative": {"type": "number", "minimum": 0, "maximum": 1},
-        "neutral": {"type": "number", "minimum": 0, "maximum": 1},
-    },
-    "required": ["positive", "negative", "neutral"],
-    "additionalProperties": False,
-}
+_DEFAULT_LABELS = ("positive", "negative", "neutral")
+
+
+def _label_schema(labels: Sequence[str]) -> dict[str, Any]:
+    return {"type": "string", "enum": list(labels)}
+
+
+def _soft_label_schema(labels: Sequence[str]) -> dict[str, Any]:
+    return {
+        "type": "object",
+        "properties": {label: {"type": "number", "minimum": 0, "maximum": 1} for label in labels},
+        "required": list(labels),
+        "additionalProperties": False,
+    }
 
 
 class OllamaDependencyError(RuntimeError):
@@ -140,10 +143,18 @@ class OllamaClient:
         factory: Callable[[], Awaitable[Any]],
         retries: int,
     ) -> Any:
+        result, _ = await self._call_with_attempt_count(factory, retries)
+        return result
+
+    async def _call_with_attempt_count(
+        self,
+        factory: Callable[[], Awaitable[Any]],
+        retries: int,
+    ) -> tuple[Any, int]:
         last_error: Exception | None = None
         for attempt in range(retries + 1):
             try:
-                return await factory()
+                return await factory(), attempt + 1
             except OllamaDependencyError:
                 raise
             except Exception as exc:
@@ -210,6 +221,7 @@ class OllamaClient:
         max_completion_tokens: int = 64,
         retries: int = 3,
         ollama_think: bool | None = None,
+        allowed_labels: Sequence[str] | None = None,
     ) -> LLMResponseRecord:
         options = {
             "temperature": temperature,
@@ -228,13 +240,17 @@ class OllamaClient:
         if self.keep_alive is not None:
             chat_kwargs["keep_alive"] = self.keep_alive
         if self.structured_label_output:
+            labels = tuple(label.strip().lower() for label in (_DEFAULT_LABELS if allowed_labels is None else allowed_labels))
+            if not labels or any(not label for label in labels) or len(set(labels)) != len(labels):
+                raise ValueError("allowed_labels must contain unique, non-empty labels")
             if prompt.output_mode == "label_only":
-                chat_kwargs["format"] = _LABEL_SCHEMA
+                chat_kwargs["format"] = _label_schema(labels)
             elif prompt.output_mode == "soft_label":
-                chat_kwargs["format"] = _SOFT_LABEL_SCHEMA
+                chat_kwargs["format"] = _soft_label_schema(labels)
         start = time.monotonic()
+        attempt_count = 1
         try:
-            response = await self._call_with_retries(
+            response, attempt_count = await self._call_with_attempt_count(
                 lambda: self._get_client().chat(**chat_kwargs),
                 retries,
             )
@@ -258,6 +274,7 @@ class OllamaClient:
                     status="malformed_response",
                     raw_response_json=raw_json if isinstance(raw_json, dict) else {"raw": raw_json},
                     latency_ms=latency_ms,
+                    attempt_count=attempt_count,
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
                     total_tokens=total_tokens,
@@ -275,6 +292,7 @@ class OllamaClient:
                     status="malformed_response",
                     raw_response_json=raw_json if isinstance(raw_json, dict) else {"raw": raw_json},
                     latency_ms=latency_ms,
+                    attempt_count=attempt_count,
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
                     total_tokens=total_tokens,
@@ -285,7 +303,7 @@ class OllamaClient:
                     ),
                 )
 
-            parsed = parse_model_response(raw_content, prompt.output_mode)
+            parsed = parse_model_response(raw_content, prompt.output_mode, allowed_labels)
             return LLMResponseRecord(
                 row_number=example.row_number,
                 model_id=model_id,
@@ -298,6 +316,7 @@ class OllamaClient:
                 label_probabilities=parsed.label_probabilities,
                 raw_response_json=raw_json if isinstance(raw_json, dict) else {"raw": raw_json},
                 latency_ms=latency_ms,
+                attempt_count=attempt_count,
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
                 total_tokens=total_tokens,
@@ -314,9 +333,14 @@ class OllamaClient:
                 parse_status="error",
                 status="malformed_response",
                 latency_ms=(time.monotonic() - start) * 1000,
+                attempt_count=attempt_count,
                 error=str(exc),
             )
         except Exception as exc:
+            status_code = getattr(exc, "status_code", None)
+            exhausted_retries = _is_transport_error(exc) or (
+                isinstance(status_code, int) and status_code in _TRANSIENT_STATUS_CODES
+            )
             return LLMResponseRecord(
                 row_number=example.row_number,
                 model_id=model_id,
@@ -326,6 +350,7 @@ class OllamaClient:
                 parse_status="error",
                 status="api_error" if _is_response_error(exc) else "transport_error",
                 latency_ms=(time.monotonic() - start) * 1000,
+                attempt_count=retries + 1 if exhausted_retries else attempt_count,
                 error=_format_ollama_error(exc),
             )
 

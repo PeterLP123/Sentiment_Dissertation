@@ -125,6 +125,40 @@ See the [trading pipeline guide](trading_pipeline.md) for the end-to-end workflo
 | `score-headlines` | Score a collection's unique headlines with an LLM (resumable) for `--llm-scores`. |
 | `analyze-headline-value` | Headline-only coverage, taxonomy, and trading-value screen for an LSEG collection. |
 
+### Separate historical strategy research
+
+See the [historical strategy-research guide](strategy_research_pipeline.md) for configuration, timing, and accounting details. These commands use their own artifact roots and do not consume existing trading, event-study, Week 6, or benchmark results.
+
+| Command | Purpose |
+| --- | --- |
+| `strategy build-events` | Build the full unsampled, target-specific event universe from a verified canonical LSEG corpus, or load the synthetic fixture. |
+| `strategy score` | Explicitly authorize, resume, and freeze target-specific three-class or five-level scores. |
+| `strategy tune` | Select the reset variant using chronological development folds only. |
+| `strategy build-state` | Materialize the selected stock-state transitions, actions, and development-fitted scales. |
+| `strategy backtest` | Run fixed baselines and the selected reset variant through the open-to-open portfolio ledger. |
+| `strategy report` | Write evaluation diagnostics, figures, leakage checklist, and the master manifest. |
+| `strategy run` | Execute the complete historical pipeline, or inspect it with the write-free `--dry-run`. |
+| `strategy paper` | Report the prospective-paper acceptance gate and exit without writing until historical v1 is accepted. |
+
+## `strategy`
+
+```bash
+sentiment-bench strategy run --config configs/strategy_research/smoke.toml --dry-run
+sentiment-bench strategy run --config configs/strategy_research/smoke.toml
+sentiment-bench strategy run --config configs/strategy_research/lseg_llm_decay_v1.toml --dry-run
+sentiment-bench strategy score --config <ready-formal-config>
+```
+
+All historical subcommands except the gated `paper` command require `--config`. Invoking `strategy score` is itself the explicit hosted-call authorization; full `strategy run` still requires `--allow-paid`. Hosted routes are taken only from the run-hashed `scoring.endpoint`, never silently from endpoint environment variables; Ollama additionally requires a declared model digest. Formal model selection cites a run-hashed competence experiment. Stage commands execute their named stage after validating or reusing matching prerequisite stages. A completed stage is immutable: changed inputs or configuration resolve to a different run identity, while a manifest mismatch fails instead of overwriting evidence.
+
+| Option | Applies to | Meaning |
+| --- | --- | --- |
+| `--config PATH` | Historical stage commands and `run` | Strategy TOML; the checked-in formal config is deliberately blocked until its evaluation boundary and adjusted-open price manifest are frozen. |
+| `--dry-run` | `strategy run` | Resolve input hashes, event and price coverage, score-cache hits, split feasibility, candidate count, outputs, and blockers without writes, provider construction, or model calls. |
+| `--allow-paid` | `strategy run` | Explicitly authorize missing hosted-model calls in a full run. Omitting it never silently crosses the paid-call boundary. |
+
+The synthetic smoke config uses checked-in fixtures and requires no network, credentials, licensed text, or paid calls. Historical outputs resolve to `<logical-run-id>-<identity-hash-prefix>` below `Data/derived/strategy_research/` and `results/strategy_research/`; see [Results and exports](results_and_exports.md#historical-strategy-research-artifacts).
+
 ## `validate-data`
 
 ```bash

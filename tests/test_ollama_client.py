@@ -129,6 +129,25 @@ def test_ollama_structured_label_keep_alive_and_default_thinking() -> None:
     run(scenario())
 
 
+def test_ollama_structured_label_uses_explicit_enum_contract() -> None:
+    async def scenario() -> None:
+        class FiveLevelClient(FakeOllamaAsyncClient):
+            async def chat(self, **kwargs):
+                self.chat_calls.append(kwargs)
+                return {"message": {"content": "very_positive"}}
+
+        fake = FiveLevelClient()
+        client = OllamaClient(client=fake, structured_label_output=True)
+        prompt = make_prompt("strategy", "Return an enum.", "{sentence}", "label_only")
+        labels = ("very_negative", "negative", "neutral", "positive", "very_positive")
+        record = await client.classify("gemma", prompt, BlindExample(1, "News"), allowed_labels=labels)
+
+        assert record.normalized_label == "very_positive"
+        assert fake.chat_calls[0]["format"] == {"type": "string", "enum": list(labels)}
+
+    run(scenario())
+
+
 def test_ollama_never_unload_keep_alive_is_sent_as_integer() -> None:
     async def scenario() -> None:
         fake = FakeOllamaAsyncClient()

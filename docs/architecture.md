@@ -29,6 +29,8 @@ flowchart LR
     NA["NewsAPI"] --> N
     N --> TR["Provider-neutral trading runner<br/>screen, score, align prices"]
     TR --> TE["Data/derived/trading + results/trading"]
+    LC["Verified canonical LSEG corpus"] --> SR["Separate strategy_research pipeline<br/>events, scores, state, ledger"]
+    SR --> SRA["Data/derived/strategy_research<br/>+ results/strategy_research"]
 ```
 
 ## Module Map
@@ -44,6 +46,7 @@ flowchart TB
     subgraph Orchestrators
         RUN["runner.py / baseline_runner.py / sc_runner.py"]
         TRAD["trading_strategy.py"]
+        STRAT["strategy_research/pipeline.py"]
         CSM["corpus_scoring.py"]
         ANA["trading_analysis.py / strategy_sweep.py<br/>l2_event_study.py / l3_reliability.py"]
     end
@@ -66,6 +69,8 @@ flowchart TB
     TRAD --> PROV
     TRAD --> PRICE
     TRAD --> BT
+    STRAT --> PROV
+    STRAT --> PRICE
     CSM --> PROV
     ANA --> BT
     ANA --> MET
@@ -95,6 +100,7 @@ Core boundaries:
 | `src/sentiment_benchmark/l2_event_study.py` | Builds consensus/ambiguity measures, market-model CARs, clustered inference, and declared H2 tests. |
 | `src/sentiment_benchmark/l3_reliability.py` | Fits crossed variance components, derives reliability, compares holdout rules, and combines H2/H3 correction. |
 | `src/sentiment_benchmark/trading_strategy.py` | Orchestrates a trading run: merges provider records, screens target relevance, scores sentiment (with optional entity-masking arm and cutoff annotation), aligns sessions, and exports event diagnostics or a funded cross-sectional portfolio plus sensitivity tables. |
+| `src/sentiment_benchmark/strategy_research/` | Isolated historical strategy pipeline: builds a full unsampled event universe from the verified canonical LSEG corpus, freezes target-specific scores, constructs decaying stock state, projects risk-limited targets, runs one open-to-open ledger, tunes on development folds, and reports one chronological evaluation. |
 | `src/sentiment_benchmark/prices.py` | Price-data seam: `PriceProvider` protocol, LSEG Workspace (preferred, licensed, price-return convention) and yfinance providers, and a per-(symbol,window) cache so backtests are deterministic and offline-replayable. Owns `PriceRow`. |
 | `src/sentiment_benchmark/backtest.py` | Pure backtest core (no I/O): default decision policy, per-event return calculation (with signed fractional position sizing), and equity-curve aggregation. Accepts an injected `decision_fn` so alternative strategies plug in. A leaf module that `trading_strategy` re-exports. |
 | `src/sentiment_benchmark/portfolio.py` | Pure funded-portfolio evaluator: groups decisions by actual entry session, allocates overlapping horizons through rotating sleeves, marks positions daily, reconciles stock P&L to NAV, and computes annualised risk/return plus sample and shrunk covariance evidence. |
@@ -121,6 +127,21 @@ flowchart LR
 ```
 
 Collection, cleaning, cohort freezing, validation, scoring, and analysis are separate commands so downstream evidence can be rebuilt and audited without another licensed API call. Manifests and content/configuration hashes enforce those boundaries. Native story and revision identifiers cross the analysis boundary; URL-based web records retain their existing representation. Sentiment records and trading decisions are separate artifacts so model behavior can be inspected independently from policy thresholds. Python owns the orchestration because network and model inference dominate latency; a C++ component would not improve those boundaries.
+
+## The Separate Historical Strategy Path
+
+```mermaid
+flowchart LR
+    C["Verified canonical LSEG corpus"] --> E["Full screened event universe<br/>no cohort sampling"]
+    E --> S["Frozen target-specific scores"]
+    S --> Z["Stock state + development-only scales"]
+    Z --> P["Volatility-scaled targets"]
+    P --> L["Open-to-open holdings ledger"]
+    L --> T["Development-only tuning"]
+    T --> R["Chronological evaluation + report"]
+```
+
+This path is exposed only through `sentiment-bench strategy ...` and lives under `strategy_research/`. It may reuse verified corpus loading, relevance rules, provider clients, price conventions, hashing, and runtime metadata, but it does not read or modify event-study, fixed-horizon, rotating-sleeve, Week 6, or benchmark outputs. Text-bearing derived artifacts live under `Data/derived/strategy_research/<logical-id>-<identity-prefix>/`; state, orders, P&L, diagnostics, and reports live under the matching `results/strategy_research/` directory. Both roots are ignored and completed matching stages are validated and reused rather than overwritten.
 
 ## Why Two Scoring Scopes Exist
 

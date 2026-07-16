@@ -37,6 +37,15 @@ def test_label_only_parser_invalid_cases() -> None:
     assert parse_model_response("", "label_only").parse_status == "invalid"
 
 
+def test_label_only_parser_accepts_an_explicit_strategy_enum_without_changing_default() -> None:
+    labels = ("very_negative", "negative", "neutral", "positive", "very_positive")
+    assert parse_model_response("very_positive", "label_only", labels).normalized_label == "very_positive"
+    assert parse_model_response("very_positive", "label_only").parse_status == "invalid"
+    assert parse_model_response("extremely_positive", "label_only", labels).parse_status == "invalid"
+    with pytest.raises(ValueError, match="allowed_labels"):
+        parse_model_response("positive", "label_only", ())
+
+
 def test_explanation_parser() -> None:
     parsed = parse_model_response("neutral\nThe wording is factual.", "explanation")
     assert parsed.parse_status == "valid"

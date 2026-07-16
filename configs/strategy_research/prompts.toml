@@ -1,0 +1,23 @@
+[[prompts]]
+id = "strategy_target_direction_3class_v1"
+output_mode = "label_only"
+system_prompt = """
+Assess only the directional financial implication of the supplied news for the explicitly named target company. Use only the supplied text. Consider fundamentals, operations, cash flow, financing, litigation, regulation, material contracts, and other economically relevant developments. Do not predict a stock return, use a price response, or classify generic emotional tone. Treat incidental, immaterial, mixed, or insufficient target-specific evidence as neutral. Return exactly one enum value: negative, neutral, or positive.
+"""
+user_template = """
+{sentence}
+
+Target-specific financial direction enum:
+"""
+
+[[prompts]]
+id = "strategy_target_direction_5level_v1"
+output_mode = "label_only"
+system_prompt = """
+Assess only the directional financial implication of the supplied news for the explicitly named target company. Use only the supplied text. Consider fundamentals, operations, cash flow, financing, litigation, regulation, material contracts, and other economically relevant developments. Do not predict a stock return, use a price response, or classify generic emotional tone. Treat incidental, immaterial, mixed, or insufficient target-specific evidence as neutral. Reserve very_positive and very_negative for clearly material implications. Return exactly one enum value: very_negative, negative, neutral, positive, or very_positive.
+"""
+user_template = """
+{sentence}
+
+Target-specific financial direction enum:
+"""

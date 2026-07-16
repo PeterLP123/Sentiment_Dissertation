@@ -33,6 +33,7 @@ _MODEL_RPM = {
 _RATE_WINDOWS = {"minute": 60.0, "hour": 3_600.0, "day": 86_400.0}
 _LATENCY_EXTENSION = "sentiment_benchmark_request_latency_ms"
 _RATE_LIMIT_EXTENSION = "sentiment_benchmark_rate_limits"
+_ATTEMPT_COUNT_EXTENSION = "sentiment_benchmark_attempt_count"
 
 
 @dataclass
@@ -272,6 +273,7 @@ class CerebrasClient(OpenRouterClient):
                         continue
                     await asyncio.sleep(_retry_delay(response, attempt))
                     continue
+                response.extensions[_ATTEMPT_COUNT_EXTENSION] = attempt + 1
                 return response
             except (httpx.TimeoutException, httpx.TransportError) as exc:
                 last_error = exc

@@ -109,6 +109,7 @@ class LLMResponseRecord:
     label_probabilities: dict[str, float] | None = None
     raw_response_json: dict[str, Any] | None = None
     latency_ms: float | None = None
+    attempt_count: int = 1
     error: str | None = None
     prompt_tokens: int | None = None
     completion_tokens: int | None = None
