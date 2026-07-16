@@ -187,6 +187,83 @@ def test_ollama_structured_soft_label_uses_required_probability_schema() -> None
     run(scenario())
 
 
+def test_ollama_structured_json_uses_exact_schema_and_parses_object() -> None:
+    async def scenario() -> None:
+        class JSONClient(FakeOllamaAsyncClient):
+            async def chat(self, **kwargs):
+                self.chat_calls.append(kwargs)
+                return {
+                    "message": {
+                        "content": (
+                            '{"direction_severity":"negative","materiality":"high","novelty":"moderate"}'
+                        )
+                    },
+                    "prompt_eval_count": 20,
+                    "eval_count": 14,
+                }
+
+        schema = {
+            "type": "object",
+            "properties": {
+                "direction_severity": {"type": "string", "enum": ["negative", "neutral", "positive"]},
+                "materiality": {"type": "string", "enum": ["low", "moderate", "high"]},
+                "novelty": {"type": "string", "enum": ["low", "moderate", "high"]},
+            },
+            "required": ["direction_severity", "materiality", "novelty"],
+            "additionalProperties": False,
+        }
+        fake = JSONClient()
+        client = OllamaClient(client=fake, keep_alive=-1, default_think=False)
+        record = await client.generate_structured_json(
+            "gemma4:12b",
+            row_number=4,
+            prompt_hash="prompt-hash",
+            system_prompt="Apply the supplied rubric.",
+            user_prompt="Classify this event.",
+            schema=schema,
+            max_completion_tokens=64,
+        )
+
+        assert record.status == "success"
+        assert record.parse_status == "valid"
+        assert record.parsed_json == {
+            "direction_severity": "negative",
+            "materiality": "high",
+            "novelty": "moderate",
+        }
+        assert record.total_tokens == 34
+        call = fake.chat_calls[0]
+        assert call["format"] == schema
+        assert call["think"] is False
+        assert call["keep_alive"] == -1
+        assert call["options"] == {"temperature": 0.0, "num_predict": 64}
+
+    run(scenario())
+
+
+def test_ollama_structured_json_rejects_non_object_completion() -> None:
+    async def scenario() -> None:
+        class JSONClient(FakeOllamaAsyncClient):
+            async def chat(self, **kwargs):
+                return {"message": {"content": '["negative"]'}}
+
+        record = await OllamaClient(client=JSONClient()).generate_structured_json(
+            "gemma4:12b",
+            row_number=1,
+            prompt_hash="prompt-hash",
+            system_prompt="Apply the supplied rubric.",
+            user_prompt="Classify this event.",
+            schema={"type": "object", "properties": {}},
+        )
+
+        assert record.status == "success"
+        assert record.parse_status == "invalid"
+        assert record.parsed_json is None
+        assert "not an object" in (record.error or "")
+
+    run(scenario())
+
+
 def test_ollama_object_response_shape_is_supported() -> None:
     async def scenario() -> None:
         class ObjectResponseClient(FakeOllamaAsyncClient):

@@ -138,6 +138,12 @@ See the [historical strategy-research guide](strategy_research_pipeline.md) for 
 | `strategy backtest` | Run fixed baselines and the selected reset variant through the open-to-open portfolio ledger. |
 | `strategy report` | Write evaluation diagnostics, figures, leakage checklist, and the master manifest. |
 | `strategy run` | Execute the complete historical pipeline, or inspect it with the write-free `--dry-run`. |
+| `strategy stock-test` | Re-evaluate the frozen state action as one independent account per stock, without portfolio construction. |
+| `strategy development-tests` | Compare development-only label horizons, centered signals, holding periods, and thresholds. |
+| `strategy development-controls` | Compare the frozen development rule with timing, refresh, inversion, and within-stock shuffle controls. |
+| `strategy prepare-signal-audit` | Freeze a blind 99-event development sample and human-label template without model calls or return data. |
+| `strategy score-signal-audit` | Explicitly authorize resumable local-only joint JSON scoring of five-level direction/severity, materiality, and novelty. |
+| `strategy validate-signal-audit` | Compare completed local scores with a complete human audit and apply the frozen agreement gate. |
 | `strategy paper` | Report the prospective-paper acceptance gate and exit without writing until historical v1 is accepted. |
 
 ## `strategy`
@@ -148,9 +154,15 @@ sentiment-bench strategy run --config configs/strategy_research/smoke.toml
 sentiment-bench strategy run --config configs/strategy_research/lseg_llm_decay_v1.toml --dry-run
 sentiment-bench strategy score --config <ready-formal-config>
 sentiment-bench strategy score --config <local-ollama-config> --max-new-scores 200
+sentiment-bench strategy stock-test --run-dir <completed-run>
+sentiment-bench strategy development-tests --run-dir <completed-run>
+sentiment-bench strategy development-controls --run-dir <completed-run>
+sentiment-bench strategy prepare-signal-audit --run-dir <completed-run>
+sentiment-bench strategy score-signal-audit --audit-dir <audit-dir> --max-new-calls 30
+sentiment-bench strategy validate-signal-audit --score-dir <score-dir> --human-labels <human_labels.csv>
 ```
 
-All historical subcommands except the gated `paper` command require `--config`. Invoking `strategy score` is itself the explicit hosted-call authorization; full `strategy run` still requires `--allow-paid`. Hosted routes are taken only from the run-hashed `scoring.endpoint`, never silently from endpoint environment variables; Ollama additionally requires a declared model digest. Formal model selection cites a run-hashed competence experiment. Stage commands execute their named stage after validating or reusing matching prerequisite stages. A completed stage is immutable: changed inputs or configuration resolve to a different run identity, while a manifest mismatch fails instead of overwriting evidence.
+Core historical stage commands require `--config`; the three signal-audit commands instead consume an immutable completed run, audit sample, or score directory. Invoking `strategy score` is itself the explicit hosted-call authorization; full `strategy run` still requires `--allow-paid`. Hosted routes are taken only from the run-hashed `scoring.endpoint`, never silently from endpoint environment variables; Ollama additionally requires a declared model digest. Formal model selection cites a run-hashed competence experiment. Stage commands execute their named stage after validating or reusing matching prerequisite stages. A completed stage is immutable: changed inputs or configuration resolve to a different run identity, while a manifest mismatch fails instead of overwriting evidence.
 
 | Option | Applies to | Meaning |
 | --- | --- | --- |
@@ -159,6 +171,11 @@ All historical subcommands except the gated `paper` command require `--config`. 
 | `--allow-paid` | `strategy run` | Explicitly authorize missing hosted-model calls in a full run. Omitting it never silently crosses the paid-call boundary. |
 | `--max-new-scores N` | `strategy score` | Make at most `N` new local Ollama calls against development-period events. Requires a frozen evaluation boundary and model digest; successful cache entries resume into the full score run without finalizing a partial `scores.jsonl`. |
 | `--cache-from PATH` | `strategy score` | Import a complete score cache from a prior run identity. Every event/content/target/model/digest/prompt/config key is validated before any record is copied; the import digest is recorded in the completed stage manifest. |
+| `--run-dir PATH` | `strategy prepare-signal-audit` | Completed strategy run whose pre-evaluation events and prior scores define the blind sample strata. |
+| `--audit-dir PATH` | `strategy score-signal-audit` | Completed blind audit packet below `Data/derived/strategy_research/`. |
+| `--max-new-calls N` | `strategy score-signal-audit` | Bound new local event calls; completed joint cache entries resume and no final `model_scores.jsonl` appears until all events succeed. |
+| `--score-dir PATH` | `strategy validate-signal-audit` | Completed 3-task local score artifact for one frozen audit sample. |
+| `--human-labels PATH` | `strategy validate-signal-audit` | Complete blind human CSV with exact audit and event identities. |
 
 The synthetic smoke config uses checked-in fixtures and requires no network, credentials, licensed text, or paid calls. Historical outputs resolve to `<logical-run-id>-<identity-hash-prefix>` below `Data/derived/strategy_research/` and `results/strategy_research/`; see [Results and exports](results_and_exports.md#historical-strategy-research-artifacts).
 

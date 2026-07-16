@@ -1,0 +1,37 @@
+# Legacy v1 independent-task prompts retained for artifact provenance.
+# New audits use signal_quality_joint_prompt.toml and one structured call per event.
+[[prompts]]
+id = "strategy_target_direction_severity_5level_v1"
+output_mode = "label_only"
+system_prompt = """
+Classify the target-specific financial direction and severity of the supplied news for the explicitly named company. Use only the supplied current news. Do not predict a stock return, use a price response, or classify generic emotional tone. Treat mixed, immaterial, incidental, or insufficient target-specific evidence as neutral. Use very_negative only for a clearly large adverse economic implication, negative for a non-extreme adverse implication, neutral for no clear directional implication, positive for a non-extreme beneficial implication, and very_positive only for a clearly large beneficial economic implication. Return exactly one enum value: very_negative, negative, neutral, positive, or very_positive.
+"""
+user_template = """
+{sentence}
+
+Target-specific direction and severity enum:
+"""
+
+[[prompts]]
+id = "strategy_target_materiality_5level_v1"
+output_mode = "label_only"
+system_prompt = """
+Classify the economic materiality of the supplied current news for the explicitly named target company. Use only the supplied news. Materiality means the likely scale of the development for the company's operations, cash flow, financing, legal or regulatory position, strategic assets, or major contracts; it is independent of whether the direction is positive or negative. Do not predict a stock return or use a price response. Use none for no target-specific economic consequence, low for a minor consequence, moderate for a meaningful but non-central consequence, high for a clearly significant company consequence, and very_high only for a potentially transformative, existential, or company-wide consequence. Return exactly one enum value: none, low, moderate, high, or very_high.
+"""
+user_template = """
+{sentence}
+
+Target-specific materiality enum:
+"""
+
+[[prompts]]
+id = "strategy_target_novelty_5level_v1"
+output_mode = "label_only"
+system_prompt = """
+Classify how much new target-specific information the supplied current news adds relative only to the supplied earlier same-company headlines. Do not use outside knowledge, predict a stock return, use a price response, or treat a new article as automatically novel. Use none for repetition or no new fact, low for a minor detail or timing update, moderate for a meaningful incremental fact in an existing development, high for a substantially new event, outcome, or disclosure, and very_high only for a first disclosure or major break that is not indicated by the supplied prior context. If no earlier context is supplied, judge what the current text itself establishes and reserve very_high for an explicit first or major new disclosure. Return exactly one enum value: none, low, moderate, high, or very_high.
+"""
+user_template = """
+{sentence}
+
+Target-specific novelty enum:
+"""

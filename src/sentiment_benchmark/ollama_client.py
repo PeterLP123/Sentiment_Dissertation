@@ -2,16 +2,17 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import json
 import os
 import time
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Any
 
 import httpx
 
 from .constants import DEFAULT_OLLAMA_HOST
 from .env import load_env_file
-from .models import BlindExample, LLMResponseRecord, ModelConfig, PromptConfig
+from .models import BlindExample, LLMResponseRecord, ModelConfig, PromptConfig, StructuredJSONResponseRecord
 from .parser import parse_model_response
 from .prompts import render_messages
 from .utils import to_jsonable as _to_jsonable
@@ -347,6 +348,162 @@ class OllamaClient:
                 prompt_hash=prompt.prompt_hash,
                 raw_content=None,
                 normalized_label=None,
+                parse_status="error",
+                status="api_error" if _is_response_error(exc) else "transport_error",
+                latency_ms=(time.monotonic() - start) * 1000,
+                attempt_count=retries + 1 if exhausted_retries else attempt_count,
+                error=_format_ollama_error(exc),
+            )
+
+    async def generate_structured_json(
+        self,
+        model_id: str,
+        *,
+        row_number: int,
+        prompt_hash: str,
+        system_prompt: str,
+        user_prompt: str,
+        schema: Mapping[str, Any],
+        temperature: float = 0.0,
+        max_completion_tokens: int = 128,
+        retries: int = 3,
+        ollama_think: bool | None = None,
+    ) -> StructuredJSONResponseRecord:
+        """Generate one strict JSON object using Ollama's native schema mode."""
+
+        if not model_id.strip() or not prompt_hash.strip():
+            raise ValueError("model_id and prompt_hash are required")
+        if not system_prompt.strip() or not user_prompt.strip():
+            raise ValueError("structured JSON prompts cannot be blank")
+        if schema.get("type") != "object":
+            raise ValueError("structured JSON schema must describe an object")
+        if max_completion_tokens < 1 or retries < 0:
+            raise ValueError("completion tokens must be positive and retries cannot be negative")
+        chat_kwargs: dict[str, Any] = {
+            "model": model_id,
+            "messages": [
+                {"role": "system", "content": system_prompt.strip()},
+                {"role": "user", "content": user_prompt.strip()},
+            ],
+            "options": {"temperature": temperature, "num_predict": max_completion_tokens},
+            "stream": False,
+            "format": dict(schema),
+        }
+        resolved_think = self.default_think if ollama_think is None else ollama_think
+        if resolved_think is not None:
+            chat_kwargs["think"] = resolved_think
+        if self.keep_alive is not None:
+            chat_kwargs["keep_alive"] = self.keep_alive
+        start = time.monotonic()
+        attempt_count = 1
+        try:
+            response, attempt_count = await self._call_with_attempt_count(
+                lambda: self._get_client().chat(**chat_kwargs),
+                retries,
+            )
+            latency_ms = (time.monotonic() - start) * 1000
+            raw_json = _to_jsonable(response)
+            prompt_tokens = _as_int(_get_field(response, "prompt_eval_count"))
+            completion_tokens = _as_int(_get_field(response, "eval_count"))
+            total_tokens = _as_int(_get_field(response, "total_tokens"))
+            if total_tokens is None and prompt_tokens is not None and completion_tokens is not None:
+                total_tokens = prompt_tokens + completion_tokens
+            message = _get_field(response, "message", {})
+            raw_content = _get_field(message, "content")
+            if not isinstance(raw_content, str) or not raw_content.strip():
+                return StructuredJSONResponseRecord(
+                    row_number=row_number,
+                    model_id=model_id,
+                    prompt_hash=prompt_hash,
+                    raw_content=raw_content if isinstance(raw_content, str) else None,
+                    parsed_json=None,
+                    parse_status="error",
+                    status="malformed_response",
+                    raw_response_json=raw_json if isinstance(raw_json, dict) else {"raw": raw_json},
+                    latency_ms=latency_ms,
+                    attempt_count=attempt_count,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    total_tokens=total_tokens,
+                    error="Ollama response did not contain a non-empty JSON object",
+                )
+            try:
+                parsed = json.loads(raw_content)
+            except json.JSONDecodeError as exc:
+                return StructuredJSONResponseRecord(
+                    row_number=row_number,
+                    model_id=model_id,
+                    prompt_hash=prompt_hash,
+                    raw_content=raw_content,
+                    parsed_json=None,
+                    parse_status="invalid",
+                    status="success",
+                    raw_response_json=raw_json if isinstance(raw_json, dict) else {"raw": raw_json},
+                    latency_ms=latency_ms,
+                    attempt_count=attempt_count,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    total_tokens=total_tokens,
+                    error=f"Ollama completion was not valid JSON: {exc.msg}",
+                )
+            if not isinstance(parsed, dict):
+                return StructuredJSONResponseRecord(
+                    row_number=row_number,
+                    model_id=model_id,
+                    prompt_hash=prompt_hash,
+                    raw_content=raw_content,
+                    parsed_json=None,
+                    parse_status="invalid",
+                    status="success",
+                    raw_response_json=raw_json if isinstance(raw_json, dict) else {"raw": raw_json},
+                    latency_ms=latency_ms,
+                    attempt_count=attempt_count,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    total_tokens=total_tokens,
+                    error="Ollama completion JSON was not an object",
+                )
+            return StructuredJSONResponseRecord(
+                row_number=row_number,
+                model_id=model_id,
+                prompt_hash=prompt_hash,
+                raw_content=raw_content,
+                parsed_json={str(key): value for key, value in parsed.items()},
+                parse_status="valid",
+                status="success",
+                raw_response_json=raw_json if isinstance(raw_json, dict) else {"raw": raw_json},
+                latency_ms=latency_ms,
+                attempt_count=attempt_count,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=total_tokens,
+            )
+        except OllamaDependencyError:
+            raise
+        except ValueError as exc:
+            return StructuredJSONResponseRecord(
+                row_number=row_number,
+                model_id=model_id,
+                prompt_hash=prompt_hash,
+                raw_content=None,
+                parsed_json=None,
+                parse_status="error",
+                status="malformed_response",
+                latency_ms=(time.monotonic() - start) * 1000,
+                attempt_count=attempt_count,
+                error=str(exc),
+            )
+        except Exception as exc:
+            status_code = getattr(exc, "status_code", None)
+            exhausted_retries = _is_transport_error(exc) or (
+                isinstance(status_code, int) and status_code in _TRANSIENT_STATUS_CODES
+            )
+            return StructuredJSONResponseRecord(
+                row_number=row_number,
+                model_id=model_id,
+                prompt_hash=prompt_hash,
+                raw_content=None,
+                parsed_json=None,
                 parse_status="error",
                 status="api_error" if _is_response_error(exc) else "transport_error",
                 latency_ms=(time.monotonic() - start) * 1000,

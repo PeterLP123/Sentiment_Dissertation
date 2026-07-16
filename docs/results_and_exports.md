@@ -28,7 +28,12 @@ flowchart LR
 | `results/trading/<run-id>/` | `run-trading-strategy` | Sentiment outputs, daily signals, adjusted prices, event diagnostics, optional funded portfolio tables, sensitivity tables, figures, summary, and run manifest. | Ignored. |
 | `results/trading/<analysis-id>/` | `analyze-trading-run` | Robustness CSVs, plots, technical summary, source map, and hashed analysis manifest. | Ignored. |
 | `Data/derived/strategy_research/<logical-id>-<identity-prefix>/` | `strategy build-events`, `strategy score`, or `strategy run` | Separate target-specific event and scoring evidence, including licensed text hashes and resumable score-cache records. | Ignored. |
+| `Data/derived/strategy_research/<run-id>/signal_quality/` | `strategy prepare-signal-audit` and `strategy score-signal-audit` | Blind development-only audit text, human template, joint local five-level scores, and resumable per-event cache records. | Ignored. |
 | `results/strategy_research/<logical-id>-<identity-prefix>/` | `strategy tune`, `strategy build-state`, `strategy backtest`, `strategy report`, or `strategy run` | Separate state, targets, ledger, development tuning, chronological evaluation, diagnostics, figures, and stage manifests. | Ignored. |
+| `results/strategy_research/<run-id>/single_stock/` | `strategy stock-test` | Independent per-stock account returns, daily ledgers, benchmark comparisons, figures, and an immutable manifest. | Ignored. |
+| `results/strategy_research/<run-id>/development_tests/` | `strategy development-tests` | Development-only label-horizon, information-coefficient, candidate-fold, figure, and selection diagnostics. | Ignored. |
+| `results/strategy_research/<run-id>/development_controls/` | `strategy development-controls` | Development-only timing, refresh, inversion, shuffled-label, stock-fold, acceptance, and figure diagnostics. | Ignored. |
+| `results/strategy_research/<run-id>/signal_quality_validation/` | `strategy validate-signal-audit` | Human-model agreement metrics, frozen gate checks, and an interpretation-limited validation report. | Ignored. |
 | `results/strategy_research/paper/journal.jsonl` | Future accepted `strategy paper` phase | Prospective-only, append-only hash-chained observation/order/outcome journal; the current command is write-gated. | Ignored. |
 | `experiments/manifest.toml` | Manual curation | Formal dissertation experiment registry. | Source-controlled. |
 
@@ -255,6 +260,7 @@ Each run resolves to `<logical-run-id>-<identity-hash-prefix>`. Text-bearing der
 | --- | --- |
 | `events/` | Deterministically ordered `events.jsonl`, per-record screening evidence, and filter attrition. |
 | `scores/` | Immutable `scores.jsonl`, score coverage, and an operational per-identity cache while scoring is incomplete. Missing or invalid scores are excluded rather than converted to neutral. |
+| `signal_quality/` | Blind pre-evaluation audit packet plus one joint local JSON score per event containing five-level direction/severity, materiality, and novelty. Source labels used for stratification are omitted from the human packet. |
 
 Portfolio state and evidence remain below the matching `results/strategy_research/<resolved-run-id>/`:
 

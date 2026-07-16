@@ -118,6 +118,26 @@ class LLMResponseRecord:
 
 
 @dataclass(frozen=True)
+class StructuredJSONResponseRecord:
+    """Provider response for callers that own a strict JSON-object contract."""
+
+    row_number: int
+    model_id: str
+    prompt_hash: str
+    raw_content: str | None
+    parsed_json: dict[str, Any] | None
+    parse_status: ParseStatus
+    status: ResponseStatus
+    raw_response_json: dict[str, Any] | None = None
+    latency_ms: float | None = None
+    attempt_count: int = 1
+    error: str | None = None
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    total_tokens: int | None = None
+
+
+@dataclass(frozen=True)
 class EvaluationResult:
     model_id: str
     scope: str

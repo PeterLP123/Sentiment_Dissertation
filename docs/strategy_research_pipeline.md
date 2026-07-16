@@ -103,6 +103,12 @@ sentiment-bench strategy build-state --config <config>
 sentiment-bench strategy tune --config <config>
 sentiment-bench strategy backtest --config <config>
 sentiment-bench strategy report --config <config>
+sentiment-bench strategy stock-test --run-dir <completed-run>
+sentiment-bench strategy development-tests --run-dir <completed-run>
+sentiment-bench strategy development-controls --run-dir <completed-run>
+sentiment-bench strategy prepare-signal-audit --run-dir <completed-run>
+sentiment-bench strategy score-signal-audit --audit-dir <audit-dir>
+sentiment-bench strategy validate-signal-audit --score-dir <score-dir> --human-labels <human_labels.csv>
 sentiment-bench strategy paper
 ```
 
@@ -150,6 +156,55 @@ sentiment-bench strategy score --config <config> \
 ```
 
 The main LSEG configuration intentionally remains blocked until it has an explicit evaluation boundary, a completed canonical corpus, and a sufficiently long verified adjusted-open price panel. Dry-run reports these blockers and the resolved identity before any scoring.
+
+## Development diagnostics after a completed run
+
+`stock-test` removes portfolio construction and treats each symbol as a separate
+account whose target exposure equals the already-frozen state action. It reports
+costed returns, turnover, drawdown, buy-and-hold comparisons, and block-bootstrap
+intervals per stock; the stock results must not be summed into a portfolio.
+
+`development-tests` uses only development intervals to compare label-conditioned
+horizons, raw versus stock-centered signals, holding periods, and thresholds.
+`development-controls` then compares the selected non-refreshing rule with news
+timing, signal refresh, inverted direction, and within-stock shuffled labels.
+Both commands exclude any interval whose endpoint reaches the locked evaluation
+boundary, hash every input and parameter, and refuse changed completed outputs.
+They are post hoc diagnostics, not permission to retune or rerun the prior
+evaluation block.
+
+## Development-only signal-quality audit
+
+Before another strategy backtest, the audit commands test whether the local
+model can reproduce independently supplied human labels. `prepare-signal-audit`
+selects three pre-evaluation events per stock, stratified by the frozen prior
+three-class output without revealing that output in the audit packet. It gives
+novelty only strictly earlier same-stock headlines from a 30-day window and
+never reads price or return data.
+
+`score-signal-audit` makes 99 resumable calls for the 99-event default sample.
+Each call returns one strict JSON object containing five-level direction/severity,
+materiality, and novelty labels. It accepts only a loopback Ollama URL, verifies
+the frozen model digest, disables thinking, and uses an exact object schema.
+`validate-signal-audit` requires one complete human
+row per event and applies the pre-declared weighted-kappa, severe-disagreement,
+and high-level precision gates. Full-universe rescoring and another backtest
+remain out of scope until that human gate passes.
+
+The v2 prompt is rubric-first and conservative rather than fitted to returns.
+It treats supplied article text as evidence rather than instructions; makes
+incidental mentions, market-mover lists, price changes, analyst opinions, and
+boilerplate neutral/non-material unless a concrete target-company consequence
+is stated; reserves extreme direction for high materiality; and prevents prior
+headlines from affecting anything except novelty. The parser independently
+enforces the two cross-field rules after generation. The prompt, JSON schema,
+model digest, request settings, and rendered item input are all score-cache
+identity inputs. Changing the prompt creates a new scoring identity but does not
+resample the frozen human-audit events.
+
+Licensed audit text and model-cache records remain below the source run in
+`Data/derived/strategy_research/`. Agreement metrics and the validation report
+are written below the matching run in `results/strategy_research/`.
 
 ## Artifacts and replay
 
