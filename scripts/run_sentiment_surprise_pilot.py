@@ -16,8 +16,15 @@ def main() -> int:
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--bootstrap-samples", type=int, default=10_000)
     parser.add_argument("--seed", type=int, default=20260717)
+    parser.add_argument("--evaluation-run-number", type=int, default=1)
+    parser.add_argument("--rerun-reason")
     args = parser.parse_args()
-    config = PilotConfig(bootstrap_samples=args.bootstrap_samples, random_seed=args.seed)
+    config = PilotConfig(
+        bootstrap_samples=args.bootstrap_samples,
+        random_seed=args.seed,
+        evaluation_run_number=args.evaluation_run_number,
+        rerun_reason=args.rerun_reason,
+    )
     report = run_pilot(
         args.scores,
         args.stock_prices,

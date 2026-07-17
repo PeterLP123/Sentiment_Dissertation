@@ -34,6 +34,8 @@ class PilotConfig:
     dev20_window: int = 20
     bootstrap_samples: int = 10_000
     random_seed: int = 20260717
+    evaluation_run_number: int = 1
+    rerun_reason: str | None = None
 
 
 MODEL_SPECS: dict[str, tuple[str, ...]] = {
@@ -205,7 +207,9 @@ def _local_level_one_step(
             category=DeprecationWarning,
         )
         development_model = UnobservedComponents(values[:development_count], level="llevel")
-        fitted = development_model.fit(disp=False)
+        fitted = development_model.fit(method="powell", maxiter=1_000, disp=False)
+        if not bool(fitted.mle_retvals.get("converged", False)):
+            raise SentimentSurprisePilotError("Powell local-level maximum-likelihood fit did not converge")
         full_model = UnobservedComponents(values, level="llevel")
         filtered = full_model.filter(fitted.params)
     prediction = np.asarray(filtered.forecasts[0], dtype=float)
@@ -373,6 +377,7 @@ def render_report(
     decision_reasons: list[str],
     split_date: str,
     methodology: str,
+    config: PilotConfig,
 ) -> str:
     lines = [
         "# Sentiment surprise vs level: leak-free pilot",
@@ -397,6 +402,11 @@ def render_report(
             f"{_format_cell(regressions, model, 'surprise')} | {_format_cell(regressions, model, 'delta')} | "
             f"{_format_cell(regressions, model, 'dev20')} | {r2:.6f} |"
         )
+    run_note = (
+        "- This is the first and only evaluation run for this output directory."
+        if config.evaluation_run_number == 1
+        else f"- This is disclosed evaluation run {config.evaluation_run_number}: {config.rerun_reason}."
+    )
     lines.extend(
         [
             "",
@@ -435,7 +445,7 @@ def render_report(
             "",
             "## Integrity notes",
             "",
-            "- This is the first and only evaluation run for this output directory.",
+            run_note,
             (
                 "- FinBERT score is `p_positive - p_negative`, aggregated by target symbol and first tradable "
                 "session close after the timestamp."
@@ -455,6 +465,10 @@ def run_pilot(
     config: PilotConfig | None = None,
 ) -> Path:
     config = config or PilotConfig()
+    if config.evaluation_run_number < 1:
+        raise SentimentSurprisePilotError("evaluation_run_number must be positive")
+    if config.evaluation_run_number > 1 and not (config.rerun_reason or "").strip():
+        raise SentimentSurprisePilotError("a disclosed rerun_reason is required after evaluation run 1")
     destination = Path(output_dir)
     if destination.exists():
         raise SentimentSurprisePilotError(f"refusing to overwrite pilot output: {destination}")
@@ -528,7 +542,7 @@ def run_pilot(
     event_output["session_date"] = event_output["session_date"].dt.date.astype(str)
     event_output.to_csv(events_path, index=False, lineterminator="\n")
     report_path.write_text(
-        render_report(regressions, spreads, attrition, decision, decision_reasons, split_date, methodology),
+        render_report(regressions, spreads, attrition, decision, decision_reasons, split_date, methodology, config),
         encoding="utf-8",
         newline="\n",
     )
@@ -540,7 +554,8 @@ def run_pilot(
     manifest = {
         "schema_version": 1,
         "status": "completed",
-        "one_shot_evaluation_run": 1,
+        "evaluation_run_number": config.evaluation_run_number,
+        "rerun_reason": config.rerun_reason,
         "decision": decision,
         "decision_reasons": decision_reasons,
         "split": {
@@ -551,7 +566,7 @@ def run_pilot(
         "signals": {
             "level": "mean FinBERT p_positive - p_negative",
             "surprise": "local-level one-step forecast error divided by forecast standard deviation",
-            "state_estimation": "parameters fit on development only; one-sided Kalman filter; no smoother",
+            "state_estimation": ("parameters fit on development only with Powell maximum likelihood; one-sided Kalman filter; no smoother"),
             "delta": "current minus prior firm news-day",
             "dev20": "current minus shifted 20-firm-news-day mean",
             "local_level_parameters": local_level_parameters,

@@ -74,6 +74,14 @@ def test_local_level_forecast_does_not_use_current_or_future_observation() -> No
     assert prediction[-1] != changed[-1]
 
 
+def test_local_level_powell_fit_converges_at_variance_boundary() -> None:
+    values = np.tile(np.array([-0.2, 0.0, 0.2, 0.0]), 25)
+    prediction, prediction_std, parameters = _local_level_one_step(values, 70)
+    assert np.isfinite(prediction).all()
+    assert (prediction_std > 0).all()
+    assert set(parameters) == {"sigma2.irregular", "sigma2.level"}
+
+
 def test_market_adjusted_car_excludes_ar0() -> None:
     dates = pd.bdate_range("2026-01-01", periods=14)
     market_returns = np.array([0.0, *([0.01] * 13)])
