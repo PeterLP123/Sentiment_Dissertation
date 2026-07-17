@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
+from sentiment_benchmark.artifact_io import sha256_text
+from sentiment_benchmark.headline_value import normalize_headline
 from sentiment_benchmark.sentiment_surprise_pilot import (
     PilotConfig,
     _load_prices,
@@ -36,28 +39,46 @@ def test_session_mapping_uses_first_close_strictly_after_timestamp(tmp_path: Pat
     prices_path = tmp_path / "prices.csv"
     pd.DataFrame(_price_rows("AAA", pd.DatetimeIndex(["2026-01-02", "2026-01-05"]), np.array([0.0, 0.01]))).to_csv(prices_path, index=False)
     scores_path = tmp_path / "scores.csv"
+    headlines_path = tmp_path / "headlines.jsonl"
+    headline_a = "First test headline"
+    headline_b = "Second test headline"
     pd.DataFrame(
         [
             {
-                "headline_sha256": "a",
-                "matched_symbols": "AAA",
-                "first_timestamp": "2026-01-02T20:59:00Z",
+                "headline_sha256": sha256_text(normalize_headline(headline_a)),
                 "baseline": "finbert",
                 "score": 0.2,
                 "status": "success",
             },
             {
-                "headline_sha256": "b",
-                "matched_symbols": "AAA",
-                "first_timestamp": "2026-01-02T21:01:00Z",
+                "headline_sha256": sha256_text(normalize_headline(headline_b)),
                 "baseline": "finbert",
                 "score": -0.4,
                 "status": "success",
             },
         ]
     ).to_csv(scores_path, index=False)
+    headlines_path.write_text(
+        "\n".join(
+            json.dumps(row)
+            for row in (
+                {
+                    "headline": headline_a,
+                    "matched_symbols": ["AAA"],
+                    "version_created": "2026-01-02T20:59:00.123000+00:00",
+                },
+                {
+                    "headline": headline_b,
+                    "matched_symbols": ["AAA"],
+                    "version_created": "2026-01-02T21:01:00Z",
+                },
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     config = PilotConfig(minimum_symbol_news_days=1, minimum_prior_news_days=0, dev20_window=1)
-    daily, _ = build_daily_sentiment(scores_path, _load_prices(prices_path, label="test"), config)
+    daily, _ = build_daily_sentiment(scores_path, headlines_path, _load_prices(prices_path, label="test"), config)
     assert daily["session_date"].dt.date.astype(str).tolist() == ["2026-01-02", "2026-01-05"]
     assert daily["level"].tolist() == [0.2, -0.4]
 
@@ -103,35 +124,48 @@ def test_full_pilot_writes_frozen_outputs(tmp_path: Path) -> None:
     news_dates = dates[1:91]
     symbols = ["AAA", "BBB", "CCC", "DDD", "EEE"]
     score_rows: list[dict[str, object]] = []
+    headline_rows: list[dict[str, object]] = []
     price_rows: list[dict[str, object]] = []
     market_returns = 0.0005 + 0.0002 * np.sin(np.arange(len(dates)))
     price_rows.extend(_price_rows("^GSPC", dates, market_returns))
     for symbol_index, symbol in enumerate(symbols):
         scores = 0.4 * np.sin(np.arange(len(news_dates)) / 5 + symbol_index)
         for index, (date, score) in enumerate(zip(news_dates, scores, strict=True)):
+            headline = f"{symbol} synthetic headline {index}"
             score_rows.append(
                 {
-                    "headline_sha256": f"{symbol}-{index}",
-                    "matched_symbols": symbol,
-                    "first_timestamp": f"{date.date().isoformat()}T15:00:00Z",
+                    "headline_sha256": sha256_text(normalize_headline(headline)),
                     "baseline": "finbert",
                     "score": score,
                     "status": "success",
+                }
+            )
+            headline_rows.append(
+                {
+                    "headline": headline,
+                    "matched_symbols": [symbol],
+                    "version_created": f"{date.date().isoformat()}T15:00:00Z",
                 }
             )
         stock_returns = market_returns + 0.001 * np.roll(scores.mean() + np.sin(np.arange(len(dates))), symbol_index)
         price_rows.extend(_price_rows(symbol, dates, stock_returns))
 
     scores_path = tmp_path / "scores.csv"
+    headlines_path = tmp_path / "headlines.jsonl"
     stocks_path = tmp_path / "stocks.csv"
     market_path = tmp_path / "market.csv"
     pd.DataFrame(score_rows).to_csv(scores_path, index=False)
+    headlines_path.write_text(
+        "\n".join(json.dumps(row) for row in headline_rows) + "\n",
+        encoding="utf-8",
+    )
     prices = pd.DataFrame(price_rows)
     prices[prices["symbol"] != "^GSPC"].to_csv(stocks_path, index=False)
     prices[prices["symbol"] == "^GSPC"].to_csv(market_path, index=False)
     output = tmp_path / "pilot"
     report = run_pilot(
         scores_path,
+        headlines_path,
         stocks_path,
         market_path,
         output,

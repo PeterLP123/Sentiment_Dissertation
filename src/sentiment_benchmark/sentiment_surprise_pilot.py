@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import math
 import warnings
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -14,7 +16,8 @@ import pandas as pd
 import statsmodels.api as sm
 from statsmodels.tsa.statespace.structural import UnobservedComponents
 
-from .artifact_io import atomic_write_json, sha256_file
+from .artifact_io import atomic_write_json, sha256_file, sha256_text
+from .headline_value import normalize_headline
 from .runtime_metadata import collect_run_environment
 from .strategy_sweep import chronological_split_date
 
@@ -76,32 +79,75 @@ def _session_closes(prices: pd.DataFrame, timezone: str) -> pd.DataFrame:
 
 def build_daily_sentiment(
     scores_path: str | Path,
+    headlines_path: str | Path,
     stock_prices: pd.DataFrame,
     config: PilotConfig,
 ) -> tuple[pd.DataFrame, list[dict[str, Any]]]:
-    """Explode target associations and aggregate scores at the first close after availability."""
+    """Join scores to raw articles and aggregate them at the first close after availability."""
 
-    usecols = ["headline_sha256", "matched_symbols", "first_timestamp", "baseline", "score", "status"]
+    usecols = ["headline_sha256", "baseline", "score", "status"]
     scores = pd.read_csv(scores_path, usecols=usecols)
     input_rows = len(scores)
     scores = scores[(scores["baseline"] == config.scorer) & (scores["status"] == "success")].copy()
     scorer_rows = len(scores)
-    scores["timestamp"] = pd.to_datetime(scores["first_timestamp"], utc=True, errors="coerce")
     scores["level"] = pd.to_numeric(scores["score"], errors="coerce")
-    scores["symbol"] = scores["matched_symbols"].fillna("").astype(str).str.split("|")
-    scores = scores.explode("symbol", ignore_index=True)
-    scores["symbol"] = scores["symbol"].astype(str).str.strip()
-    scores = scores[scores["timestamp"].notna() & scores["level"].notna() & np.isfinite(scores["level"]) & (scores["symbol"] != "")].copy()
-    valid_associations = len(scores)
+    if scores["level"].isna().any() or not np.isfinite(scores["level"]).all():
+        raise SentimentSurprisePilotError(f"successful {config.scorer} rows contain invalid scores")
+    if scores.duplicated("headline_sha256").any():
+        raise SentimentSurprisePilotError(f"successful {config.scorer} scores contain duplicate headline hashes")
+    score_map = dict(zip(scores["headline_sha256"].astype(str), scores["level"].astype(float), strict=True))
+
+    raw_headline_rows = 0
+    scored_headline_rows = 0
+    invalid_timestamp_rows = 0
+    associations: list[dict[str, Any]] = []
+    source = Path(headlines_path)
+    with source.open(encoding="utf-8") as handle:
+        for line_number, line in enumerate(handle, start=1):
+            if not line.strip():
+                continue
+            raw_headline_rows += 1
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise SentimentSurprisePilotError(f"invalid headline JSON at {source}:{line_number}: {exc}") from exc
+            normalized = normalize_headline(str(row.get("headline") or ""))
+            level = score_map.get(sha256_text(normalized)) if normalized else None
+            if level is None:
+                continue
+            scored_headline_rows += 1
+            timestamp_text = row.get("version_created") or row.get("first_created")
+            try:
+                timestamp = datetime.fromisoformat(str(timestamp_text).replace("Z", "+00:00"))
+            except (TypeError, ValueError):
+                invalid_timestamp_rows += 1
+                continue
+            if timestamp.tzinfo is None:
+                timestamp = timestamp.replace(tzinfo=UTC)
+            raw_symbols = row.get("matched_symbols") or []
+            symbols = raw_symbols.split("|") if isinstance(raw_symbols, str) else raw_symbols
+            for symbol in sorted({str(value).strip() for value in symbols if str(value).strip()}):
+                associations.append(
+                    {
+                        "article_id": f"{line_number}:{symbol}",
+                        "symbol": symbol,
+                        "timestamp": timestamp.astimezone(UTC),
+                        "level": level,
+                    }
+                )
+    association_frame = pd.DataFrame(associations)
+    if association_frame.empty:
+        raise SentimentSurprisePilotError("no scored symbol-article associations survive")
+    valid_associations = len(association_frame)
 
     sessions = _session_closes(stock_prices, config.exchange_timezone)
     known_symbols = set(sessions["symbol"])
-    unknown = sorted(set(scores["symbol"]) - known_symbols)
+    unknown = sorted(set(association_frame["symbol"]) - known_symbols)
     if unknown:
         raise SentimentSurprisePilotError(f"scored associations lack stock prices for symbols: {unknown}")
 
     aligned_parts: list[pd.DataFrame] = []
-    for symbol, group in scores.groupby("symbol", sort=True):
+    for symbol, group in association_frame.groupby("symbol", sort=True):
         right = sessions[sessions["symbol"] == symbol][["session_date", "session_close_utc"]]
         aligned = pd.merge_asof(
             group.sort_values("timestamp", kind="stable"),
@@ -118,7 +164,7 @@ def build_daily_sentiment(
 
     daily = (
         aligned_scores.groupby(["symbol", "session_date"], sort=True)
-        .agg(level=("level", "mean"), article_count=("headline_sha256", "nunique"))
+        .agg(level=("level", "mean"), article_count=("article_id", "size"))
         .reset_index()
     )
     daily["total_symbol_news_days"] = daily.groupby("symbol")["session_date"].transform("size")
@@ -137,6 +183,13 @@ def build_daily_sentiment(
     attrition = [
         {"step": "score_file_rows_all_scorers", "unit": "score rows", "surviving": input_rows},
         {"step": f"successful_{config.scorer}_headline_rows", "unit": "headline rows", "surviving": scorer_rows},
+        {"step": "raw_corpus_headline_rows", "unit": "article rows", "surviving": raw_headline_rows},
+        {"step": "raw_headline_rows_with_score", "unit": "article rows", "surviving": scored_headline_rows},
+        {
+            "step": "raw_scored_rows_with_valid_timestamp",
+            "unit": "article rows",
+            "surviving": scored_headline_rows - invalid_timestamp_rows,
+        },
         {"step": "valid_symbol_headline_associations", "unit": "associations", "surviving": valid_associations},
         {"step": "associations_mapped_to_stock_session", "unit": "associations", "surviving": len(aligned_scores)},
         {"step": "aggregated_symbol_session_news_days", "unit": "events", "surviving": len(daily)},
@@ -358,7 +411,7 @@ def classify_decision(regressions: pd.DataFrame) -> tuple[str, list[str]]:
     change_best = max(model_r2[name] for name in ("M3", "M5", "M6"))
     if change_best > model_r2["M1"] and change_best > model_r2["M2"]:
         return "WEAK-GO", ["change_or_deviation_signal_beats_m1_and_level_but_go_cells_fail"]
-    return "NO-GO", ["go_and_weak_go_orderings_not_met"]
+    return "NO-GO", ["surprise_ordering_not_met_although_an_alternative_beats_m1"]
 
 
 def _format_cell(regressions: pd.DataFrame, model: str, term: str) -> str:
@@ -426,17 +479,19 @@ def render_report(
         lines.append(f"| {row.step} | {row.unit} | {int(row.surviving):,} |")
 
     model_r2 = regressions.groupby("model", sort=False)["oos_r2"].first().to_dict()
+    models_beating_m1 = [name for name in ("M2", "M3", "M4", "M5", "M6") if model_r2[name] > model_r2["M1"]]
+    decision_scope = "NO-GO for the Kalman surprise centrepiece" if decision == "NO-GO" and models_beating_m1 else decision
     m4_t = float(regressions[(regressions["model"] == "M4") & (regressions["term"] == "surprise")]["t_stat"].iloc[0])
     lines.extend(
         [
             "",
             "## Ten-line plain-English summary",
             "",
-            f"1. The one-shot pilot decision is **{decision}**.",
+            f"1. The one-shot pilot decision is **{decision_scope}**.",
             f"2. M4's surprise t-statistic is {m4_t:.2f}; the GO threshold is an absolute value above 2.",
             f"3. M3 surprise OOS R² is {model_r2['M3']:.6f}, versus M2 level at {model_r2['M2']:.6f}.",
             f"4. The naive delta and dev20 OOS R² values are {model_r2['M5']:.6f} and {model_r2['M6']:.6f}.",
-            f"5. M1 AR(0)-only OOS R² is {model_r2['M1']:.6f}.",
+            (f"5. Models beating M1 OOS are {', '.join(models_beating_m1) or 'none'}; M1 itself is {model_r2['M1']:.6f}."),
             "6. Kalman parameters were estimated on development dates only; evaluation observations entered only the one-sided filter.",
             "7. No smoothed or two-sided state estimate was used.",
             "8. CAR(+1,+5) excludes the event-day reaction, which appears only as AR(0).",
@@ -459,6 +514,7 @@ def render_report(
 
 def run_pilot(
     scores_path: str | Path,
+    headlines_path: str | Path,
     stock_prices_path: str | Path,
     market_prices_path: str | Path,
     output_dir: str | Path,
@@ -475,7 +531,7 @@ def run_pilot(
 
     stocks = _load_prices(stock_prices_path, label="stock prices")
     market = _load_prices(market_prices_path, label="market prices")
-    daily, attrition_rows = build_daily_sentiment(scores_path, stocks, config)
+    daily, attrition_rows = build_daily_sentiment(scores_path, headlines_path, stocks, config)
     events = add_market_adjusted_outcomes(daily, stocks, market, config.market_symbol)
     eligible = events[events["eligible_baseline_history"]]
     primary_candidates = eligible.dropna(subset=["ar0", "car_p1_p5", "delta", "dev20"])
@@ -548,6 +604,7 @@ def run_pilot(
     )
     inputs = {
         "scores": str(scores_path),
+        "headlines": str(headlines_path),
         "stock_prices": str(stock_prices_path),
         "market_prices": str(market_prices_path),
     }

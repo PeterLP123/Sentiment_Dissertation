@@ -11,6 +11,7 @@ from sentiment_benchmark.sentiment_surprise_pilot import PilotConfig, run_pilot
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--scores", required=True)
+    parser.add_argument("--headlines", required=True)
     parser.add_argument("--stock-prices", required=True)
     parser.add_argument("--market-prices", required=True)
     parser.add_argument("--output-dir", required=True)
@@ -27,6 +28,7 @@ def main() -> int:
     )
     report = run_pilot(
         args.scores,
+        args.headlines,
         args.stock_prices,
         args.market_prices,
         args.output_dir,
