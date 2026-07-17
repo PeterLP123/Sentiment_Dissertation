@@ -141,6 +141,11 @@ See the [historical strategy-research guide](strategy_research_pipeline.md) for 
 | `strategy stock-test` | Re-evaluate the frozen state action as one independent account per stock, without portfolio construction. |
 | `strategy development-tests` | Compare development-only label horizons, centered signals, holding periods, and thresholds. |
 | `strategy development-controls` | Compare the frozen development rule with timing, refresh, inversion, and within-stock shuffle controls. |
+| `strategy prepare-model-only-development` | Freeze every pre-evaluation event for the explicitly waived, model-only development experiment. |
+| `strategy score-model-only-development` | Explicitly authorize resumable local-only joint scoring of that full development universe. |
+| `strategy build-model-only-strategy` | Apply the predeclared direction, materiality, and novelty filter to completed joint scores. |
+| `strategy model-only-controls` | Run the one filtered strategy through the existing development-only per-stock controls. |
+| `strategy model-only-event-gate` | Test strongest-event positive-versus-negative separation in frozen development folds before another strategy is allowed. |
 | `strategy prepare-signal-audit` | Freeze a blind 99-event development sample and human-label template without model calls or return data. |
 | `strategy score-signal-audit` | Explicitly authorize resumable local-only joint JSON scoring of five-level direction/severity, materiality, and novelty. |
 | `strategy validate-signal-audit` | Compare completed local scores with a complete human audit and apply the frozen agreement gate. |
@@ -157,12 +162,18 @@ sentiment-bench strategy score --config <local-ollama-config> --max-new-scores 2
 sentiment-bench strategy stock-test --run-dir <completed-run>
 sentiment-bench strategy development-tests --run-dir <completed-run>
 sentiment-bench strategy development-controls --run-dir <completed-run>
+sentiment-bench strategy prepare-model-only-development --run-dir <completed-run>
+sentiment-bench strategy score-model-only-development --universe-dir <model-only-universe>
+sentiment-bench strategy build-model-only-strategy --universe-dir <model-only-universe> --score-dir <score-dir>
+sentiment-bench strategy model-only-controls --run-dir <completed-run> --universe-dir <model-only-universe> --strategy-dir <filtered-strategy-dir>
+sentiment-bench strategy model-only-controls --run-dir <completed-run> --universe-dir <model-only-universe> --strategy-dir <filtered-strategy-dir> --eligible-only
+sentiment-bench strategy model-only-event-gate --run-dir <completed-run> --universe-dir <model-only-universe> --strategy-dir <filtered-strategy-dir>
 sentiment-bench strategy prepare-signal-audit --run-dir <completed-run>
 sentiment-bench strategy score-signal-audit --audit-dir <audit-dir> --max-new-calls 30
 sentiment-bench strategy validate-signal-audit --score-dir <score-dir> --human-labels <human_labels.csv>
 ```
 
-Core historical stage commands require `--config`; the three signal-audit commands instead consume an immutable completed run, audit sample, or score directory. Invoking `strategy score` is itself the explicit hosted-call authorization; full `strategy run` still requires `--allow-paid`. Hosted routes are taken only from the run-hashed `scoring.endpoint`, never silently from endpoint environment variables; Ollama additionally requires a declared model digest. Formal model selection cites a run-hashed competence experiment. Stage commands execute their named stage after validating or reusing matching prerequisite stages. A completed stage is immutable: changed inputs or configuration resolve to a different run identity, while a manifest mismatch fails instead of overwriting evidence.
+Core historical stage commands require `--config`; the signal-quality and model-only commands instead consume immutable completed runs or stage directories. Invoking either scoring command is explicit authorization for local Ollama calls. Invoking `strategy score` is itself the explicit hosted-call authorization; full `strategy run` still requires `--allow-paid`. Hosted routes are taken only from the run-hashed `scoring.endpoint`, never silently from endpoint environment variables; Ollama additionally requires a declared model digest. Formal model selection cites a run-hashed competence experiment. Stage commands execute their named stage after validating or reusing matching prerequisite stages. A completed stage is immutable: changed inputs or configuration resolve to a different run identity, while a manifest mismatch fails instead of overwriting evidence.
 
 | Option | Applies to | Meaning |
 | --- | --- | --- |
@@ -176,6 +187,11 @@ Core historical stage commands require `--config`; the three signal-audit comman
 | `--max-new-calls N` | `strategy score-signal-audit` | Bound new local event calls; completed joint cache entries resume and no final `model_scores.jsonl` appears until all events succeed. |
 | `--score-dir PATH` | `strategy validate-signal-audit` | Completed 3-task local score artifact for one frozen audit sample. |
 | `--human-labels PATH` | `strategy validate-signal-audit` | Complete blind human CSV with exact audit and event identities. |
+| `--universe-dir PATH` | Model-only score/build/control/event-gate commands | Frozen all-development event artifact; it contains no evaluation events. The controls infer it only for the default nested strategy path. |
+| `--strategy-dir PATH` | `strategy model-only-controls`, `strategy model-only-event-gate` | Completed filtered-score artifact produced from the same frozen universe. |
+| `--eligible-only` | `strategy model-only-controls` | Run the separately identified v2 hypothesis: exclude ineligible explicit-zero events before the stock-session mean. |
+| `--price-panel PATH` | `strategy model-only-event-gate` | Relocated copy of the frozen adjusted-open panel; the completed price-manifest hash must match. |
+| `--events-path PATH` | `strategy model-only-event-gate` | Relocated copy of the frozen canonical event artifact; the completed event-manifest hash must match. |
 
 The synthetic smoke config uses checked-in fixtures and requires no network, credentials, licensed text, or paid calls. Historical outputs resolve to `<logical-run-id>-<identity-hash-prefix>` below `Data/derived/strategy_research/` and `results/strategy_research/`; see [Results and exports](results_and_exports.md#historical-strategy-research-artifacts).
 

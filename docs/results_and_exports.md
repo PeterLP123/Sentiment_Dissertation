@@ -33,6 +33,7 @@ flowchart LR
 | `results/strategy_research/<run-id>/single_stock/` | `strategy stock-test` | Independent per-stock account returns, daily ledgers, benchmark comparisons, figures, and an immutable manifest. | Ignored. |
 | `results/strategy_research/<run-id>/development_tests/` | `strategy development-tests` | Development-only label-horizon, information-coefficient, candidate-fold, figure, and selection diagnostics. | Ignored. |
 | `results/strategy_research/<run-id>/development_controls/` | `strategy development-controls` | Development-only timing, refresh, inversion, shuffled-label, stock-fold, acceptance, and figure diagnostics. | Ignored. |
+| `results/strategy_research/<run-id>/directional_event_gate/` | `strategy model-only-event-gate` | Aggregate validation-fold direction spreads, subgroup diagnostics, block-bootstrap inference, gate decision, and figure. No article text or event identifiers. | Ignored. |
 | `results/strategy_research/<run-id>/signal_quality_validation/` | `strategy validate-signal-audit` | Human-model agreement metrics, frozen gate checks, and an interpretation-limited validation report. | Ignored. |
 | `results/strategy_research/paper/journal.jsonl` | Future accepted `strategy paper` phase | Prospective-only, append-only hash-chained observation/order/outcome journal; the current command is write-gated. | Ignored. |
 | `experiments/manifest.toml` | Manual curation | Formal dissertation experiment registry. | Source-controlled. |

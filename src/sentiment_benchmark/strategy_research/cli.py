@@ -13,8 +13,18 @@ from rich.table import Table
 
 from .artifacts import StrategyArtifactError
 from .config import StrategyConfigurationError, load_strategy_config
-from .development_controls import DevelopmentControlError, run_development_controls
+from .development_controls import DevelopmentControlError, ScoreAggregationMode, run_development_controls
 from .development_tests import DevelopmentTestError, run_development_tests
+from .directional_event_gate import (
+    DirectionalEventGateError,
+    run_directional_event_gate,
+)
+from .model_only_development import (
+    ModelOnlyDevelopmentError,
+    build_model_only_filtered_scores,
+    prepare_model_only_development,
+    validate_model_only_scoring_universe,
+)
 from .pipeline import DryRunReport, StrategyPipelineError, execute_pipeline, inspect_pipeline
 from .signal_quality import (
     SignalAuditSpec,
@@ -277,6 +287,204 @@ def development_controls_command(
     console.print(f"Sentiment v2 objective={result.v2_summary.objective:.6f}; acceptance={passed}/{len(result.acceptance)}")
 
 
+@app.command("prepare-model-only-development")
+def prepare_model_only_development_command(
+    run_dir: Annotated[
+        Path,
+        typer.Option("--run-dir", help="Completed strategy-research results directory."),
+    ],
+    output_root: Annotated[
+        Path | None,
+        typer.Option("--output-root", help="Optional immutable development-universe directory."),
+    ] = None,
+) -> None:
+    """Freeze all development events for model-only joint scoring."""
+
+    try:
+        result = prepare_model_only_development(run_dir, output_root=output_root)
+    except (ModelOnlyDevelopmentError, ValueError) as exc:
+        console.print(f"[red]Model-only development preparation failed:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    status = "validated/reused" if result.reused else "completed"
+    console.print(f"[green]Model-only development universe {status}:[/green] {result.universe_id}")
+    console.print(f"Development events: {result.event_count}")
+    console.print(f"Universe: {result.output_dir}")
+    console.print(f"Assumption record: {result.assumption_path}")
+
+
+@app.command("score-model-only-development")
+def score_model_only_development_command(
+    universe_dir: Annotated[
+        Path,
+        typer.Option("--universe-dir", help="Completed model-only development-universe directory."),
+    ],
+    endpoint: Annotated[
+        str,
+        typer.Option("--endpoint", help="Loopback Ollama endpoint on the scoring machine."),
+    ] = "http://127.0.0.1:11435",
+    max_new_calls: Annotated[
+        int | None,
+        typer.Option("--max-new-calls", min=1, help="Bound new local calls while preserving resumable cache entries."),
+    ] = None,
+) -> None:
+    """Explicitly authorize resumable local-only scoring of all development events."""
+
+    try:
+        validate_model_only_scoring_universe(universe_dir)
+        result = asyncio.run(
+            score_signal_audit(
+                universe_dir,
+                endpoint=endpoint,
+                max_new_calls=max_new_calls,
+                allow_calls=True,
+            )
+        )
+    except (ModelOnlyDevelopmentError, SignalQualityError, ValueError) as exc:
+        console.print(f"[red]Model-only development scoring failed:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    status = "validated/reused" if result.reused else "completed" if result.complete else "paused safely"
+    console.print(f"[green]Model-only development scoring {status}:[/green] {result.score_id}")
+    console.print(f"Successful joint event scores: {result.successful_scores}/{result.expected_calls}; new calls: {result.calls_made}")
+    console.print(f"Scoring artifacts: {result.output_dir}")
+
+
+@app.command("build-model-only-strategy")
+def build_model_only_strategy_command(
+    universe_dir: Annotated[
+        Path,
+        typer.Option("--universe-dir", help="Completed model-only development-universe directory."),
+    ],
+    score_dir: Annotated[
+        Path,
+        typer.Option("--score-dir", help="Completed model-only joint-scoring directory."),
+    ],
+    output_root: Annotated[
+        Path | None,
+        typer.Option("--output-root", help="Optional immutable filtered-score directory."),
+    ] = None,
+) -> None:
+    """Apply the frozen direction, materiality, and novelty filter."""
+
+    try:
+        result = build_model_only_filtered_scores(universe_dir, score_dir, output_root=output_root)
+    except (ModelOnlyDevelopmentError, ValueError) as exc:
+        console.print(f"[red]Model-only strategy build failed:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    status = "validated/reused" if result.reused else "completed"
+    console.print(f"[green]Model-only filtered strategy {status}:[/green] {result.strategy_id}")
+    console.print(f"Eligible events: {result.eligible_event_count}/{result.event_count}")
+    console.print(f"Filtered scores: {result.output_dir}")
+
+
+@app.command("model-only-controls")
+def model_only_controls_command(
+    run_dir: Annotated[
+        Path,
+        typer.Option("--run-dir", help="Completed strategy-research results directory."),
+    ],
+    strategy_dir: Annotated[
+        Path,
+        typer.Option("--strategy-dir", help="Completed model-only filtered-score directory."),
+    ],
+    universe_dir: Annotated[
+        Path | None,
+        typer.Option(
+            "--universe-dir",
+            help="Source model-only universe; inferred when the strategy uses its default nested path.",
+        ),
+    ] = None,
+    output_root: Annotated[
+        Path | None,
+        typer.Option("--output-root", help="Optional immutable control-experiment output directory."),
+    ] = None,
+    eligible_only: Annotated[
+        bool,
+        typer.Option(
+            "--eligible-only",
+            help="Average only eligible non-zero model events within each stock-session.",
+        ),
+    ] = False,
+) -> None:
+    """Test the one frozen model-only strategy on development data only."""
+
+    scores_path = strategy_dir / "scores.jsonl"
+    aggregation_mode: ScoreAggregationMode = "eligible_nonzero_events" if eligible_only else "all_scored_events"
+    candidate_label = "model-only eligible-event mean v2" if eligible_only else "model-only filtered v1"
+    try:
+        result = run_development_controls(
+            run_dir,
+            output_root=output_root,
+            scores_path_override=scores_path,
+            universe_dir_override=universe_dir,
+            candidate_label=candidate_label,
+            aggregation_mode=aggregation_mode,
+        )
+    except (DevelopmentControlError, ValueError) as exc:
+        console.print(f"[red]Model-only development controls failed:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    status = "validated/reused" if result.reused else "completed"
+    passed = sum(check.passed for check in result.acceptance)
+    console.print(f"[green]Model-only development controls {status}:[/green] {result.experiment_id}")
+    console.print(f"Results: {result.output_dir}")
+    console.print(f"Report: {result.report_path}")
+    console.print(f"Candidate objective={result.v2_summary.objective:.6f}; acceptance={passed}/{len(result.acceptance)}")
+
+
+@app.command("model-only-event-gate")
+def model_only_event_gate_command(
+    run_dir: Annotated[
+        Path,
+        typer.Option("--run-dir", help="Completed strategy-research results directory."),
+    ],
+    universe_dir: Annotated[
+        Path,
+        typer.Option("--universe-dir", help="Completed full model-only development universe."),
+    ],
+    strategy_dir: Annotated[
+        Path,
+        typer.Option("--strategy-dir", help="Completed model-only filtered-score directory."),
+    ],
+    output_root: Annotated[
+        Path | None,
+        typer.Option("--output-root", help="Optional immutable aggregate event-gate output directory."),
+    ] = None,
+    price_panel: Annotated[
+        Path | None,
+        typer.Option(
+            "--price-panel",
+            help="Relocated copy of the frozen price panel; its manifest hash must match.",
+        ),
+    ] = None,
+    events_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--events-path",
+            help="Relocated copy of the frozen event artifact; its manifest hash must match.",
+        ),
+    ] = None,
+) -> None:
+    """Test directional separation before constructing another strategy."""
+
+    try:
+        result = run_directional_event_gate(
+            run_dir,
+            universe_dir,
+            strategy_dir,
+            output_root=output_root,
+            price_panel=price_panel,
+            events_path_override=events_path,
+        )
+    except (DirectionalEventGateError, ValueError) as exc:
+        console.print(f"[red]Model-only directional event gate failed:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    status = "validated/reused" if result.reused else "completed"
+    decision = f"PASS at {result.selected_horizon} sessions" if result.passed else "STOP; no horizon passed"
+    console.print(f"[green]Model-only directional event gate {status}:[/green] {result.experiment_id}")
+    console.print(f"Decision: {decision}")
+    console.print(f"Results: {result.output_dir}")
+    console.print(f"Report: {result.report_path}")
+
+
 @app.command("prepare-signal-audit")
 def prepare_signal_audit_command(
     run_dir: Annotated[
@@ -341,10 +549,7 @@ def score_signal_audit_command(
         raise typer.Exit(code=1) from exc
     status = "validated/reused" if result.reused else "completed" if result.complete else "paused safely"
     console.print(f"[green]Signal-quality audit scoring {status}:[/green] {result.score_id}")
-    console.print(
-        f"Successful joint event scores: {result.successful_scores}/{result.expected_calls}; "
-        f"new calls: {result.calls_made}"
-    )
+    console.print(f"Successful joint event scores: {result.successful_scores}/{result.expected_calls}; new calls: {result.calls_made}")
     console.print(f"Scoring artifacts: {result.output_dir}")
 
 

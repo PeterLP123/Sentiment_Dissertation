@@ -32,9 +32,21 @@ from ..artifact_io import (
 from .development_tests import SessionSignal, aggregate_stock_session_scores, config_session
 from .ledger import evaluation_rows, run_open_to_open_ledger
 from .market import OpenToOpenReturn, calculate_open_to_open_returns, load_adjusted_opens_csv
+from .model_only_development import (
+    MODEL_ONLY_CONTRACT,
+    ModelOnlyDevelopmentError,
+    validate_model_only_scoring_universe,
+)
 from .portfolio import PositionTarget, TargetPortfolio
+from .run_validation import (
+    CompletedRunValidationError,
+    load_completed_run_snapshot,
+    validate_adjusted_open_price_panel,
+    validate_completed_stage_output,
+)
 
 ControlName = Literal["sentiment_v2", "refreshing_signal", "news_timing_long", "inverted_sentiment"]
+ScoreAggregationMode = Literal["all_scored_events", "eligible_nonzero_events"]
 
 
 class DevelopmentControlError(RuntimeError):
@@ -147,6 +159,43 @@ class DevelopmentControlRun:
     v2_summary: ControlSummary
     acceptance: tuple[AcceptanceCheck, ...]
     reused: bool
+
+
+def select_control_scores(
+    scores: Sequence[Mapping[str, Any]],
+    aggregation_mode: ScoreAggregationMode,
+) -> tuple[dict[str, Any], ...]:
+    """Select the event records admitted to stock-session aggregation.
+
+    The eligible-only contract is deliberately strict: every source row must be
+    a successful filtered-strategy record, eligible rows must be sign-only, and
+    ineligible rows must be explicit zeros. This prevents missing or malformed
+    model output from disappearing as if it were neutral news.
+    """
+
+    copied = tuple(dict(row) for row in scores)
+    if aggregation_mode == "all_scored_events":
+        return copied
+    if aggregation_mode != "eligible_nonzero_events":
+        raise DevelopmentControlError(f"unsupported score aggregation mode: {aggregation_mode}")
+    selected: list[dict[str, Any]] = []
+    for row in copied:
+        event_id = str(row.get("event_id") or "")
+        if row.get("status") != "success" or not event_id:
+            raise DevelopmentControlError("eligible-only aggregation requires successful identified score rows")
+        eligible = row.get("eligible")
+        if not isinstance(eligible, bool):
+            raise DevelopmentControlError(f"eligible-only score has no boolean eligibility flag: {event_id}")
+        score = float(row["score"])
+        if eligible and score not in {-1.0, 1.0}:
+            raise DevelopmentControlError(f"eligible-only score is not sign-only: {event_id}")
+        if not eligible and score != 0.0:
+            raise DevelopmentControlError(f"ineligible score is not an explicit zero: {event_id}")
+        if eligible:
+            selected.append(row)
+    if not selected:
+        raise DevelopmentControlError("eligible-only aggregation selected no events")
+    return tuple(selected)
 
 
 def build_control_exposures(
@@ -456,39 +505,136 @@ def run_development_controls(
     *,
     output_root: str | Path | None = None,
     spec: DevelopmentControlSpec | None = None,
+    scores_path_override: str | Path | None = None,
+    universe_dir_override: str | Path | None = None,
+    candidate_label: str = "sentiment v2",
+    aggregation_mode: ScoreAggregationMode = "all_scored_events",
 ) -> DevelopmentControlRun:
     """Run and immutably materialize controls and the shuffled-label null."""
 
     root = Path(run_dir)
-    report_manifest = read_json(root / "manifests" / "report.json")
-    if report_manifest.get("status") != "completed":
-        raise DevelopmentControlError("source run report stage is not completed")
-    config = report_manifest["config"]
+    try:
+        snapshot = load_completed_run_snapshot(root)
+    except CompletedRunValidationError as exc:
+        raise DevelopmentControlError(str(exc)) from exc
+    report_manifest = snapshot.report
+    config = snapshot.config
     evaluation_start = str(config["run"]["evaluation_start"])
     price_path = Path(str(config["prices"]["panel_path"]))
     derived_root = Path(str(config["outputs"]["derived_root"])) / root.name
     events_path = derived_root / "events" / "events.jsonl"
-    scores_path = derived_root / "scores" / "scores.jsonl"
+    scores_path = Path(scores_path_override) if scores_path_override is not None else derived_root / "scores" / "scores.jsonl"
     folds_path = root / "tuning" / "fold_definitions.json"
     required = (price_path, events_path, scores_path, folds_path)
     if any(not path.is_file() for path in required):
         raise DevelopmentControlError("one or more required completed-run artifacts are missing")
+    try:
+        events_manifest_hash = validate_completed_stage_output(
+            snapshot,
+            stage="events",
+            output_name="events",
+            output_path=events_path,
+            root_output_suffix=f"{root.name}/events/events.jsonl",
+        )
+        tuning_manifest_hash = validate_completed_stage_output(
+            snapshot,
+            stage="tuning",
+            output_name="fold_definitions",
+            output_path=folds_path,
+            root_output_suffix=f"{root.name}/tuning/fold_definitions.json",
+        )
+        price_manifest_hash = validate_adjusted_open_price_panel(snapshot, price_path)
+    except CompletedRunValidationError as exc:
+        raise DevelopmentControlError(str(exc)) from exc
+    score_manifest_path: Path | None = None
+    score_manifest: Mapping[str, Any] | None = None
+    universe_manifest_path: Path | None = None
+    universe_manifest: Mapping[str, Any] | None = None
+    if scores_path_override is not None:
+        score_manifest_path = scores_path.parent / "manifest.json"
+        if not score_manifest_path.is_file():
+            raise DevelopmentControlError("explicit model-only scores have no completed manifest")
+        loaded_manifest = read_json(score_manifest_path)
+        expected_score_hash = loaded_manifest.get("outputs", {}).get(scores_path.name, {}).get("sha256")
+        if (
+            loaded_manifest.get("schema_version") != 1
+            or loaded_manifest.get("status") != "completed"
+            or loaded_manifest.get("identity_sha256")
+            != sha256_text(canonical_json(loaded_manifest.get("identity")))
+            or loaded_manifest.get("identity", {}).get("contract") != MODEL_ONLY_CONTRACT
+            or sha256_file(scores_path) != expected_score_hash
+        ):
+            raise DevelopmentControlError("explicit model-only score artifact is incomplete or changed")
+        score_manifest = loaded_manifest
+        universe_root = Path(universe_dir_override) if universe_dir_override is not None else scores_path.parent.parent.parent
+        try:
+            validate_model_only_scoring_universe(universe_root)
+        except ModelOnlyDevelopmentError as exc:
+            raise DevelopmentControlError(str(exc)) from exc
+        universe_manifest_path = universe_root / "sample_manifest.json"
+        universe_items_path = universe_root / "audit_items.csv"
+        if not universe_manifest_path.is_file() or not universe_items_path.is_file():
+            raise DevelopmentControlError("explicit model-only scores have no verifiable source universe")
+        loaded_universe = read_json(universe_manifest_path)
+        expected_items_hash = loaded_universe.get("outputs", {}).get(universe_items_path.name, {}).get("sha256")
+        universe_identity = loaded_universe.get("identity", {})
+        if (
+            loaded_universe.get("schema_version") != 1
+            or loaded_universe.get("status") != "completed"
+            or sha256_file(universe_items_path) != expected_items_hash
+            or loaded_manifest.get("identity", {}).get("universe_identity_sha256") != loaded_universe.get("identity_sha256")
+            or universe_identity.get("contract") != MODEL_ONLY_CONTRACT
+            or universe_identity.get("source_run_id") != root.name
+            or universe_identity.get("source_run_identity") != report_manifest.get("run_identity_sha256")
+            or universe_identity.get("evaluation_start") != evaluation_start
+            or universe_identity.get("events_sha256") != sha256_file(events_path)
+        ):
+            raise DevelopmentControlError("explicit model-only strategy does not belong to the source run")
+        universe_manifest = loaded_universe
     control_spec = spec or DevelopmentControlSpec(cost_bps_per_side=float(config["execution"]["cost_bps_per_side"]))
     identity_payload = {
-        "analysis_schema_version": 2,
+        "analysis_schema_version": 5 if scores_path_override is not None else 3,
         "source_run_id": root.name,
         "source_run_identity": report_manifest.get("run_identity_sha256"),
         "evaluation_start": evaluation_start,
         "events_sha256": sha256_file(events_path),
+        "events_manifest_sha256": events_manifest_hash,
         "scores_sha256": sha256_file(scores_path),
         "prices_sha256": sha256_file(price_path),
+        "price_manifest_sha256": price_manifest_hash,
         "folds_sha256": sha256_file(folds_path),
+        "tuning_manifest_sha256": tuning_manifest_hash,
         "spec": asdict(control_spec),
         "shuffle_contract": "permute event scores within stock; preserve event dates, counts, and per-stock score multiset",
         "boundary_rule": "return endpoint must be strictly before evaluation_start",
     }
+    if scores_path_override is not None:
+        assert (
+            score_manifest_path is not None
+            and score_manifest is not None
+            and universe_manifest_path is not None
+            and universe_manifest is not None
+        )
+        identity_payload["candidate_label"] = candidate_label
+        identity_payload["scores_source"] = "explicit model-only filtered score artifact"
+        identity_payload["scores_manifest_sha256"] = sha256_file(score_manifest_path)
+        identity_payload["scores_artifact_identity"] = score_manifest.get("identity_sha256")
+        identity_payload["universe_manifest_sha256"] = sha256_file(universe_manifest_path)
+        identity_payload["universe_identity"] = universe_manifest.get("identity_sha256")
+    if aggregation_mode != "all_scored_events":
+        identity_payload["aggregation_mode"] = aggregation_mode
+        identity_payload["aggregation_contract"] = (
+            "mean only eligible sign-only events per stock-session; ineligible successful events are absent, not zeros"
+        )
+        identity_payload["shuffle_contract"] = (
+            "permute eligible sign-only event scores within stock; preserve eligible event dates, counts, and sign multiset"
+        )
     identity_hash = sha256_text(canonical_json(identity_payload))
-    experiment_id = f"sentiment-v2-controls-{identity_hash[:12]}"
+    if aggregation_mode == "eligible_nonzero_events":
+        prefix = "model-only-eligible-controls"
+    else:
+        prefix = "model-only-filtered-controls" if scores_path_override is not None else "sentiment-v2-controls"
+    experiment_id = f"{prefix}-{identity_hash[:12]}"
     output_dir = Path(output_root) if output_root is not None else root / "development_controls" / experiment_id
     report_path = output_dir / "report.md"
     manifest_path = output_dir / "manifest.json"
@@ -511,15 +657,35 @@ def run_development_controls(
     )
     if manifest_path.is_file():
         existing = read_json(manifest_path)
-        if existing.get("identity_sha256") != identity_hash:
+        if existing.get("schema_version") != 1 or existing.get("status") != "completed":
+            raise DevelopmentControlError(f"refusing to reuse incomplete control output: {output_dir}")
+        if (
+            existing.get("identity_sha256") != identity_hash
+            or canonical_json(existing.get("identity")) != canonical_json(identity_payload)
+        ):
             raise DevelopmentControlError(f"existing control identity mismatch: {output_dir}")
+        actual_files = {path.relative_to(output_dir).as_posix() for path in output_dir.rglob("*") if path.is_file()}
+        expected_files = {path.relative_to(output_dir).as_posix() for path in expected} | {"manifest.json"}
+        if actual_files != expected_files:
+            raise DevelopmentControlError(f"completed control directory contains unexpected or missing files: {output_dir}")
         for path in expected:
             expected_hash = existing.get("outputs", {}).get(path.name, {}).get("sha256")
             if not path.is_file() or sha256_file(path) != expected_hash:
                 raise DevelopmentControlError(f"completed control output is missing or changed: {path}")
-        v2 = ControlSummary(**existing["v2_summary"])
-        acceptance = tuple(AcceptanceCheck(**row) for row in existing["acceptance"])
+        cached_summaries = _load_control_summary_csv(control_summary_path)
+        try:
+            v2 = next(row for row in cached_summaries if row.control == "sentiment_v2")
+        except StopIteration as exc:
+            raise DevelopmentControlError("hashed control summary has no candidate row") from exc
+        acceptance = _load_acceptance_csv(acceptance_path)
+        if (
+            canonical_json(existing.get("v2_summary")) != canonical_json(asdict(v2))
+            or canonical_json(existing.get("acceptance")) != canonical_json([asdict(row) for row in acceptance])
+        ):
+            raise DevelopmentControlError("control manifest decision fields disagree with hashed outputs")
         return DevelopmentControlRun(experiment_id, output_dir, report_path, manifest_path, v2, acceptance, True)
+    if output_dir.exists():
+        raise DevelopmentControlError(f"refusing to reuse incomplete control output: {output_dir}")
 
     opens = load_adjusted_opens_csv(price_path)
     symbols = tuple(sorted({row.symbol for row in opens}))
@@ -529,8 +695,23 @@ def run_development_controls(
     returns = calculate_open_to_open_returns(opens)
     events = read_jsonl(events_path)
     scores = read_jsonl(scores_path)
+    if scores_path_override is not None:
+        if any(not str(event.get("eligible_execution_session") or "") for event in events):
+            raise DevelopmentControlError("source events contain a missing eligible execution session")
+        development_event_ids = [
+            str(event.get("event_id") or "") for event in events if str(event.get("eligible_execution_session") or "") < evaluation_start
+        ]
+        score_event_ids = [str(score.get("event_id") or "") for score in scores]
+        if (
+            any(not event_id for event_id in development_event_ids + score_event_ids)
+            or len(development_event_ids) != len(set(development_event_ids))
+            or len(score_event_ids) != len(set(score_event_ids))
+            or set(development_event_ids) != set(score_event_ids)
+        ):
+            raise DevelopmentControlError("model-only event and score identities do not match exactly")
+    analysis_scores = select_control_scores(scores, aggregation_mode)
     folds = read_json(folds_path)["folds"]
-    signals = aggregate_stock_session_scores(events, scores, sessions)
+    signals = aggregate_stock_session_scores(events, analysis_scores, sessions)
     summaries: list[ControlSummary] = []
     all_folds: list[ControlFoldResult] = []
     all_stocks: list[StockFoldOutcome] = []
@@ -561,7 +742,7 @@ def run_development_controls(
     shuffles: list[ShuffleResult] = []
     for replication in range(control_spec.shuffle_replications):
         shuffle_seed = control_spec.seed + replication
-        shuffled_signals = shuffle_scores_within_stock(events, scores, sessions, seed=shuffle_seed)
+        shuffled_signals = shuffle_scores_within_stock(events, analysis_scores, sessions, seed=shuffle_seed)
         shuffle_folds, _ = _evaluate_control(
             "sentiment_v2",
             shuffled_signals,
@@ -587,6 +768,20 @@ def run_development_controls(
             )
         )
     acceptance = _acceptance(v2, summary_by_control, shuffles, control_spec)
+    row_counts = {
+        "control_summaries": len(summaries),
+        "control_fold_results": len(all_folds),
+        "stock_fold_results": len(all_stocks),
+        "shuffle_replications": len(shuffles),
+    }
+    if aggregation_mode != "all_scored_events":
+        row_counts.update(
+            {
+                "source_score_rows": len(scores),
+                "aggregation_score_rows": len(analysis_scores),
+                "stock_session_signals": len(signals),
+            }
+        )
     output_dir.mkdir(parents=True, exist_ok=False)
     control_figure.parent.mkdir(parents=True, exist_ok=True)
     atomic_write_text(control_summary_path, _csv(summaries))
@@ -596,7 +791,19 @@ def run_development_controls(
     atomic_write_text(acceptance_path, _csv(acceptance))
     atomic_write_text(control_figure, _control_svg(summaries))
     atomic_write_text(shuffle_figure, _shuffle_svg(v2, shuffles))
-    atomic_write_text(report_path, _report(experiment_id, control_spec, summaries, all_folds, shuffles, acceptance))
+    atomic_write_text(
+        report_path,
+        _report(
+            experiment_id,
+            control_spec,
+            summaries,
+            all_folds,
+            shuffles,
+            acceptance,
+            candidate_label,
+            aggregation_mode,
+        ),
+    )
     manifest = {
         "schema_version": 1,
         "status": "completed",
@@ -605,16 +812,14 @@ def run_development_controls(
         "identity": identity_payload,
         "v2_summary": asdict(v2),
         "acceptance": [asdict(row) for row in acceptance],
-        "row_counts": {
-            "control_summaries": len(summaries),
-            "control_fold_results": len(all_folds),
-            "stock_fold_results": len(all_stocks),
-            "shuffle_replications": len(shuffles),
-        },
+        "row_counts": row_counts,
         "outputs": {
             path.name: {"path": path.as_posix(), "sha256": sha256_file(path), "size_bytes": path.stat().st_size} for path in expected
         },
-        "warning": "Development controls only; no prior evaluation return was read or reused.",
+        "warning": (
+            "Development controls only; evaluation rows were loaded only as panel metadata and were excluded from "
+            "every return interval and decision."
+        ),
     }
     atomic_write_json(manifest_path, manifest)
     return DevelopmentControlRun(experiment_id, output_dir, report_path, manifest_path, v2, acceptance, False)
@@ -631,6 +836,53 @@ def _csv(rows: Sequence[Any]) -> str:
     return buffer.getvalue()
 
 
+def _load_control_summary_csv(path: Path) -> tuple[ControlSummary, ...]:
+    with path.open(encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    try:
+        summaries = tuple(
+            ControlSummary(
+                control=row["control"],  # type: ignore[arg-type]
+                objective=float(row["objective"]),
+                median_fold_market_adjusted_return=float(row["median_fold_market_adjusted_return"]),
+                fold_return_iqr=float(row["fold_return_iqr"]),
+                median_fold_raw_return=float(row["median_fold_raw_return"]),
+                median_fold_excess_vs_buy_and_hold=float(row["median_fold_excess_vs_buy_and_hold"]),
+                mean_active_fraction=float(row["mean_active_fraction"]),
+                mean_supported_stocks=float(row["mean_supported_stocks"]),
+                mean_turnover=float(row["mean_turnover"]),
+                positive_folds=int(row["positive_folds"]),
+                long_positive_folds=int(row["long_positive_folds"]),
+                short_positive_folds=int(row["short_positive_folds"]),
+            )
+            for row in rows
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        raise DevelopmentControlError("hashed control summary artifact is invalid") from exc
+    if not summaries:
+        raise DevelopmentControlError("hashed control summary artifact is empty")
+    return summaries
+
+
+def _load_acceptance_csv(path: Path) -> tuple[AcceptanceCheck, ...]:
+    with path.open(encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    if not rows or any(row.get("passed") not in {"True", "False"} for row in rows):
+        raise DevelopmentControlError("hashed acceptance artifact is empty or invalid")
+    try:
+        return tuple(
+            AcceptanceCheck(
+                check=row["check"],
+                passed=row["passed"] == "True",
+                observed=row["observed"],
+                requirement=row["requirement"],
+            )
+            for row in rows
+        )
+    except (KeyError, TypeError) as exc:
+        raise DevelopmentControlError("hashed acceptance artifact is invalid") from exc
+
+
 def _report(
     experiment_id: str,
     spec: DevelopmentControlSpec,
@@ -638,6 +890,8 @@ def _report(
     folds: Sequence[ControlFoldResult],
     shuffles: Sequence[ShuffleResult],
     acceptance: Sequence[AcceptanceCheck],
+    candidate_label: str = "sentiment v2",
+    aggregation_mode: ScoreAggregationMode = "all_scored_events",
 ) -> str:
     by_control = {row.control: row for row in summaries}
     v2 = by_control["sentiment_v2"]
@@ -645,8 +899,18 @@ def _report(
     shuffle_p = (1 + int(np.sum(null >= v2.objective))) / (len(shuffles) + 1)
     null_95 = float(np.quantile(null, 0.95))
     passed = sum(row.passed for row in acceptance)
+    aggregation_text = (
+        "stock-session mean over eligible non-zero model events only"
+        if aggregation_mode == "eligible_nonzero_events"
+        else "stock-session mean"
+    )
+    timing_text = (
+        "Eligible-event timing control goes long after a candidate-eligible stock-session and ignores direction."
+        if aggregation_mode == "eligible_nonzero_events"
+        else "News-timing control goes long after any screened stock-session news and ignores sentiment."
+    )
     lines = [
-        f"# Development controls for sentiment v2: {experiment_id}",
+        f"# Development controls for {candidate_label}: {experiment_id}",
         "",
         "> All fits, controls, shuffles, and returns stop before the previously observed evaluation boundary.",
         "",
@@ -659,10 +923,11 @@ def _report(
         "",
         "## Frozen rules",
         "",
-        f"- Sentiment v2: stock-session mean `|score| >= {spec.threshold:g}`, non-refreshing {spec.hold_sessions}-session hold.",
+        f"- Candidate ({candidate_label}): {aggregation_text}, `|score| >= {spec.threshold:g}`, "
+        f"non-refreshing {spec.hold_sessions}-session hold.",
         "- Same-direction signals during a live hold are ignored; an opposite strong signal reverses and resets the clock.",
         "- Refresh control restarts the clock on same-direction signals.",
-        "- News-timing control goes long after any screened stock-session news and ignores sentiment.",
+        f"- {timing_text}",
         "- Inverted control reverses every qualifying sentiment direction.",
         f"- Null: `{spec.shuffle_replications}` within-stock event-label shuffles, seed sequence starting `{spec.seed}`.",
         f"- Costs: `{spec.cost_bps_per_side:g}` bps per side; primary objective includes the stability penalty.",
@@ -689,7 +954,7 @@ def _report(
             "",
             "## Shuffled-label placebo",
             "",
-            f"- Observed v2 objective: `{v2.objective:.3%}`.",
+            f"- Observed candidate objective: `{v2.objective:.3%}`.",
             f"- Shuffled-null 95th percentile: `{null_95:.3%}`.",
             f"- One-sided randomization p-value: `{shuffle_p:.4f}`.",
             "",
@@ -697,16 +962,14 @@ def _report(
             "",
             "## Pre-declared acceptance checks",
             "",
-            f"Sentiment v2 passed **{passed}/{len(acceptance)}** checks.",
+            f"The candidate passed **{passed}/{len(acceptance)}** checks.",
             "",
             "| Check | Result | Observed | Requirement |",
             "| --- | --- | --- | --- |",
         ]
     )
     for check in acceptance:
-        lines.append(
-            f"| {check.check} | {'PASS' if check.passed else 'FAIL'} | {check.observed} | {check.requirement} |"
-        )
+        lines.append(f"| {check.check} | {'PASS' if check.passed else 'FAIL'} | {check.observed} | {check.requirement} |")
     lines.extend(
         [
             "",
@@ -717,12 +980,8 @@ def _report(
         ]
     )
     for fold_result in sorted(folds, key=lambda item: (item.control, item.fold_index)):
-        long_mean = (
-            "n/a" if fold_result.mean_long_gross_return is None else f"{fold_result.mean_long_gross_return:.3%}"
-        )
-        short_mean = (
-            "n/a" if fold_result.mean_short_gross_return is None else f"{fold_result.mean_short_gross_return:.3%}"
-        )
+        long_mean = "n/a" if fold_result.mean_long_gross_return is None else f"{fold_result.mean_long_gross_return:.3%}"
+        short_mean = "n/a" if fold_result.mean_short_gross_return is None else f"{fold_result.mean_short_gross_return:.3%}"
         lines.append(
             f"| {fold_result.control} | {fold_result.fold_index} | "
             f"{fold_result.validation_start} to {fold_result.validation_end} | "
@@ -826,7 +1085,7 @@ def _shuffle_svg(v2: ControlSummary, rows: Sequence[ShuffleResult]) -> str:
         f'<text x="{left}" y="27" font-family="sans-serif" font-size="19">Within-stock shuffled-label null</text>',
         (
             f'<text x="{left}" y="46" font-family="sans-serif" font-size="12" fill="#555">'
-            "500 deterministic replications; vertical line is observed sentiment v2</text>"
+            "500 deterministic replications; vertical line is observed candidate</text>"
         ),
     ]
     for index, count in enumerate(counts):

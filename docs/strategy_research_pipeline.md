@@ -206,6 +206,60 @@ Licensed audit text and model-cache records remain below the source run in
 `Data/derived/strategy_research/`. Agreement metrics and the validation report
 are written below the matching run in `results/strategy_research/`.
 
+## Explicit model-only development experiment
+
+The separate model-only commands support one researcher-approved experiment in
+which human validation is explicitly waived rather than implied. The universe
+manifest and assumption record identify the labels as a model-generated
+research assumption, include every event whose eligible session is before the
+locked evaluation boundary, and contain no evaluation events or return data.
+
+The rule is frozen before the full local calls: non-neutral direction,
+materiality at least moderate, and novelty at least moderate map to sign-only
+`-1` or `+1`; successfully scored events outside the filter map to `0`, while a
+missing or invalid score fails the build. Signals are averaged once per
+stock-session, enter at threshold `0.75`, and use the existing non-refreshing
+10-session, 10-bps per-side independent-stock controls. The workflow stops at a
+development go/no-go report. It does not validate the annotations or authorize
+evaluation scoring, and it cannot support a claim of profitable or deployable
+alpha.
+
+After v1 failed its development support guardrail, `--eligible-only` defines a
+separate v2 development hypothesis without changing model labels or reading the
+evaluation block. It averages only eligible sign-only events within a
+stock-session, so ineligible explicit-zero stories cannot dilute a qualifying
+story. Its timing, refresh, inversion, and within-stock shuffle controls use the
+same eligible event set. All other thresholds, holding rules, costs, folds, and
+acceptance checks remain frozen. This is a new post hoc development experiment,
+not a reinterpretation of the v1 result.
+
+```bash
+sentiment-bench strategy prepare-model-only-development --run-dir <completed-run>
+sentiment-bench strategy score-model-only-development --universe-dir <model-only-universe>
+sentiment-bench strategy build-model-only-strategy --universe-dir <model-only-universe> --score-dir <score-dir>
+sentiment-bench strategy model-only-controls --run-dir <completed-run> --universe-dir <model-only-universe> --strategy-dir <filtered-strategy-dir>
+sentiment-bench strategy model-only-controls --run-dir <completed-run> --universe-dir <model-only-universe> --strategy-dir <filtered-strategy-dir> --eligible-only
+sentiment-bench strategy model-only-event-gate --run-dir <completed-run> --universe-dir <model-only-universe> --strategy-dir <filtered-strategy-dir>
+```
+
+The next development-only gate does not construct a portfolio or make new
+model calls. It selects the strongest eligible event per stock-session using
+materiality, novelty, and absolute direction severity; equally strong
+opposite-direction ties are excluded. It then compares positive and negative
+market-adjusted adjusted-open returns at the predeclared 1, 2, 3, 5, and 10
+session horizons. Both endpoints must remain in the same frozen validation
+fold and strictly before `evaluation_start`.
+
+The formal gate uses a five-session contiguous block bootstrap with 2,000
+replications and seed `20260715`. A horizon must have at least 50 observations
+per direction overall, 10 per direction in every fold, 25 supported stocks,
+positive separation in all three folds, at least 99% valid bootstrap draws,
+and a Bonferroni-corrected one-sided p-value and lower confidence bound above
+zero. If several horizons pass, the shortest is selected. If none passes, the
+pipeline records a stop decision and does not authorize another historical
+strategy or evaluation-period scoring. Materiality, novelty, and severity
+breakdowns are diagnostic only.
+
 ## Artifacts and replay
 
 The resolved run name combines a logical ID and a prefix of an identity hash covering source, event rule, processing buffer, scoring identity, price manifest, calendar, split, grid, state, risk, costs, inference, and schema version. A changed research choice therefore creates a different directory.
