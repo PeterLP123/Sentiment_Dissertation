@@ -23,4 +23,3 @@ second_moment_marginal_rule = "no in-scope BH q < signal_alpha and at least one 
 mean_signal_yes_rule = "at least one horizon has BH q < signal_alpha"
 mean_signal_marginal_rule = "no horizon has BH q < signal_alpha and at least one horizon has raw p < signal_alpha"
 recap_inflation_rule = "same sign, abs(recap lambda)/abs(other lambda) >= recap_inflation_ratio, and recap p < signal_alpha"
-

@@ -19,6 +19,12 @@ from .directional_event_gate import (
     DirectionalEventGateError,
     run_directional_event_gate,
 )
+from .independent_replication import (
+    IndependentReplicationError,
+    finalize_independent_replication_scores,
+    prepare_independent_replication,
+    run_independent_replication,
+)
 from .model_only_development import (
     ModelOnlyDevelopmentError,
     build_model_only_filtered_scores,
@@ -483,6 +489,80 @@ def model_only_event_gate_command(
     console.print(f"Decision: {decision}")
     console.print(f"Results: {result.output_dir}")
     console.print(f"Report: {result.report_path}")
+
+
+@app.command("prepare-independent-replication")
+def prepare_independent_replication_command(
+    config: Annotated[
+        Path,
+        typer.Option("--config", help="Frozen independent-replication TOML contract."),
+    ],
+) -> None:
+    """Freeze the independent event universe without opening price observations."""
+
+    try:
+        result = prepare_independent_replication(config)
+    except (IndependentReplicationError, ValueError) as exc:
+        console.print(f"[red]Independent replication preparation failed:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    status = "validated/reused" if result.reused else "completed"
+    console.print(f"[green]Independent replication preparation {status}:[/green] {result.replication_id}")
+    console.print(f"Frozen events: {result.event_count}")
+    console.print(f"Universe: {result.universe_dir}")
+
+
+@app.command("independent-replication")
+def independent_replication_command(
+    config: Annotated[
+        Path,
+        typer.Option("--config", help="Frozen independent-replication TOML contract."),
+    ],
+    universe_dir: Annotated[
+        Path,
+        typer.Option("--universe-dir", help="Completed independent local-scoring universe."),
+    ],
+    strategy_dir: Annotated[
+        Path,
+        typer.Option("--strategy-dir", help="Completed filtered model-score directory."),
+    ],
+) -> None:
+    """Open frozen prices once and run the negative-news two-session replication."""
+
+    try:
+        result = run_independent_replication(config, universe_dir, strategy_dir)
+    except (IndependentReplicationError, ValueError) as exc:
+        console.print(f"[red]Independent replication failed:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    status = "validated/reused" if result.reused else "completed"
+    decision = "PASS" if result.decision.passed else "STOP"
+    console.print(f"[green]Independent replication {status}:[/green] {result.replication_id}")
+    console.print(f"Decision: {decision}")
+    console.print(f"Results: {result.output_dir}")
+    console.print(f"Report: {result.report_path}")
+
+
+@app.command("finalize-independent-replication-scores")
+def finalize_independent_replication_scores_command(
+    universe_dir: Annotated[
+        Path,
+        typer.Option("--universe-dir", help="Completed independent local-scoring universe."),
+    ],
+    score_dir: Annotated[
+        Path,
+        typer.Option("--score-dir", help="Resumable local-only score-cache directory."),
+    ],
+) -> None:
+    """Finalize successful labels and exhausted invalid-score exclusions."""
+
+    try:
+        result = finalize_independent_replication_scores(universe_dir, score_dir)
+    except (IndependentReplicationError, ValueError) as exc:
+        console.print(f"[red]Independent score finalization failed:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    status = "validated/reused" if result.reused else "completed"
+    console.print(f"[green]Independent score finalization {status}:[/green] {result.strategy_id}")
+    console.print(f"Successful scores: {result.successful_scores}; excluded invalid scores: {result.excluded_scores}")
+    console.print(f"Filtered strategy: {result.output_dir}")
 
 
 @app.command("prepare-signal-audit")

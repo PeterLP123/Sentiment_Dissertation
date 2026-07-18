@@ -1,5 +1,6 @@
 import asyncio
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -106,6 +107,21 @@ def test_build_corpus_preserves_full_clean_text_and_excludes_invalid_records(tmp
 
     resumed = build_lseg_corpus(raw.raw_dir)
     assert resumed.resumed is True
+
+
+def test_build_corpus_treats_explicit_headline_only_collection_as_scoreable(tmp_path: Path) -> None:
+    config = _config(tmp_path)
+    config = replace(config, fetch_story_bodies=False, collection_id="headline-only-corpus")
+    raw = asyncio.run(fetch_lseg_news(config, LsegNewsClient(CorpusBackend())))
+
+    result = build_lseg_corpus(raw.raw_dir)
+    manifest, articles = load_verified_lseg_corpus(result.manifest_path)
+
+    eligible = [row for row in articles if row["scoring_eligible"]]
+    assert result.eligible_count == 3
+    assert all(row["text_quality"] == "headline_only" for row in eligible)
+    assert all(row["clean_text"] == "" for row in eligible)
+    assert manifest["counts"]["text_quality"]["headline_only"] == 3
 
 
 def test_verified_corpus_rejects_content_hash_mismatch(tmp_path: Path) -> None:

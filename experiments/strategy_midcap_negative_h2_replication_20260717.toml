@@ -1,0 +1,101 @@
+# Frozen before reading the mid-cap adjusted-open observations or calculating
+# any mid-cap return.  This is one independent replication, not another tuning
+# round on the 33-stock development sample.
+
+[experiment]
+id = "strategy-midcap-negative-h2-replication-20260717"
+status = "frozen"
+frozen_at_utc = "2026-07-17T16:28:01Z"
+schema_version = 1
+source_commit = "48699693f7442c6d7f99f3289285d2bc7454709e"
+purpose = "Independently replicate the 33-stock negative-news two-session association as a stock-level short strategy."
+
+[news]
+corpus_manifest = "Data/collections/lseg_us_midcap_22_1y/derived/us_midcap_22_1y/manifest.json"
+corpus_manifest_sha256 = "4a8b21f8c7f1f88b7e2f840a9ec351bb0966964a17146076a890f7c1fe12b174"
+collection_id = "us_midcap_22_1y"
+text_unit = "headline_only"
+source = "lseg"
+processing_buffer_minutes = 15
+exchange_calendar = "XNYS"
+exchange_timezone = "America/New_York"
+event_identity = "earliest_story_family_symbol"
+relevance_rule = "existing_strategy_relevance_v1"
+analysis_start_session = "2025-06-26"
+analysis_end_session = "2026-06-26"
+prior_context_days = 30
+maximum_prior_headlines = 5
+
+[model]
+provider = "ollama"
+model = "gemma4:12b"
+model_digest = "4eb23ef187e2c5462566d6a1d3bbbc2f1346d0b4327cbb66d58fffbcc9b2b05c"
+endpoint = "http://127.0.0.1:11435"
+prompt_id = "strategy_target_signal_quality_joint_v2"
+prompt_path = "configs/strategy_research/signal_quality_joint_prompt.toml"
+prompt_file_sha256 = "44fbf9cb0de767609546667b96075f33197640209d443f61eac66c011db84124"
+temperature = 0.0
+max_completion_tokens = 64
+ollama_think = false
+structured_json_output = true
+retries = 3
+human_validation_status = "waived_by_researcher"
+
+[eligibility]
+direction = "negative_only"
+minimum_materiality = "moderate"
+minimum_novelty = "moderate"
+stock_session_selection = "strongest_eligible_event_before_direction_filter"
+strength_order = ["materiality", "novelty", "absolute_direction_severity"]
+conflicting_strongest_tie = "exclude_stock_session"
+missing_or_invalid_score = "exclude"
+
+[prices]
+panel_path = "Data/derived/prices/lseg_us_midcap_22_1y.csv"
+manifest_path = "Data/derived/prices/lseg_us_midcap_22_1y.manifest.json"
+manifest_sha256 = "63461feb0f37a323f15d1834ccaaebb58e0b85685d1c4f916a6409b3c4062d5a"
+panel_sha256 = "dc4e06fa9e177428593a516bb94d5f216f6eed34af217872b195d7359d6dc3ca"
+field = "adjusted_open"
+return_convention = "split_adjusted_open_to_open"
+dividends_adjusted = false
+
+[strategy]
+position = "short"
+entry = "eligible_open"
+holding_sessions = 2
+exit = "open_two_sessions_after_entry"
+cost_bps_per_side = 10.0
+overlapping_events = "independent_stock_level_trades"
+portfolio_aggregation = false
+primary_outcome = "net_short_return"
+diagnostic_outcome = "panel_hedged_net_short_return"
+
+[folds]
+count = 3
+construction = "equal_contiguous_session_windows"
+boundary_rule = "entry_and_exit_must_be_in_same_fold"
+minimum_trades_per_fold = 10
+
+[inference]
+method = "ordinary_nonwrapping_contiguous_session_block_bootstrap"
+block_length_sessions = 5
+replications = 2000
+seed = 20260715
+one_sided_p_value_maximum = 0.01
+confidence_level = 0.99
+
+[acceptance]
+minimum_total_trades = 50
+minimum_supported_stocks = 18
+required_positive_folds = 3
+require_positive_99pct_lower_bound = true
+require_positive_mean_net_short_return = true
+decision = "pass_only_if_every_requirement_passes"
+on_pass = "freeze the rule and evaluate prospectively; do not retune on this sample"
+on_fail = "stop historical strategy development and move to prospective collection or report the null"
+
+[outputs]
+derived_root = "Data/derived/strategy_research/independent_replications"
+results_root = "results/strategy_research/independent_replications"
+licensed_text_policy = "derived_only_untracked"
+report_policy = "aggregate_and_stock_level_only_no_article_text"

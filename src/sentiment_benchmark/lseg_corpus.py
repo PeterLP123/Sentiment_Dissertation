@@ -27,6 +27,7 @@ from .runtime_metadata import collect_run_environment
 LSEG_CORPUS_SCHEMA_VERSION = 1
 QUALITY_NON_ENGLISH = "non_english"
 QUALITY_INVALID_TIMESTAMP = "invalid_timestamp"
+QUALITY_HEADLINE_ONLY = "headline_only"
 
 
 @dataclass(frozen=True)
@@ -256,6 +257,12 @@ def build_lseg_corpus(raw_source: str | Path) -> LsegCorpusResult:
             cleaned_chars = 0
             detail = f"unsupported story language: {language}"
             cleaning = None
+        elif not config.fetch_story_bodies:
+            clean_text = ""
+            cleaned_chars = 0
+            quality = QUALITY_HEADLINE_ONLY
+            detail = "collection was explicitly configured for headline-only scoring"
+            cleaning = None
         elif story_status != "success":
             quality = story_status
             clean_text = ""
@@ -301,7 +308,7 @@ def build_lseg_corpus(raw_source: str | Path) -> LsegCorpusResult:
                 "max_scoring_chars": config.max_scoring_chars,
                 "text_quality": quality,
                 "status_detail": detail,
-                "scoring_eligible": quality == QUALITY_OK,
+                "scoring_eligible": quality in {QUALITY_OK, QUALITY_HEADLINE_ONLY},
                 "cleaning": cleaning,
                 "raw_story_path": f"stories/{sha256_text(story_id)}.json",
             }

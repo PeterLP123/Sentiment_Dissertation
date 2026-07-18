@@ -840,6 +840,23 @@ def run_finbert_scoring(*, output_dir: Path, config: FnspidMoment2FinbertConfig,
     connection = _connect(db_path)
     expected = int(connection.execute("SELECT COUNT(*) FROM events").fetchone()[0])
     completed_before = int(connection.execute("SELECT COUNT(*) FROM events WHERE finbert_score IS NOT NULL").fetchone()[0])
+    previous_finbert = manifest.get("finbert", {})
+    if completed_before > 0 and int(previous_finbert.get("remaining", 0)) > 0:
+        interruption = {
+            "event": "previous_session_killed_during_finbert_scoring",
+            "checkpoint_mtime": datetime.fromtimestamp(db_path.stat().st_mtime, UTC).isoformat(),
+            "previous_started_at": previous_finbert.get("started_at"),
+            "finbert_scored_at_resume": completed_before,
+            "finbert_remaining_at_resume": expected - completed_before,
+            "recovery": "validated and resumed the existing SQLite checkpoint; all previously scored probabilities were retained",
+        }
+        history = manifest.setdefault("interruption_history", [])
+        if not any(
+            item.get("event") == interruption["event"]
+            and int(item.get("finbert_scored_at_resume", -1)) == completed_before
+            for item in history
+        ):
+            history.append(interruption)
     manifest["status"] = "finbert_scoring"
     manifest["updated_at"] = _utc_now()
     manifest.setdefault("commands", {})["finbert"] = list(command)
@@ -1029,6 +1046,13 @@ def _final_report(
     recap_verdict: str,
     manifest: dict[str, Any],
 ) -> None:
+    current_report = path.read_text(encoding="utf-8")
+    part1_start = current_report.index("# Part 1 — VADER second-moment and tail smoke")
+    part2_start = current_report.index("# Part 2 — full FinBERT")
+    part1_section = current_report[part1_start:part2_start].rstrip("\n")
+    history = manifest.get("interruption_history", [])
+    scoring_resumes = [item for item in history if item.get("event") == "previous_session_killed_during_finbert_scoring"]
+    scored_at_resume = int(scoring_resumes[-1]["finbert_scored_at_resume"]) if scoring_resumes else 0
     lines = [
         "# FNSPID second-moment/tail smoke and full FinBERT verdict",
         "",
@@ -1040,54 +1064,8 @@ def _final_report(
         "- Verification Status: VERIFIED",
         "- Version Label: fnspid_moment2_finbert_v1",
         "",
-        "# Part 1 — VADER second-moment and tail smoke",
-        "",
-        f"**Does any VADER sentiment predictor add second-moment/tail information beyond volatility clustering? {vader_verdict}.**",
-        "",
-        "The controls-only baseline is prior-five-session mean absolute daily abnormal return plus log(1 + article count). The full "
-        "model adds mean VADER compound and the share of headlines with compound < -0.05. AR is the stock adjusted-close log return "
-        "minus SPY's adjusted-close log return. All regressions are OLS/LPM with calendar news-session clustered standard errors.",
-        "",
-        "Each symbol's tail cutoff is its 5th percentile of all available daily AR observations in 2011-2016, using linear quantile "
-        "interpolation. The definition-period tail regression is descriptive and excluded from the verdict; 2017-2023 is reported separately. "
-        "BH q-values cover the six reported full-model sentiment coefficients.",
-        "",
-        "## Part 1 model fit",
-        "",
-        "| Analysis | Model | N | Date clusters | R2 | Delta R2 | Mean outcome | Verdict evidence |",
-        "| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |",
+        part1_section,
     ]
-    for row in part1_model_fits.itertuples(index=False):
-        lines.append(
-            f"| {row.analysis} | {row.model} | {row.observations:,} | {row.date_clusters:,} | {row.r_squared:.8f} | "
-            f"{row.delta_r_squared_vs_controls:.8f} | {row.mean_outcome:.8f} | {'yes' if row.verdict_scope else 'no'} |"
-        )
-    lines.extend(
-        [
-            "",
-            "## Part 1 coefficients",
-            "",
-            "| Analysis | Model | Regressor | Coefficient | Clustered SE | t | p | BH q | 95% CI |",
-            "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |",
-        ]
-    )
-    for row in part1_coefficients.itertuples(index=False):
-        q_value = "—" if not math.isfinite(float(row.bh_q_value)) else f"{row.bh_q_value:.6g}"
-        lines.append(
-            f"| {row.analysis} | {row.model} | {row.regressor} | {row.coefficient:.8f} | {row.clustered_se:.8f} | "
-            f"{row.t_stat:.2f} | {row.p_value:.6g} | {q_value} | [{row.ci_95_low:.8f}, {row.ci_95_high:.8f}] |"
-        )
-    lines.extend(
-        [
-            "",
-            "## Part 1 attrition",
-            "",
-            "| Step | Unit | Surviving | Excluded at step |",
-            "| --- | --- | ---: | ---: |",
-        ]
-    )
-    for row in attrition.itertuples(index=False):
-        lines.append(f"| {row.step} | {row.unit} | {row.surviving:,} | {row.excluded_at_step:,} |")
     lines.extend(
         [
             "",
@@ -1163,8 +1141,7 @@ def _final_report(
             f"1. VADER second-moment/tail information beyond volatility clustering: **{vader_verdict}**.",
             f"2. FinBERT mean-return signal at h>=1 after BH across ten horizons: **{mean_verdict}**.",
             f"3. FinBERT second-moment/tail information beyond volatility clustering: **{finbert_risk_verdict}**.",
-            f"3. Recap inflation under the frozen same-sign, 1.5x, recap-p<0.05 rule: **{recap_verdict}** (absolute coefficient ratio {recap_ratio:.2f}x).",
-            f"4. The FinBERT second-moment/tail suite returned {finbert_risk_verdict} under its separately recorded six-coefficient BH family.",
+            f"4. Recap inflation under the frozen same-sign, 1.5x, recap-p<0.05 rule: **{recap_verdict}** (absolute coefficient ratio {recap_ratio:.2f}x).",
             f"5. FinBERT scored all {manifest['finbert']['scored']:,} deduplicated 2011-2023 window headlines from 574 coherent firms.",
             "6. Mean-signal q-values correct exactly the ten h=1..10 horizon tests.",
             "7. Second-moment q-values correct six sentiment coefficients per scorer; the definition-period tail regression is not verdict evidence.",
@@ -1178,7 +1155,7 @@ def _final_report(
             "- `finbert_checkpoint.sqlite3` is resumable, gitignored, contains licensed headline text and per-headline probabilities, and must not be committed or redistributed.",
             "- All aggregate CSV and Markdown deliverables contain no licensed headline text.",
             "- The Part 1 report and tables existed on disk before Part 2 scoring started.",
-            "- Interruption history: the previous session was killed after event-checkpoint creation and before Part 1 artifacts; the checkpoint was validated and reused, with zero FinBERT rows present when Part 1 resumed.",
+            f"- Interruption history: two process kills occurred. The first was after event-checkpoint creation and before Part 1 artifacts; the second was during FinBERT scoring at {scored_at_resume:,}/{manifest['finbert']['scored']:,} rows. Both resumptions reused the validated SQLite checkpoint; no scored rows were restarted.",
             "- No yfinance call, download, or other network access was attempted.",
         ]
     )
