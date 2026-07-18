@@ -1,0 +1,26 @@
+[experiment]
+upstream_commit = "1927242"
+upstream_output_dir = "reports/loop_vader_scale_20260719"
+start_year = 2011
+end_year = 2023
+tail_definition_end_year = 2016
+tail_evaluation_start_year = 2017
+horizons = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+market_symbol = "SPY"
+event_hash_seed = "fnspid-feasibility-v1"
+random_seed = 20260719
+finbert_batch_size = 64
+finbert_checkpoint_size = 4096
+signal_alpha = 0.05
+recap_inflation_ratio = 1.5
+vader_negative_threshold = -0.05
+tail_probability = 0.05
+volatility_lookback_sessions = 5
+second_moment_bh_scope = "six sentiment coefficients per scorer: abs-AR full window, tail definition period, tail evaluation period"
+second_moment_verdict_scope = "abs-AR full window and tail evaluation period only; definition-period tail regression excluded"
+second_moment_yes_rule = "at least one in-scope sentiment coefficient has BH q < signal_alpha"
+second_moment_marginal_rule = "no in-scope BH q < signal_alpha and at least one in-scope raw p < signal_alpha"
+mean_signal_yes_rule = "at least one horizon has BH q < signal_alpha"
+mean_signal_marginal_rule = "no horizon has BH q < signal_alpha and at least one horizon has raw p < signal_alpha"
+recap_inflation_rule = "same sign, abs(recap lambda)/abs(other lambda) >= recap_inflation_ratio, and recap p < signal_alpha"
+
