@@ -1,0 +1,24 @@
+[experiment]
+preferred_start_year = 2011
+preferred_end_year = 2023
+fallback_start_year = 2010
+fallback_end_year = 2023
+minimum_news_days_per_firm_year = 20
+minimum_coherent_firms = 300
+minimum_coherent_events = 50000
+horizons = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+market_symbol = "SPY"
+event_hash_seed = "fnspid-feasibility-v1"
+random_seed = 20260719
+price_sanity_seed = 2026071901
+finbert_sample_seed = 2026071902
+price_sanity_symbols = 10
+price_sanity_dates_per_symbol = 30
+price_sanity_year = 2023
+price_mismatch_relative_tolerance = 0.001
+price_sanity_max_mismatch_rate = 0.05
+price_sanity_minimum_match_rate = 0.90
+finbert_sample_size = 5000
+finbert_batch_size = 64
+signal_alpha = 0.05
+recap_inflation_ratio = 1.5

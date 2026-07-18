@@ -169,3 +169,46 @@ def test_candidate_window_requires_same_firms_in_every_year(tmp_path: Path) -> N
     assert candidates.loc[0, "minimum_eligible_firms_in_any_year"] == 2
     assert candidates.loc[0, "firms_eligible_in_every_year"] == 1
     assert not bool(candidates.loc[0, "dimension_gate_pass"])
+
+
+def test_audit_can_exclude_timed_rows_from_one_archive(tmp_path: Path) -> None:
+    retained_archive = tmp_path / "retained.csv.zst"
+    _archive(
+        retained_archive,
+        [
+            {
+                "Date": "2020-01-03 15:00:00 UTC",
+                "Article_title": "Retained timed row",
+                "Stock_symbol": "AAA",
+                "Url": "https://example.com/retained-timed",
+            }
+        ],
+    )
+    archive = tmp_path / "nasdaq.csv.zst"
+    _archive(
+        archive,
+        [
+            {
+                "Date": "2020-01-03 15:00:00 UTC",
+                "Article_title": "Placeholder timed row",
+                "Stock_symbol": "AAA",
+                "Url": "https://www.nasdaq.com/timed",
+            },
+            {
+                "Date": "2020-01-03 00:00:00 UTC",
+                "Article_title": "Retained date-only row",
+                "Stock_symbol": "AAA",
+                "Url": "https://www.nasdaq.com/date-only",
+            },
+        ],
+    )
+    output = tmp_path / "selective-audit"
+    manifest_path = audit_fnspid_news(
+        (retained_archive, archive),
+        output,
+        config=FnspidAuditConfig(date_only_policy="next_trading_session", full_datetime_policy="session_close"),
+        exclude_full_datetime_archives=(archive,),
+    )
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["counts"]["excluded_full_datetime_rows"] == 1
+    assert manifest["counts"]["mappable_deduplicated_firm_events"] == 2

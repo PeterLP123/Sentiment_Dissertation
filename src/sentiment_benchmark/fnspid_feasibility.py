@@ -155,6 +155,7 @@ def audit_fnspid_news(
     output_dir: str | Path,
     *,
     config: FnspidAuditConfig | None = None,
+    exclude_full_datetime_archives: tuple[str | Path, ...] = (),
 ) -> Path:
     """Scan headline metadata, deduplicate firm events, and write aggregate-only diagnostics."""
 
@@ -167,6 +168,7 @@ def audit_fnspid_news(
     if destination.exists():
         raise FnspidAuditError(f"refusing to overwrite audit output: {destination}")
     archive_paths = tuple(Path(path) for path in archives)
+    excluded_timed_archives = {Path(path).resolve() for path in exclude_full_datetime_archives}
     if not archive_paths or not all(path.is_file() for path in archive_paths):
         raise FnspidAuditError("every frozen news archive must exist")
     csv.field_size_limit(sys.maxsize)
@@ -192,6 +194,7 @@ def audit_fnspid_news(
     exact_firm_duplicates = 0
     cross_symbol_story_associations = 0
     date_only_rows_assigned_next_session = 0
+    excluded_full_datetime_rows = 0
 
     session_cache: dict[str, str] = {}
     calendar: Any | None = None
@@ -238,6 +241,7 @@ def audit_fnspid_news(
         return cached
 
     for archive in archive_paths:
+        exclude_full_datetime = archive.resolve() in excluded_timed_archives
         with _open_zstd_csv(archive) as handle:
             reader = csv.DictReader(handle)
             fields = tuple(reader.fieldnames or ())
@@ -270,6 +274,9 @@ def audit_fnspid_news(
                     date_only_or_midnight_rows += 1
                 else:
                     full_datetime_rows += 1
+                    if exclude_full_datetime:
+                        excluded_full_datetime_rows += 1
+                        continue
                 if not symbol:
                     continue
                 event_session_day = assigned_day(raw_timestamp, day, full_datetime=full_datetime)
@@ -410,6 +417,7 @@ def audit_fnspid_news(
             "full_datetime_rows": full_datetime_rows,
             "date_only_or_exact_midnight_rows": date_only_or_midnight_rows,
             "date_only_rows_assigned_next_session": date_only_rows_assigned_next_session,
+            "excluded_full_datetime_rows": excluded_full_datetime_rows,
             "mappable_deduplicated_firm_events": len(seen_firm_events),
             "exact_firm_event_duplicates": exact_firm_duplicates,
             "unique_story_events": len(seen_story_events),
@@ -420,6 +428,7 @@ def audit_fnspid_news(
         "schemas": schemas,
         "config": config.__dict__,
         "inputs": {str(path): {"sha256": sha256_file(path), "size_bytes": path.stat().st_size} for path in archive_paths},
+        "excluded_full_datetime_archives": sorted(str(path) for path in excluded_timed_archives),
         "files": {
             filename: {
                 "sha256": sha256_file(destination / filename),
