@@ -9,6 +9,7 @@ import math
 import shutil
 import subprocess
 import sys
+import warnings
 from collections import Counter
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -35,6 +36,9 @@ class FnspidAuditConfig:
     minimum_window_years: int = 3
     minimum_events: int = 50_000
     hash_seed: str = "fnspid-feasibility-v1"
+    date_only_policy: str = "exclude"
+    full_datetime_policy: str = "publication_date"
+    calendar_name: str = "XNYS"
 
 
 def _hash64(*parts: str, seed: str) -> int:
@@ -91,16 +95,17 @@ def _normal(value: str | None) -> str:
 
 def _candidate_windows(
     symbol_year: Counter[tuple[str, str]],
+    symbol_year_events: Counter[tuple[str, str]],
     event_year: Counter[str],
     config: FnspidAuditConfig,
 ) -> pd.DataFrame:
     years = sorted(event_year)
-    eligible_by_year = {
-        year: sum(
-            count >= config.minimum_news_days_per_firm_year
+    eligible_by_year: dict[str, set[str]] = {
+        year: {
+            symbol
             for (symbol, candidate_year), count in symbol_year.items()
-            if candidate_year == year
-        )
+            if candidate_year == year and count >= config.minimum_news_days_per_firm_year
+        }
         for year in years
     }
     rows: list[dict[str, Any]] = []
@@ -109,16 +114,20 @@ def _candidate_windows(
             selected = years[start_index : end_index + 1]
             if any(int(selected[index + 1]) != int(selected[index]) + 1 for index in range(len(selected) - 1)):
                 continue
-            firms_each_year = [eligible_by_year[year] for year in selected]
+            firms_each_year = [len(eligible_by_year[year]) for year in selected]
+            coherent_firms = set.intersection(*(eligible_by_year[year] for year in selected))
             events = sum(event_year[year] for year in selected)
+            coherent_firm_events = sum(symbol_year_events[(symbol, year)] for symbol in coherent_firms for year in selected)
             rows.append(
                 {
                     "start_year": start,
                     "end_year": selected[-1],
                     "years": len(selected),
                     "minimum_eligible_firms_in_any_year": min(firms_each_year),
+                    "firms_eligible_in_every_year": len(coherent_firms),
                     "total_mappable_deduplicated_events": events,
-                    "dimension_gate_pass": (min(firms_each_year) >= config.minimum_firms and events >= config.minimum_events),
+                    "coherent_firm_mappable_events": coherent_firm_events,
+                    "dimension_gate_pass": (len(coherent_firms) >= config.minimum_firms and coherent_firm_events >= config.minimum_events),
                 }
             )
     if not rows:
@@ -128,12 +137,14 @@ def _candidate_windows(
                 "end_year",
                 "years",
                 "minimum_eligible_firms_in_any_year",
+                "firms_eligible_in_every_year",
                 "total_mappable_deduplicated_events",
+                "coherent_firm_mappable_events",
                 "dimension_gate_pass",
             ]
         )
     return pd.DataFrame(rows).sort_values(
-        ["dimension_gate_pass", "years", "minimum_eligible_firms_in_any_year", "total_mappable_deduplicated_events"],
+        ["dimension_gate_pass", "years", "firms_eligible_in_every_year", "coherent_firm_mappable_events"],
         ascending=[False, False, False, False],
         kind="stable",
     )
@@ -148,6 +159,10 @@ def audit_fnspid_news(
     """Scan headline metadata, deduplicate firm events, and write aggregate-only diagnostics."""
 
     config = config or FnspidAuditConfig()
+    if config.date_only_policy not in {"exclude", "next_trading_session"}:
+        raise FnspidAuditError("date_only_policy must be exclude or next_trading_session")
+    if config.full_datetime_policy not in {"publication_date", "session_close"}:
+        raise FnspidAuditError("full_datetime_policy must be publication_date or session_close")
     destination = Path(output_dir)
     if destination.exists():
         raise FnspidAuditError(f"refusing to overwrite audit output: {destination}")
@@ -163,6 +178,7 @@ def audit_fnspid_news(
     source_month_events: Counter[tuple[str, str]] = Counter()
     source_mappable_events: Counter[str] = Counter()
     symbol_year_days: Counter[tuple[str, str]] = Counter()
+    symbol_year_events: Counter[tuple[str, str]] = Counter()
     event_year: Counter[str] = Counter()
     event_day: Counter[str] = Counter()
     schemas: list[dict[str, Any]] = []
@@ -175,6 +191,51 @@ def audit_fnspid_news(
     date_only_or_midnight_rows = 0
     exact_firm_duplicates = 0
     cross_symbol_story_associations = 0
+    date_only_rows_assigned_next_session = 0
+
+    session_cache: dict[str, str] = {}
+    calendar: Any | None = None
+    if config.date_only_policy == "next_trading_session" or config.full_datetime_policy == "session_close":
+        try:
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    message="The 'generic' unit for NumPy timedelta is deprecated",
+                    category=DeprecationWarning,
+                )
+                import exchange_calendars as xcals
+
+                calendar = xcals.get_calendar(config.calendar_name, start="1900-01-01", end="2030-12-31")
+        except ImportError as exc:  # pragma: no cover - dependency is part of the project environment
+            raise FnspidAuditError("exchange_calendars is required for next-session assignment") from exc
+
+    def assigned_day(raw_timestamp: str, publication_day: str, *, full_datetime: bool) -> str | None:
+        nonlocal date_only_rows_assigned_next_session
+        if full_datetime:
+            if config.full_datetime_policy == "publication_date":
+                return publication_day
+            if calendar is None:  # pragma: no cover - guarded by configuration above
+                raise FnspidAuditError("calendar was not initialized")
+            timestamp = pd.Timestamp(raw_timestamp)
+            if timestamp.tzinfo is None:
+                timestamp = timestamp.tz_localize("UTC")
+            else:
+                timestamp = timestamp.tz_convert("UTC")
+            return calendar.minute_to_session(timestamp.floor("min"), direction="next").date().isoformat()
+        if config.date_only_policy == "exclude":
+            return None
+        cached = session_cache.get(publication_day)
+        if cached is None:
+            if calendar is None:  # pragma: no cover - guarded by configuration above
+                raise FnspidAuditError("calendar was not initialized")
+            publication = pd.Timestamp(publication_day)
+            session = calendar.date_to_session(publication, direction="next")
+            if session.date().isoformat() == publication_day:
+                session = calendar.next_session(session)
+            cached = session.date().isoformat()
+            session_cache[publication_day] = cached
+        date_only_rows_assigned_next_session += 1
+        return cached
 
     for archive in archive_paths:
         with _open_zstd_csv(archive) as handle:
@@ -195,7 +256,8 @@ def audit_fnspid_news(
                 symbol = str(row.get("Stock_symbol") or "").strip().upper()
                 if symbol:
                     source_symbol_rows[(site, "nonempty_symbol")] += 1
-                timestamp = _timestamp_parts(str(row.get("Date") or ""))
+                raw_timestamp = str(row.get("Date") or "")
+                timestamp = _timestamp_parts(raw_timestamp)
                 if timestamp is None:
                     source_timestamp[(site, "invalid")] += 1
                     continue
@@ -206,32 +268,39 @@ def audit_fnspid_news(
                 source_year_timestamp[(site, year, timestamp_class)] += 1
                 if not full_datetime:
                     date_only_or_midnight_rows += 1
-                    continue
-                full_datetime_rows += 1
+                else:
+                    full_datetime_rows += 1
                 if not symbol:
                     continue
-                source_symbol_rows[(site, "full_datetime_with_symbol")] += 1
+                event_session_day = assigned_day(raw_timestamp, day, full_datetime=full_datetime)
+                if event_session_day is None:
+                    continue
+                if full_datetime:
+                    source_symbol_rows[(site, "full_datetime_with_symbol")] += 1
+                event_year_value = event_session_day[:4]
+                event_month = event_session_day[:7]
                 title = _normal(row.get("Article_title"))
                 normalized_url = _normal(url).rstrip("/")
                 identity = normalized_url or title
-                firm_key = _hash64(symbol, day, identity, seed=config.hash_seed)
+                firm_key = _hash64(symbol, event_session_day, identity, seed=config.hash_seed)
                 if firm_key in seen_firm_events:
                     exact_firm_duplicates += 1
                     continue
                 seen_firm_events.add(firm_key)
-                story_key = _hash64(day, identity, seed=config.hash_seed)
+                story_key = _hash64(event_session_day, identity, seed=config.hash_seed)
                 if story_key in seen_story_events:
                     cross_symbol_story_associations += 1
                 else:
                     seen_story_events.add(story_key)
-                source_month_events[(site, month)] += 1
+                source_month_events[(site, event_month)] += 1
                 source_mappable_events[site] += 1
-                event_year[year] += 1
-                event_day[day] += 1
-                symbol_day_key = _hash64(symbol, day, seed=config.hash_seed)
+                event_year[event_year_value] += 1
+                event_day[event_session_day] += 1
+                symbol_year_events[(symbol, event_year_value)] += 1
+                symbol_day_key = _hash64(symbol, event_session_day, seed=config.hash_seed)
                 if symbol_day_key not in seen_symbol_days:
                     seen_symbol_days.add(symbol_day_key)
-                    symbol_year_days[(symbol, year)] += 1
+                    symbol_year_days[(symbol, event_year_value)] += 1
 
     source_timestamp_rows: list[dict[str, Any]] = []
     for site in sorted(source_rows):
@@ -300,7 +369,7 @@ def audit_fnspid_news(
     coverage = pd.DataFrame(
         [{"symbol": symbol, "year": year, "mappable_news_days": count} for (symbol, year), count in sorted(symbol_year_days.items())]
     )
-    candidates = _candidate_windows(symbol_year_days, event_year, config)
+    candidates = _candidate_windows(symbol_year_days, symbol_year_events, event_year, config)
     destination.mkdir(parents=True)
     outputs = {
         "source_timestamp_audit.csv": pd.DataFrame(source_timestamp_rows),
@@ -323,15 +392,24 @@ def audit_fnspid_news(
     summary = {
         "schema_version": 1,
         "status": "completed",
-        "timestamp_rule": (
-            "Primary mappable rows require a non-midnight clock time. Exact 00:00:00 values are treated "
-            "conservatively as date-only or ambiguous because FNSPID does not preserve original precision."
-        ),
+        "timestamp_rule": {
+            "date_only": (
+                "excluded from primary mapping"
+                if config.date_only_policy == "exclude"
+                else "assigned strictly to the next XNYS trading session"
+            ),
+            "full_datetime": (
+                "publication calendar date"
+                if config.full_datetime_policy == "publication_date"
+                else "XNYS session containing the UTC timestamp, or the next session when outside trading hours"
+            ),
+        },
         "counts": {
             "rows": total_rows,
             "valid_timestamp_rows": valid_timestamps,
             "full_datetime_rows": full_datetime_rows,
             "date_only_or_exact_midnight_rows": date_only_or_midnight_rows,
+            "date_only_rows_assigned_next_session": date_only_rows_assigned_next_session,
             "mappable_deduplicated_firm_events": len(seen_firm_events),
             "exact_firm_event_duplicates": exact_firm_duplicates,
             "unique_story_events": len(seen_story_events),
