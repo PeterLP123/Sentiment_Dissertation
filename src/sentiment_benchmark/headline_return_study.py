@@ -20,7 +20,9 @@ import pandas as pd
 
 from .artifact_io import atomic_write_text, sha256_file, sha256_text
 from .baselines import (
+    VADER_THRESHOLD,
     SoftSentiment,
+    classify_vader_text,
     iter_finbert_text_batches,
     score_finbert_texts,
     score_vader_text,
@@ -44,6 +46,21 @@ BASELINE_COLUMNS = (
     "p_neutral",
     "score",
     "score_100",
+    "status",
+    "error",
+)
+
+VADER_COMPOUND_COLUMNS = (
+    "headline_sha256",
+    "headline",
+    "matched_symbols",
+    "first_timestamp",
+    "explicit_target",
+    "contextual",
+    "market_price_technical",
+    "baseline",
+    "label",
+    "compound",
     "status",
     "error",
 )
@@ -347,6 +364,99 @@ def score_headline_baselines(
     }
     manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return BaselineScoringSummary(output, manifest_path, len(source_rows), succeeded, failures, runtime)
+
+
+def score_collection_vader_compound(
+    collection_root: str | Path,
+    output_path: str | Path,
+) -> BaselineScoringSummary:
+    """Score the frozen collection with canonical compound-threshold VADER.
+
+    This produces a separate artifact from the share-argmax baseline scores: the
+    label follows VADER's published compound convention (positive at
+    ``compound >= 0.05``, negative at ``compound <= -0.05``, neutral between)
+    and the stored continuous score is the compound itself.
+    """
+    started = time.monotonic()
+    started_at = datetime.now(UTC)
+    root = Path(collection_root)
+    output = Path(output_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    if output.exists():
+        raise FileExistsError(f"refusing to overwrite VADER compound scores: {output}")
+    source_rows = _collection_baseline_source_rows(root)
+    population = {row["headline_sha256"] for row in source_rows}
+    if len(population) != len(source_rows):
+        raise ValueError("collection population contains duplicated headline hashes")
+    population_sha256 = sha256_text("\n".join(sorted(population)))
+    vader_digest = vader_lexicon_sha256(local_files_only=True)
+    failures = 0
+    rows: list[dict[str, Any]] = []
+    for row in source_rows:
+        try:
+            result = classify_vader_text(row["headline"], local_files_only=True)
+            rows.append(
+                {
+                    **{key: row.get(key, "") for key in VADER_COMPOUND_COLUMNS[:7]},
+                    "baseline": "vader_compound",
+                    "label": result.label,
+                    "compound": result.compound,
+                    "status": "success",
+                    "error": "",
+                }
+            )
+        except Exception as exc:
+            failures += 1
+            rows.append(
+                {
+                    **{key: row.get(key, "") for key in VADER_COMPOUND_COLUMNS[:7]},
+                    "baseline": "vader_compound",
+                    "label": "",
+                    "compound": "",
+                    "status": "error",
+                    "error": f"{type(exc).__name__}: {exc}"[:500],
+                }
+            )
+    _append_csv(output, rows, VADER_COMPOUND_COLUMNS)
+    succeeded = len(rows) - failures
+    manifest_path = output.with_suffix(output.suffix + ".manifest.json")
+    manifest = {
+        "schema_version": 1,
+        "status": "completed" if failures == 0 else "failed",
+        "started_at": started_at.isoformat(),
+        "completed_at": datetime.now(UTC).isoformat(),
+        "runtime_seconds": time.monotonic() - started,
+        "input": {
+            "collection_root": str(root),
+            "unique_headlines": len(source_rows),
+            "population_sha256": population_sha256,
+        },
+        "models": {
+            "vader_compound": {
+                "implementation": "nltk.sentiment.vader",
+                "lexicon_sha256": vader_digest,
+                "classification": "compound_threshold",
+                "threshold": VADER_THRESHOLD,
+            },
+        },
+        "inference": {"local_only": True, "local_files_only_enforced": True},
+        "environment": {
+            "run": collect_run_environment(),
+            "packages": {"nltk": importlib.metadata.version("nltk")},
+        },
+        "counts": {
+            "expected": len(source_rows),
+            "succeeded": succeeded,
+            "failed": failures,
+            "remaining": len(source_rows) - succeeded - failures,
+        },
+        "output": {"path": str(output), "sha256": sha256_file(output)},
+        "sharing": {"contains_licensed_headline_text": True, "source_control": False, "redistribute": False},
+    }
+    atomic_write_text(manifest_path, json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+    if failures:
+        raise ValueError(f"VADER compound scoring failed on {failures} headlines; manifest marked failed")
+    return BaselineScoringSummary(output, manifest_path, len(source_rows), succeeded, failures, time.monotonic() - started)
 
 
 def _collection_baseline_source_rows(collection_root: str | Path) -> list[dict[str, str]]:

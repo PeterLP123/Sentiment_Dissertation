@@ -255,5 +255,60 @@ minimum retain:
 - No historical backtest establishes causality or future profitability. Results
   should be positioned as a reproducible comparator for later research designs.
 
+## v2 protocol
+
+The v2 baseline is a second frozen protocol under
+[`configs/strategy_research/baselines/lseg_midcap_finbert_vaderc_v2.toml`](../configs/strategy_research/baselines/lseg_midcap_finbert_vaderc_v2.toml),
+implemented in the isolated `strategy_research.baseline.v2` package. It exists
+because the v1 run surfaced two structural defects — the share-argmax VADER
+comparator produced zero negative labels and therefore never traded, and the
+one-name-per-side floor allowed 50% single-name weights that dominated the
+variance — plus an inference design (37 active portfolio days) with almost no
+power. The v1 artifacts are unchanged and remain the reported v1 evidence.
+
+> **Provenance:** the v2 protocol was specified *after* the v1 result on this
+> cohort was observed. The config's mandatory
+> `specified_after_v1_results = true` records this. Every v2 result on this
+> sample is exploratory/diagnostic; the frozen protocol is intended for
+> confirmatory reuse on an independent cohort (for example the all-headlines
+> Reuters collection), not for another pass over this one.
+
+Changes relative to v1, all predeclared in the config and frozen by the strict
+loader:
+
+| Component | v2 rule |
+| --- | --- |
+| Comparator | Canonical VADER: compound score with the published `+/-0.05` thresholds, from a separate cache-only score artifact (`score-vader-compound`) whose manifest pins the lexicon hash and threshold. |
+| Portfolio | At least **two names per side** (the reference paper's rule), capping single-name weight at 25% of NAV; cash otherwise. |
+| Primary inference | Firm-session event-level moving-block bootstrap of signed **gross** open-to-open returns (session means, block 5, 2,000 replications, seed `20260721`), instead of the low-power portfolio-day test. |
+| Variant arms | `finbert_magnitude` (legs weighted by absolute mean continuous score) and `agreement` (FinBERT direction kept only when canonical VADER agrees and is non-zero) — the agreement arm operationalises the dissertation's cross-model agreement question. |
+| Cost reporting | Fixed 5/10/20 bps sensitivity grid alongside the frozen 10 bps headline assumption. |
+
+Workflow (after the v1 corpus, FinBERT/VADER scores, and price panel exist):
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/run_lseg_headline_study.py score-vader-compound \
+  --collection-root Data/collections/lseg_us_midcap_22_1y \
+  --output Data/collections/lseg_us_midcap_22_1y/derived/headline_scores_vader_compound_v2_cacheonly_20260721.csv
+
+sentiment-bench strategy baseline v2 inspect \
+  --config configs/strategy_research/baselines/lseg_midcap_finbert_vaderc_v2.toml
+sentiment-bench strategy baseline v2 run \
+  --config configs/strategy_research/baselines/lseg_midcap_finbert_vaderc_v2.toml
+```
+
+The executed v2 run on this cohort is
+`lseg-midcap-finbert-vaderc-v2-299b11fa8e0a`. Headline observations, retained
+under the no-retuning rules above: the event-level FinBERT signal is positive
+but inconclusive (+0.245% mean signed gross session return, 95% CI
+[-0.090%, 0.616%] over 216 evaluation firm-sessions); canonical VADER is
+*adversely* signed (-0.392%, CI [-0.781%, -0.010%], though that interval barely
+excludes zero and would not survive a multiple-comparisons correction across
+the seven predeclared tests); and agreement-conditioning does not improve on
+unconditional FinBERT. The two-name minimum leaves only 5 active portfolio
+days in the evaluation period on 22 stocks, confirming that this universe is
+too narrow for the paper-style portfolio and that breadth, not further rule
+changes, is the binding constraint.
+
 For implementation and accounting details shared with the broader historical
 pipeline, see the [historical strategy-research guide](strategy_research_pipeline.md).

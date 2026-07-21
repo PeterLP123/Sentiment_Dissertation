@@ -4,13 +4,14 @@ import pandas as pd
 import pytest
 
 import sentiment_benchmark.headline_return_study as headline_return_study
-from sentiment_benchmark.baselines import SoftSentiment
+from sentiment_benchmark.baselines import SoftSentiment, VaderSentiment
 from sentiment_benchmark.headline_return_study import (
     align_next_open_returns,
     audit_headline_scores,
     calculate_return_metrics,
     run_headline_return_study,
     score_collection_baselines,
+    score_collection_vader_compound,
 )
 from sentiment_benchmark.headline_value import ScorableHeadline
 
@@ -178,6 +179,42 @@ def test_complete_collection_baselines_are_resumable(tmp_path, monkeypatch) -> N
             vader_flush_size=1,
             finbert_revision="a" * 40,
         )
+
+
+def test_vader_compound_scoring_writes_canonical_labels_and_manifest(tmp_path, monkeypatch) -> None:
+    records = [
+        ScorableHeadline("a", "great earnings beat", ("AAA",), "2026-01-01T00:00:00Z", True, False, False),
+        ScorableHeadline("b", "plain routine filing", ("BBB",), "2026-01-02T00:00:00Z", True, False, False),
+    ]
+    monkeypatch.setattr(headline_return_study, "collect_scorable_headline_records", lambda _: records)
+    monkeypatch.setattr(
+        headline_return_study,
+        "vader_lexicon_sha256",
+        lambda *, local_files_only: "b" * 64,
+    )
+
+    def fake_classify(text: str, *, local_files_only: bool) -> VaderSentiment:
+        assert local_files_only is True
+        return VaderSentiment("positive", 0.62) if "great" in text else VaderSentiment("neutral", 0.0)
+
+    monkeypatch.setattr(headline_return_study, "classify_vader_text", fake_classify)
+    output = tmp_path / "compound.csv"
+
+    summary = score_collection_vader_compound(tmp_path / "collection", output)
+
+    scores = pd.read_csv(output)
+    assert summary.succeeded == 2 and summary.failed == 0
+    assert set(scores["baseline"]) == {"vader_compound"}
+    assert list(scores["label"]) == ["positive", "neutral"]
+    assert list(scores["compound"]) == [0.62, 0.0]
+    manifest = pd.read_json(summary.manifest_path, typ="series")
+    assert manifest["status"] == "completed"
+    assert manifest["counts"]["remaining"] == 0
+    assert manifest["models"]["vader_compound"]["classification"] == "compound_threshold"
+    assert manifest["models"]["vader_compound"]["threshold"] == 0.05
+    assert manifest["inference"]["local_files_only_enforced"] is True
+    with pytest.raises(FileExistsError, match="refusing to overwrite"):
+        score_collection_vader_compound(tmp_path / "collection", output)
 
 
 def test_return_study_writes_aggregate_outputs_for_all_scorers(tmp_path) -> None:

@@ -189,9 +189,10 @@ def vader_lexicon_sha256(*, local_files_only: bool = False) -> str:
     return hashlib.sha256(str(lexicon).encode("utf-8")).hexdigest()
 
 
-def classify_vader_text(text: str) -> VaderSentiment:
+def classify_vader_text(text: str, *, local_files_only: bool = False) -> VaderSentiment:
     """Classify arbitrary text with VADER's conventional compound thresholds."""
-    compound = float(_vader_analyzer().polarity_scores(text)["compound"])
+    analyzer = _vader_analyzer(False) if local_files_only else _vader_analyzer()
+    compound = float(analyzer.polarity_scores(text)["compound"])
     if compound >= VADER_THRESHOLD:
         label = "positive"
     elif compound <= -VADER_THRESHOLD:

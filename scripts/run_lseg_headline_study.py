@@ -11,6 +11,7 @@ from sentiment_benchmark.headline_return_study import (
     audit_headline_scores,
     run_headline_return_study,
     score_collection_baselines,
+    score_collection_vader_compound,
     score_headline_baselines,
 )
 
@@ -33,6 +34,13 @@ def _parser() -> argparse.ArgumentParser:
         "--finbert-revision",
         help="Exact ProsusAI/finbert commit to pass to Transformers model loading.",
     )
+
+    compound = subparsers.add_parser(
+        "score-vader-compound",
+        help="Score the frozen population with canonical compound-threshold VADER.",
+    )
+    compound.add_argument("--collection-root", type=Path, required=True)
+    compound.add_argument("--output", type=Path, required=True)
 
     analyze = subparsers.add_parser("analyze", help="Run the frozen next-open to following-open study.")
     analyze.add_argument("--gemma-scores", type=Path, required=True)
@@ -68,6 +76,8 @@ def main() -> None:
                 finbert_batch_size=args.finbert_batch_size,
                 finbert_revision=args.finbert_revision,
             )
+    elif args.command == "score-vader-compound":
+        summary = score_collection_vader_compound(args.collection_root, args.output)
     elif args.command == "analyze":
         summary = run_headline_return_study(
             args.gemma_scores,
