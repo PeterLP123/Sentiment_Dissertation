@@ -19,7 +19,13 @@ import numpy as np
 import pandas as pd
 
 from .artifact_io import atomic_write_text, sha256_file, sha256_text
-from .baselines import SoftSentiment, iter_finbert_text_batches, score_finbert_texts, score_vader_text
+from .baselines import (
+    SoftSentiment,
+    iter_finbert_text_batches,
+    score_finbert_texts,
+    score_vader_text,
+    vader_lexicon_sha256,
+)
 from .headline_value import collect_scorable_headline_records
 from .runtime_metadata import collect_run_environment
 
@@ -202,9 +208,12 @@ def _finbert_revision() -> str | None:
     try:
         from huggingface_hub import scan_cache_dir
 
+        revisions: set[str] = set()
         for repository in scan_cache_dir().repos:
             if repository.repo_id == "ProsusAI/finbert" and repository.revisions:
-                return sorted(revision.commit_hash for revision in repository.revisions)[-1]
+                revisions.update(revision.commit_hash for revision in repository.revisions)
+        if len(revisions) == 1:
+            return next(iter(revisions))
     except Exception:
         return None
     return None
@@ -215,6 +224,7 @@ def score_headline_baselines(
     output_path: str | Path,
     *,
     finbert_batch_size: int = 32,
+    finbert_revision: str | None = None,
 ) -> BaselineScoringSummary:
     """Score the frozen Gemma population locally with VADER and FinBERT."""
     started = time.monotonic()
@@ -230,11 +240,22 @@ def score_headline_baselines(
     if len(hashes) != len(set(hashes)):
         raise ValueError("Gemma scores must contain exactly one successful row per headline hash")
 
+    resolved_finbert_revision = finbert_revision or os.getenv("SENTIMENT_FINBERT_REVISION") or _finbert_revision()
+    if not resolved_finbert_revision:
+        raise ValueError("FinBERT scoring requires an explicit revision when the cache contains zero or multiple revisions")
+    if os.getenv("SENTIMENT_FINBERT_MODEL"):
+        raise ValueError(
+            "revision-enforced headline scoring must load ProsusAI/finbert by repository ID; "
+            "unset SENTIMENT_FINBERT_MODEL"
+        )
+    vader_digest = vader_lexicon_sha256(local_files_only=True)
     failures = 0
     vader_rows: list[dict[str, Any]] = []
     for row in source_rows:
         try:
-            vader_rows.append(_baseline_row(row, "vader", score_vader_text(row["headline"])))
+            vader_rows.append(
+                _baseline_row(row, "vader", score_vader_text(row["headline"], local_files_only=True))
+            )
         except Exception as exc:
             failures += 1
             vader_rows.append(
@@ -255,7 +276,12 @@ def score_headline_baselines(
 
     finbert_rows: list[dict[str, Any]] = []
     try:
-        results = score_finbert_texts([row["headline"] for row in source_rows], batch_size=finbert_batch_size)
+        results = score_finbert_texts(
+            [row["headline"] for row in source_rows],
+            batch_size=finbert_batch_size,
+            revision=resolved_finbert_revision,
+            local_files_only=True,
+        )
         if len(results) != len(source_rows):
             raise ValueError(f"FinBERT returned {len(results)} scores for {len(source_rows)} inputs")
         finbert_rows = [
@@ -291,15 +317,20 @@ def score_headline_baselines(
         "runtime_seconds": runtime,
         "input": {"path": str(source_path), "sha256": sha256_file(source_path), "rows": len(source_rows)},
         "models": {
-            "vader": {"implementation": "nltk.sentiment.vader"},
+            "vader": {
+                "implementation": "nltk.sentiment.vader",
+                "lexicon_sha256": vader_digest,
+            },
             "finbert": {
                 "model_id": "ProsusAI/finbert",
-                "local_model_path": os.getenv("SENTIMENT_FINBERT_MODEL"),
-                "revision": os.getenv("SENTIMENT_FINBERT_REVISION") or _finbert_revision(),
+                "local_model_path": None,
+                "revision": resolved_finbert_revision,
+                "revision_enforced": True,
             },
         },
         "inference": {
             "local_only": True,
+            "local_files_only_enforced": True,
             "finbert_batch_size": finbert_batch_size,
             "torch_device": _torch_device(),
         },
@@ -361,6 +392,7 @@ def score_collection_baselines(
     finbert_batch_size: int = 32,
     finbert_checkpoint_size: int = 256,
     vader_flush_size: int = 5_000,
+    finbert_revision: str | None = None,
 ) -> BaselineScoringSummary:
     """Resumably score the complete frozen collection with local VADER and FinBERT."""
     started = time.monotonic()
@@ -373,14 +405,45 @@ def score_collection_baselines(
     if len(population) != len(source_rows):
         raise ValueError("collection population contains duplicated headline hashes")
     population_sha256 = sha256_text("\n".join(sorted(population)))
+    resolved_finbert_revision = finbert_revision or os.getenv("SENTIMENT_FINBERT_REVISION") or _finbert_revision()
+    if not resolved_finbert_revision:
+        raise ValueError("FinBERT scoring requires an explicit revision when the cache contains zero or multiple revisions")
+    local_model_path = os.getenv("SENTIMENT_FINBERT_MODEL")
+    if local_model_path:
+        raise ValueError(
+            "revision-enforced collection scoring must load ProsusAI/finbert by repository ID; "
+            "unset SENTIMENT_FINBERT_MODEL"
+        )
+    vader_digest = vader_lexicon_sha256(local_files_only=True)
     manifest_path = output.with_suffix(output.suffix + ".manifest.json")
+    previous: dict[str, Any] | None = None
     if manifest_path.exists():
         previous = json.loads(manifest_path.read_text(encoding="utf-8"))
         previous_population = str(previous.get("input", {}).get("population_sha256") or "")
         if previous_population and previous_population != population_sha256:
             raise ValueError("cannot resume baseline scores after the frozen population changed")
+        previous_models = previous.get("models") or {}
+        previous_finbert = previous_models.get("finbert") or {}
+        previous_vader = previous_models.get("vader") or {}
+        if (
+            previous_finbert.get("revision") != resolved_finbert_revision
+            or previous_finbert.get("revision_enforced") is not True
+            or previous_finbert.get("local_model_path") is not None
+        ):
+            raise ValueError("cannot resume baseline scores with different or unenforced FinBERT provenance")
+        if previous_vader.get("lexicon_sha256") != vader_digest:
+            raise ValueError("cannot resume baseline scores after the VADER lexicon changed")
+        previous_inference = previous.get("inference") or {}
+        if previous_inference.get("local_files_only_enforced") is not True:
+            raise ValueError("cannot resume baseline scores without enforced cache-only inference provenance")
     successes = _existing_baseline_successes(output, population)
-    finbert_revision = os.getenv("SENTIMENT_FINBERT_REVISION") or _finbert_revision()
+    if previous is not None and previous.get("status") == "completed":
+        if len(successes) != 2 * len(source_rows) or int((previous.get("counts") or {}).get("remaining", -1)) != 0:
+            raise ValueError("completed baseline score manifest does not reconcile to the score artifact")
+        expected_hash = str((previous.get("output") or {}).get("sha256") or "")
+        if not output.is_file() or expected_hash != sha256_file(output):
+            raise ValueError("completed baseline score artifact hash does not match its manifest")
+        return BaselineScoringSummary(output, manifest_path, len(source_rows), len(successes), 0, 0.0)
     run_environment = collect_run_environment()
     package_versions = {
         name: importlib.metadata.version(name)
@@ -401,15 +464,20 @@ def score_collection_baselines(
                 "population_sha256": population_sha256,
             },
             "models": {
-                "vader": {"implementation": "nltk.sentiment.vader"},
+                "vader": {
+                    "implementation": "nltk.sentiment.vader",
+                    "lexicon_sha256": vader_digest,
+                },
                 "finbert": {
                     "model_id": "ProsusAI/finbert",
-                    "local_model_path": os.getenv("SENTIMENT_FINBERT_MODEL"),
-                    "revision": finbert_revision,
+                    "local_model_path": None,
+                    "revision": resolved_finbert_revision,
+                    "revision_enforced": True,
                 },
             },
             "inference": {
                 "local_only": True,
+                "local_files_only_enforced": True,
                 "finbert_batch_size": finbert_batch_size,
                 "finbert_checkpoint_size": finbert_checkpoint_size,
                 "torch_device": _torch_device(),
@@ -437,7 +505,7 @@ def score_collection_baselines(
     for start in range(0, len(vader_pending), vader_flush_size):
         batch_rows: list[dict[str, Any]] = []
         for row in vader_pending[start : start + vader_flush_size]:
-            result = score_vader_text(row["headline"])
+            result = score_vader_text(row["headline"], local_files_only=True)
             batch_rows.append(_baseline_row(row, "vader", result))
             successes.add((row["headline_sha256"], "vader"))
         _append_csv(output, batch_rows, BASELINE_COLUMNS)
@@ -450,6 +518,8 @@ def score_collection_baselines(
         texts,
         batch_size=finbert_checkpoint_size,
         inference_batch_size=finbert_batch_size,
+        revision=resolved_finbert_revision,
+        local_files_only=True,
     ):
         batch_sources = finbert_pending[offset : offset + len(result_batch)]
         if len(batch_sources) != len(result_batch):

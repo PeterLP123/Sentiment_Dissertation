@@ -29,6 +29,10 @@ def _parser() -> argparse.ArgumentParser:
     )
     baselines.add_argument("--output", type=Path, required=True)
     baselines.add_argument("--finbert-batch-size", type=int, default=32)
+    baselines.add_argument(
+        "--finbert-revision",
+        help="Exact ProsusAI/finbert commit to pass to Transformers model loading.",
+    )
 
     analyze = subparsers.add_parser("analyze", help="Run the frozen next-open to following-open study.")
     analyze.add_argument("--gemma-scores", type=Path, required=True)
@@ -55,12 +59,14 @@ def main() -> None:
                 args.collection_root,
                 args.output,
                 finbert_batch_size=args.finbert_batch_size,
+                finbert_revision=args.finbert_revision,
             )
         else:
             summary = score_headline_baselines(
                 args.gemma_scores,
                 args.output,
                 finbert_batch_size=args.finbert_batch_size,
+                finbert_revision=args.finbert_revision,
             )
     elif args.command == "analyze":
         summary = run_headline_return_study(

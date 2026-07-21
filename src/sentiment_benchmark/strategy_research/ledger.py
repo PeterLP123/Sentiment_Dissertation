@@ -220,12 +220,11 @@ def run_open_to_open_ledger(
             )
         )
 
-        # Targets are defined as post-trade portfolio weights.  Trading costs are
-        # deducted from NAV but do not themselves create artificial position
-        # drift; only the earned asset/portfolio return changes pre-trade weights.
-        # This preserves the required 0 -> w -> -w turnover identities when
-        # asset returns are zero.
-        denominator = 1 + gross_return
+        # Positions are sized against start-of-session NAV. Both realized asset
+        # returns and paid trading costs change end NAV, so the next session's
+        # pre-trade weights must be marked against the after-cost denominator.
+        # Ignoring costs here understates later turnover and liquidation costs.
+        denominator = 1 + net_return
         current_weights = {
             symbol: weight * (1 + return_lookup[(target.session, symbol)].value) / denominator
             for symbol, weight in target_weights.items()

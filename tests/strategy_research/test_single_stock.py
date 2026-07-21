@@ -42,13 +42,14 @@ def test_direct_action_account_preserves_carry_and_costs() -> None:
 
     assert len(rows) == 1
     row = rows[0]
-    carried_weight = 0.5 * 1.1 / 1.05
+    carried_weight = 0.5 * 1.1 / (1.05 - 0.0005)
     expected_first_turnover = abs(-0.5 - carried_weight)
+    expected_second_turnover = 0.5 / (1 - 0.001 * expected_first_turnover)
     assert row.observations == 3  # two market intervals plus final liquidation
     assert daily[0]["turnover"] == pytest.approx(expected_first_turnover)
     assert daily[0]["transaction_cost"] == pytest.approx(0.001 * expected_first_turnover)
-    assert daily[1]["turnover"] == pytest.approx(0.5)
-    assert row.total_turnover == pytest.approx(expected_first_turnover + 0.5)
+    assert daily[1]["turnover"] == pytest.approx(expected_second_turnover)
+    assert row.total_turnover == pytest.approx(expected_first_turnover + expected_second_turnover)
     assert row.cumulative_net_return < 0
 
 

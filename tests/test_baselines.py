@@ -9,6 +9,7 @@ from sentiment_benchmark.baseline_runner import run_baselines
 from sentiment_benchmark.baselines import (
     BASELINE_SPECS,
     _soft_sentiment_from_scores,
+    iter_finbert_text_batches,
     predict_baseline,
     score_vader_text,
 )
@@ -94,6 +95,66 @@ def test_vader_distribution_is_normalized_after_lexicon_rounding(monkeypatch) ->
     result = score_vader_text("synthetic")
 
     assert result.p_positive + result.p_negative + result.p_neutral == pytest.approx(1.0)
+
+
+def test_vader_cache_only_scoring_disables_lexicon_download(monkeypatch) -> None:
+    calls: list[bool] = []
+
+    class Analyzer:
+        def polarity_scores(self, _text: str) -> dict[str, float]:
+            return {"pos": 0.7, "neg": 0.1, "neu": 0.2, "compound": 0.6}
+
+    def fake_analyzer(allow_download: bool = True) -> Analyzer:
+        calls.append(allow_download)
+        return Analyzer()
+
+    monkeypatch.setattr("sentiment_benchmark.baselines._vader_analyzer", fake_analyzer)
+
+    score_vader_text("synthetic", local_files_only=True)
+
+    assert calls == [False]
+
+
+def test_finbert_cache_only_scoring_is_forwarded_to_transformers(monkeypatch) -> None:
+    import sys
+    import types
+
+    import torch
+
+    pipeline_options: dict[str, object] = {}
+
+    def fake_pipeline(_task: str, **kwargs):
+        pipeline_options.update(kwargs)
+
+        def classify(texts, **_inference_options):
+            return [
+                [
+                    {"label": "positive", "score": 0.7},
+                    {"label": "negative", "score": 0.1},
+                    {"label": "neutral", "score": 0.2},
+                ]
+                for _text in texts
+            ]
+
+        return classify
+
+    fake_transformers = types.ModuleType("transformers")
+    fake_transformers.pipeline = fake_pipeline  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "transformers", fake_transformers)
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+    if hasattr(torch.backends, "mps"):
+        monkeypatch.setattr(torch.backends.mps, "is_available", lambda: False)
+
+    results = list(
+        iter_finbert_text_batches(
+            ["synthetic"],
+            revision="4556d13015211d73dccd3fdd39d39232506f3e43",
+            local_files_only=True,
+        )
+    )
+
+    assert pipeline_options["local_files_only"] is True
+    assert results[0][0].label == "positive"
 
 
 def _write_csv(path: Path, rows: list[DatasetRow]) -> None:

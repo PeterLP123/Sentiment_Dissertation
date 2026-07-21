@@ -12,6 +12,7 @@ from rich.console import Console
 from rich.table import Table
 
 from .artifacts import StrategyArtifactError
+from .baseline.cli import app as baseline_app
 from .config import StrategyConfigurationError, load_strategy_config
 from .development_controls import DevelopmentControlError, ScoreAggregationMode, run_development_controls
 from .development_tests import DevelopmentTestError, run_development_tests
@@ -43,6 +44,7 @@ from .single_stock import SingleStockExperimentError, run_single_stock_experimen
 
 console = Console()
 app = typer.Typer(help="Run the separate point-in-time historical strategy-research pipeline.")
+app.add_typer(baseline_app, name="baseline")
 
 
 def _config(path: Path):

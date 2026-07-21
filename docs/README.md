@@ -17,6 +17,8 @@ This documentation is organized by reader task ([Diátaxis](https://diataxis.fr/
 | [Mid-cap deadline runbook](midcap_deadline_runbook.md) | Exploratory runbook | One-day Reuters headline collection, bounded local scoring, LSEG prices and funded evaluation for the 22-company extension. |
 | [Trading pipeline](trading_pipeline.md) | How-to + explanation | The news-to-price pipeline: runs, effectiveness battery, sweeps, and pluggable strategies. |
 | [Historical strategy-research pipeline](strategy_research_pipeline.md) | Technical guide | The separate point-in-time LSEG state, portfolio, ledger, tuning, and paper-order pipeline. |
+| [Sentiment trading baseline](sentiment_trading_baseline.md) | Research baseline | The literature-grounded Reuters FinBERT/VADER-share-argmax workflow from frozen collection through point-in-time adjusted-open evaluation. |
+| [Sentiment trading baseline explainer](sentiment_trading_baseline_explainer.html) | Interactive explainer | Visual guide to the data, label models, timing, portfolio rules, paper sources, evidence and reproducibility trail. |
 | [TUI guide](tui_guide.md) | How-to | Interactive model, prompt, run, results, and news workflows. |
 | [CLI reference](cli_reference.md) | Reference | Every command, option, default, and example. |
 | [Results and exports](results_and_exports.md) | Reference | Storage backends, export files, metrics, LaTeX tables, and trading artifacts. |

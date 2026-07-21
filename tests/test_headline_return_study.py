@@ -117,23 +117,46 @@ def test_complete_collection_baselines_are_resumable(tmp_path, monkeypatch) -> N
         ScorableHeadline("b", "negative headline", ("BBB",), "2026-01-02T00:00:00Z", False, True, False),
     ]
     monkeypatch.setattr(headline_return_study, "collect_scorable_headline_records", lambda _: records)
-    monkeypatch.setattr(
-        headline_return_study,
-        "score_vader_text",
-        lambda text: SoftSentiment("positive", 0.7, 0.1, 0.2),
-    )
+    local_only_calls: list[str] = []
 
-    def fake_finbert_batches(texts, *, batch_size, inference_batch_size):
+    def fake_vader_digest(*, local_files_only: bool) -> str:
+        assert local_files_only is True
+        return "vader-lexicon-digest"
+
+    def fake_vader_score(text: str, *, local_files_only: bool) -> SoftSentiment:
+        assert local_files_only is True
+        local_only_calls.append(text)
+        return SoftSentiment("positive", 0.7, 0.1, 0.2)
+
+    monkeypatch.setattr(headline_return_study, "vader_lexicon_sha256", fake_vader_digest)
+    monkeypatch.setattr(headline_return_study, "score_vader_text", fake_vader_score)
+
+    def fake_finbert_batches(texts, *, batch_size, inference_batch_size, revision, local_files_only):
         del batch_size, inference_batch_size
+        assert revision == "4556d13015211d73dccd3fdd39d39232506f3e43"
+        assert local_files_only is True
         for _text in texts:
             yield [SoftSentiment("negative", 0.1, 0.7, 0.2)]
 
     monkeypatch.setattr(headline_return_study, "iter_finbert_text_batches", fake_finbert_batches)
     output = tmp_path / "complete_baselines.csv"
 
-    first = score_collection_baselines(tmp_path / "collection", output, finbert_batch_size=2, vader_flush_size=1)
+    revision = "4556d13015211d73dccd3fdd39d39232506f3e43"
+    first = score_collection_baselines(
+        tmp_path / "collection",
+        output,
+        finbert_batch_size=2,
+        vader_flush_size=1,
+        finbert_revision=revision,
+    )
     initial_bytes = output.read_bytes()
-    second = score_collection_baselines(tmp_path / "collection", output, finbert_batch_size=2, vader_flush_size=1)
+    second = score_collection_baselines(
+        tmp_path / "collection",
+        output,
+        finbert_batch_size=2,
+        vader_flush_size=1,
+        finbert_revision=revision,
+    )
 
     scores = pd.read_csv(output)
     assert first.input_rows == second.input_rows == 2
@@ -144,6 +167,17 @@ def test_complete_collection_baselines_are_resumable(tmp_path, monkeypatch) -> N
     manifest = pd.read_json(first.manifest_path, typ="series")
     assert manifest["status"] == "completed"
     assert manifest["counts"]["remaining"] == 0
+    assert manifest["models"]["finbert"]["revision_enforced"] is True
+    assert manifest["inference"]["local_files_only_enforced"] is True
+    assert local_only_calls == ["positive headline", "negative headline"]
+    with pytest.raises(ValueError, match="different or unenforced FinBERT provenance"):
+        score_collection_baselines(
+            tmp_path / "collection",
+            output,
+            finbert_batch_size=2,
+            vader_flush_size=1,
+            finbert_revision="a" * 40,
+        )
 
 
 def test_return_study_writes_aggregate_outputs_for_all_scorers(tmp_path) -> None:

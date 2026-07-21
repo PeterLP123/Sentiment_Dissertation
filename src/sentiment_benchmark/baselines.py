@@ -14,6 +14,7 @@ Two families are provided:
 
 from __future__ import annotations
 
+import hashlib
 import os
 from collections import Counter
 from collections.abc import Callable, Iterator
@@ -149,8 +150,8 @@ def _predict_tfidf_logreg(rows: list[DatasetRow], folds: int, seed: int) -> list
     return _stratified_oof(rows, fit_predict, folds, seed)
 
 
-@lru_cache(maxsize=1)
-def _vader_analyzer():
+@lru_cache(maxsize=2)
+def _vader_analyzer(allow_download: bool = True):
     try:
         from nltk.sentiment.vader import SentimentIntensityAnalyzer
     except ImportError as exc:  # pragma: no cover - exercised only without nltk
@@ -158,11 +159,34 @@ def _vader_analyzer():
 
     try:
         return SentimentIntensityAnalyzer()
-    except LookupError:
+    except LookupError as exc:
+        if not allow_download:
+            raise RuntimeError(
+                "the VADER lexicon is not cached; install it before running cache-only scoring"
+            ) from exc
         import nltk
 
         nltk.download("vader_lexicon", quiet=True)
         return SentimentIntensityAnalyzer()
+
+
+def vader_lexicon_sha256(*, local_files_only: bool = False) -> str:
+    """Hash the exact NLTK VADER lexicon text used by the local analyzer."""
+
+    try:
+        import nltk
+    except ImportError as exc:  # pragma: no cover - exercised only without nltk
+        raise RuntimeError("VADER baseline requires nltk. Install with: pip install '.[baselines]'") from exc
+    if local_files_only:
+        _vader_analyzer(False)
+    else:
+        _vader_analyzer()
+    resource = "sentiment/vader_lexicon.zip/vader_lexicon/vader_lexicon.txt"
+    try:
+        lexicon = nltk.data.load(resource, format="text")
+    except LookupError as exc:
+        raise RuntimeError("the VADER lexicon could not be loaded after analyzer initialization") from exc
+    return hashlib.sha256(str(lexicon).encode("utf-8")).hexdigest()
 
 
 def classify_vader_text(text: str) -> VaderSentiment:
@@ -177,9 +201,10 @@ def classify_vader_text(text: str) -> VaderSentiment:
     return VaderSentiment(label=label, compound=compound)
 
 
-def score_vader_text(text: str) -> SoftSentiment:
+def score_vader_text(text: str, *, local_files_only: bool = False) -> SoftSentiment:
     """Return VADER's full distribution on the common soft-label scale."""
-    values = _vader_analyzer().polarity_scores(text)
+    analyzer = _vader_analyzer(False) if local_files_only else _vader_analyzer()
+    values = analyzer.polarity_scores(text)
     probabilities = {label: float(values[{"positive": "pos", "negative": "neg", "neutral": "neu"}[label]]) for label in ALLOWED_LABELS}
     total = sum(probabilities.values())
     if total <= 0:
@@ -290,6 +315,8 @@ def iter_finbert_text_batches(
     batch_size: int = 32,
     model_path: str | None = None,
     inference_batch_size: int | None = None,
+    revision: str | None = None,
+    local_files_only: bool = False,
 ) -> Iterator[list[SoftSentiment]]:
     """Yield FinBERT probability batches while keeping one model pipeline loaded."""
     try:
@@ -311,8 +338,10 @@ def iter_finbert_text_batches(
     classifier = hf_pipeline(
         "text-classification",
         model=model_reference,
+        revision=revision,
         truncation=True,
         device=device,
+        local_files_only=local_files_only,
     )
     for start in range(0, len(texts), batch_size):
         outputs: Any = classifier(
@@ -327,10 +356,18 @@ def score_finbert_texts(
     texts: list[str],
     batch_size: int = 32,
     model_path: str | None = None,
+    revision: str | None = None,
+    local_files_only: bool = False,
 ) -> list[SoftSentiment]:
     """Score financial texts locally with all three FinBERT probabilities."""
     results: list[SoftSentiment] = []
-    for batch in iter_finbert_text_batches(texts, batch_size=batch_size, model_path=model_path):
+    for batch in iter_finbert_text_batches(
+        texts,
+        batch_size=batch_size,
+        model_path=model_path,
+        revision=revision,
+        local_files_only=local_files_only,
+    ):
         results.extend(batch)
     return results
 

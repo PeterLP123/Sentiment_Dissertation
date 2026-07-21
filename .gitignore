@@ -13,6 +13,22 @@ __pycache__/
 *.db
 results/*
 !results/.gitkeep
+# Dated research-run directories contain generated CSV/JSON/log/image outputs.
+# Keep narrative source files under reports/ trackable, but require an explicit
+# force-add for any generated run directory that is intentionally published.
+/reports/*_20??????/
+# New source datasets and root-level data exports stay local by default.
+# Files already tracked in these locations remain tracked; this prevents
+# accidentally adding fresh proprietary or generated inputs.
+Data/source/
+Data/*.csv
+Data/*.json
+# Apply the collection data boundary to future LSEG collection directories too,
+# rather than relying only on each existing collection's nested .gitignore.
+Data/collections/*/raw/
+Data/collections/*/derived/
+Data/collections/*/reports/
+Data/collections/*/packages/
 Data/news/*
 !Data/news/.gitkeep
 Data/derived/*

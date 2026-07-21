@@ -37,7 +37,7 @@ def target(session: str, weights: dict[str, float]) -> TargetPortfolio:
     )
 
 
-def test_zero_return_entry_and_reversal_have_exact_turnover_and_cost() -> None:
+def test_zero_return_entry_and_reversal_mark_weights_against_after_cost_nav() -> None:
     targets = [target("2026-01-05", {"AAA": 0.1}), target("2026-01-06", {"AAA": -0.1})]
     returns = [
         OpenToOpenReturn("AAA", "2026-01-05", "2026-01-06", 0.0),
@@ -45,11 +45,14 @@ def test_zero_return_entry_and_reversal_have_exact_turnover_and_cost() -> None:
     ]
     rows = run_open_to_open_ledger(targets, returns, cost_rate_per_side=0.001)
     assert rows[0].turnover == pytest.approx(0.1)
-    assert rows[1].turnover == pytest.approx(0.2)
+    current_after_entry = 0.1 / (1 - 0.0001)
+    expected_reversal = abs(-0.1 - current_after_entry)
+    assert rows[1].turnover == pytest.approx(expected_reversal)
     assert rows[0].transaction_cost == pytest.approx(0.0001)
-    assert rows[1].transaction_cost == pytest.approx(0.0002)
+    assert rows[1].transaction_cost == pytest.approx(0.001 * expected_reversal)
     assert rows[-1].final_liquidation
-    assert rows[-1].turnover == pytest.approx(0.1)
+    expected_short_weight = -0.1 / (1 - rows[1].transaction_cost)
+    assert rows[-1].turnover == pytest.approx(abs(expected_short_weight))
 
 
 def test_current_weight_is_drifted_by_realized_open_return() -> None:
@@ -123,7 +126,7 @@ def test_evaluation_accounting_resets_nav_but_carries_revalued_position() -> Non
         accounting_reset_session="2026-01-06",
         force_final_liquidation=False,
     )
-    carried_weight = 0.1 * 1.1 / 1.01
+    carried_weight = 0.1 * 1.1 / (1 + 0.01 - 0.0001)
     evaluation = rows[1]
     assert evaluation.start_nav_usd == 1_000_000
     assert dict(evaluation.current_weights)["AAA"] == pytest.approx(carried_weight)
