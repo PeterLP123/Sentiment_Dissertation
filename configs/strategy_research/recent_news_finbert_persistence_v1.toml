@@ -1,0 +1,33 @@
+[run]
+id = "recent-news-finbert-persistence-v1"
+sample_status = "previously_explored"
+development_boundary = "2026-01-02"
+robustness_boundary = "2026-05-14"
+
+[development]
+signals_path = "Data/derived/strategy_research/baselines/lseg-midcap-finbert-vader-v1-3c069b78b6e3/firm_session_signals.jsonl"
+prices_path = "Data/derived/prices/lseg_us_midcap_22_strategy_adjusted_open.csv"
+prices_manifest_path = "Data/derived/prices/lseg_us_midcap_22_strategy_adjusted_open.manifest.json"
+
+[robustness]
+signals_path = "Data/derived/strategy_research/finbert_strategy_v3/lseg-sector33-finbert-rank-reversal-v3-bb0a6569afe8/firm_session_signals.jsonl"
+prices_path = "Data/derived/prices/lseg_us_sector_33_strategy_adjusted_open.csv"
+prices_manifest_path = "Data/derived/prices/lseg_us_sector_33_strategy_adjusted_open.manifest.json"
+
+[signal]
+threshold_quantiles = [0.0, 0.5, 0.7]
+holding_sessions = [1, 3, 5, 7]
+minimum_names_per_side = 2
+minimum_development_active_days = 20
+minimum_positive_subperiods = 2
+
+[portfolio]
+gross_exposure = 1.0
+initial_nav_usd = 1000000.0
+cost_bps_per_side = 10.0
+cost_grid_bps = [5.0, 10.0, 20.0]
+
+[inference]
+block_length_sessions = 5
+replications = 2000
+seed = 20260722

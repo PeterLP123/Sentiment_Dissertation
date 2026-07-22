@@ -312,3 +312,11 @@ changes, is the binding constraint.
 
 For implementation and accounting details shared with the broader historical
 pipeline, see the [historical strategy-research guide](strategy_research_pipeline.md).
+
+## Post-v2 FinBERT strategy search
+
+The subsequent rank-reversal implementation and the broader FNSPID strategy
+diagnostics did not produce a better cost-adjusted strategy. The frozen v3 null,
+all development-only constructions, and the remaining defensible research path
+are recorded in the
+[FinBERT strategy-search note](finbert_strategy_search_20260722.md).
