@@ -68,8 +68,14 @@ failure and stop; do not change the threshold, hold, universe, or direction.
   --development-fraction 0.50 \
   --thresholds 0.10 \
   --holding-periods 5 \
-  --transaction-cost-bps-per-side 10
+  --transaction-cost-bps-per-side 10 \
+  --skip-low-correlation-portfolio
 ```
+
+The skip flag disables only the optional development-selected stock subset. It
+was added after the first runner attempt stopped because that diagnostic lacked
+two sufficiently active mid-cap names. The all-stock signal, portfolio, split,
+cost, and acceptance rule were not run or changed.
 
 The same command is rerun under distinct immutable IDs at 5 and 20 bps only
 after the 10 bps result is fixed. All LSEG news and price inputs already exist;

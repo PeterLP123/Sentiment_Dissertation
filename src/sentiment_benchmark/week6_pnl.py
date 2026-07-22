@@ -48,6 +48,7 @@ class Week6PnlConfig:
     exchange_timezone: str = "America/New_York"
     min_joint_active_dates: int = 10
     low_correlation_stock_count: int | None = None
+    include_low_correlation_portfolio: bool = True
 
 
 @dataclass(frozen=True)
@@ -254,10 +255,7 @@ def align_signals_to_sessions(
     session close; this is recorded as attrition rather than silently averaged.
     """
 
-    sessions = {
-        symbol: group["session_date"].astype(str).tolist()
-        for symbol, group in prices.groupby("symbol", sort=True)
-    }
+    sessions = {symbol: group["session_date"].astype(str).tolist() for symbol, group in prices.groupby("symbol", sort=True)}
     rows: list[dict[str, Any]] = []
     no_future = 0
     missing_score = 0
@@ -550,12 +548,16 @@ def build_strategy_grid(
             counts[(threshold, holding)] = alignment
             development = frame.loc[frame["split"] == "development"]
             stock_count = development["symbol"].nunique()
-            daily = development.groupby("date", sort=True).agg(
-                net_return=("net_return", lambda values, n=stock_count: float(values.sum()) / n),
-                gross_return=("gross_return", lambda values, n=stock_count: float(values.sum()) / n),
-                turnover=("turnover", lambda values, n=stock_count: float(values.sum()) / n),
-                active=("active_trade", "any"),
-            ).reset_index()
+            daily = (
+                development.groupby("date", sort=True)
+                .agg(
+                    net_return=("net_return", lambda values, n=stock_count: float(values.sum()) / n),
+                    gross_return=("gross_return", lambda values, n=stock_count: float(values.sum()) / n),
+                    turnover=("turnover", lambda values, n=stock_count: float(values.sum()) / n),
+                    active=("active_trade", "any"),
+                )
+                .reset_index()
+            )
             metrics = performance_metrics(
                 daily["net_return"],
                 turnover=daily["turnover"],
@@ -731,11 +733,7 @@ def select_low_correlation_stocks(
 
     evidence.append(evidence_row(first, 1))
     while len(selected) < target:
-        remaining = [
-            symbol
-            for symbol in eligible
-            if symbol not in selected and all(corr(symbol, other) is not None for other in selected)
-        ]
+        remaining = [symbol for symbol in eligible if symbol not in selected and all(corr(symbol, other) is not None for other in selected)]
         if not remaining:
             break
 
@@ -760,12 +758,16 @@ def build_portfolio_daily(stock_daily: pd.DataFrame, stock_sets: dict[str, list[
     for portfolio_name, symbols in stock_sets.items():
         subset = stock_daily.loc[stock_daily["symbol"].isin(symbols)].copy()
         weight = 1.0 / len(symbols)
-        daily = subset.groupby(["date", "split"], sort=True).agg(
-            gross_return=("gross_return", "sum"),
-            net_return=("net_return", "sum"),
-            turnover=("turnover", "sum"),
-            active_days=("active_trade", "sum"),
-        ).reset_index()
+        daily = (
+            subset.groupby(["date", "split"], sort=True)
+            .agg(
+                gross_return=("gross_return", "sum"),
+                net_return=("net_return", "sum"),
+                turnover=("turnover", "sum"),
+                active_days=("active_trade", "sum"),
+            )
+            .reset_index()
+        )
         daily["gross_return"] *= weight
         daily["net_return"] *= weight
         daily["turnover"] *= weight
@@ -806,9 +808,7 @@ def build_portfolio_daily(stock_daily: pd.DataFrame, stock_sets: dict[str, list[
                     "gross_wealth_pnl": gross_wealth_pnl,
                     "fixed_notional_gross_pnl": item["fixed_notional_gross_pnl"],
                     "fixed_notional_net_pnl": item["fixed_notional_net_pnl"],
-                    "fixed_notional_transaction_cost": (
-                        float(item["fixed_notional_gross_pnl"]) - float(item["fixed_notional_net_pnl"])
-                    ),
+                    "fixed_notional_transaction_cost": (float(item["fixed_notional_gross_pnl"]) - float(item["fixed_notional_net_pnl"])),
                     "cumulative_fixed_notional_gross_pnl": cumulative_fixed_gross,
                     "cumulative_fixed_notional_net_pnl": cumulative_fixed_net,
                     "cumulative_gross_pnl": gross_value - starting_capital,
@@ -1023,13 +1023,9 @@ def _plot_outputs(portfolio_daily: pd.DataFrame, correlations: pd.DataFrame, out
 
 def _git_metadata(cwd: Path) -> dict[str, Any]:
     try:
-        commit = subprocess.run(
-            ["git", "rev-parse", "HEAD"], cwd=cwd, check=True, capture_output=True, text=True
-        ).stdout.strip()
+        commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=cwd, check=True, capture_output=True, text=True).stdout.strip()
         dirty = bool(subprocess.run(["git", "status", "--porcelain"], cwd=cwd, check=True, capture_output=True, text=True).stdout)
-        branch = subprocess.run(
-            ["git", "branch", "--show-current"], cwd=cwd, check=True, capture_output=True, text=True
-        ).stdout.strip()
+        branch = subprocess.run(["git", "branch", "--show-current"], cwd=cwd, check=True, capture_output=True, text=True).stdout.strip()
         return {"available": True, "commit": commit, "branch": branch, "dirty": dirty}
     except (OSError, subprocess.CalledProcessError):
         return {"available": False, "commit": None, "branch": None, "dirty": None}
@@ -1066,7 +1062,7 @@ def _write_summary(
     eval_sharpe = metric("all_stock_equal_weight", "evaluation", "annualized_sharpe")
     reproduces = bool(_finite(dev_sharpe) and _finite(eval_sharpe) and float(dev_sharpe) > 0 and float(eval_sharpe) < 0)
     rows = []
-    for portfolio in ("all_stock_equal_weight", "development_low_correlation"):
+    for portfolio in sorted(net["portfolio"].unique()):
         for period in ("development", "evaluation"):
             rows.append(
                 "| "
@@ -1093,9 +1089,9 @@ deployable alpha. It does not alter the frozen dissertation event study and perf
 no external scoring or model calls.
 
 - Signals: `{signals_path}` (`{config.scorer_id}`), {len(signals):,} selected rows,
-  {signals['symbol'].nunique()} stocks, {signals['news_date'].min()} to {signals['news_date'].max()}.
+  {signals["symbol"].nunique()} stocks, {signals["news_date"].min()} to {signals["news_date"].max()}.
 - Prices: `{prices_path}`, {len(prices):,} daily bars,
-  {prices['session_date'].min()} to {prices['session_date'].max()}.
+  {prices["session_date"].min()} to {prices["session_date"].max()}.
 - Price convention: daily close prices from the supplied panel; this LSEG panel uses
   price returns rather than dividend-adjusted total returns.
 - Starting capital: £{config.starting_capital:,.0f}; equal fixed allocation across each portfolio's frozen stock set.
@@ -1118,14 +1114,18 @@ not written into the candidate grid and were not used for stock selection.
 
 ## Frozen strategy
 
-- Candidate thresholds: {', '.join(f'{value:g}' for value in config.thresholds)} (scores lie in [-1, 1]).
-- Candidate holding periods: {', '.join(str(value) for value in config.holding_periods)} sessions.
+- Candidate thresholds: {", ".join(f"{value:g}" for value in config.thresholds)} (scores lie in [-1, 1]).
+- Candidate holding periods: {", ".join(str(value) for value in config.holding_periods)} sessions.
 - Weighting: equal signed positions only; magnitude weighting was intentionally excluded from this transparent baseline.
 - Selected threshold: `{threshold:g}`; selected holding period: `{holding}` sessions.
 - Selection rule: highest median of three chronological development-subperiod net
   Sharpes, then worst-subperiod Sharpe, full-development net Sharpe, lower turnover,
   shorter holding, and lower threshold.
-- Low-correlation stocks frozen from development only ({len(selected_stocks)}): {', '.join(selected_stocks)}.
+{
+        f"- Low-correlation stocks frozen from development only ({len(selected_stocks)}): {', '.join(selected_stocks)}."
+        if config.include_low_correlation_portfolio
+        else "- The optional low-correlation portfolio was disabled; the all-stock book is the only acceptance portfolio."
+    }
 
 ## Gross and net portfolio evidence
 
@@ -1138,7 +1138,7 @@ above focuses on the cost-aware net result. `portfolio_daily_pnl.csv` contains b
 fixed-notional monetary P&L and fixed-capital compounded wealth.
 
 The previously observed development-positive/evaluation-negative sign pattern is
-**{'reproduced' if reproduces else 'not reproduced exactly'}** for the all-stock net
+**{"reproduced" if reproduces else "not reproduced exactly"}** for the all-stock net
 annualised Sharpe. This is reported mechanically, without reselection.
 
 ## Attrition and missingness
@@ -1161,8 +1161,14 @@ from low-correlation selection.
   next-session-close entry is conservative but cannot recover intraday reaction timing.
 - Close prices omit dividends in this LSEG panel, short borrow, taxes, market impact,
   liquidity limits, and execution slippage beyond the stated cost.
-- The low-correlation subset is a simple development-only greedy screen, not an
-  optimiser. Sparse zero-position days can depress apparent correlations.
+{
+        (
+            "- The low-correlation subset is a simple development-only greedy screen, not an optimiser. "
+            "Sparse zero-position days can depress apparent correlations."
+        )
+        if config.include_low_correlation_portfolio
+        else "- No stock subset was selected; every stock remains in the all-stock portfolio."
+    }
 - This period and headline lexicon signal were previously explored. Evaluation is
   leakage-controlled within this command, but it is not a pristine confirmatory
   holdout for the dissertation.
@@ -1200,20 +1206,36 @@ def run_week6_pnl(
         stock_daily = candidate_frames[(threshold, holding)]
         alignment = candidate_counts[(threshold, holding)]
         correlations = development_correlations(stock_daily, min_joint_active_dates=config.min_joint_active_dates)
-        selected_frame = select_low_correlation_stocks(
-            correlations,
-            stock_daily,
-            requested_count=config.low_correlation_stock_count,
-            min_active_days=config.min_joint_active_dates,
-        )
-        selected_stocks = selected_frame["symbol"].astype(str).tolist()
+        if config.include_low_correlation_portfolio:
+            selected_frame = select_low_correlation_stocks(
+                correlations,
+                stock_daily,
+                requested_count=config.low_correlation_stock_count,
+                min_active_days=config.min_joint_active_dates,
+            )
+            selected_stocks = selected_frame["symbol"].astype(str).tolist()
+        else:
+            selected_frame = pd.DataFrame(
+                columns=[
+                    "selection_order",
+                    "symbol",
+                    "development_active_days",
+                    "mean_absolute_correlation_to_prior_selected",
+                    "maximum_absolute_correlation_to_prior_selected",
+                    "universe_mean_absolute_supported_correlation",
+                    "target_stock_count",
+                    "selection_rule",
+                    "actual_stock_count",
+                ]
+            )
+            selected_stocks = []
         all_stocks = sorted(stock_daily["symbol"].unique())
+        stock_sets = {"all_stock_equal_weight": all_stocks}
+        if config.include_low_correlation_portfolio:
+            stock_sets["development_low_correlation"] = selected_stocks
         portfolio_daily = build_portfolio_daily(
             stock_daily,
-            {
-                "all_stock_equal_weight": all_stocks,
-                "development_low_correlation": selected_stocks,
-            },
+            stock_sets,
             starting_capital=config.starting_capital,
         )
         stock_performance = build_stock_performance(stock_daily, config)

@@ -121,9 +121,9 @@ def test_timestamp_can_use_same_session_close_only_after_availability() -> None:
 def test_long_short_flat_signs_turnover_and_costs() -> None:
     signals = _signals(
         [
-            ("AAA", "2026-01-02", 1.0),   # long from Jan 5
+            ("AAA", "2026-01-02", 1.0),  # long from Jan 5
             ("AAA", "2026-01-05", -1.0),  # direct short from Jan 6
-            ("AAA", "2026-01-06", 0.0),   # flat from Jan 7
+            ("AAA", "2026-01-06", 0.0),  # flat from Jan 7
         ]
     )
     prices = _prices(closes=(99, 100, 110, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110))
@@ -275,9 +275,7 @@ def test_identical_inputs_produce_identical_daily_output() -> None:
 
 
 def test_portfolio_fixed_weight_and_manual_check() -> None:
-    signals = _signals(
-        [(symbol, news_date, 1.0) for symbol in ("AAA", "BBB") for news_date in ("2026-01-02", "2026-01-16")]
-    )
+    signals = _signals([(symbol, news_date, 1.0) for symbol in ("AAA", "BBB") for news_date in ("2026-01-02", "2026-01-16")])
     daily, _ = build_stock_daily_pnl(
         signals,
         _prices(("AAA", "BBB")),
@@ -291,9 +289,7 @@ def test_portfolio_fixed_weight_and_manual_check() -> None:
     assert (portfolio["weight_per_stock"] == 0.5).all()
     assert (portfolio["daily_gross_pnl"] - portfolio["transaction_cost"] - portfolio["daily_net_pnl"]).abs().max() < 1e-10
     assert (
-        portfolio["fixed_notional_gross_pnl"]
-        - portfolio["fixed_notional_transaction_cost"]
-        - portfolio["fixed_notional_net_pnl"]
+        portfolio["fixed_notional_gross_pnl"] - portfolio["fixed_notional_transaction_cost"] - portfolio["fixed_notional_net_pnl"]
     ).abs().max() < 1e-10
     manual = build_manual_timing_check(daily, cost_rate=0.001)
     assert len(manual) == 5
@@ -306,9 +302,7 @@ def test_end_to_end_outputs_and_manifest(tmp_path: Path) -> None:
         [
             (symbol, news_date, 1.0 if index % 2 == 0 else -1.0)
             for symbol in symbols
-            for index, news_date in enumerate(
-                ("2026-01-02", "2026-01-05", "2026-01-07", "2026-01-12", "2026-01-16", "2026-01-20")
-            )
+            for index, news_date in enumerate(("2026-01-02", "2026-01-05", "2026-01-07", "2026-01-12", "2026-01-16", "2026-01-20"))
         ]
     )
     signals_path = tmp_path / "daily_signals.csv"
@@ -353,3 +347,38 @@ def test_end_to_end_outputs_and_manifest(tmp_path: Path) -> None:
     assert "manifest.json" not in manifest["output_hashes"]
     with pytest.raises(Week6PnlError, match="refusing to overwrite"):
         run_week6_pnl(signals_path, prices_path, tmp_path / "results" / "week6_pnl", config)
+
+
+def test_end_to_end_can_skip_optional_low_correlation_portfolio(tmp_path: Path) -> None:
+    symbols = ("AAA", "BBB", "CCC")
+    signals = _signals(
+        [(symbol, "2026-01-02", 1.0 if symbol != "CCC" else -1.0) for symbol in symbols]
+        + [(symbol, "2026-01-16", -1.0 if symbol != "CCC" else 1.0) for symbol in symbols]
+    )
+    signals_path = tmp_path / "daily_signals.csv"
+    prices_path = tmp_path / "prices.csv"
+    signals.to_csv(signals_path, index=False)
+    _prices(symbols).to_csv(prices_path, index=False)
+    config = Week6PnlConfig(
+        run_id="all-stock-only",
+        thresholds=(0.0,),
+        holding_periods=(1,),
+        min_joint_active_dates=20,
+        include_low_correlation_portfolio=False,
+    )
+    result = run_week6_pnl(
+        signals_path,
+        prices_path,
+        tmp_path / "results" / "week6_pnl",
+        config,
+        command="sentiment-bench analyze-week6-pnl synthetic --skip-low-correlation-portfolio",
+        repo_root=tmp_path,
+        generated_at="2026-07-22T00:00:00+00:00",
+    )
+    performance = pd.read_csv(result.output_dir / "portfolio_performance.csv")
+    selected = pd.read_csv(result.output_dir / "selected_low_correlation_stocks.csv")
+    manifest = json.loads((result.output_dir / "manifest.json").read_text())
+    assert set(performance["portfolio"]) == {"all_stock_equal_weight"}
+    assert selected.empty
+    assert manifest["configuration"]["include_low_correlation_portfolio"] is False
+    assert manifest["selected_stock_set"] == []

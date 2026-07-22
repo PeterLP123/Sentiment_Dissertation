@@ -29,6 +29,7 @@ split_boundaries_force_flat = true
 
 [portfolio]
 construction = "all_stock_equal_fixed_allocation"
+include_low_correlation_portfolio = false
 starting_capital = 100000.0
 transaction_cost_bps_per_side = 10.0
 cost_grid_bps = [5.0, 10.0, 20.0]

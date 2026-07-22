@@ -199,6 +199,13 @@ def analyze_week6_pnl_command(
         int | None,
         typer.Option("--low-correlation-stock-count", min=2, help="Subset size; default is ceil(sqrt(universe))."),
     ] = None,
+    skip_low_correlation_portfolio: Annotated[
+        bool,
+        typer.Option(
+            "--skip-low-correlation-portfolio",
+            help="Run the all-stock acceptance portfolio without constructing the optional stock subset.",
+        ),
+    ] = False,
 ) -> None:
     """Run the leak-controlled exploratory Week 6 daily P&L analysis."""
 
@@ -212,6 +219,7 @@ def analyze_week6_pnl_command(
         holding_periods=_comma_separated_ints(holding_periods, option="--holding-periods"),
         min_joint_active_dates=min_joint_active_dates,
         low_correlation_stock_count=low_correlation_stock_count,
+        include_low_correlation_portfolio=not skip_low_correlation_portfolio,
     )
     try:
         result = run_week6_pnl(
@@ -304,9 +312,7 @@ def compare_week6_models_command(
     console.print(f"[green]Week 6 model comparison complete:[/green] {result.output_dir}")
     console.print(f"Frozen evaluation begins {result.split_date}.")
     for scorer_id, quantile, threshold, holding in result.selected_rules:
-        console.print(
-            f"{scorer_id}: development gate q={quantile:.0%} -> {threshold:.4f}; holding={holding}."
-        )
+        console.print(f"{scorer_id}: development gate q={quantile:.0%} -> {threshold:.4f}; holding={holding}.")
 
 
 @app.command("score-corpus-matrix")
@@ -906,8 +912,7 @@ def fetch_lseg_prices_command(
                 override_payload = tomllib.load(handle)
             raw_rics = override_payload.get("rics")
             if not isinstance(raw_rics, dict) or not all(
-                isinstance(symbol, str) and isinstance(ric, str)
-                for symbol, ric in raw_rics.items()
+                isinstance(symbol, str) and isinstance(ric, str) for symbol, ric in raw_rics.items()
             ):
                 raise PriceExportError("price RIC override file must contain a [rics] string table")
             ric_overrides = dict(raw_rics)
