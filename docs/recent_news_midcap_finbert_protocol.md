@@ -52,3 +52,18 @@ After the clean replay, publish a comprehensive explainer containing exact
 event eligibility, signal, execution, portfolio, cost, cash, and exit rules;
 development and evaluation metrics; cost capacity; statistical uncertainty;
 known biases; reproducibility evidence; and the failed-strategy search trail.
+
+## Result fixed on 22 July 2026
+
+The clean replay resolved to
+`recent-news-midcap-finbert-event-v1-dfdd88113a5f` and passed every acceptance
+criterion. At 10 bps per side, development returned +3.419% with 0.780 Sharpe
+over 25 active sessions; evaluation returned +4.004% with 0.593 Sharpe over 37
+active sessions. The approximate break-even costs were 18.18 and 16.52 bps per
+side respectively.
+
+The five-session moving-block evaluation interval for mean daily net return was
+[-0.0886%, +0.1934%], so statistical confidence remains inconclusive. A second
+identical command validated and reused the immutable output. See
+`docs/recent_news_midcap_finbert_strategy.md` for the full rules, material
+passport, research-risk audit, search trail, and reproduction hashes.

@@ -80,3 +80,18 @@ cost, and acceptance rule were not run or changed.
 The same command is rerun under distinct immutable IDs at 5 and 20 bps only
 after the 10 bps result is fixed. All LSEG news and price inputs already exist;
 this protocol uses zero new LSEG requests.
+
+## Result fixed on 22 July 2026
+
+The mid-cap robustness check failed without retuning:
+
+| Cost per side | Evaluation net return | Evaluation net Sharpe |
+| ---: | ---: | ---: |
+| 5 bps | -0.498% | -0.582 |
+| 10 bps | -1.125% | -1.325 |
+| 20 bps | -2.367% | -2.786 |
+
+Even the gross evaluation result was only +0.133% with 0.165 Sharpe. The
+positive 33-stock selection evidence therefore does not transfer to this
+separate 22-stock corpus. The failure is final for this rule: do not change its
+threshold, holding period, universe, or direction on these samples.

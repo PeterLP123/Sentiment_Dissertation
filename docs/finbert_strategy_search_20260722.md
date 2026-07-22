@@ -2,8 +2,18 @@
 
 ## Decision
 
-**No standalone FinBERT strategy tested here is better after realistic trading
-costs.** The research result is a preserved null, not a tuned trading rule.
+**No newly searched FinBERT construction improved on the existing one-session
+mid-cap event baseline after realistic trading costs.** The rank-reversal and
+persistent-signal search results are preserved nulls, not tuned trading rules.
+
+The acceptable outcome for the day is therefore a clean, newly identified
+artifact of an existing rule:
+`recent-news-midcap-finbert-event-v1-dfdd88113a5f`. It returned +3.419% with
+0.780 Sharpe in development and +4.004% with 0.593 Sharpe in evaluation after
+10 bps per side. This sample was previously explored and its bootstrap interval
+crosses zero, so it is retained as an exploratory positive-Sharpe baseline, not
+as newly discovered or deployable alpha. The complete rules and audit are in
+[`recent_news_midcap_finbert_strategy.md`](recent_news_midcap_finbert_strategy.md).
 
 The completed FNSPID study still supports a narrower claim: FinBERT contains
 information about next-session absolute abnormal returns and negative-tail
@@ -103,9 +113,10 @@ three-session version was positive in two subperiods but traded on only 11 days.
 
 ## Research implication
 
-Do not present FinBERT as a standalone deployable alpha from these samples. A
-defensible next test is an incremental risk overlay on an already justified
-return signal: freeze the base strategy, use FinBERT only to size down names
-with high predicted tail risk, and evaluate once on a genuinely unseen time
-period or corpus. The current 2011–2023 FNSPID and 2026 LSEG samples have now
-both influenced strategy design and cannot provide that confirmation.
+Use the one-session mid-cap event rule only as the current exploratory baseline;
+do not present FinBERT as confirmed standalone deployable alpha from these
+samples. A defensible next test is either a predeclared concentration cap on a
+genuinely unseen future Reuters period, or an incremental risk overlay on an
+already justified return signal. The current 2011–2023 FNSPID and 2025–2026
+LSEG samples have now influenced strategy design and cannot provide that
+confirmation.

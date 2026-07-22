@@ -18,6 +18,7 @@ This documentation is organized by reader task ([Diátaxis](https://diataxis.fr/
 | [Trading pipeline](trading_pipeline.md) | How-to + explanation | The news-to-price pipeline: runs, effectiveness battery, sweeps, and pluggable strategies. |
 | [Historical strategy-research pipeline](strategy_research_pipeline.md) | Technical guide | The separate point-in-time LSEG state, portfolio, ledger, tuning, and paper-order pipeline. |
 | [Sentiment trading baseline](sentiment_trading_baseline.md) | Research baseline | The literature-grounded Reuters FinBERT/VADER-share-argmax workflow from frozen collection through point-in-time adjusted-open evaluation. |
+| [Recent-news mid-cap FinBERT strategy](recent_news_midcap_finbert_strategy.md) | Strategy explainer | The accepted post-2024 positive-Sharpe rule, exact trading mechanics, metrics, uncertainty, failed alternatives, and reproducibility audit. |
 | [Sentiment trading baseline explainer](sentiment_trading_baseline_explainer.html) | Interactive explainer | Visual guide to the data, label models, timing, portfolio rules, paper sources, evidence and reproducibility trail. |
 | [TUI guide](tui_guide.md) | How-to | Interactive model, prompt, run, results, and news workflows. |
 | [CLI reference](cli_reference.md) | Reference | Every command, option, default, and example. |
