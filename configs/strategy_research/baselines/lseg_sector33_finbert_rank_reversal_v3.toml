@@ -1,0 +1,62 @@
+[run]
+id = "lseg-sector33-finbert-rank-reversal-v3"
+evaluation_start = "2026-05-14"
+sample_status = "previously_explored"
+specified_after_level_reversal_results = true
+confirmation_required = true
+
+[data]
+collection_root = "Data/collections/lseg_us_sector_33_6m"
+corpus_manifest = "Data/collections/lseg_us_sector_33_6m/derived/us_sector_33_6m/manifest.json"
+score_path = "Data/collections/lseg_us_sector_33_6m/derived/headline_scores_finbert_vader_full_20260715.csv"
+score_manifest = "Data/collections/lseg_us_sector_33_6m/derived/headline_scores_finbert_vader_full_20260715.csv.manifest.json"
+processing_buffer_minutes = 15
+calendar = "XNYS"
+timezone = "America/New_York"
+# This July 15 artifact predates the manifest field that explicitly records
+# revision_enforced. Replay is still exact because the completed score CSV and
+# declared model revision are both hash-pinned. A confirmatory cohort must use
+# the current enforcement field and may not set this compatibility flag.
+allow_legacy_revision_enforcement_metadata = true
+
+[prices]
+panel_path = "Data/derived/prices/lseg_us_sector_33_strategy_adjusted_open.csv"
+manifest_path = "Data/derived/prices/lseg_us_sector_33_strategy_adjusted_open.manifest.json"
+execution_field = "adjusted_open"
+return_convention = "open_to_open"
+
+[scorer]
+id = "finbert"
+model_id = "ProsusAI/finbert"
+revision = "7db323f79b751944bcfa66298ec06977e4518306"
+score_definition = "p_positive_minus_p_negative"
+
+[screening]
+require_explicit_target = true
+require_single_target = true
+exclude_market_price_technical = true
+
+[signal]
+construction = "lagged_cross_sectional_rank_reversal"
+formation_lag_sessions = 1
+lookback_sessions = 5
+tail_fraction = 0.20
+minimum_ranked_firms = 10
+minimum_names_per_side = 2
+direction = "contrarian"
+
+[portfolio]
+gross_exposure = 1.0
+initial_nav_usd = 1000000.0
+cost_bps_per_side = 10.0
+cost_grid_bps = [5.0, 10.0, 20.0]
+force_final_liquidation = true
+
+[inference]
+block_length_sessions = 5
+replications = 2000
+seed = 20260722
+
+[outputs]
+derived_root = "Data/derived/strategy_research/finbert_strategy_v3"
+results_root = "results/strategy_research/finbert_strategy_v3"
