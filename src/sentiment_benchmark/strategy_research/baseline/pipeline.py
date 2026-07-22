@@ -676,7 +676,8 @@ def _report(
             "",
             "## Interpretation limits",
             "",
-            "- This 22-stock period has already been examined in prior exploratory work; it cannot support a fresh confirmatory claim.",
+            f"- This {len(inputs.symbols)}-stock period has already been examined in prior exploratory work; "
+            "it cannot support a fresh confirmatory claim.",
             "- FinBERT and VADER share-argmax classify generic headline polarity, not target-specific expected return.",
             "- The design adapts a modern headline long/short template to next-open, open-to-open data; "
             "it is not an exact paper replication.",

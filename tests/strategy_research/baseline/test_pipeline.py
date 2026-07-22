@@ -292,6 +292,8 @@ def test_end_to_end_run_is_deterministic_immutable_and_hash_verified(tmp_path: P
     assert first.reused is False
     assert second.reused is True
     assert first.report_path.is_file()
+    assert "This 2-stock period" in first.report_path.read_text(encoding="utf-8")
+    assert "This 22-stock period" not in first.report_path.read_text(encoding="utf-8")
     assert (first.results_dir / "manifest.json").is_file()
     assert "Alpha Corp" not in (first.derived_dir / "event_labels.jsonl").read_text(encoding="utf-8")
     metrics = json.loads(first.metrics_path.read_text(encoding="utf-8"))
