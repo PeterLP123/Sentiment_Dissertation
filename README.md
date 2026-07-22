@@ -196,7 +196,7 @@ Start here if you are setting up the project or writing the dissertation methods
 | [Frozen LSEG analysis workflow](docs/lseg_analysis_workflow.md) | How-to | The gated corpus → cohort → validation → crossed scoring → L2/L3 sequence. |
 | [Trading pipeline](docs/trading_pipeline.md) | How-to | Run, analyze, tune, and extend the news-to-price trading strategy. |
 | [Sentiment trading baseline](docs/sentiment_trading_baseline.md) | Research baseline | Build and run the frozen Reuters FinBERT/VADER-share-argmax adjusted-open comparator from source data through funded P&L. |
-| [Sentiment trading baseline explainer](docs/sentiment_trading_baseline_explainer.html) | Interactive explainer | Visual guide to the data, sentiment labels, execution timing, portfolio rules, literature sources, evidence and limitations. |
+| [Recent-news FinBERT strategy explainer](docs/sentiment_trading_baseline_explainer.html) | Interactive explainer | Visual guide to the accepted rule, timing, chronological results, rejected alternatives, uncertainty and reproducibility trail. |
 | [Week 6 scoring rerun requirement](reports/week6_model_comparison_rerun_required.md) | Blocking research note | Why the current Gemma/FinBERT/VADER comparison is provisional and what must be rerun. |
 | [Full-population FinBERT/VADER test](reports/week6_finbert_vader_full_population_test.md) | Technical report | Complete 568,707-headline score comparison and funded Week 6 evaluation. |
 | [Results and exports](docs/results_and_exports.md) | Reference | SQLite or Turso/libSQL storage, export files, metrics, figures, and reproducibility metadata. |
