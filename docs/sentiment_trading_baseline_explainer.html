@@ -470,6 +470,22 @@
     .search-value { display: block; margin: 1.15rem 0 .25rem; font-family: var(--serif); font-size: 2rem; line-height: 1; }
     .search-card small { color: var(--muted); }
 
+    .robustness-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin: 2rem 0; }
+    .robustness-card { padding: 1.35rem; background: var(--white); border: 1px solid var(--line); }
+    .robustness-card.retained { border-top: 5px solid var(--teal); }
+    .robustness-card.failed { border-top: 5px solid var(--rust); }
+    .robustness-card h3 { margin: .35rem 0 1rem; font-family: var(--serif); font-size: 1.6rem; }
+    .robustness-card .status { color: var(--muted); font-size: .7rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    .robustness-card p { color: var(--muted); font-size: .84rem; }
+    .signed-bars { margin: 1.5rem 0; }
+    .signed-row { display: grid; grid-template-columns: 120px minmax(180px, 1fr) 72px; gap: .8rem; align-items: center; margin: 1rem 0; font-size: .8rem; }
+    .signed-track { position: relative; height: 34px; background: #e4ddd2; overflow: hidden; }
+    .signed-zero { position: absolute; z-index: 2; top: 0; bottom: 0; left: 50%; width: 2px; background: var(--ink); opacity: .6; }
+    .signed-fill { position: absolute; top: 5px; bottom: 5px; }
+    .signed-fill.positive { left: 50%; background: var(--teal); }
+    .signed-fill.negative { right: 50%; background: var(--rust); }
+    .signed-row b { text-align: right; font-family: var(--mono); }
+
     .source-list { border-top: 1px solid var(--line); }
     .source {
       display: grid;
@@ -550,7 +566,7 @@
       .hero-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .hero-stat:nth-child(3), .hero-stat:nth-child(5) { border-left: 0; padding-left: 0; }
       .flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .model-grid, .artifact-grid { grid-template-columns: minmax(0, 1fr); }
+      .model-grid, .artifact-grid, .robustness-grid { grid-template-columns: minmax(0, 1fr); }
       .timeline { grid-template-columns: 1fr; margin-left: .45rem; }
       .time-step { padding: .2rem 0 1.5rem 1.5rem; border-top: 0; border-left: 2px solid var(--teal); }
       .time-step::before { top: .15rem; left: -7px; }
@@ -623,6 +639,7 @@
         <a href="#labels">Labels</a>
         <a href="#rules">Trading rules</a>
         <a href="#evidence">Evidence</a>
+        <a href="#robustness">More stocks</a>
         <a href="#selection">Strategy search</a>
         <a href="#sources">Sources</a>
         <a href="#provenance">Reproduce</a>
@@ -642,7 +659,7 @@
           </div>
           <aside class="verdict" aria-label="Evidence verdict">
             <strong>Acceptable baseline. Not live-ready alpha.</strong>
-            <p>The same frozen rule remained positive in development and evaluation after 10 bps per side. Its evaluation interval still crosses zero and some sessions concentrate 50% of NAV in one name.</p>
+            <p>The same frozen rule remained positive in mid-cap development and evaluation after 10 bps per side. A later unchanged-rule test on 33 stocks failed, so the edge is not universe-general. Its interval still crosses zero and some sessions concentrate 50% of NAV in one name.</p>
           </aside>
         </div>
         <div class="hero-stats" aria-label="Strategy at a glance">
@@ -936,6 +953,63 @@
       <p class="warning">Correct interpretation: the software and accounting pipeline reproduced deterministically; the strategy estimate was positive after costs; the statistical evidence did not rule out no edge. Do not retune this historical sample to force a stronger result.</p>
     </section>
 
+    <section class="section" id="robustness" aria-labelledby="robustness-title">
+      <div class="section-head">
+        <div><p class="eyebrow">Universe robustness · 22 July 2026</p><h2 id="robustness-title">More stocks did not generalise</h2></div>
+        <p class="section-intro">The accepted signal, timing, portfolio and 10 bp cost rule were held unchanged and applied to the existing 33-stock, 11-sector Reuters/LSEG cohort. The test used a newly pinned cache-only FinBERT artifact and zero new LSEG requests. It failed the precommitted gate and was not retuned.</p>
+      </div>
+
+      <div class="robustness-grid" aria-label="Comparison of the retained and failed universe tests">
+        <article class="robustness-card retained">
+          <span class="status">Retained exploratory baseline</span>
+          <h3>22-stock mid-cap cohort</h3>
+          <div class="period-metrics">
+            <div><b>+4.004%</b><span>evaluation net return</span></div>
+            <div><b>+0.593</b><span>evaluation net Sharpe</span></div>
+            <div><b>0.573</b><span>average traded weight</span></div>
+            <div><b>16.52 bps</b><span>break-even cost/side</span></div>
+          </div>
+          <p>Positive in both chronological blocks, but previously explored and statistically inconclusive.</p>
+        </article>
+        <article class="robustness-card failed">
+          <span class="status">Failed unchanged-rule test</span>
+          <h3>33-stock sector cohort</h3>
+          <div class="period-metrics">
+            <div><b>−5.035%</b><span>evaluation net return</span></div>
+            <div><b>−3.682</b><span>evaluation net Sharpe</span></div>
+            <div><b>1.610</b><span>average traded weight</span></div>
+            <div><b>−0.53 bps</b><span>break-even cost/side</span></div>
+          </div>
+          <p>Development net return was −9.159% with −2.491 Sharpe; evaluation was already negative before costs.</p>
+        </article>
+      </div>
+
+      <article class="panel">
+        <header class="panel-head"><h3>Evaluation net return · signed comparison</h3></header>
+        <div class="panel-body">
+          <div class="signed-bars" role="img" aria-label="The 22-stock mid-cap evaluation returned positive 4.004 percent after costs, while the unchanged 33-stock evaluation returned negative 5.035 percent">
+            <div class="signed-row"><span>22-stock mid-cap</span><div class="signed-track"><i class="signed-zero"></i><i class="signed-fill positive" style="width:40%"></i></div><b>+4.004%</b></div>
+            <div class="signed-row"><span>33-stock sector</span><div class="signed-track"><i class="signed-zero"></i><i class="signed-fill negative" style="width:50%"></i></div><b>−5.035%</b></div>
+          </div>
+          <div class="table-scroll">
+            <table class="result-table">
+              <thead><tr><th>Evaluation diagnostic</th><th>22-stock mid-cap</th><th>33-stock sector</th></tr></thead>
+              <tbody>
+                <tr><td>Gross return</td><td>+11.466%</td><td>−0.334%</td></tr>
+                <tr><td>Net return</td><td>+4.004%</td><td>−5.035%</td></tr>
+                <tr><td>Net Sharpe</td><td>+0.593</td><td>−3.682</td></tr>
+                <tr><td>Active sessions</td><td>37 of 121</td><td>30 of 30</td></tr>
+                <tr><td>Maximum single-name weight</td><td>50%</td><td>50%</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="chart-note"><strong>Breadth improved, concentration did not disappear:</strong> the 33-stock portfolio held three to fourteen names on active days and had no two-name sessions, but 13 sessions had only one name on one leg, preserving a 50% maximum position.</p>
+        </div>
+      </article>
+
+      <p class="warning">Conclusion: keep the positive mid-cap path as an exploratory reference only. The exact rule failed on more stocks, so do not claim broad alpha or choose a winning subset of the 33 names after the fact. See the <a href="recent_news_sector33_finbert_result.md">complete robustness result</a> and <a href="recent_news_sector33_finbert_protocol.md">frozen protocol</a>.</p>
+    </section>
+
     <div class="band">
       <section class="section" id="selection" aria-labelledby="selection-title">
         <div class="section-head">
@@ -949,6 +1023,13 @@
             <span class="search-value">0.593</span>
             <small>evaluation net Sharpe</small>
             <p>Positive in development and evaluation at 10 bps per side. Kept as the exploratory baseline.</p>
+          </article>
+          <article class="search-card">
+            <span class="search-status">Rejected</span>
+            <h3>33-stock same-rule FinBERT</h3>
+            <span class="search-value">−3.682</span>
+            <small>evaluation net Sharpe</small>
+            <p>The unchanged accepted rule lost 5.035% net in the later block and 13.733% across the full sector cohort.</p>
           </article>
           <article class="search-card">
             <span class="search-status">Rejected</span>
@@ -1014,15 +1095,20 @@
         <article class="artifact"><h3>Adjusted-open prices</h3><p>Complete split-adjusted 22 × 265 symbol-session grid.</p><code>panel · 2f067666…b832</code></article>
         <article class="artifact"><h3>Implementation</h3><p>Event join, session assignment, portfolio construction, ledger and inference.</p><code>code · cf32cd29…b1b4</code></article>
         <article class="artifact"><h3>Resolved result</h3><p>Aggregate report contains no licensed Reuters headline text.</p><code>recent-news-midcap-finbert-event-v1-dfdd88113a5f</code></article>
+        <article class="artifact"><h3>33-stock robustness config</h3><p>Unchanged rule, fixed 2026-05-14 boundary and separate sector cohort.</p><code>config · 4bb10982…16719</code></article>
+        <article class="artifact"><h3>33-stock failed result</h3><p>Deterministically replayed aggregate null; no licensed headline text.</p><code>recent-news-sector33-finbert-event-v1-4b9baebb01fa</code></article>
       </div>
 
       <div class="commands">
         <h3>Run the accepted frozen strategy</h3>
         <pre class="command"><code>.venv/bin/sentiment-bench strategy baseline inspect --config configs/strategy_research/baselines/recent_news_midcap_finbert_event_v1.toml</code><button class="copy-button" type="button" aria-label="Copy inspection command">Copy</button></pre>
         <pre class="command"><code>.venv/bin/sentiment-bench strategy baseline run --config configs/strategy_research/baselines/recent_news_midcap_finbert_event_v1.toml</code><button class="copy-button" type="button" aria-label="Copy run command">Copy</button></pre>
+        <h3>Reproduce the failed 33-stock robustness test</h3>
+        <pre class="command"><code>.venv/bin/sentiment-bench strategy baseline inspect --config configs/strategy_research/baselines/recent_news_sector33_finbert_event_v1.toml</code><button class="copy-button" type="button" aria-label="Copy 33-stock inspection command">Copy</button></pre>
+        <pre class="command"><code>.venv/bin/sentiment-bench strategy baseline run --config configs/strategy_research/baselines/recent_news_sector33_finbert_event_v1.toml</code><button class="copy-button" type="button" aria-label="Copy 33-stock run command">Copy</button></pre>
       </div>
 
-      <p class="note"><strong>Primary local files</strong><a href="recent_news_midcap_finbert_strategy.md">Comprehensive strategy guide</a> · <a href="../configs/strategy_research/baselines/recent_news_midcap_finbert_event_v1.toml">Frozen TOML</a> · <a href="../results/strategy_research/baselines/recent-news-midcap-finbert-event-v1-dfdd88113a5f/report.md">Result report</a> · <a href="../results/strategy_research/baselines/recent-news-midcap-finbert-event-v1-dfdd88113a5f/metrics.json">Metrics JSON</a></p>
+      <p class="note"><strong>Primary local files</strong><a href="recent_news_midcap_finbert_strategy.md">Comprehensive strategy guide</a> · <a href="recent_news_sector33_finbert_result.md">33-stock robustness result</a> · <a href="../configs/strategy_research/baselines/recent_news_midcap_finbert_event_v1.toml">Accepted TOML</a> · <a href="../configs/strategy_research/baselines/recent_news_sector33_finbert_event_v1.toml">Robustness TOML</a></p>
     </section>
 
     <div class="band">
@@ -1040,6 +1126,7 @@
           <li><strong>Not full execution reality.</strong><span>Costs omit varying spreads, market impact, short availability, borrow fees, financing, taxes and capacity.</span></li>
           <li><strong>Not interest-bearing cash.</strong><span>The cash comparator earns exactly zero; T-bill yield and cash interest are omitted.</span></li>
           <li><strong>Not a reason to retune.</strong><span>Changing thresholds, horizon, cohort or model after seeing the result would turn this sample into an optimisation target.</span></li>
+          <li><strong>Not universe-general.</strong><span>The unchanged rule lost money on the 33-stock sector cohort, so the positive mid-cap path cannot be described as broad-market alpha.</span></li>
           <li><strong>Not investment advice.</strong><span>This is a dissertation research artifact and engineering baseline, not a recommendation to trade.</span></li>
         </ul>
       </section>

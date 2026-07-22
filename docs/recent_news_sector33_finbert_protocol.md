@@ -95,3 +95,18 @@ and concentration diagnostics; bootstrap uncertainty; the 11-class research
 risk scan; deterministic replay evidence; exact hashes; and a direct comparison
 with the accepted 22-stock result. No failed result may be overwritten or
 silently re-tuned.
+
+## Result fixed on 22 July 2026
+
+The corrected immutable run resolved to
+`recent-news-sector33-finbert-event-v1-4b9baebb01fa` and **failed** the
+predeclared robustness gate. Development returned -9.159% net with -2.491
+Sharpe; evaluation returned -5.035% net with -3.682 Sharpe. Approximate
+break-even costs were 3.31 and -0.53 bps per side, both below the frozen 10 bps
+charge. Activity and integrity gates passed, and a second identical command
+validated/reused the result.
+
+The result was preserved without retuning. See
+`docs/recent_news_sector33_finbert_result.md` for the comprehensive metrics,
+comparison with the retained mid-cap baseline, uncertainty, 11-class risk
+audit, reproduction hashes and next gate.
