@@ -1,0 +1,49 @@
+[run]
+id = "recent-news-sentiment-persistence-v1"
+status = "post_selection_robustness"
+specified_after_sector33_results = true
+confirmation_required = true
+
+[selection_evidence]
+source_run = "results/week6_pnl/lseg_headline_sentiment_all_20260715_clean"
+development_boundary = "2026-04-12"
+development_net_sharpe = 1.328
+evaluation_net_sharpe = 1.371
+evaluation_net_sample_return = 0.00757
+
+[signal]
+scorer_id = "headline/sentiment_all"
+aggregation = "mean_rule_based_headline_score_by_symbol_news_date"
+long_if_strictly_above = 0.10
+short_if_strictly_below = -0.10
+flat_otherwise = true
+holding_sessions = 5
+new_signal_supersedes = true
+
+[execution]
+mapping = "next_observed_session_close"
+reason = "source daily signals do not retain usable per-signal timestamps"
+price_field = "close"
+return_convention = "close_to_close_after_entry"
+split_boundaries_force_flat = true
+
+[portfolio]
+construction = "all_stock_equal_fixed_allocation"
+starting_capital = 100000.0
+transaction_cost_bps_per_side = 10.0
+cost_grid_bps = [5.0, 10.0, 20.0]
+short_borrow_bps = 0.0
+
+[robustness]
+signals_path = "Data/collections/lseg_us_midcap_22_1y/derived/content_quality_direct/daily_signals.csv"
+prices_path = "Data/derived/prices/lseg_us_midcap_22_1y.csv"
+development_fraction = 0.50
+thresholds = [0.10]
+holding_periods = [5]
+acceptance = "positive net cumulative return and positive net Sharpe in the chronological evaluation at 10 bps per side"
+
+[limitations]
+sample_status = "previously_explored"
+licensed_text_stays_local = true
+dividends_back_adjusted = false
+borrow_financing_market_impact_modelled = false
