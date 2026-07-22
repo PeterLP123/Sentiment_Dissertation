@@ -1,0 +1,74 @@
+[run]
+id = "recent-news-midcap-finbert-event-v1"
+evaluation_start = "2026-01-02"
+sample_status = "previously_explored"
+
+[replication]
+paper_id = "Lopez-Lira and Tang, Can ChatGPT Forecast Stock Price Movements?"
+doi = "10.2139/ssrn.4412788"
+reference_version = "arXiv:2304.07619v6"
+reference_url = "https://arxiv.org/pdf/2304.07619v6"
+fidelity = "conceptual_adaptation"
+deviations = [
+  "Use pinned local FinBERT and VADER share-argmax headline labels instead of the paper's target-specific historical GPT-4 signal; the paper reports FinBERT only as a comparison.",
+  "Use the first eligible adjusted open and one-session open-to-open returns instead of the paper's open-to-close window for overnight news and close-to-close window for intraday news.",
+  "Use an audited 22-stock Reuters/LSEG cohort rather than the paper's broad CRSP news universe.",
+  "Use 100 percent gross exposure, require at least one name on both sides, and stay in zero-return cash otherwise; the paper uses about 200 percent gross, two names per side, and a one-sided fallback.",
+  "Charge 10 basis points per dollar traded using sum(abs(change in portfolio weight)); the paper reports one-way turnover as half that quantity and applies 5, 10, or 20 basis points per round trip, so cost figures are not directly comparable.",
+]
+
+[data]
+collection_root = "Data/collections/lseg_us_midcap_22_1y"
+corpus_manifest = "Data/collections/lseg_us_midcap_22_1y/derived/us_midcap_22_1y/manifest.json"
+score_path = "Data/collections/lseg_us_midcap_22_1y/derived/headline_scores_finbert4556_vader_baseline_v1_cacheonly_20260718.csv"
+score_manifest = "Data/collections/lseg_us_midcap_22_1y/derived/headline_scores_finbert4556_vader_baseline_v1_cacheonly_20260718.csv.manifest.json"
+processing_buffer_minutes = 15
+calendar = "XNYS"
+timezone = "America/New_York"
+
+[prices]
+panel_path = "Data/derived/prices/lseg_us_midcap_22_strategy_adjusted_open.csv"
+manifest_path = "Data/derived/prices/lseg_us_midcap_22_strategy_adjusted_open.manifest.json"
+execution_field = "adjusted_open"
+return_convention = "open_to_open"
+
+[[scorers]]
+id = "finbert"
+role = "primary"
+model_id = "ProsusAI/finbert"
+revision = "4556d13015211d73dccd3fdd39d39232506f3e43"
+score_definition = "p_positive_minus_p_negative"
+
+[[scorers]]
+id = "vader"
+role = "comparator"
+model_id = "nltk.sentiment.vader"
+score_definition = "vader_pos_minus_neg"
+
+[screening]
+require_explicit_target = true
+require_single_target = true
+exclude_market_price_technical = true
+
+[signal]
+aggregation = "sign_mean_hard_label"
+minimum_events = 1
+holding_sessions = 1
+carry = "none"
+
+[portfolio]
+construction = "equal_weight_dollar_neutral"
+gross_exposure = 1.0
+minimum_names_per_side = 1
+initial_nav_usd = 1000000.0
+cost_bps_per_side = 10.0
+force_final_liquidation = true
+
+[inference]
+block_length_sessions = 5
+replications = 2000
+seed = 20260718
+
+[outputs]
+derived_root = "Data/derived/strategy_research/baselines"
+results_root = "results/strategy_research/baselines"
