@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="A source-backed explanation of the Reuters FinBERT sentiment trading baseline: data, labels, timing, portfolio rules, costs, evidence and research sources.">
-  <title>Sentiment Trading Baseline | Data, Rules &amp; Evidence</title>
+  <meta name="description" content="An evidence-backed visual explanation of the accepted recent-news mid-cap FinBERT strategy: data, labels, trading rules, costs, results, rejected alternatives and limitations.">
+  <title>Recent-News FinBERT Strategy | Rules &amp; Results</title>
   <style>
     :root {
       --ink: #14211d;
@@ -359,6 +359,7 @@
 
     .results-grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: 2rem; }
     .result-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+    .table-scroll { max-width: 100%; overflow-x: auto; }
     .result-table th, .result-table td { padding: .85rem .65rem; text-align: right; border-bottom: 1px solid var(--line); }
     .result-table th:first-child, .result-table td:first-child { text-align: left; }
     .result-table thead th { color: var(--muted); font-size: .7rem; letter-spacing: .05em; text-transform: uppercase; }
@@ -407,6 +408,23 @@
     .sharpe-detail b { display: block; margin-bottom: .25rem; color: var(--white); font-family: var(--serif); font-size: 1.35rem; }
     .sharpe-detail span { display: block; color: rgba(255,255,255,.65); font-size: .76rem; }
     .sharpe-formula { grid-column: 1 / -1; min-height: auto !important; font-family: var(--mono); font-size: .72rem; }
+    .period-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1px;
+      margin: 2rem 0;
+      padding: 1px;
+      background: var(--line);
+    }
+    .period-card { padding: 1.2rem; background: var(--white); }
+    .period-card.evaluation { border-top: 4px solid var(--gold); }
+    .period-card.combined { border-top: 4px solid var(--teal); }
+    .period-card.development { border-top: 4px solid var(--rust); }
+    .period-card .period-label { color: var(--muted); font-size: .7rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    .period-card h3 { margin: .35rem 0 1rem; font-family: var(--serif); font-size: 1.5rem; }
+    .period-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+    .period-metrics b { display: block; font-family: var(--serif); font-size: 1.45rem; }
+    .period-metrics span { display: block; color: var(--muted); font-size: .72rem; }
     .chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; margin-top: 2rem; }
     .chart-card { min-width: 0; padding: 1.25rem; background: var(--white); border: 1px solid var(--line); }
     .chart-card.wide { grid-column: 1 / -1; }
@@ -441,6 +459,16 @@
       border-left: 5px solid var(--rust);
       font-weight: 650;
     }
+
+    .search-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; padding: 1px; background: var(--line); }
+    .search-card { min-height: 245px; padding: 1.15rem; background: var(--white); }
+    .search-card.accepted { background: var(--teal-soft); }
+    .search-status { display: inline-block; margin-bottom: 1rem; padding: .25rem .45rem; color: var(--white); background: var(--rust); font-size: .68rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+    .search-card.accepted .search-status { background: var(--teal); }
+    .search-card h3 { margin: 0 0 .55rem; font-family: var(--serif); font-size: 1.25rem; }
+    .search-card p { margin: 0; color: var(--muted); font-size: .8rem; }
+    .search-value { display: block; margin: 1.15rem 0 .25rem; font-family: var(--serif); font-size: 2rem; line-height: 1; }
+    .search-card small { color: var(--muted); }
 
     .source-list { border-top: 1px solid var(--line); }
     .source {
@@ -531,6 +559,8 @@
       .limitations { columns: 1; }
       .chart-grid { grid-template-columns: minmax(0, 1fr); }
       .chart-card.wide { grid-column: auto; }
+      .period-grid { grid-template-columns: minmax(0, 1fr); }
+      .search-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 520px) {
       .hero-inner, .section { width: min(calc(100% - 1.25rem), var(--content)); }
@@ -548,16 +578,26 @@
       .source .use { grid-column: auto; margin-left: 0; }
       .fidelity-table { display: block; overflow-x: auto; }
       .footer-inner { grid-template-columns: 1fr; }
+      .search-grid { grid-template-columns: minmax(0, 1fr); }
     }
     @media (prefers-reduced-motion: reduce) {
       html { scroll-behavior: auto; }
       *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
     }
     @media (prefers-color-scheme: dark) {
-      :root { --paper: #101915; --paper-2: #17231e; --white: #1e2c26; --ink: #f0ece3; --muted: #b7c2bd; --line: #43514b; --teal-soft: #22483e; --rust-soft: #4d2a21; --gold-soft: #433a24; }
+      :root { --paper: #101915; --paper-2: #17231e; --white: #1e2c26; --ink: #f0ece3; --muted: #b7c2bd; --line: #43514b; --teal: #5bb7a6; --rust: #e68163; --gold: #e0b65b; --teal-soft: #22483e; --rust-soft: #4d2a21; --gold-soft: #433a24; }
       .panel, .model-card, .artifact, .fidelity-table { color: var(--ink); }
       .funnel-track, .label-bar, .return-track { background: #33433c; }
       .fact-list div { border-color: #33433c; }
+      a { color: #8fd3c2; }
+      a:hover { color: #f0aa91; }
+      .site-header, .brand, .nav-links a:hover, .nav-links a[aria-current="true"],
+      .hero, .skip-link, .flow .step, .formula, .rule-list li::before,
+      .ci-card, .sharpe-strip, .sharpe-detail b, .search-status,
+      .fidelity-table th, .copy-button, footer strong { color: #f0ece3; }
+      .ci-mean { background: #f0ece3; }
+      .note { color: #f0ece3; }
+      .note a { color: #f3cf82; }
     }
     @media print {
       .site-header, .copy-button, .back-top { display: none; }
@@ -576,13 +616,14 @@
   <a class="skip-link" href="#main">Skip to main content</a>
   <header class="site-header">
     <div class="nav-shell">
-      <a class="brand" href="#top">Sentiment <span>→</span> Trading</a>
+      <a class="brand" href="#top">Recent News <span>→</span> FinBERT</a>
       <nav class="nav-links" aria-label="Page sections">
         <a href="#overview">Overview</a>
         <a href="#data">Data</a>
         <a href="#labels">Labels</a>
         <a href="#rules">Trading rules</a>
         <a href="#evidence">Evidence</a>
+        <a href="#selection">Strategy search</a>
         <a href="#sources">Sources</a>
         <a href="#provenance">Reproduce</a>
         <a href="#limits">Limits</a>
@@ -595,22 +636,22 @@
       <div class="hero-inner">
         <div class="hero-grid">
           <div>
-            <p class="eyebrow">Frozen research baseline · July 2026</p>
-            <h1 id="page-title">From Reuters headline to funded P&amp;L</h1>
-            <p class="hero-deck">A plain-language map of the data, local sentiment labels, point-in-time execution, long–short portfolio, costs, research sources and the result we actually observed.</p>
+            <p class="eyebrow">Accepted exploratory strategy · 22 July 2026</p>
+            <h1 id="page-title">Recent Reuters news to positive-Sharpe P&amp;L</h1>
+            <p class="hero-deck">A plain-language visual guide to the frozen mid-cap FinBERT rule, its point-in-time execution, long–short portfolio, realistic turnover costs, chronological results and interpretation limits.</p>
           </div>
           <aside class="verdict" aria-label="Evidence verdict">
-            <strong>Positive estimate. Inconclusive evidence.</strong>
-            <p>The FinBERT portfolio gained 4.004% net in the retrospective evaluation, but its 95% interval for mean daily return crossed zero. This is a comparator, not deployable alpha.</p>
+            <strong>Acceptable baseline. Not live-ready alpha.</strong>
+            <p>The same frozen rule remained positive in development and evaluation after 10 bps per side. Its evaluation interval still crosses zero and some sessions concentrate 50% of NAV in one name.</p>
           </aside>
         </div>
-        <div class="hero-stats" aria-label="Baseline at a glance">
-          <div class="hero-stat"><b>1,187</b><span>point-in-time events</span></div>
+        <div class="hero-stats" aria-label="Strategy at a glance">
+          <div class="hero-stat"><b>1,142</b><span>selected eligible events</span></div>
           <div class="hero-stat"><b>22</b><span>US mid-cap stocks</span></div>
-          <div class="hero-stat"><b>121</b><span>evaluation sessions</span></div>
-          <div class="hero-stat"><b>4.004%</b><span>net cumulative return</span></div>
-          <div class="hero-stat"><b>0.593</b><span>net annualised Sharpe</span></div>
-          <div class="hero-stat"><b>−0.089% to +0.193%</b><span>95% interval for daily edge</span></div>
+          <div class="hero-stat"><b>251</b><span>combined sessions</span></div>
+          <div class="hero-stat"><b>7.560%</b><span>combined net return</span></div>
+          <div class="hero-stat"><b>0.638</b><span>combined net Sharpe</span></div>
+          <div class="hero-stat"><b>10 bps</b><span>cost per dollar traded</span></div>
         </div>
       </div>
     </section>
@@ -618,7 +659,7 @@
     <section class="section" id="overview" aria-labelledby="overview-title">
       <div class="section-head">
         <div><p class="eyebrow">The whole system</p><h2 id="overview-title">Seven frozen stages</h2></div>
-        <p class="section-intro">Text becomes a trade only after it survives source, timestamp, target and market-data checks. Prices never influence sentiment labels. Every stage writes or verifies a manifest so the same input cannot quietly produce a different result.</p>
+        <p class="section-intro">The working hypothesis is short-lived underreaction to company-specific news. Text becomes a trade only after it survives source, timestamp, target and market-data checks; prices never influence labels, and every stage verifies a manifest.</p>
       </div>
       <ol class="flow" aria-label="Baseline workflow">
         <li><span class="step">1</span><h3>Collect</h3><p>Reuters-only LSEG queries for 22 named companies, English language, 26 June 2025 to 26 June 2026.</p></li>
@@ -728,7 +769,7 @@
       <section class="section" id="rules" aria-labelledby="rules-title">
         <div class="section-head">
           <div><p class="eyebrow">Market layer</p><h2 id="rules-title">The trading rule</h2></div>
-          <p class="section-intro">The rule is intentionally simple: use only information available before entry, turn same-stock same-session labels into one sign, require a genuine two-sided portfolio and close at the next adjusted open.</p>
+          <p class="section-intro">The rule targets immediate cross-sectional drift: use only information available before entry, turn same-stock same-session labels into one sign, require a genuine two-sided portfolio and close at the next adjusted open rather than assuming sentiment persists.</p>
         </div>
 
         <div class="timeline" aria-label="Headline-to-trade timing">
@@ -763,7 +804,39 @@
     <section class="section" id="evidence" aria-labelledby="evidence-title">
       <div class="section-head">
         <div><p class="eyebrow">Observed outcome</p><h2 id="evidence-title">What happened</h2></div>
-        <p class="section-intro">The primary evaluation covers 121 exchange sessions from 2 January to 26 June 2026. FinBERT formed a two-sided portfolio on 37 days and supported 21 of the 22 stocks.</p>
+        <p class="section-intro">The rule was frozen and replayed without parameter changes. It remained positive in the earlier development block and the later retrospective evaluation block after the full 10 bp-per-traded-weight cost.</p>
+      </div>
+      <div class="period-grid" aria-label="Chronological strategy results">
+        <article class="period-card development">
+          <span class="period-label">Earlier block</span>
+          <h3>Development</h3>
+          <div class="period-metrics">
+            <div><b>+3.419%</b><span>net return</span></div>
+            <div><b>0.780</b><span>net Sharpe</span></div>
+            <div><b>25</b><span>active sessions</span></div>
+            <div><b>−4.965%</b><span>max drawdown</span></div>
+          </div>
+        </article>
+        <article class="period-card evaluation">
+          <span class="period-label">Later block</span>
+          <h3>Evaluation</h3>
+          <div class="period-metrics">
+            <div><b>+4.004%</b><span>net return</span></div>
+            <div><b>0.593</b><span>net Sharpe</span></div>
+            <div><b>37</b><span>active sessions</span></div>
+            <div><b>−4.899%</b><span>max drawdown</span></div>
+          </div>
+        </article>
+        <article class="period-card combined">
+          <span class="period-label">Full recent sample</span>
+          <h3>Combined</h3>
+          <div class="period-metrics">
+            <div><b>+7.560%</b><span>net return</span></div>
+            <div><b>0.638</b><span>net Sharpe</span></div>
+            <div><b>62</b><span>active sessions</span></div>
+            <div><b>−6.028%</b><span>max drawdown</span></div>
+          </div>
+        </article>
       </div>
       <aside class="sharpe-strip" aria-label="After-cost Sharpe ratio summary">
         <div class="sharpe-main"><b>0.593</b><span>after-cost annualised Sharpe</span></div>
@@ -778,13 +851,15 @@
         <article class="panel">
           <header class="panel-head"><h3>Evaluation metrics</h3></header>
           <div class="panel-body">
-            <table class="result-table">
-              <thead><tr><th>Scorer</th><th>Active days</th><th>Gross</th><th>Net</th><th>Sharpe</th><th>Drawdown</th></tr></thead>
-              <tbody>
-                <tr class="primary"><td>FinBERT</td><td>37</td><td>11.466%</td><td>4.004%</td><td>0.593</td><td>−4.899%</td></tr>
-                <tr><td>VADER share-argmax</td><td>0</td><td>0.000%</td><td>0.000%</td><td>n/a</td><td>0.000%</td></tr>
-              </tbody>
-            </table>
+            <div class="table-scroll">
+              <table class="result-table">
+                <thead><tr><th>Scorer</th><th>Active days</th><th>Gross</th><th>Net</th><th>Sharpe</th><th>Drawdown</th></tr></thead>
+                <tbody>
+                  <tr class="primary"><td>FinBERT</td><td>37</td><td>11.466%</td><td>4.004%</td><td>0.593</td><td>−4.899%</td></tr>
+                  <tr><td>VADER share-argmax</td><td>0</td><td>0.000%</td><td>0.000%</td><td>n/a</td><td>0.000%</td></tr>
+                </tbody>
+              </table>
+            </div>
             <div class="return-bars" aria-label="Cumulative return comparison">
               <div class="return-row"><span>Gross</span><div class="return-track"><div class="return-fill" style="width:100%"></div></div><b>11.466%</b></div>
               <div class="return-row"><span>Net</span><div class="return-track"><div class="return-fill net" style="width:34.9%"></div></div><b>4.004%</b></div>
@@ -857,12 +932,51 @@
           <p class="chart-note"><strong>Cost concentration:</strong> April was highest at 0.920 average turnover; June was lowest at 0.345. The evaluation-wide average was 0.573.</p>
         </figure>
       </div>
-      <p class="chart-note">Plot source: frozen <code>daily_pnl.jsonl</code> for run <code>lseg-midcap-finbert-vader-v1-0b1d87ba5962</code>. FinBERT rows on or after 2026-01-02; 121 exchange sessions; the audit-only terminal liquidation row is excluded and its cost is folded into the final holding interval.</p>
+      <p class="chart-note">Plot source: frozen <code>daily_pnl.jsonl</code> for run <code>recent-news-midcap-finbert-event-v1-dfdd88113a5f</code>. FinBERT rows on or after 2026-01-02; 121 exchange sessions; the audit-only terminal liquidation row is excluded and its cost is folded into the final holding interval.</p>
       <p class="warning">Correct interpretation: the software and accounting pipeline reproduced deterministically; the strategy estimate was positive after costs; the statistical evidence did not rule out no edge. Do not retune this historical sample to force a stronger result.</p>
     </section>
 
     <div class="band">
-      <section class="section" id="sources" aria-labelledby="sources-title">
+      <section class="section" id="selection" aria-labelledby="selection-title">
+        <div class="section-head">
+          <div><p class="eyebrow">Search record</p><h2 id="selection-title">Why this rule survived</h2></div>
+          <p class="section-intro">The accepted rule was not invented after seeing this replay. It was the only available recent-data construction with positive after-cost Sharpe in both chronological blocks. Every failed alternative remains visible.</p>
+        </div>
+        <div class="search-grid" aria-label="Strategy candidates and decisions">
+          <article class="search-card accepted">
+            <span class="search-status">Retained</span>
+            <h3>One-session mid-cap FinBERT</h3>
+            <span class="search-value">0.593</span>
+            <small>evaluation net Sharpe</small>
+            <p>Positive in development and evaluation at 10 bps per side. Kept as the exploratory baseline.</p>
+          </article>
+          <article class="search-card">
+            <span class="search-status">Rejected</span>
+            <h3>33-stock rank reversal</h3>
+            <span class="search-value">−10.719</span>
+            <small>evaluation net Sharpe</small>
+            <p>Lagged five-observation contrarian FinBERT ranks lost 14.467% after costs.</p>
+          </article>
+          <article class="search-card">
+            <span class="search-status">Stopped</span>
+            <h3>Persistent FinBERT grid</h3>
+            <span class="search-value">0 / 12</span>
+            <small>candidates passed</small>
+            <p>The best supported development candidate had 0.201 Sharpe but failed chronological stability.</p>
+          </article>
+          <article class="search-card">
+            <span class="search-status">Rejected</span>
+            <h3>Five-session lexicon signal</h3>
+            <span class="search-value">−1.325</span>
+            <small>evaluation net Sharpe</small>
+            <p>The earlier 33-stock result did not transfer to the separate 22-stock mid-cap corpus.</p>
+          </article>
+        </div>
+        <p class="warning">Selection boundary: these samples have now influenced strategy design. The next honest test must use genuinely unseen future news and a predeclared concentration cap.</p>
+      </section>
+    </div>
+
+    <section class="section" id="sources" aria-labelledby="sources-title">
         <div class="section-head">
           <div><p class="eyebrow">Research basis</p><h2 id="sources-title">What comes from the literature</h2></div>
           <p class="section-intro">No single paper is reproduced exactly. The baseline combines a short-horizon media signal, finance-specific language modelling and a daily cross-sectional portfolio, while documenting every difference from the closest template.</p>
@@ -886,8 +1000,7 @@
             <tr><td>Costs</td><td>One-way turnover = Σ|Δw|/2; 5, 10 or 20 bp per round trip</td><td>Gross traded weight = Σ|Δw|; 10 bp charged on every buy and sell</td></tr>
           </tbody>
         </table>
-      </section>
-    </div>
+    </section>
 
     <section class="section" id="provenance" aria-labelledby="provenance-title">
       <div class="section-head">
@@ -895,34 +1008,33 @@
         <p class="section-intro">The resolved run ID hashes the config, corpus, score file, prices, implementation and runtime dependencies. Matching completed artifacts are verified and reused rather than overwritten.</p>
       </div>
       <div class="artifact-grid">
-        <article class="artifact"><h3>Frozen protocol</h3><p>Rules, paper claim, scorer identities, costs and output roots.</p><code>config · eef9cf3a…212967</code></article>
+        <article class="artifact"><h3>Frozen protocol</h3><p>Rules, paper claim, scorer identities, costs and output roots.</p><code>config · 37fe64c4…bb98c</code></article>
         <article class="artifact"><h3>Canonical corpus</h3><p>Completed Reuters headline corpus with point-in-time revision provenance.</p><code>manifest · 4a8b21f8…12b174</code></article>
         <article class="artifact"><h3>Local score artifact</h3><p>2,576 headlines × 2 scorers, exact revision and lexicon, downloads disabled.</p><code>scores · ee711b9d…4915a</code></article>
         <article class="artifact"><h3>Adjusted-open prices</h3><p>Complete split-adjusted 22 × 265 symbol-session grid.</p><code>panel · 2f067666…b832</code></article>
         <article class="artifact"><h3>Implementation</h3><p>Event join, session assignment, portfolio construction, ledger and inference.</p><code>code · cf32cd29…b1b4</code></article>
-        <article class="artifact"><h3>Resolved result</h3><p>Aggregate report contains no licensed Reuters headline text.</p><code>lseg-midcap-finbert-vader-v1-0b1d87ba5962</code></article>
+        <article class="artifact"><h3>Resolved result</h3><p>Aggregate report contains no licensed Reuters headline text.</p><code>recent-news-midcap-finbert-event-v1-dfdd88113a5f</code></article>
       </div>
 
       <div class="commands">
-        <h3>Run the existing frozen baseline</h3>
-        <pre class="command"><code>sentiment-bench strategy baseline inspect --config configs/strategy_research/baselines/lseg_midcap_finbert_vader_v1.toml</code><button class="copy-button" type="button" aria-label="Copy inspection command">Copy</button></pre>
-        <pre class="command"><code>sentiment-bench strategy baseline run --config configs/strategy_research/baselines/lseg_midcap_finbert_vader_v1.toml</code><button class="copy-button" type="button" aria-label="Copy run command">Copy</button></pre>
+        <h3>Run the accepted frozen strategy</h3>
+        <pre class="command"><code>.venv/bin/sentiment-bench strategy baseline inspect --config configs/strategy_research/baselines/recent_news_midcap_finbert_event_v1.toml</code><button class="copy-button" type="button" aria-label="Copy inspection command">Copy</button></pre>
+        <pre class="command"><code>.venv/bin/sentiment-bench strategy baseline run --config configs/strategy_research/baselines/recent_news_midcap_finbert_event_v1.toml</code><button class="copy-button" type="button" aria-label="Copy run command">Copy</button></pre>
       </div>
 
-      <p class="note"><strong>Primary local files</strong><a href="sentiment_trading_baseline.md">Method guide</a> · <a href="../configs/strategy_research/baselines/lseg_midcap_finbert_vader_v1.toml">Frozen TOML</a> · <a href="../results/strategy_research/baselines/lseg-midcap-finbert-vader-v1-0b1d87ba5962/report.md">Result report</a> · <a href="../results/strategy_research/baselines/lseg-midcap-finbert-vader-v1-0b1d87ba5962/metrics.json">Metrics JSON</a></p>
+      <p class="note"><strong>Primary local files</strong><a href="recent_news_midcap_finbert_strategy.md">Comprehensive strategy guide</a> · <a href="../configs/strategy_research/baselines/recent_news_midcap_finbert_event_v1.toml">Frozen TOML</a> · <a href="../results/strategy_research/baselines/recent-news-midcap-finbert-event-v1-dfdd88113a5f/report.md">Result report</a> · <a href="../results/strategy_research/baselines/recent-news-midcap-finbert-event-v1-dfdd88113a5f/metrics.json">Metrics JSON</a></p>
     </section>
 
     <div class="band">
       <section class="section" id="limits" aria-labelledby="limits-title">
         <div class="section-head">
           <div><p class="eyebrow">Interpretation boundary</p><h2 id="limits-title">What this does not prove</h2></div>
-          <p class="section-intro">The baseline is useful because it fixes a common reference point. Its design also places hard limits on what can be claimed from the observed 4.004% net return.</p>
+          <p class="section-intro">The strategy is useful because it fixes a transparent positive-Sharpe reference point. Its design also places hard limits on what can be claimed from the observed 4.004% evaluation return.</p>
         </div>
         <ul class="limitations">
           <li><strong>Not untouched.</strong><span>The one-year, 22-stock cohort was previously explored. The evaluation date split helps interpretation but does not restore pristine out-of-sample status.</span></li>
           <li><strong>Not causal.</strong><span>A historical association between labels and returns does not show that sentiment caused the price movement.</span></li>
           <li><strong>Not statistically settled.</strong><span>The 95% moving-block interval includes zero, so the average daily advantage is inconclusive.</span></li>
-          <li><strong>Not full market coverage.</strong><span>Coverage, survivorship and cohort-selection bias may affect the result.</span></li>
           <li><strong>Not article understanding.</strong><span>Only headlines are scored. Context, novelty, materiality and target-specific expected cash-flow effects are not modelled.</span></li>
           <li><strong>Not total-return accounting.</strong><span>Opens are split-adjusted but dividends are not back-adjusted.</span></li>
           <li><strong>Not full execution reality.</strong><span>Costs omit varying spreads, market impact, short availability, borrow fees, financing, taxes and capacity.</span></li>
@@ -936,7 +1048,7 @@
 
   <footer>
     <div class="footer-inner">
-      <div><strong>Reuters FinBERT/VADER-share-argmax adjusted-open baseline</strong><p>Generated from local frozen artifacts on 18 July 2026. No licensed Reuters headline text is embedded in this page.</p><p><code>run: lseg-midcap-finbert-vader-v1-0b1d87ba5962</code></p></div>
+      <div><strong>Recent-news mid-cap FinBERT event strategy</strong><p>Updated from immutable local artifacts on 22 July 2026. No licensed Reuters headline text is embedded in this page.</p><p><code>run: recent-news-midcap-finbert-event-v1-dfdd88113a5f</code></p></div>
       <a class="back-top" href="#top">Back to top ↑</a>
     </div>
   </footer>
@@ -963,7 +1075,13 @@
             button.textContent = 'Copied';
             setTimeout(() => { button.textContent = original; }, 1400);
           } catch (_error) {
-            button.textContent = 'Select';
+            const selection = window.getSelection();
+            const range = document.createRange();
+            range.selectNodeContents(button.parentElement.querySelector('code'));
+            selection.removeAllRanges();
+            selection.addRange(range);
+            button.textContent = 'Selected';
+            setTimeout(() => { button.textContent = 'Copy'; }, 1400);
           }
         });
       });

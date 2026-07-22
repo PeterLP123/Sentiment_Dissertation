@@ -8,6 +8,9 @@ strategy for 22 US mid-cap stocks. On the frozen 10 basis-point-per-side cost
 model it produced positive net return and positive Sharpe in both the earlier
 development period and the later evaluation period.
 
+For a presentation-ready walkthrough, open the
+[interactive visual explainer](sentiment_trading_baseline_explainer.html).
+
 This is an **exploratory research strategy**, not confirmed deployable alpha.
 The sample was previously examined, only 37 evaluation sessions traded, the
 95% block-bootstrap interval crosses zero, and a single stock can hold 50% of
