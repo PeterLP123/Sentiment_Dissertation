@@ -8,7 +8,9 @@ strategy for 22 US mid-cap stocks. On the frozen 10 basis-point-per-side cost
 model it produced positive net return and positive Sharpe in both the earlier
 development period and the later evaluation period.
 
-For a presentation-ready walkthrough, open the
+For a quick plot-led read, open the
+[results dashboard](recent_news_midcap_finbert_dashboard.html). For the full
+rules, evidence, and limitations walkthrough, keep using the original
 [interactive visual explainer](sentiment_trading_baseline_explainer.html).
 
 This is an **exploratory research strategy**, not confirmed deployable alpha.

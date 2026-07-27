@@ -1,7 +1,9 @@
 # Sentiment Trading Baseline
 
-For a visual walkthrough of the data, models, trading rule, sources and observed
-result, open the [interactive HTML explainer](sentiment_trading_baseline_explainer.html).
+For a plot-first summary of the accepted recent-news result, open the
+[results dashboard](recent_news_midcap_finbert_dashboard.html). For the data,
+models, trading rule, sources, and limitations, use the original
+[interactive HTML explainer](sentiment_trading_baseline_explainer.html).
 
 This section defines the deliberately simple strategy baseline used while the
 dissertation research question is being finalised. It is isolated under the

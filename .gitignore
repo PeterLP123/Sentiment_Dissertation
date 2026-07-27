@@ -17,6 +17,9 @@ results/*
 # Keep narrative source files under reports/ trackable, but require an explicit
 # force-add for any generated run directory that is intentionally published.
 /reports/*_20??????/
+# Portable dashboards may be versioned under docs/, but their generated data
+# contracts remain local and reproducible from the frozen result artifacts.
+/reports/data/recent_news_midcap_finbert_dashboard_artifact.json
 # New source datasets and root-level data exports stay local by default.
 # Files already tracked in these locations remain tracked; this prevents
 # accidentally adding fresh proprietary or generated inputs.
