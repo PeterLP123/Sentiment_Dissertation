@@ -46,6 +46,18 @@ finbert = [
 figures = [
     "matplotlib>=3.7",
 ]
+# Sentiment-conditioned tail-risk notebook (FNSPID VaR/ES experiment).
+# arch supplies the validated GJR-GARCH(1,1)-t estimator; the Jupyter stack
+# executes notebooks/fnsipid_tail_risk_core.ipynb non-interactively.
+tailrisk = [
+    "arch>=7.2,<8",
+    "ipykernel>=6.29",
+    "jupytext>=1.16",
+    "matplotlib>=3.7",
+    "nbconvert>=7.16",
+    "nbformat>=5.10",
+    "pyarrow>=15",
+]
 # LSEG Workspace news collection and deterministic story-body cleaning.
 lseg = [
     "lseg-data>=2.1.1,<3",

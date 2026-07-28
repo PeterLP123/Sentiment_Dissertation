@@ -17,6 +17,29 @@ results/*
 # Keep narrative source files under reports/ trackable, but require an explicit
 # force-add for any generated run directory that is intentionally published.
 /reports/*_20??????/
+# Tail-risk bundles contain multi-hundred-MB forecasts and generated figures.
+# Track only the compact provenance and result summaries needed to audit a run.
+/reports/fnsipid_tail_risk_core_v1/*
+!/reports/fnsipid_tail_risk_core_v1/summary.md
+!/reports/fnsipid_tail_risk_core_v1/manifest.json
+/reports/fnsipid_tail_risk_core_v2/*
+!/reports/fnsipid_tail_risk_core_v2/summary.md
+!/reports/fnsipid_tail_risk_core_v2/manifest.json
+/reports/fnsipid_tail_risk_core_price_only/*
+!/reports/fnsipid_tail_risk_core_price_only/summary.md
+!/reports/fnsipid_tail_risk_core_price_only/manifest.json
+/reports/fnsipid_tail_risk_core_refit_only/*
+!/reports/fnsipid_tail_risk_core_refit_only/summary.md
+!/reports/fnsipid_tail_risk_core_refit_only/manifest.json
+/reports/fnsipid_tail_risk_factorial_v1/*
+!/reports/fnsipid_tail_risk_factorial_v1/summary.md
+!/reports/fnsipid_tail_risk_factorial_v1/manifest.json
+!/reports/fnsipid_tail_risk_factorial_v1/*.csv
+/reports/fnsipid_tail_risk_explainer_v1/*
+!/reports/fnsipid_tail_risk_explainer_v1/README.md
+!/reports/fnsipid_tail_risk_explainer_v1/manifest.json
+# Jupyter checkpoint copies of the tracked notebook pair.
+.ipynb_checkpoints/
 # Portable dashboards may be versioned under docs/, but their generated data
 # contracts remain local and reproducible from the frozen result artifacts.
 /reports/data/recent_news_midcap_finbert_dashboard_artifact.json
