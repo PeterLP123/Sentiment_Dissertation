@@ -3053,6 +3053,7 @@ def build_summary() -> str:
     if VOLATILITY_REFIT == "annual_expanding":
         variant_changes.append("re-estimates the volatility filter before each evaluation year on an expanding window")
     variant_note = "" if not variant_changes else f"\n  Relative to v1, this cell {' and '.join(variant_changes)}. Nothing else differs."
+    filter_description = "annual-refitted point-in-time" if VOLATILITY_REFIT == "annual_expanding" else "development-fitted frozen"
     lines = [
         "# FNSPID sentiment-conditioned tail risk - core result",
         "",
@@ -3143,7 +3144,7 @@ def build_summary() -> str:
         f"date-block interval on the excess, [{m1_hit['ci_low']:+.5f}, {m1_hit['ci_high']:+.5f}], excludes zero.",
         f"{rejected} of {len(rejecting)} DQ conditional-coverage and ES identification tests reject at 5%.",
         f"Evaluation-period standardised returns have standard deviation {FORECASTS['z_target'].std():.3f}, so the",
-        "development-fitted volatility filter under-predicts 2017-2023 volatility. The nested comparison",
+        f"{filter_description} volatility filter under-predicts 2017-2023 volatility. The nested comparison",
         "is therefore a relative ranking among models that are all somewhat under-conservative; it is not",
         "a claim that any of them is correctly calibrated.",
         "",
