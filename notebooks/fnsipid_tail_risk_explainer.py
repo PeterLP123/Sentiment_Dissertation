@@ -83,8 +83,10 @@ except ImportError:  # pragma: no cover - keeps the .py runnable outside a kerne
         return None
 
 
-CORE_DIR = REPO_ROOT / "reports" / "fnsipid_tail_risk_core_v1"
-OUTPUT_DIR = REPO_ROOT / "reports" / "fnsipid_tail_risk_explainer_v1"
+CORE_DIR = Path(os.environ.get("FNSPID_TAIL_RISK_CORE_DIR", "") or REPO_ROOT / "reports" / "fnsipid_tail_risk_core_v1").expanduser()
+OUTPUT_DIR = Path(
+    os.environ.get("FNSPID_TAIL_RISK_EXPLAINER_OUTPUT_DIR", "") or REPO_ROOT / "reports" / "fnsipid_tail_risk_explainer_v1"
+).expanduser()
 FIGURE_DIR = OUTPUT_DIR / "figures"
 FIGURE_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -97,6 +99,23 @@ if not (CORE_DIR / "manifest.json").exists():
         "--ExecutePreprocessor.timeout=-1"
     )
 CORE = json.loads((CORE_DIR / "manifest.json").read_text(encoding="utf-8"))
+if (
+    CORE.get("status") != "completed"
+    or CORE.get("run_mode") != "full"
+    or CORE.get("configuration", {}).get("RUN_MODE") != "full"
+    or bool(CORE.get("smoke_run_is_engineering_check_only"))
+):
+    raise RuntimeError("the explainer requires a completed full core run; smoke and failed bundles are rejected")
+if not CORE.get("gates") or any(row.get("status") != "PASS" for row in CORE["gates"]):
+    raise RuntimeError("the explainer refuses a core run with missing or failed data gates")
+if not CORE.get("assertions") or any(not bool(row.get("passed")) for row in CORE["assertions"]):
+    raise RuntimeError("the explainer refuses a core run with missing or failed assertions")
+CORE_TIMING = CORE.get("timing_rule", {})
+UPSTREAM_TIMING_COUNTS = CORE_TIMING.get("upstream_counts_before_window_and_deduplication", {})
+DATE_ONLY_UPSTREAM_ROWS = int(UPSTREAM_TIMING_COUNTS.get("date_only_or_exact_midnight_rows", 0))
+PRECISE_TIMESTAMP_UPSTREAM_ROWS = int(UPSTREAM_TIMING_COUNTS.get("precise_timestamp_rows", 0))
+if DATE_ONLY_UPSTREAM_ROWS <= 0 or PRECISE_TIMESTAMP_UPSTREAM_ROWS <= 0:
+    raise RuntimeError("the explainer requires the core run's verified mixed-timing audit")
 CORE_GIT_COMMIT = CORE.get("git", {}).get("commit")
 CORE_GIT_LABEL = CORE_GIT_COMMIT[:12] if isinstance(CORE_GIT_COMMIT, str) and CORE_GIT_COMMIT else "unavailable"
 
@@ -983,16 +1002,17 @@ finish(
 # price archive. It is worth surfacing.
 #
 # In a correctly adjusted price series, the adjusted-close return and the raw
-# close return differ only on ex-dividend and split dates, and then only by the
-# size of that event. Where the two disagree by a large amount on an ordinary
-# day, the adjustment factor has stepped inconsistently and the "return" is an
-# artifact rather than a price move.
+# close return generally diverge around distributions and splits. A large
+# unexplained difference can also indicate an inconsistent adjustment factor
+# and an artificial return. The local archive has no authoritative
+# corporate-action metadata, so the threshold below flags candidates rather
+# than proving that every row is defective.
 #
-# **This problem does not overturn the headline result, but common targets do
-# not cancel from a nonlinear paired FZ0 loss.** The declared 2 x 2 repair
+# **These flags do not overturn the headline result, but common targets do not
+# cancel from a nonlinear paired FZ0 loss.** The declared 2 x 2 repair
 # diagnostic moved the M2-minus-M1 point estimate, while its 95% interval still
-# spanned zero in both repaired cells. The artifacts also inflate the measured
-# tail, which is part of why every model over-breaches.
+# spanned zero in both repaired cells. Candidate discontinuities may also
+# inflate the measured tail.
 
 # %%
 DECLARED_PRICE_INPUT = next(row for row in CORE["inputs"] if row["role"] == "adjusted_daily_prices")
@@ -1114,11 +1134,11 @@ tidy(axis)
 finish(
     fig,
     "e09_price_adjustment_integrity",
-    "The price archive has adjustment discontinuities that manufacture fake tail losses",
-    "A correctly adjusted series moves the adjusted close and the raw close together except on dividend and split\n"
-    "dates. Where they step apart by more than 5% on one day, the 'return' is an artifact of the adjustment factor,\n"
-    "not a price move. These days are rare, but they are almost all extreme, so they concentrate in the tail.",
-    f"{len(FLAGGED):,} of {int(PER_FIRM_GAPS['days'].sum()):,} firm-days ({len(FLAGGED) / PER_FIRM_GAPS['days'].sum():.3%}) are flagged, and they breach at {flagged_breach:.0%} against {clean_breach:.1%} on clean days. Common targets enter each model's nonlinear FZ0 loss differently, so they can move M2-vs-M1; the declared repair check moved the estimate but its interval still spanned zero.",
+    "The price archive has candidate adjustment discontinuities that may amplify tail losses",
+    "Adjusted-close and raw-close returns can diverge legitimately around distributions and splits. A gap above 5%\n"
+    "flags a candidate adjustment discontinuity, not a proven data error, because authoritative corporate-action\n"
+    "metadata are unavailable. These days are rare but concentrated among extreme measured returns.",
+    f"{len(FLAGGED):,} of {int(PER_FIRM_GAPS['days'].sum()):,} firm-days ({len(FLAGGED) / PER_FIRM_GAPS['days'].sum():.3%}) are flagged, and they breach at {flagged_breach:.0%} against {clean_breach:.1%} on unflagged days. Common targets enter each model's nonlinear FZ0 loss differently, so they can move M2-vs-M1; the declared repair check moved the estimate but its interval still spanned zero.",
     f"Source: computed from the declared input archive full_history.zip · {SAMPLE_LINE}",
 )
 
@@ -1307,7 +1327,7 @@ finish(
     "VaR breach rates against the nominal 2.5% level with 95% date-block intervals, the spread across firms, and the\n"
     "Expected Shortfall identification residual (zero if ES is right). Every interval misses its target in the same\n"
     "direction, for every model.",
-    f"Breach rate is about {panel_hit:.2%} against a nominal {ALPHA:.1%}. The M2-vs-M1 comparison is a paired ranking, so this bias cancels — but no model here is deployable as stated.",
+    f"Breach rate is about {panel_hit:.2%} against a nominal {ALPHA:.1%}. The M2-vs-M1 comparison is paired on common rows, but nonlinear FZ0 losses need not cancel a shared scale bias; this is a relative ranking, not a deployable risk system.",
     f"Source: reports/fnsipid_tail_risk_core_v1/calibration.csv and forecasts.parquet · {SAMPLE_LINE}",
 )
 
@@ -1497,12 +1517,13 @@ EVIDENCED  (what the executed run found)
      have std {FORECASTS["z_target"].std():.3f}, so the frozen 2011-2016 volatility filter
      under-predicts 2017-2023 volatility.
 
-  6. DATA QUALITY.  {len(FLAGGED):,} firm-days ({len(FLAGGED) / PER_FIRM_GAPS["days"].sum():.3%}) carry an adjusted-price
-     discontinuity larger than {GAP_THRESHOLD:.0%} that is not a dividend or split.  They breach
-     at {flagged_breach:.0%} versus {clean_breach:.1%} on clean days.  Common targets do
+  6. DATA QUALITY.  {len(FLAGGED):,} firm-days ({len(FLAGGED) / PER_FIRM_GAPS["days"].sum():.3%}) carry a candidate
+     adjusted/raw-return gap larger than {GAP_THRESHOLD:.0%}.  Without authoritative corporate-action
+     metadata these are flags, not proof that every row is defective.  They breach at
+     {flagged_breach:.0%} versus {clean_breach:.1%} on unflagged days.  Common targets do
      not cancel from the nonlinear paired loss: the declared repair changed the M2-vs-M1
-     estimate, but its 95% interval still spanned zero.  The artifacts also inflate the
-     measured tail and are part of why every model over-breaches.
+     estimate, but its 95% interval still spanned zero.  Candidate discontinuities may
+     also inflate the measured tail.
 
 INFERENCE  (bounded interpretation)
 
@@ -1517,14 +1538,18 @@ INFERENCE  (bounded interpretation)
 
 OPEN LIMITATIONS
 
-  - Timestamp coarsening.  FNSPID gives calendar dates, so a whole session
-    elapses before the forecast.  A null here says nothing about intraday.
+  - Timestamp policy.  The hashed upstream manifest records {DATE_ONLY_UPSTREAM_ROWS:,}
+    date-only/exact-midnight rows under a strictly-next-session rule and
+    {PRECISE_TIMESTAMP_UPSTREAM_ROWS:,} precise-timestamp rows under a containing-or-next-session rule
+    before windowing and deduplication.  Original timestamps are absent from the
+    completed checkpoint, so a uniformly date-only rule cannot be verified per
+    retained headline.  A null here says nothing about intraday effects.
   - Survivorship and universe.  37 of 574 tickers end before 2023-12, and the
     ticker-linked cohort mixes operating firms with ETFs.
   - Calibration.  No model here is correctly calibrated, so this is a relative
     ranking, not a validated risk system.
-  - Price adjustment.  See item 6; a cleaned price source would be the single
-    highest-value upgrade to this panel.
+  - Price adjustment.  See item 6; authoritative corporate-action metadata and
+    a validated adjusted-price source are the highest-value upgrades to this panel.
   - One specification.  One volatility filter, one tail parameterisation.
 
 NOT CLAIMED
@@ -1577,6 +1602,7 @@ atomic_write_json(
             "bootstrap_replicates": "recomputed with the frozen block length, replications and seed, then asserted equal to bootstrap.csv to 1e-12 before plotting",
             "price_adjustment_scan": {
                 "description": "read-only diagnostic over the declared input price archive; compares adjusted-close and raw-close log returns",
+                "classification": "candidate adjusted/raw-return gaps only; no authoritative corporate-action metadata are available",
                 "archive": str(PRICE_ARCHIVE),
                 "threshold": GAP_THRESHOLD,
                 "window": [str(WINDOW[0].date()), str(WINDOW[1].date())],

@@ -37,24 +37,29 @@
 # non-neutral importance.
 #
 # **Provenance.** Nothing is rescored and nothing is downloaded. The corpus,
-# its leak-safe news-to-session mapping, and the frozen FinBERT and VADER scores
-# are reused from the completed E5/E6 runs
-# (`reports/loop_vader_scale_20260719`, `reports/loop_moment2_finbert_20260719`).
-# Those runs were exploratory; they motivated this design and are **not**
-# confirmatory evidence for it.
+# its frozen news-to-session mapping, and the FinBERT and VADER scores are
+# reused from the completed E5/E6 runs (`reports/loop_vader_scale_20260719`,
+# `reports/loop_moment2_finbert_20260719`). Those runs were exploratory; they
+# motivated this design and are **not** confirmatory evidence for it.
 #
-# **Timing rule (date-only news).** FNSPID headlines carry calendar dates, not
-# usable intraday timestamps. For a headline dated `d`:
+# **Timing policy inherited from the frozen checkpoint.** Almost all upstream
+# rows are date-only or exact-midnight and map to the first XNYS session
+# strictly after calendar date `d`. The upstream manifest also records a small
+# precise-timestamp branch, mapped to the session containing the UTC minute or
+# otherwise the next session. In both cases the forecast is made only at the
+# mapped session close:
 #
 # ```
-# news dated d  ->  reaction session s (first trading session strictly after d)
-#               ->  forecast made at the close of s
-#               ->  target = close-to-close log return from s to s+1
+# news -> mapped reaction session s -> forecast at close s
+#                                   -> target close-to-close return s to s+1
 # ```
 #
 # The return realised *during* `s` is a predictor, never the target. Several
-# calendar dates (Friday, weekend, holidays) collapse onto one reaction session
-# and are aggregated into a single firm-session feature row.
+# calendar dates (Friday, weekend, holidays) can collapse onto one reaction
+# session and are aggregated into a single firm-session feature row. The
+# checkpoint does not retain original timestamps or timing-type flags, so the
+# notebook verifies both frozen upstream policy branches and reports that it
+# cannot re-establish a per-headline strictly-date-only rule from this artifact.
 
 # %% [markdown]
 # ## 1. Environment and frozen configuration
@@ -153,7 +158,7 @@ if RUN_MODE not in {"smoke", "full"}:
 # one repair each; ``v2`` applies both. Every cell retains the same corpus,
 # timing, splits, tail models, bootstrap, and seed.
 VARIANT, PRICE_REPAIR, VOLATILITY_REFIT, VARIANT_RELATIVE_TO = resolve_tail_risk_variant(os.environ.get("FNSPID_TAIL_RISK_VARIANT", "v1"))
-ADJUSTMENT_GAP_THRESHOLD = 0.05  # |adjusted minus raw close log return| treated as an adjustment defect
+ADJUSTMENT_GAP_THRESHOLD = 0.05  # candidate adjusted/raw-return gap; corporate-action metadata are unavailable
 
 RANDOM_SEED = 20260728
 ALPHA = 0.025
@@ -264,6 +269,23 @@ if not E6_MANIFEST_PATH.exists():
     raise FileNotFoundError(f"completed E6 manifest not found: {E6_MANIFEST_PATH}")
 E6_MANIFEST = json.loads(E6_MANIFEST_PATH.read_text(encoding="utf-8"))
 
+E5_MANIFEST_PATH = E5_DIR / "manifest.json"
+E5_MANIFEST_RECORD = E6_MANIFEST["inputs"]["upstream_manifest"]
+E5_MANIFEST_SHA256 = verify_input_file(
+    E5_MANIFEST_PATH,
+    expected_sha256=E5_MANIFEST_RECORD["sha256"],
+    expected_size=int(E5_MANIFEST_RECORD["size_bytes"]),
+)
+E5_MANIFEST = json.loads(E5_MANIFEST_PATH.read_text(encoding="utf-8"))
+EXPECTED_UPSTREAM_TIMING_RULE = {
+    "date_only_or_exact_midnight": "strictly next XNYS session",
+    "full_datetime": "XNYS session containing the UTC minute, otherwise next session",
+    "nasdaq_date_only_rows_included": True,
+    "nasdaq_full_datetime_rows_included": False,
+}
+if E5_MANIFEST.get("timing_rule") != EXPECTED_UPSTREAM_TIMING_RULE:
+    raise RuntimeError("the frozen upstream news timing policy is missing or changed")
+
 EXPECTED_EVENTS = 1_640_796
 EXPECTED_SYMBOLS = 574
 EXPECTED_SESSIONS = 736_596
@@ -283,7 +305,9 @@ selection_notes.append(
 )
 selection_notes.append(
     "The E5 run (reports/loop_vader_scale_20260719) supplies the frozen 574-symbol coherent cohort "
-    "and is the declared upstream of E6 (manifest upstream_commit 1927242)."
+    "and timing manifest and is the declared upstream of E6 (manifest upstream_commit 1927242). "
+    "Its mixed timing policy is preserved and disclosed because the completed checkpoint does not "
+    "retain original headline timestamps or per-event timing-type flags."
 )
 
 PRICE_ARCHIVE = Path(os.environ.get("FNSPID_TAIL_RISK_PRICE_ARCHIVE", "") or E6_MANIFEST["inputs"]["price_archive"]["path"])
@@ -386,6 +410,23 @@ inventory_rows.append(
         "size_bytes": E6_MANIFEST_PATH.stat().st_size,
         "originating_run": "commit 3152a01",
         "hash_source": "computed",
+    }
+)
+
+inventory_rows.append(
+    {
+        "role": "e5_timing_manifest",
+        "path": str(E5_MANIFEST_PATH.relative_to(REPO_ROOT)),
+        "file_type": "json",
+        "rows": len(E5_MANIFEST["counts"]),
+        "relevant_columns": "counts|timing_rule|inputs|files",
+        "date_min": f"{E5_MANIFEST['config']['preferred_start_year']}-01-01",
+        "date_max": f"{E5_MANIFEST['config']['preferred_end_year']}-12-31",
+        "distinct_firms": E5_MANIFEST["counts"]["symbols_with_scored_events"],
+        "sha256": E5_MANIFEST_SHA256,
+        "size_bytes": E5_MANIFEST_PATH.stat().st_size,
+        "originating_run": "reports/loop_vader_scale_20260719 (commit 1927242)",
+        "hash_source": "computed and matched to the E6-declared upstream manifest",
     }
 )
 
@@ -500,29 +541,39 @@ if sign_checks["corr(adverse_tone, vader_mean)"] >= 0.0:
 print("\nsign convention CONFIRMED: larger adverse_tone means more adverse content.")
 
 # %% [markdown]
-# ### Exhaustive verification of the frozen news timing rule
+# ### Verification of the frozen mixed news-timing policy
 #
-# The checkpoint stores the *mapped reaction session*, not the original headline
-# date, so the leak-safe property is verified against the mapper itself rather
-# than sampled. Every calendar date in the corpus window is pushed through the
-# exact frozen `_SessionMapper` used to build the corpus, and the result must be
-# strictly later than the input date in every single case.
+# The checkpoint stores mapped reaction sessions but not original timestamps or
+# per-event timing-type flags. A per-headline remap is therefore impossible
+# without rescanning the raw corpus. Instead this audit verifies the E6-declared
+# E5 manifest by hash, checks both recorded policy branches exactly, exhaustively
+# exercises the date-only branch over every calendar date in the window, and
+# confirms that every stored reaction date is a valid XNYS session.
+#
+# This is point-in-time at the forecast close, but it is not evidence that every
+# headline followed the stricter date-only rule requested for this experiment.
 
 # %%
 _session_mapper = _SessionMapper()
 _calendar_days = pd.date_range("2010-12-01", "2023-12-31", freq="D")
-_mapped = pd.to_datetime([_session_mapper.map(day.strftime("%Y-%m-%d"))[0] for day in _calendar_days])
-TIMING_VIOLATIONS = verify_strictly_after(_calendar_days, _mapped)
-print(f"calendar dates checked            : {len(_calendar_days):,}")
-print(f"mappings not strictly forward     : {TIMING_VIOLATIONS}")
-print(f"distinct reaction sessions reached: {pd.Series(_mapped).nunique():,}")
+_mapped_date_only = pd.to_datetime([_session_mapper.map(day.strftime("%Y-%m-%d"))[0] for day in _calendar_days])
+DATE_ONLY_TIMING_VIOLATIONS = verify_strictly_after(_calendar_days, _mapped_date_only)
+DATE_ONLY_UPSTREAM_ROWS = int(manifest_counts["date_only_rows"])
+PRECISE_TIMESTAMP_UPSTREAM_ROWS = int(manifest_counts["precise_timestamp_rows"])
+UPSTREAM_TIMING_POLICY_VERIFIED = E5_MANIFEST["timing_rule"] == EXPECTED_UPSTREAM_TIMING_RULE
 
-XNYS_SESSIONS = pd.DatetimeIndex(sorted(pd.Series(_mapped).unique()))
+XNYS_SESSIONS = pd.DatetimeIndex(sorted(pd.Series(_mapped_date_only).unique()))
 _corpus_sessions = pd.DatetimeIndex(NEWS_SESSIONS["session_date"].unique())
-UNMAPPABLE_CORPUS_SESSIONS = int((~_corpus_sessions.isin(XNYS_SESSIONS)).sum())
-print(f"corpus sessions outside the mapper image: {UNMAPPABLE_CORPUS_SESSIONS}")
-if TIMING_VIOLATIONS or UNMAPPABLE_CORPUS_SESSIONS:
-    raise RuntimeError("the frozen news-to-session mapping is not leak-safe on this corpus")
+INVALID_CORPUS_REACTION_SESSIONS = int((~_corpus_sessions.isin(XNYS_SESSIONS)).sum())
+
+print(f"calendar dates checked, date-only branch : {len(_calendar_days):,}")
+print(f"date-only mappings not strictly forward  : {DATE_ONLY_TIMING_VIOLATIONS}")
+print(f"upstream date-only/exact-midnight rows    : {DATE_ONLY_UPSTREAM_ROWS:,}")
+print(f"upstream precise-timestamp rows           : {PRECISE_TIMESTAMP_UPSTREAM_ROWS:,}")
+print(f"stored reaction dates outside XNYS        : {INVALID_CORPUS_REACTION_SESSIONS}")
+print("per-event original timing retained        : no")
+if not UPSTREAM_TIMING_POLICY_VERIFIED or DATE_ONLY_TIMING_VIOLATIONS or INVALID_CORPUS_REACTION_SESSIONS:
+    raise RuntimeError("the frozen news-to-session timing policy failed verification")
 
 # %% [markdown]
 # ## 3. Prices: load, validate, and gate
@@ -577,7 +628,7 @@ def load_price_frame(archive: zipfile.ZipFile, member: str) -> tuple[pd.DataFram
     diagnostics["rows_after_cleaning"] = len(frame)
 
     # Sessions with no usable raw close cannot be assessed, so they are given a
-    # zero gap and can never be flagged as an adjustment defect.
+    # zero gap and can never be flagged as a candidate adjustment discontinuity.
     unusable_raw = frame["raw_close"].isna() | (frame["raw_close"] <= 0)
     diagnostics["raw_close_unusable_rows"] = int(unusable_raw.sum())
     frame.loc[unusable_raw, "raw_close"] = frame.loc[unusable_raw, "adjusted_close"]
@@ -898,7 +949,12 @@ gate(
     "no non-positive adjusted close survives cleaning",
 )
 gate("market_proxy_present", MARKET_SYMBOL in PRICES, MARKET_SYMBOL, "local market series available")
-gate("timing_rule_leak_safe", TIMING_VIOLATIONS == 0, TIMING_VIOLATIONS, "0 non-forward news mappings")
+gate(
+    "timing_policy_point_in_time",
+    UPSTREAM_TIMING_POLICY_VERIFIED and DATE_ONLY_TIMING_VIOLATIONS == 0 and INVALID_CORPUS_REACTION_SESSIONS == 0,
+    f"{DATE_ONLY_UPSTREAM_ROWS:,} date-only; {PRECISE_TIMESTAMP_UPSTREAM_ROWS:,} precise; {INVALID_CORPUS_REACTION_SESSIONS} invalid sessions",
+    "hashed upstream mixed policy verified; date-only branch strictly forward; every reaction date is an XNYS session",
+)
 gate("retained_cross_section", len(MODEL_UNIVERSE) >= MIN_RETAINED_FIRMS, len(MODEL_UNIVERSE), f">= {MIN_RETAINED_FIRMS} firms")
 gate("development_dates", len(_dev_dates) >= MIN_SPLIT_DATES, len(_dev_dates), f">= {MIN_SPLIT_DATES} distinct dates")
 gate("evaluation_dates", len(_eval_dates) >= MIN_SPLIT_DATES, len(_eval_dates), f">= {MIN_SPLIT_DATES} distinct dates")
@@ -1546,7 +1602,17 @@ def check(name: str, condition: bool, detail: Any = "") -> None:
 if GATE2_PASSED and not PANEL.empty:
     check("one_row_per_symbol_forecast_date", not PANEL.duplicated(["symbol", "forecast_date"]).any(), len(PANEL))
     check("target_date_strictly_after_forecast_date", bool((PANEL["target_date"] > PANEL["forecast_date"]).all()))
-    check("news_mapping_strictly_forward", TIMING_VIOLATIONS == 0, "verified exhaustively over 2010-12-01..2023-12-31")
+    check(
+        "date_only_mapper_strictly_forward",
+        DATE_ONLY_TIMING_VIOLATIONS == 0,
+        f"{len(_calendar_days):,} calendar dates checked exhaustively",
+    )
+    check(
+        "upstream_mixed_timing_policy_verified",
+        UPSTREAM_TIMING_POLICY_VERIFIED,
+        f"{DATE_ONLY_UPSTREAM_ROWS:,} date-only rows; {PRECISE_TIMESTAMP_UPSTREAM_ROWS:,} precise rows",
+    )
+    check("corpus_reaction_dates_are_xnys_sessions", INVALID_CORPUS_REACTION_SESSIONS == 0, INVALID_CORPUS_REACTION_SESSIONS)
     check(
         "news_never_folded_backwards",
         bool((PANEL["news_forward_gap_days"] >= 0).all()),
@@ -2902,6 +2968,7 @@ MANIFEST: dict[str, Any] = {
         "adjustment_gap_threshold": ADJUSTMENT_GAP_THRESHOLD,
         "repaired_price_rows": int(PRICE_VALIDATION["repaired_price_rows"].sum()),
         "firms_with_a_repaired_row": int((PRICE_VALIDATION["repaired_price_rows"] > 0).sum()),
+        "classification": "candidate adjusted/raw-return gaps only; no authoritative corporate-action metadata are available",
         "relative_to": VARIANT_RELATIVE_TO,
     },
     "research_question": (
@@ -2942,10 +3009,18 @@ MANIFEST: dict[str, Any] = {
         "label_derived_fallback_used": False,
     },
     "timing_rule": {
-        "description": "news dated d -> first trading session strictly after d -> forecast at that close -> next close-to-close return",
-        "mapper": "sentiment_benchmark.fnspid_vader_smoke._SessionMapper (frozen XNYS mapper used to build the corpus)",
-        "calendar_dates_verified": int(len(_calendar_days)),
-        "non_forward_mappings": int(TIMING_VIOLATIONS),
+        "forecast_timing": "mapped reaction session s -> forecast at close s -> next close-to-close return",
+        "upstream_policy": E5_MANIFEST["timing_rule"],
+        "upstream_counts_before_window_and_deduplication": {
+            "date_only_or_exact_midnight_rows": DATE_ONLY_UPSTREAM_ROWS,
+            "precise_timestamp_rows": PRECISE_TIMESTAMP_UPSTREAM_ROWS,
+        },
+        "calendar_dates_checked_for_date_only_branch": int(len(_calendar_days)),
+        "date_only_non_forward_mappings": int(DATE_ONLY_TIMING_VIOLATIONS),
+        "invalid_corpus_reaction_sessions": INVALID_CORPUS_REACTION_SESSIONS,
+        "original_timestamp_retained_per_event": False,
+        "strict_date_only_rule_verified_per_headline": False,
+        "limitation": "the completed checkpoint cannot identify which retained events used the precise-timestamp branch",
         "max_news_forward_gap_days": MAX_NEWS_FORWARD_GAP_DAYS,
     },
     "garch": {
@@ -3026,8 +3101,8 @@ MANIFEST: dict[str, Any] = {
         },
     },
     "deviations": [
-        "The 512 MB E6 checkpoint and the selected price archive were SHA-256 verified before loading.",
-        "Headline calendar dates are not retained in the completed checkpoint, so the strictly-forward timing property is verified exhaustively against the frozen mapper over every calendar date in the window rather than per headline.",
+        "The 512 MB E6 checkpoint, its declared E5 upstream manifest, and the selected price archive were SHA-256 verified before loading.",
+        "The checkpoint does not retain original headline timestamps or per-event timing-type flags. The hashed upstream manifest records 2,518,109 date-only/exact-midnight rows using a strictly-next-session rule and 5,660 precise-timestamp rows using a containing-or-next-session rule before windowing and deduplication. Both branches are point-in-time at the mapped session close, but a strictly-date-only mapping cannot be re-verified per retained headline.",
         "arch, jupytext, nbformat, nbconvert, ipykernel and pyarrow were added to pyproject.toml as the 'tailrisk' optional extra; no existing dependency was changed.",
     ]
     + ([GIT_PROVENANCE_WARNING] if GIT_PROVENANCE_WARNING else []),
@@ -3047,8 +3122,8 @@ def build_summary() -> str:
     variant_changes = []
     if PRICE_REPAIR == "min_abs_return":
         variant_changes.append(
-            f"repairs {int(PRICE_VALIDATION['repaired_price_rows'].sum()):,} adjusted-price rows "
-            "whose adjustment factor stepped inconsistently"
+            f"applies the minimum-absolute-return sensitivity to {int(PRICE_VALIDATION['repaired_price_rows'].sum()):,} "
+            "candidate adjusted/raw-return gaps"
         )
     if VOLATILITY_REFIT == "annual_expanding":
         variant_changes.append("re-estimates the volatility filter before each evaluation year on an expanding window")
@@ -3147,6 +3222,13 @@ def build_summary() -> str:
         f"{filter_description} volatility filter under-predicts 2017-2023 volatility. The nested comparison",
         "is therefore a relative ranking among models that are all somewhat under-conservative; it is not",
         "a claim that any of them is correctly calibrated.",
+        "",
+        "**Timing caveat.** The frozen upstream manifest records a mixed policy: "
+        f"{DATE_ONLY_UPSTREAM_ROWS:,} date-only/exact-midnight source rows use the strictly-next-session rule, while "
+        f"{PRECISE_TIMESTAMP_UPSTREAM_ROWS:,} precise-timestamp rows use a containing-or-next-session rule before "
+        "windowing and deduplication. Original timestamps are absent from the completed checkpoint, so the stricter "
+        "date-only rule cannot be re-verified per retained headline. All forecasts remain point-in-time at the mapped "
+        "reaction-session close, but this is a documented deviation from a uniformly date-only design.",
         "",
         "## Inference",
         "",
