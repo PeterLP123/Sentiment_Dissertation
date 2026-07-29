@@ -1,0 +1,171 @@
+{
+  "builder": {
+    "path": "scripts/build_fnsipid_tail_risk_factorial.py",
+    "sha256": "708198f5039f4061c5b6723be57dcbc2d475b85570172b78d416035c08e20a05"
+  },
+  "cells": {
+    "price_only": [
+      "min_abs_return",
+      "frozen_development"
+    ],
+    "refit_only": [
+      "none",
+      "annual_expanding"
+    ],
+    "v1": [
+      "none",
+      "frozen_development"
+    ],
+    "v2": [
+      "min_abs_return",
+      "annual_expanding"
+    ]
+  },
+  "created_at": "2026-07-29T08:41:42.291359+00:00",
+  "design": "2x2 sensitivity attribution; every cell executed from identical source bytes",
+  "experiment": "fnsipid_tail_risk_factorial_v1",
+  "finding": {
+    "calibration_driver": "annual_expanding_volatility_refit",
+    "news_arrival": "improves paired FZ0 loss in all four cells",
+    "price_repair_effect": "minimum-absolute-return sensitivity over candidate adjusted/raw gaps improves std(z) and ES residual, not M1 VaR hit rate alone",
+    "semantics": "no detectable incremental paired FZ0 improvement in all four cells",
+    "signed_tone": "no detectable incremental paired FZ0 improvement in all four cells"
+  },
+  "identical_sample": {
+    "evaluation_news_rows": 415758,
+    "evaluation_rows": 958461,
+    "evaluation_target_dates": 1758,
+    "panel_rows": 1788282,
+    "retained_firms": 561
+  },
+  "outputs": {
+    "calibration_comparison.csv": {
+      "sha256": "fdc660bc783d3a8e8a1b350c5b1980616fd1e6f0ab3726dfc91fecd5c4f538ad",
+      "size_bytes": 551
+    },
+    "contrast_comparison.csv": {
+      "sha256": "23acb96c6ca4d08ce26a8c62fbe69fb5eab2ffee53e2730030bdc54b0b0fe53e",
+      "size_bytes": 1092
+    },
+    "factorial_effects.csv": {
+      "sha256": "c3c6edef746f51cd86b34e6062fda74d7bfc96390ac55ac981619287a6a50aca",
+      "size_bytes": 478
+    },
+    "summary.md": {
+      "sha256": "77a7c79ca1496e7d2ef50bb4a2d021841f7d25d7d7e7bd679ea95a78caed0182",
+      "size_bytes": 4970
+    },
+    "ucl_run_record.txt": {
+      "sha256": "2b22d7d26a59a83a0d37b755806058a963417216b4ee8c3ebdf8a7c78d5f47ec",
+      "size_bytes": 592
+    }
+  },
+  "schema_version": 1,
+  "source_commit": "08168ec",
+  "source_hashes": {
+    "helper_module": "71cb8c978552c06e571d55aea1dc9531d8b06ad8a8cc6f2f3ed03de936d0e75c",
+    "notebook_ipynb": "016009d7d19c0a7530e893cd0310db189eefc9939a8676cb8ad2915f37bddf4f",
+    "notebook_source": "f0d63cc77f57cbe50392acc2a1745dc6c466c13df4398fed0c8e1cfd174f3c81"
+  },
+  "source_manifests": {
+    "price_only": {
+      "path": "reports/fnsipid_tail_risk_core_price_only/manifest.json",
+      "sha256": "4b478139fa61a7618e8705e55925f2db7ca208b212ac19f9896dfd8a44854626"
+    },
+    "refit_only": {
+      "path": "reports/fnsipid_tail_risk_core_refit_only/manifest.json",
+      "sha256": "7eeabc96cb457d2d4c43c1876f52b53d04b3bc00e0b6b55c9a7a0238f771c9a3"
+    },
+    "v1": {
+      "path": "reports/fnsipid_tail_risk_core_v1/manifest.json",
+      "sha256": "76b9c85c026d4a30d0797a90e435b9fb189d72314e02566e056bfef83ca482c4"
+    },
+    "v2": {
+      "path": "reports/fnsipid_tail_risk_core_v2/manifest.json",
+      "sha256": "a65146eb21efb5a6fd7a6a415cca67f3d428dea0c6bb558a777f99b3f7ec8dfd"
+    }
+  },
+  "status": "completed",
+  "timing_limitation": {
+    "limitation": "the completed checkpoint cannot identify which retained events used the precise-timestamp branch",
+    "original_timestamp_retained_per_event": false,
+    "strict_date_only_rule_verified_per_headline": false,
+    "upstream_counts_before_window_and_deduplication": {
+      "date_only_or_exact_midnight_rows": 2518109,
+      "precise_timestamp_rows": 5660
+    },
+    "upstream_policy": {
+      "date_only_or_exact_midnight": "strictly next XNYS session",
+      "full_datetime": "XNYS session containing the UTC minute, otherwise next session"
+    }
+  },
+  "ucl_execution": {
+    "gpu": "NVIDIA GeForce RTX 4070 Ti SUPER",
+    "gpu_used_by_notebook": false,
+    "host": "chub-l.cs.ucl.ac.uk",
+    "note": "CPU-only NumPy/SciPy/arch workload; run record retains observed GPU state at launch and completion",
+    "python": "3.12.13"
+  },
+  "verification": {
+    "price_only": {
+      "assertions": [
+        35,
+        35
+      ],
+      "bad_hashes": [],
+      "executed_notebook_sha256": "7ec437c35b799c99a0f2091f90eab6fcb330ba9f5adea0d871d881aa642115cf",
+      "gates": [
+        10,
+        10
+      ],
+      "notebook_errors": 0,
+      "runtime_min": 178.985,
+      "status": "completed"
+    },
+    "refit_only": {
+      "assertions": [
+        39,
+        39
+      ],
+      "bad_hashes": [],
+      "executed_notebook_sha256": "ecf8757622b3af7a3e76c55eb27b0be32e5035d737cb1419691935dbe8b7bd48",
+      "gates": [
+        10,
+        10
+      ],
+      "notebook_errors": 0,
+      "runtime_min": 192.29166666666666,
+      "status": "completed"
+    },
+    "v1": {
+      "assertions": [
+        35,
+        35
+      ],
+      "bad_hashes": [],
+      "executed_notebook_sha256": "396a27a43f4e20dad7906ef35fe39d280576c15a906b18b56a8a466da726a830",
+      "gates": [
+        10,
+        10
+      ],
+      "notebook_errors": 0,
+      "runtime_min": 189.905,
+      "status": "completed"
+    },
+    "v2": {
+      "assertions": [
+        39,
+        39
+      ],
+      "bad_hashes": [],
+      "executed_notebook_sha256": "82dcd04989a5ac6e0d651cf719d47078dbfdb882c818ef6bae34563d0e03a6d4",
+      "gates": [
+        10,
+        10
+      ],
+      "notebook_errors": 0,
+      "runtime_min": 183.76666666666668,
+      "status": "completed"
+    }
+  }
+}

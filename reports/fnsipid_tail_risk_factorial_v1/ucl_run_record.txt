@@ -1,0 +1,11 @@
+started_at=2026-07-29T06:25:40+01:00
+host=chub-l.cs.ucl.ac.uk
+python=Python 3.12.13
+source_sha256=f0d63cc77f57cbe50392acc2a1745dc6c466c13df4398fed0c8e1cfd174f3c81
+helper_sha256=71cb8c978552c06e571d55aea1dc9531d8b06ad8a8cc6f2f3ed03de936d0e75c
+NVIDIA GeForce RTX 4070 Ti SUPER, GPU-91975adf-d395-7937-0060-c93d029c968c, 16376 MiB, 141 MiB, 0 %
+completed_at=2026-07-29T09:38:32+01:00
+overall_status=0
+ 09:38:32 up 1 day,  9:17,  1 user,  load average: 19.67, 31.80, 43.27
+NVIDIA GeForce RTX 4070 Ti SUPER, GPU-91975adf-d395-7937-0060-c93d029c968c, 16376 MiB, 12375 MiB, 100 %
+1707962, 12228 MiB

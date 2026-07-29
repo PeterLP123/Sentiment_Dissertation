@@ -1,0 +1,795 @@
+{
+  "assertions": [
+    {
+      "assertion": "one_row_per_symbol_forecast_date",
+      "detail": "1788282",
+      "passed": true
+    },
+    {
+      "assertion": "target_date_strictly_after_forecast_date",
+      "detail": "",
+      "passed": true
+    },
+    {
+      "assertion": "date_only_mapper_strictly_forward",
+      "detail": "4,779 calendar dates checked exhaustively",
+      "passed": true
+    },
+    {
+      "assertion": "upstream_mixed_timing_policy_verified",
+      "detail": "2,518,109 date-only rows; 5,660 precise rows",
+      "passed": true
+    },
+    {
+      "assertion": "corpus_reaction_dates_are_xnys_sessions",
+      "detail": "0",
+      "passed": true
+    },
+    {
+      "assertion": "news_never_folded_backwards",
+      "detail": "7.0",
+      "passed": true
+    },
+    {
+      "assertion": "news_forward_gap_within_bound",
+      "detail": "7.0",
+      "passed": true
+    },
+    {
+      "assertion": "target_return_matches_adjusted_prices",
+      "detail": "max abs deviation 9.385e-16",
+      "passed": true
+    },
+    {
+      "assertion": "features_ignore_future_prices",
+      "detail": "dropping the final 25 sessions moved surviving predictors by at most 0.000e+00",
+      "passed": true
+    },
+    {
+      "assertion": "development_and_evaluation_disjoint",
+      "detail": "last dev target 2016-12-30 < first eval origin 2017-01-03",
+      "passed": true
+    },
+    {
+      "assertion": "scaling_uses_development_only",
+      "detail": "centres reproduce development means exactly",
+      "passed": true
+    },
+    {
+      "assertion": "garch_parameters_from_development_only",
+      "detail": "561",
+      "passed": true
+    },
+    {
+      "assertion": "annual_refits_use_strictly_prior_returns",
+      "detail": "latest margin 1 day(s)",
+      "passed": true
+    },
+    {
+      "assertion": "annual_refit_windows_start_in_development",
+      "detail": "2011-01-01",
+      "passed": true
+    },
+    {
+      "assertion": "annual_refit_schedule_complete",
+      "detail": "561 firms x 7 years",
+      "passed": true
+    },
+    {
+      "assertion": "failed_annual_refits_carry_prior_vintage",
+      "detail": "40",
+      "passed": true
+    },
+    {
+      "assertion": "accepted_annual_refits_converged",
+      "detail": "3887",
+      "passed": true
+    },
+    {
+      "assertion": "garch_recursion_matches_estimator_filter",
+      "detail": "max relative deviation 1.133e-14 when seeded with the estimator's own first conditional variance",
+      "passed": true
+    },
+    {
+      "assertion": "initialisation_forgotten_by_end_of_development",
+      "detail": "worst firm still carries 5.766e-05 relative variance error from a different starting value at the last development session",
+      "passed": true
+    },
+    {
+      "assertion": "no_news_rows_are_internally_consistent",
+      "detail": "1080515",
+      "passed": true
+    },
+    {
+      "assertion": "news_rows_have_headlines",
+      "detail": "707767",
+      "passed": true
+    },
+    {
+      "assertion": "no_duplicate_or_non_positive_prices",
+      "detail": "572",
+      "passed": true
+    },
+    {
+      "assertion": "no_forward_filled_returns",
+      "detail": "zero-return share 0.0102",
+      "passed": true
+    },
+    {
+      "assertion": "every_retained_firm_meets_support",
+      "detail": "561",
+      "passed": true
+    },
+    {
+      "assertion": "attrition_reasons_are_unique_per_firm",
+      "detail": "2",
+      "passed": true
+    },
+    {
+      "assertion": "no_cached_artifacts_reused",
+      "detail": "this notebook recomputes every derived quantity in-process",
+      "passed": true
+    },
+    {
+      "assertion": "bootstrap_observation_equal_news_bearing_evaluation_origins_d_semantic",
+      "detail": "-0.0003514336031895862",
+      "passed": true
+    },
+    {
+      "assertion": "bootstrap_date_equal_news_bearing_evaluation_origins_d_semantic",
+      "detail": "-5.226666713535325e-06",
+      "passed": true
+    },
+    {
+      "assertion": "bootstrap_observation_equal_news_bearing_evaluation_origins_d_tone_given_intensity",
+      "detail": "0.000307137873584293",
+      "passed": true
+    },
+    {
+      "assertion": "bootstrap_date_equal_news_bearing_evaluation_origins_d_tone_given_intensity",
+      "detail": "0.00011351955815019572",
+      "passed": true
+    },
+    {
+      "assertion": "bootstrap_observation_equal_news_bearing_evaluation_origins_d_news_vs_price",
+      "detail": "-0.008935709990005635",
+      "passed": true
+    },
+    {
+      "assertion": "bootstrap_date_equal_news_bearing_evaluation_origins_d_news_vs_price",
+      "detail": "-0.007764279878992742",
+      "passed": true
+    },
+    {
+      "assertion": "bootstrap_observation_equal_full_evaluation_panel_d_semantic",
+      "detail": "-0.00014582482936395828",
+      "passed": true
+    },
+    {
+      "assertion": "bootstrap_date_equal_full_evaluation_panel_d_semantic",
+      "detail": "-0.00012732265128245751",
+      "passed": true
+    },
+    {
+      "assertion": "bootstrap_observation_equal_full_evaluation_panel_d_tone_given_intensity",
+      "detail": "0.0001182668801467029",
+      "passed": true
+    },
+    {
+      "assertion": "bootstrap_date_equal_full_evaluation_panel_d_tone_given_intensity",
+      "detail": "0.00011493497105370197",
+      "passed": true
+    },
+    {
+      "assertion": "bootstrap_observation_equal_full_evaluation_panel_d_news_vs_price",
+      "detail": "-0.002314652215323162",
+      "passed": true
+    },
+    {
+      "assertion": "bootstrap_date_equal_full_evaluation_panel_d_news_vs_price",
+      "detail": "-0.002254484943324823",
+      "passed": true
+    },
+    {
+      "assertion": "final_manifest_matches_output_bundle",
+      "detail": "22 outputs verified by SHA-256 and size",
+      "passed": true
+    }
+  ],
+  "attrition": [
+    {
+      "excluded_at_step": 0,
+      "reason": "reused from completed E6 run",
+      "step": "e6_usable_headlines",
+      "surviving": 1640796,
+      "unit": "headlines"
+    },
+    {
+      "excluded_at_step": 0,
+      "reason": "aggregated from the E6 checkpoint",
+      "step": "e6_firm_reaction_sessions",
+      "surviving": 736596,
+      "unit": "firm-sessions"
+    },
+    {
+      "excluded_at_step": 0,
+      "reason": "frozen E5 coherent cohort",
+      "step": "cohort_firms",
+      "surviving": 574,
+      "unit": "firms"
+    },
+    {
+      "excluded_at_step": 3,
+      "reason": "insufficient_dev_origins",
+      "step": "support_gate:insufficient_dev_origins",
+      "surviving": 567,
+      "unit": "firms"
+    },
+    {
+      "excluded_at_step": 3,
+      "reason": "no_price_file",
+      "step": "support_gate:no_price_file",
+      "surviving": 567,
+      "unit": "firms"
+    },
+    {
+      "excluded_at_step": 1,
+      "reason": "stale_price_run",
+      "step": "support_gate:stale_price_run",
+      "surviving": 567,
+      "unit": "firms"
+    },
+    {
+      "excluded_at_step": 7,
+      "reason": "price history and origin counts",
+      "step": "firms_passing_support_gate",
+      "surviving": 567,
+      "unit": "firms"
+    },
+    {
+      "excluded_at_step": 0,
+      "reason": "full mode keeps every eligible firm",
+      "step": "modelling_universe",
+      "surviving": 567,
+      "unit": "firms"
+    },
+    {
+      "excluded_at_step": 0,
+      "reason": "no local market session",
+      "step": "market_state_available",
+      "surviving": 1923584,
+      "unit": "firm-days"
+    },
+    {
+      "excluded_at_step": 135302,
+      "reason": "warm-up rows and the single dev origin whose target falls in the evaluation block",
+      "step": "split_assignment",
+      "surviving": 1788282,
+      "unit": "firm-days"
+    },
+    {
+      "excluded_at_step": 0,
+      "reason": "non-finite feature or target",
+      "step": "finite_features",
+      "surviving": 1788282,
+      "unit": "firm-days"
+    },
+    {
+      "excluded_at_step": 0,
+      "reason": "0 firms below MIN_DEV_OBS/MIN_EVAL_OBS after panel construction",
+      "step": "frozen_support_thresholds",
+      "surviving": 1788282,
+      "unit": "firm-days"
+    },
+    {
+      "excluded_at_step": 6,
+      "reason": "garch_non_stationary",
+      "step": "risk_model_gate:garch_non_stationary",
+      "surviving": 561,
+      "unit": "firms"
+    },
+    {
+      "excluded_at_step": 0,
+      "reason": "identical rows scored by every nested model",
+      "step": "final_evaluation_rows",
+      "surviving": 958461,
+      "unit": "firm-days"
+    }
+  ],
+  "bootstrap": {
+    "block_length": 20,
+    "refits_models": false,
+    "replications": 2000,
+    "seed": 20260728,
+    "unit": "moving block of target calendar dates; the full cross-section of firms on a date moves together"
+  },
+  "code": {
+    "helper_module": {
+      "path": "src/sentiment_benchmark/tail_risk.py",
+      "sha256": "71cb8c978552c06e571d55aea1dc9531d8b06ad8a8cc6f2f3ed03de936d0e75c"
+    },
+    "helper_tests": "tests/test_tail_risk.py",
+    "notebook_ipynb": {
+      "path": "notebooks/fnsipid_tail_risk_core.ipynb",
+      "sha256": "016009d7d19c0a7530e893cd0310db189eefc9939a8676cb8ad2915f37bddf4f"
+    },
+    "notebook_source": {
+      "path": "notebooks/fnsipid_tail_risk_core.py",
+      "sha256": "f0d63cc77f57cbe50392acc2a1745dc6c466c13df4398fed0c8e1cfd174f3c81"
+    }
+  },
+  "configuration": {
+    "ADJUSTMENT_GAP_THRESHOLD": 0.05,
+    "ALPHA": 0.025,
+    "BOOTSTRAP_REPS_ACTIVE": 2000,
+    "BOOTSTRAP_REPS_FULL": 2000,
+    "BOOTSTRAP_REPS_SMOKE": 200,
+    "DATE_BLOCK_LENGTH": 20,
+    "DEV_END": "2016-12-31",
+    "DEV_START": "2011-01-01",
+    "EVAL_END": "2023-12-31",
+    "EVAL_START": "2017-01-01",
+    "EWMA_LAMBDA": 0.94,
+    "EXTREME_RETURN_THRESHOLD": 0.5,
+    "GARCH_MAX_PERSISTENCE": 0.99999,
+    "GARCH_SPECIFICATION": "ConstantMean + GJR-GARCH(1,1) with Student-t innovations, fitted on development returns only",
+    "MARKET_SYMBOL": "SPY",
+    "MARKET_VOL_WINDOW": 20,
+    "MAX_NEWS_FORWARD_GAP_DAYS": 7,
+    "MIN_DEV_OBS": 500,
+    "MIN_EVAL_OBS": 250,
+    "MIN_EXPECTED_TAIL_EVENTS": 100,
+    "MIN_RETAINED_FIRMS": 10,
+    "MIN_SPLIT_DATES": 250,
+    "NEWS_COUNT_CAP_QUANTILE": 0.995,
+    "PRICE_REPAIR": "none",
+    "PRIMARY_SCORER": "finbert",
+    "RANDOM_SEED": 20260728,
+    "RECAP_HEAVY_THRESHOLD": 0.5,
+    "RECURSION_START": "1990-01-01",
+    "ROBUSTNESS_ALPHA": 0.01,
+    "RUN_MODE": "full",
+    "SMOKE_FIRM_COUNT": 12,
+    "STALE_PRICE_MAX_RUN": 20,
+    "TAIL_OBJECTIVE": "Fissler-Ziegel FZ0, smoothed warm start then unsmoothed L-BFGS-B on the analytic gradient",
+    "TAIL_PARAMETERISATION": "q = -exp(X @ beta_q); e = q - exp(X @ beta_e); guarantees e < q < 0",
+    "VARIANT": "refit_only",
+    "VOLATILITY_REFIT": "annual_expanding",
+    "WARMUP_START": "2010-01-01"
+  },
+  "counts": {
+    "cohort_firms": 574,
+    "development_rows": 829821,
+    "evaluation_news_rows": 415758,
+    "evaluation_rows": 958461,
+    "evaluation_target_dates": 1758,
+    "modelling_universe": 567,
+    "panel_rows": 1788282,
+    "retained_firms": 561
+  },
+  "created_at": "2026-07-29T08:38:22.932853+00:00",
+  "deviations": [
+    "The 512 MB E6 checkpoint, its declared E5 upstream manifest, and the selected price archive were SHA-256 verified before loading.",
+    "The checkpoint does not retain original headline timestamps or per-event timing-type flags. The hashed upstream manifest records 2,518,109 date-only/exact-midnight rows using a strictly-next-session rule and 5,660 precise-timestamp rows using a containing-or-next-session rule before windowing and deduplication. Both branches are point-in-time at the mapped session close, but a strictly-date-only mapping cannot be re-verified per retained headline.",
+    "arch, jupytext, nbformat, nbconvert, ipykernel and pyarrow were added to pyproject.toml as the 'tailrisk' optional extra; no existing dependency was changed.",
+    "Git metadata unavailable on the execution host; commit and dirty state are recorded as null."
+  ],
+  "environment": {
+    "packages": {
+      "arch": "7.2.0",
+      "matplotlib": "3.11.0",
+      "numpy": "2.5.0",
+      "pandas": "2.3.3",
+      "scipy": "1.18.0",
+      "sentiment_benchmark": "0.1.0",
+      "statsmodels": "0.14.6"
+    },
+    "platform": "Linux-5.14.0-687.29.1.el9_8.x86_64-x86_64-with-glibc2.34",
+    "python": "3.12.13"
+  },
+  "experiment": "fnsipid_tail_risk_core_refit_only",
+  "figures": [
+    "figures/01_attrition_flow.png",
+    "figures/02_news_feature_distributions.png",
+    "figures/03_garch_diagnostics.png",
+    "figures/04_mean_fz0_by_model.png",
+    "figures/05_date_level_paired_difference.png",
+    "figures/06_bootstrap_distribution.png",
+    "figures/07_var_hit_rates.png",
+    "figures/08_illustrative_forecasts.png",
+    "figures/09_scale_versus_tail.png"
+  ],
+  "finding": {
+    "ci_high": 0.0012842882708412906,
+    "ci_low": -0.0022836947787442555,
+    "n_dates": 1752,
+    "paired_fz0_M2_minus_M1": -0.00035143360318958607,
+    "relative_improvement_pct": 0.0292570599760259,
+    "share_of_bootstrap_means_below_zero": 0.6155,
+    "verdict": "NULL_NO_DETECTABLE_SEMANTIC_GAIN"
+  },
+  "garch": {
+    "fits_attempted": 567,
+    "fits_converged": 561,
+    "max_initialisation_sensitivity_at_dev_end": 5.7662650718872494e-05,
+    "max_recursion_vs_estimator_relative_deviation": 1.1331333788586739e-14,
+    "package": "arch 7.2.0",
+    "recursion_start": "1990-01-01",
+    "refit_policy": "annual_expanding",
+    "refits_accepted": 3887,
+    "refits_attempted": 3927,
+    "refits_carried_forward": 40,
+    "specification": "ConstantMean + GJR-GARCH(1,1) with Student-t innovations, fitted on development returns only"
+  },
+  "gates": [
+    {
+      "gate": "prices_readable",
+      "observed": 572,
+      "requirement": ">0 price frames loaded",
+      "status": "PASS"
+    },
+    {
+      "gate": "adjusted_prices_usable",
+      "observed": "6249 non-positive rows removed",
+      "requirement": "no non-positive adjusted close survives cleaning",
+      "status": "PASS"
+    },
+    {
+      "gate": "market_proxy_present",
+      "observed": "SPY",
+      "requirement": "local market series available",
+      "status": "PASS"
+    },
+    {
+      "gate": "timing_policy_point_in_time",
+      "observed": "2,518,109 date-only; 5,660 precise; 0 invalid sessions",
+      "requirement": "hashed upstream mixed policy verified; date-only branch strictly forward; every reaction date is an XNYS session",
+      "status": "PASS"
+    },
+    {
+      "gate": "retained_cross_section",
+      "observed": 567,
+      "requirement": ">= 10 firms",
+      "status": "PASS"
+    },
+    {
+      "gate": "development_dates",
+      "observed": 1510,
+      "requirement": ">= 250 distinct dates",
+      "status": "PASS"
+    },
+    {
+      "gate": "evaluation_dates",
+      "observed": 1759,
+      "requirement": ">= 250 distinct dates",
+      "status": "PASS"
+    },
+    {
+      "gate": "expected_tail_events",
+      "observed": 24195.5,
+      "requirement": ">= 100 expected violations",
+      "status": "PASS"
+    },
+    {
+      "gate": "no_unresolved_corporate_action_mechanism",
+      "observed": "9.485e-04 flagged pairs per evaluation session",
+      "requirement": "< 1e-3 flagged split-signature pairs per session",
+      "status": "PASS"
+    },
+    {
+      "gate": "development_and_evaluation_disjoint",
+      "observed": "2016-12-31 < 2017-01-01",
+      "requirement": "chronologically disjoint splits",
+      "status": "PASS"
+    }
+  ],
+  "git": {
+    "commit": null,
+    "dirty": null
+  },
+  "inputs": [
+    {
+      "date_max": "2023-12-18",
+      "date_min": "2011-01-03",
+      "distinct_firms": 574,
+      "file_type": "sqlite3",
+      "hash_source": "computed and matched to the frozen completed checkpoint",
+      "originating_run": "reports/loop_moment2_finbert_20260719 (commit 3152a01)",
+      "path": "reports/loop_moment2_finbert_20260719/finbert_checkpoint.sqlite3",
+      "relevant_columns": "event_index|event_key|symbol|session_date|headline|is_recap|vader_compound|p_positive|p_negative|p_neutral|finbert_score|finbert_negative_dominant",
+      "role": "news_corpus_and_scores",
+      "rows": 1640796,
+      "sha256": "1d4981448bdc1564652be9a1f19ee855bd435e141cdb832381a58ab03c04637f",
+      "size_bytes": 512016384
+    },
+    {
+      "date_max": "2023-12-31",
+      "date_min": "2011-01-01",
+      "distinct_firms": 574,
+      "file_type": "json",
+      "hash_source": "computed",
+      "originating_run": "commit 3152a01",
+      "path": "reports/loop_moment2_finbert_20260719/manifest.json",
+      "relevant_columns": "counts|inputs|frozen_rules|finbert|environment",
+      "role": "e6_manifest",
+      "rows": 12,
+      "sha256": "4cbc60112b6003f9f4b4cd403a92fc37912b860cec8ca810853bff0df17f4b55",
+      "size_bytes": 12596
+    },
+    {
+      "date_max": "2023-12-31",
+      "date_min": "2011-01-01",
+      "distinct_firms": 574,
+      "file_type": "json",
+      "hash_source": "computed and matched to the E6-declared upstream manifest",
+      "originating_run": "reports/loop_vader_scale_20260719 (commit 1927242)",
+      "path": "reports/loop_vader_scale_20260719/manifest.json",
+      "relevant_columns": "counts|timing_rule|inputs|files",
+      "role": "e5_timing_manifest",
+      "rows": 13,
+      "sha256": "160918ceb222757f6e49e824713dcfe70f79a760f414e18256cfccf4ef8120c1",
+      "size_bytes": 9302
+    },
+    {
+      "date_max": "2023-12-31",
+      "date_min": "2011-01-01",
+      "distinct_firms": 574,
+      "file_type": "csv",
+      "hash_source": "computed",
+      "originating_run": "reports/loop_vader_scale_20260719 (commit 1927242)",
+      "path": "reports/loop_vader_scale_20260719/cohort_symbols.csv",
+      "relevant_columns": "symbol",
+      "role": "coherent_firm_cohort",
+      "rows": 574,
+      "sha256": "d1892981b1315e1aab1e2157db790fe0de0ad3e0cc952e35a88a32c92a1d0cbc",
+      "size_bytes": 2384
+    },
+    {
+      "date_max": "2023-12-28 (archive cut-off)",
+      "date_min": "1980-12-12 (earliest member)",
+      "distinct_firms": 7693,
+      "file_type": "zip of per-symbol csv",
+      "hash_source": "computed and matched to the E6 manifest",
+      "originating_run": "FNSPID raw download bf9189c4 (verified in E6 manifest)",
+      "path": "/cs/student/msc/cf/2025/pprender/Sentiment_Dissertation_factorial/data/full_history.zip",
+      "relevant_columns": "date|close|adj close",
+      "role": "adjusted_daily_prices",
+      "rows": 7693,
+      "sha256": "03da4fce7ebea90d5715ba3501773d410ae663b617027b338ef000a9955dab91",
+      "size_bytes": 589525596
+    }
+  ],
+  "model_formulas": {
+    "M0": "const + reaction_z_s + abs_reaction_z_s + log_sigma_forecast_s + market_reaction_s + market_abs_reaction_s + market_vol20_s",
+    "M1": "const + reaction_z_s + abs_reaction_z_s + log_sigma_forecast_s + market_reaction_s + market_abs_reaction_s + market_vol20_s + news_indicator + log1p_news_count_s",
+    "M2": "const + reaction_z_s + abs_reaction_z_s + log_sigma_forecast_s + market_reaction_s + market_abs_reaction_s + market_vol20_s + news_indicator + log1p_news_count_s + semantic_intensity_s + adverse_tone_s",
+    "M2_intensity": "const + reaction_z_s + abs_reaction_z_s + log_sigma_forecast_s + market_reaction_s + market_abs_reaction_s + market_vol20_s + news_indicator + log1p_news_count_s + semantic_intensity_s"
+  },
+  "not_claimed": [
+    "no causal claim",
+    "no deployable trading edge",
+    "no claim about investor behaviour",
+    "no claim of novelty in applying sentiment to tail-risk forecasting"
+  ],
+  "optimisation": {
+    "M0": {
+      "clipped_rows": 0,
+      "converged": true,
+      "iterations": 251,
+      "message": "CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH",
+      "objective": 1.0640997720524121,
+      "start_objective_spread": 5.817109460792835e-09,
+      "starts_attempted": 4,
+      "starts_converged": 4,
+      "warnings": []
+    },
+    "M1": {
+      "clipped_rows": 0,
+      "converged": true,
+      "iterations": 452,
+      "message": "CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH",
+      "objective": 1.063369329887228,
+      "start_objective_spread": 6.977603383973019e-09,
+      "starts_attempted": 4,
+      "starts_converged": 4,
+      "warnings": []
+    },
+    "M2": {
+      "clipped_rows": 0,
+      "converged": true,
+      "iterations": 572,
+      "message": "CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH",
+      "objective": 1.0628590361309167,
+      "start_objective_spread": 1.4908954071302105e-09,
+      "starts_attempted": 4,
+      "starts_converged": 4,
+      "warnings": []
+    },
+    "M2_intensity": {
+      "clipped_rows": 0,
+      "converged": true,
+      "iterations": 594,
+      "message": "CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH",
+      "objective": 1.0629497443106826,
+      "start_objective_spread": 1.233078483764416e-08,
+      "starts_attempted": 4,
+      "starts_converged": 4,
+      "warnings": []
+    }
+  },
+  "outputs": {
+    "attrition.csv": {
+      "sha256": "52de6fbacecf5e2c4fff885b194c5a4fac23a11bde65d114a37d82ab334b0b54",
+      "size_bytes": 1091
+    },
+    "bootstrap.csv": {
+      "sha256": "0f25753d3066b8964f879fa38ddce8b986f4177804940304ef61b4457f081dae",
+      "size_bytes": 3773
+    },
+    "calibration.csv": {
+      "sha256": "3281dd17fa639738dd033199b2958ceef94bb9a480c1fe60e64d765b92ea57b6",
+      "size_bytes": 7683
+    },
+    "figures/01_attrition_flow.png": {
+      "sha256": "763db04ed5c236a52bb88c1e6fcf9a8e913bc3c3253d8a2d9d1b4c20e6016f59",
+      "size_bytes": 83476
+    },
+    "figures/02_news_feature_distributions.png": {
+      "sha256": "2cb2917764c0ce6e3aaffd5b48829a89672c64c18ef7e9362529c8863d6153df",
+      "size_bytes": 101386
+    },
+    "figures/03_garch_diagnostics.png": {
+      "sha256": "9baecc18fc17a7a304202966b4ac350b2b0299560a9bac0279df59bb79e9e010",
+      "size_bytes": 96227
+    },
+    "figures/04_mean_fz0_by_model.png": {
+      "sha256": "227f4d15a10b3d3477caee705975fe778719082849dacd06a880e018f7de3381",
+      "size_bytes": 77951
+    },
+    "figures/05_date_level_paired_difference.png": {
+      "sha256": "82b86fa90c7ce33a4af732af89f3989b5804641e47ed1143744b7b5d0ebb09e7",
+      "size_bytes": 143115
+    },
+    "figures/06_bootstrap_distribution.png": {
+      "sha256": "0853a344e0c53d82eb86c46b99cd61aa39e6f608fa337f74644062505dc70b29",
+      "size_bytes": 53770
+    },
+    "figures/07_var_hit_rates.png": {
+      "sha256": "729ef52c6bf54b27cccdc063edbcee9c49f2e5794b2344ade25d9cd74ddd6925",
+      "size_bytes": 53655
+    },
+    "figures/08_illustrative_forecasts.png": {
+      "sha256": "79c871b3eee1bdc511fa99e85a67687203b21835357212f271633f4a9d8c3361",
+      "size_bytes": 427335
+    },
+    "figures/09_scale_versus_tail.png": {
+      "sha256": "d88bec1236408fb8505cee7a134ab890e11a432d97aee8b3f4fe2e943f9e4f7b",
+      "size_bytes": 47515
+    },
+    "firm_day_panel_schema.json": {
+      "sha256": "0d1ff85838babc0b82027463153213687966f082ce6ef4c31307bd5487a326d8",
+      "size_bytes": 5807
+    },
+    "forecasts.parquet": {
+      "sha256": "453a80b10b7edae7392c3a12f6c7864d021d88a8dd37cf3cc3093dc3e46af554",
+      "size_bytes": 244809450
+    },
+    "garch_fit_summary.csv": {
+      "sha256": "8da058efd122eb90fd8627120c2c9adaa7b742e90e3dedda6b68fc5e18066536",
+      "size_bytes": 137747
+    },
+    "garch_refit_log.csv": {
+      "sha256": "fe062b1e761b7a445e0bebd7b84f5b308e9ec5dfdca8f8bdd23646ef7b29badd",
+      "size_bytes": 550619
+    },
+    "input_inventory.csv": {
+      "sha256": "7f4e78257cdc25c56342545078f65a62fbe37117a4be1d710bfabab0bce9a4da",
+      "size_bytes": 1772
+    },
+    "model_comparison.csv": {
+      "sha256": "de1a6db6d7df77de7142bece25103f0876cf6e93c5b977ee071ca3f36066ad17",
+      "size_bytes": 8779
+    },
+    "price_validation.csv": {
+      "sha256": "68bb380a8c775b208238e3016af844017e1a78a81560f2619f9333f5e48e5fe6",
+      "size_bytes": 90040
+    },
+    "robustness.csv": {
+      "sha256": "51ace0b3bb084148dd733f19d8dcf84394fcdfa77d9e592c9142ea7da5ff694a",
+      "size_bytes": 1787
+    },
+    "summary.md": {
+      "sha256": "4bcfa7b4ec6f995165a4335e9a5d4aaa138abc80a377a071e4e31715d143e295",
+      "size_bytes": 6471
+    },
+    "tail_model_coefficients.csv": {
+      "sha256": "53d74df57833ca17f0528c03427ed44a95ddb96991124d4e7b8753bcc5904a1c",
+      "size_bytes": 4829
+    }
+  },
+  "random_seed": 20260728,
+  "research_question": "After the initial price response, does firm-linked financial-news sentiment improve one-day-ahead VaR and ES forecasts beyond price-based conditional volatility, news arrival, and news volume?",
+  "run_mode": "full",
+  "runtime_seconds": 11537.5,
+  "scale_versus_tail": {
+    "baseline_ci": [
+      -0.0022836947787442555,
+      0.0012842882708412906
+    ],
+    "baseline_d_semantic": -0.00035143360318958607,
+    "news_scaled_ci": [
+      -0.005000247913531253,
+      0.0013849108493996945
+    ],
+    "news_scaled_d_semantic": -0.0009964720308275094,
+    "qlike": {
+      "converged": true,
+      "iterations": 408,
+      "message": "Optimization terminated successfully.",
+      "qlike_final": -7.104488937516359,
+      "qlike_start": -7.100363185141782
+    },
+    "retained_share": 2.8354489206029276,
+    "theta": {
+      "adverse_tone_s": -0.035689482375065334,
+      "const": 0.04520871936839985,
+      "log1p_news_count_s": -0.002706285446687246,
+      "news_indicator": 0.08172017137454074,
+      "semantic_intensity_s": 0.004271187209916011
+    }
+  },
+  "schema_mapping": {
+    "market_series": "SPY from the same archive; frozen upstream market proxy",
+    "news_source_table": "events(symbol, session_date, p_negative, p_neutral, p_positive, vader_compound, is_recap)",
+    "price_source": "full_history/<SYMBOL>.csv columns date, close, adj close"
+  },
+  "schema_version": 1,
+  "scorer": {
+    "adverse_tone": "mean(p_negative - p_positive); larger means more adverse",
+    "definition": "probability_based_finbert",
+    "label_derived_fallback_used": false,
+    "model_revision": "4556d13015211d73dccd3fdd39d39232506f3e43",
+    "negative_share": "mean(argmax class == negative)",
+    "primary": "finbert",
+    "robustness_scorer": "VADER: adverse tone = -mean(compound), intensity = share(|compound| > 0.05)",
+    "semantic_intensity": "mean(p_negative + p_positive)",
+    "sign_checks": {
+      "corr(adverse_tone, negative_share)": 0.7258070840443095,
+      "corr(adverse_tone, vader_mean)": -0.3451426194847474,
+      "corr(finbert_intensity, vader_intensity)": 0.19563915209635163
+    }
+  },
+  "smoke_run_is_engineering_check_only": false,
+  "status": "completed",
+  "tail_parameterisation": "q = -exp(X @ beta_q); e = q - exp(X @ beta_e); guarantees e < q < 0",
+  "timing_rule": {
+    "calendar_dates_checked_for_date_only_branch": 4779,
+    "date_only_non_forward_mappings": 0,
+    "forecast_timing": "mapped reaction session s -> forecast at close s -> next close-to-close return",
+    "invalid_corpus_reaction_sessions": 0,
+    "limitation": "the completed checkpoint cannot identify which retained events used the precise-timestamp branch",
+    "max_news_forward_gap_days": 7,
+    "original_timestamp_retained_per_event": false,
+    "strict_date_only_rule_verified_per_headline": false,
+    "upstream_counts_before_window_and_deduplication": {
+      "date_only_or_exact_midnight_rows": 2518109,
+      "precise_timestamp_rows": 5660
+    },
+    "upstream_policy": {
+      "date_only_or_exact_midnight": "strictly next XNYS session",
+      "full_datetime": "XNYS session containing the UTC minute, otherwise next session",
+      "nasdaq_date_only_rows_included": true,
+      "nasdaq_full_datetime_rows_included": false
+    }
+  },
+  "variant": {
+    "adjustment_gap_threshold": 0.05,
+    "classification": "candidate adjusted/raw-return gaps only; no authoritative corporate-action metadata are available",
+    "firms_with_a_repaired_row": 0,
+    "id": "refit_only",
+    "price_repair": "none",
+    "relative_to": "v1, changing only the volatility-filter refit policy",
+    "repaired_price_rows": 0,
+    "volatility_refit": "annual_expanding"
+  }
+}
