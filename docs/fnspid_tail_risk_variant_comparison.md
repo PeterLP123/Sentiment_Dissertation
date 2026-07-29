@@ -97,8 +97,8 @@ reproduced. v1 and price-only passed 35/35 assertions; refit-only and v2 passed
 verifies every manifest-listed output hash.
 
 The workstation has an RTX 4070 Ti SUPER, but this notebook is NumPy/SciPy/`arch`
-CPU code and has no CUDA path. Another process occupied the GPU at launch and
-released it before completion; these notebooks did not allocate it.
+CPU code and has no CUDA path. The run record preserves observed GPU state at
+launch and completion; these notebooks did not allocate it.
 
 ## Reproduce
 

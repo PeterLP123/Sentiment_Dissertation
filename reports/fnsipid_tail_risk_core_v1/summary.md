@@ -50,6 +50,8 @@ development-fitted frozen volatility filter under-predicts 2017-2023 volatility.
 is therefore a relative ranking among models that are all somewhat under-conservative; it is not
 a claim that any of them is correctly calibrated.
 
+**Timing caveat.** The frozen upstream manifest records a mixed policy: 2,518,109 date-only/exact-midnight source rows use the strictly-next-session rule, while 5,660 precise-timestamp rows use a containing-or-next-session rule before windowing and deduplication. Original timestamps are absent from the completed checkpoint, so the stricter date-only rule cannot be re-verified per retained headline. All forecasts remain point-in-time at the mapped reaction-session close, but this is a documented deviation from a uniformly date-only design.
+
 ## Inference
 
 Bounded reading: once the reaction-session shock, its magnitude, the conditional
@@ -61,7 +63,7 @@ it does not show that news semantics are irrelevant to tail risk in general.
 
 Scale-versus-tail diagnostic: with a frozen news-conditioned QLIKE volatility adjustment the
 paired difference moves from -0.000306678 to -0.00084557 (95% interval [-0.004813, +0.00154669]).
-Reading: the gain largely survives, which is consistent with incremental lower-tail information.
+Reading: the baseline interval spans zero, so this diagnostic cannot identify a semantic increment for the scale adjustment to explain.
 
 ## Open limitations
 

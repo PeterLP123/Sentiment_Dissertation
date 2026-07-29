@@ -1,7 +1,7 @@
 # FNSPID sentiment-conditioned tail risk - core result
 
 - Variant: **v2** — price repair `min_abs_return`, volatility refit `annual_expanding`
-  Relative to v1, this cell repairs 4,015 adjusted-price rows whose adjustment factor stepped inconsistently and re-estimates the volatility filter before each evaluation year on an expanding window. Nothing else differs.
+  Relative to v1, this cell applies the minimum-absolute-return sensitivity to 4,015 candidate adjusted/raw-return gaps and re-estimates the volatility filter before each evaluation year on an expanding window. Nothing else differs.
 - Run mode: **full**
 - Git commit: `unavailable` (dirty worktree: unavailable)
 - Primary scorer: finbert, probability-based semantics; alpha = 0.025
@@ -51,6 +51,8 @@ annual-refitted point-in-time volatility filter under-predicts 2017-2023 volatil
 is therefore a relative ranking among models that are all somewhat under-conservative; it is not
 a claim that any of them is correctly calibrated.
 
+**Timing caveat.** The frozen upstream manifest records a mixed policy: 2,518,109 date-only/exact-midnight source rows use the strictly-next-session rule, while 5,660 precise-timestamp rows use a containing-or-next-session rule before windowing and deduplication. Original timestamps are absent from the completed checkpoint, so the stricter date-only rule cannot be re-verified per retained headline. All forecasts remain point-in-time at the mapped reaction-session close, but this is a documented deviation from a uniformly date-only design.
+
 ## Inference
 
 Bounded reading: once the reaction-session shock, its magnitude, the conditional
@@ -62,7 +64,7 @@ it does not show that news semantics are irrelevant to tail risk in general.
 
 Scale-versus-tail diagnostic: with a frozen news-conditioned QLIKE volatility adjustment the
 paired difference moves from -0.000510569 to -0.00136103 (95% interval [-0.0056253, +0.00117604]).
-Reading: the gain largely survives, which is consistent with incremental lower-tail information.
+Reading: the baseline interval spans zero, so this diagnostic cannot identify a semantic increment for the scale adjustment to explain.
 
 ## Open limitations
 

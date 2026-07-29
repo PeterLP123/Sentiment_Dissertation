@@ -11,8 +11,18 @@
       "passed": true
     },
     {
-      "assertion": "news_mapping_strictly_forward",
-      "detail": "verified exhaustively over 2010-12-01..2023-12-31",
+      "assertion": "date_only_mapper_strictly_forward",
+      "detail": "4,779 calendar dates checked exhaustively",
+      "passed": true
+    },
+    {
+      "assertion": "upstream_mixed_timing_policy_verified",
+      "detail": "2,518,109 date-only rows; 5,660 precise rows",
+      "passed": true
+    },
+    {
+      "assertion": "corpus_reaction_dates_are_xnys_sessions",
+      "detail": "0",
       "passed": true
     },
     {
@@ -301,11 +311,11 @@
     "helper_tests": "tests/test_tail_risk.py",
     "notebook_ipynb": {
       "path": "notebooks/fnsipid_tail_risk_core.ipynb",
-      "sha256": "066a5ac7927856c12acea9278d1108a2f9e2d855d3ad9ece775bfc60efb0368b"
+      "sha256": "016009d7d19c0a7530e893cd0310db189eefc9939a8676cb8ad2915f37bddf4f"
     },
     "notebook_source": {
       "path": "notebooks/fnsipid_tail_risk_core.py",
-      "sha256": "42727ffa704d64cf71e87838f37e50a4f9aceb46789e1b655092332e693ad92f"
+      "sha256": "f0d63cc77f57cbe50392acc2a1745dc6c466c13df4398fed0c8e1cfd174f3c81"
     }
   },
   "configuration": {
@@ -357,10 +367,10 @@
     "panel_rows": 1788282,
     "retained_firms": 561
   },
-  "created_at": "2026-07-29T01:04:58.584329+00:00",
+  "created_at": "2026-07-29T08:29:51.473197+00:00",
   "deviations": [
-    "The 512 MB E6 checkpoint and the selected price archive were SHA-256 verified before loading.",
-    "Headline calendar dates are not retained in the completed checkpoint, so the strictly-forward timing property is verified exhaustively against the frozen mapper over every calendar date in the window rather than per headline.",
+    "The 512 MB E6 checkpoint, its declared E5 upstream manifest, and the selected price archive were SHA-256 verified before loading.",
+    "The checkpoint does not retain original headline timestamps or per-event timing-type flags. The hashed upstream manifest records 2,518,109 date-only/exact-midnight rows using a strictly-next-session rule and 5,660 precise-timestamp rows using a containing-or-next-session rule before windowing and deduplication. Both branches are point-in-time at the mapped session close, but a strictly-date-only mapping cannot be re-verified per retained headline.",
     "arch, jupytext, nbformat, nbconvert, ipykernel and pyarrow were added to pyproject.toml as the 'tailrisk' optional extra; no existing dependency was changed.",
     "Git metadata unavailable on the execution host; commit and dirty state are recorded as null."
   ],
@@ -431,9 +441,9 @@
       "status": "PASS"
     },
     {
-      "gate": "timing_rule_leak_safe",
-      "observed": 0,
-      "requirement": "0 non-forward news mappings",
+      "gate": "timing_policy_point_in_time",
+      "observed": "2,518,109 date-only; 5,660 precise; 0 invalid sessions",
+      "requirement": "hashed upstream mixed policy verified; date-only branch strictly forward; every reaction date is an XNYS session",
       "status": "PASS"
     },
     {
@@ -505,6 +515,20 @@
       "rows": 12,
       "sha256": "4cbc60112b6003f9f4b4cd403a92fc37912b860cec8ca810853bff0df17f4b55",
       "size_bytes": 12596
+    },
+    {
+      "date_max": "2023-12-31",
+      "date_min": "2011-01-01",
+      "distinct_firms": 574,
+      "file_type": "json",
+      "hash_source": "computed and matched to the E6-declared upstream manifest",
+      "originating_run": "reports/loop_vader_scale_20260719 (commit 1927242)",
+      "path": "reports/loop_vader_scale_20260719/manifest.json",
+      "relevant_columns": "counts|timing_rule|inputs|files",
+      "role": "e5_timing_manifest",
+      "rows": 13,
+      "sha256": "160918ceb222757f6e49e824713dcfe70f79a760f414e18256cfccf4ef8120c1",
+      "size_bytes": 9302
     },
     {
       "date_max": "2023-12-31",
@@ -659,8 +683,8 @@
       "size_bytes": 550637
     },
     "input_inventory.csv": {
-      "sha256": "afde6d07dde629690c0f5a35e3ac4a30de4ceef6d9f77362854f0f6f7195d03b",
-      "size_bytes": 1460
+      "sha256": "7f4e78257cdc25c56342545078f65a62fbe37117a4be1d710bfabab0bce9a4da",
+      "size_bytes": 1772
     },
     "model_comparison.csv": {
       "sha256": "157dc94ed86f98cad1526a4f180cefb7d6148dd93c8c234a6c7d693fa82a1f02",
@@ -675,8 +699,8 @@
       "size_bytes": 1786
     },
     "summary.md": {
-      "sha256": "9cc64154ab6448630186a51bd592bf95ed7101252168755b2d960481e7884b37",
-      "size_bytes": 5955
+      "sha256": "45fc7102fc75be941aac9a4db8e3120cfaba489ba88529e5195971a50af9433d",
+      "size_bytes": 6551
     },
     "tail_model_coefficients.csv": {
       "sha256": "ae010fccf19b6e891be8de34088dd706294bf1d50ec9fae4e3699933d22787f1",
@@ -686,7 +710,7 @@
   "random_seed": 20260728,
   "research_question": "After the initial price response, does firm-linked financial-news sentiment improve one-day-ahead VaR and ES forecasts beyond price-based conditional volatility, news arrival, and news volume?",
   "run_mode": "full",
-  "runtime_seconds": 11491.4,
+  "runtime_seconds": 11026.0,
   "scale_versus_tail": {
     "baseline_ci": [
       -0.0026641056356904104,
@@ -739,14 +763,28 @@
   "status": "completed",
   "tail_parameterisation": "q = -exp(X @ beta_q); e = q - exp(X @ beta_e); guarantees e < q < 0",
   "timing_rule": {
-    "calendar_dates_verified": 4779,
-    "description": "news dated d -> first trading session strictly after d -> forecast at that close -> next close-to-close return",
-    "mapper": "sentiment_benchmark.fnspid_vader_smoke._SessionMapper (frozen XNYS mapper used to build the corpus)",
+    "calendar_dates_checked_for_date_only_branch": 4779,
+    "date_only_non_forward_mappings": 0,
+    "forecast_timing": "mapped reaction session s -> forecast at close s -> next close-to-close return",
+    "invalid_corpus_reaction_sessions": 0,
+    "limitation": "the completed checkpoint cannot identify which retained events used the precise-timestamp branch",
     "max_news_forward_gap_days": 7,
-    "non_forward_mappings": 0
+    "original_timestamp_retained_per_event": false,
+    "strict_date_only_rule_verified_per_headline": false,
+    "upstream_counts_before_window_and_deduplication": {
+      "date_only_or_exact_midnight_rows": 2518109,
+      "precise_timestamp_rows": 5660
+    },
+    "upstream_policy": {
+      "date_only_or_exact_midnight": "strictly next XNYS session",
+      "full_datetime": "XNYS session containing the UTC minute, otherwise next session",
+      "nasdaq_date_only_rows_included": true,
+      "nasdaq_full_datetime_rows_included": false
+    }
   },
   "variant": {
     "adjustment_gap_threshold": 0.05,
+    "classification": "candidate adjusted/raw-return gaps only; no authoritative corporate-action metadata are available",
     "firms_with_a_repaired_row": 307,
     "id": "v2",
     "price_repair": "min_abs_return",

@@ -8,8 +8,8 @@
     },
     {
       "file": "figures/e02_timing_rule.png",
-      "takeaway": "The exhaustive check over all 4,779 calendar dates in the window found 0 mappings that were not strictly forward.",
-      "title": "The leak-safe timing rule: news reacts, then we forecast the day after"
+      "takeaway": "The date-only branch checked all 4,779 calendar dates with 0 non-forward mappings. Original event timestamps are absent from the checkpoint, so the branch used by each retained headline cannot be re-verified.",
+      "title": "Forecasting starts only at the mapped reaction-session close"
     },
     {
       "file": "figures/e03_nested_models.png",
@@ -43,8 +43,8 @@
     },
     {
       "file": "figures/e09_price_adjustment_integrity.png",
-      "takeaway": "470 of 1,788,865 firm-days (0.026%) are flagged, and they breach at 66% against 3.0% on clean days. Common targets enter each model's nonlinear FZ0 loss differently, so they can move M2-vs-M1; the declared repair check moved the estimate but its interval still spanned zero.",
-      "title": "The price archive has adjustment discontinuities that manufacture fake tail losses"
+      "takeaway": "470 of 1,788,865 firm-days (0.026%) are flagged, and they breach at 66% against 3.0% on unflagged days. Common targets enter each model's nonlinear FZ0 loss differently, so they can move M2-vs-M1; the declared repair check moved the estimate but its interval still spanned zero.",
+      "title": "The price archive has candidate adjustment discontinuities that may amplify tail losses"
     },
     {
       "file": "figures/e10_illustrative_firm.png",
@@ -53,13 +53,13 @@
     },
     {
       "file": "figures/e11_calibration.png",
-      "takeaway": "Breach rate is about 3.06% against a nominal 2.5%. The M2-vs-M1 comparison is a paired ranking, so this bias cancels — but no model here is deployable as stated.",
+      "takeaway": "Breach rate is about 3.06% against a nominal 2.5%. The M2-vs-M1 comparison is paired on common rows, but nonlinear FZ0 losses need not cancel a shared scale bias; this is a relative ranking, not a deployable risk system.",
       "title": "All four models are equally under-conservative — the ranking survives, absolute accuracy does not"
     },
     {
       "file": "figures/e12_volatility_filter.png",
-      "takeaway": "Overall std(z) is 1.117, and 2020 reaches 1.40 — that is the main source of the over-breaching in the previous figure.",
-      "title": "The volatility filter, not the text, is doing the heavy lifting — and it is stretched"
+      "takeaway": "Overall std(z) is 1.117, and 2020 reaches 1.40. This is consistent with under-forecast conditional scale, but does not prove that scale is the only source of over-breaching.",
+      "title": "The volatility filter is stretched, but this diagnostic does not identify one cause"
     },
     {
       "file": "figures/e13_robustness_forest.png",
@@ -119,20 +119,20 @@
   ],
   "notebook_source": {
     "path": "notebooks/fnsipid_tail_risk_explainer.py",
-    "sha256": "8617357d79f83930260124f18d24629bbda96a88c88b04572b2bfde4cf2cb94d"
+    "sha256": "21e78229d178c629dcb8c9517d26305c7d7fe8711f50f234ef44a9dcb945f4d5"
   },
   "outputs": {
     "README.md": {
-      "sha256": "f77de23bb7fef3d919a284e73633a97ee3c884a7b7f9f4c944b669e45fefd9db",
-      "size_bytes": 7645
+      "sha256": "93b5f5047ed519ca09b0f5f4896455382f7aec374f60d6084a03a00770807d9b",
+      "size_bytes": 8289
     },
     "figures/e01_funnel.png": {
-      "sha256": "c5ee5b9ee4bb5778d07e11c9c54a4eb821dfa569fcbe680ba192c817084c614f",
-      "size_bytes": 236078
+      "sha256": "397a3dda80d430360b0f91908b3b42105be9c2040f94813725112f8a01bfe331",
+      "size_bytes": 236088
     },
     "figures/e02_timing_rule.png": {
-      "sha256": "f8df124dd07979b2c22c923181668eb5b3a047aa529ac5e3180f8f17f6c97c08",
-      "size_bytes": 235923
+      "sha256": "29dcff77d5aeca66d25dbcfb08b956bb5f7aa863e3d05a810b78098a07a5c0bf",
+      "size_bytes": 230646
     },
     "figures/e03_nested_models.png": {
       "sha256": "3b7f21bdb00001cc377b4c0501e3eca0e2244ab0c9b68473c5ae64e454820fe4",
@@ -159,8 +159,8 @@
       "size_bytes": 383807
     },
     "figures/e09_price_adjustment_integrity.png": {
-      "sha256": "37a44aa232397e21aab95ed498a8831c826feb6a478cc55d5c338d95b507bd07",
-      "size_bytes": 265751
+      "sha256": "018cd6f5bfae0d9628f459ee1d230a7d27a616e5b0069103e7d7063257b2b43a",
+      "size_bytes": 269094
     },
     "figures/e10_illustrative_firm.png": {
       "sha256": "48898bee1192beca9ce7e11cff57d466a10542662b5450e980d3a1e2d97b2437",
@@ -171,8 +171,8 @@
       "size_bytes": 200236
     },
     "figures/e12_volatility_filter.png": {
-      "sha256": "57b9303e44dbd9eaa3651c2152310656a73bd727f49c8d2417f7ead2bdfafbff",
-      "size_bytes": 229113
+      "sha256": "dc18f978ccb5153a608ee68ad4c7f645192e0d044a4ba386cc17ceeb33a11aab",
+      "size_bytes": 219665
     },
     "figures/e13_robustness_forest.png": {
       "sha256": "08f03b41cd3d7bdb21388b8be7ec3b0c687fb6c366f0776eb8566779b6f00537",
@@ -195,6 +195,7 @@
       "archive": "/Users/peterprendergast/Documents/Sentiment_Dissertation_data/FNSPID/bf9189c41527198897d1af3e17b1a0095279fc45/raw/Stock_price/full_history.zip",
       "breach_rate_clean": 0.030423120277209535,
       "breach_rate_flagged": 0.6598240469208211,
+      "classification": "candidate adjusted/raw-return gaps only; no authoritative corporate-action metadata are available",
       "description": "read-only diagnostic over the declared input price archive; compares adjusted-close and raw-close log returns",
       "firm_days_scanned": 1788865,
       "firms_affected": 301,
@@ -209,7 +210,7 @@
   },
   "schema_version": 1,
   "source_run": {
-    "created_at": "2026-07-29T01:11:02.130821+00:00",
+    "created_at": "2026-07-29T08:35:59.759964+00:00",
     "experiment": "fnsipid_tail_risk_core_v1",
     "git_commit": null,
     "path": "reports/fnsipid_tail_risk_core_v1",

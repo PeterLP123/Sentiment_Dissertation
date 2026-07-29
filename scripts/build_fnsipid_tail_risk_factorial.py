@@ -683,8 +683,8 @@ def _build_summary(cells: Mapping[str, CellBundle], calibration: pd.DataFrame, r
         )
         gpu_text = (
             f"\n\nThe workstation has an {run_record.gpu}, but this notebook is a NumPy/SciPy/`arch` "
-            "CPU workload with no CUDA path. The run record shows the GPU occupied by another process "
-            "at launch; these notebooks did not allocate it."
+            "CPU workload with no CUDA path. The run record preserves observed GPU state at launch "
+            "and completion; these notebooks did not allocate it."
         )
     execution += (
         f"Every bundle reports `completed`, passes its notebook assertions ({assertions}) and "
@@ -875,7 +875,7 @@ def build_factorial_report(
             "gpu": run_record.gpu,
             "gpu_used_by_notebook": False,
             "host": run_record.host,
-            "note": "CPU-only NumPy/SciPy/arch workload; GPU occupied by another process at launch",
+            "note": "CPU-only NumPy/SciPy/arch workload; run record retains observed GPU state at launch and completion",
             "python": run_record.python,
         }
     (output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
