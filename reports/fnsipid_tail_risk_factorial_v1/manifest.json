@@ -1,0 +1,150 @@
+{
+  "cells": {
+    "price_only": [
+      "min_abs_return",
+      "frozen_development"
+    ],
+    "refit_only": [
+      "none",
+      "annual_expanding"
+    ],
+    "v1": [
+      "none",
+      "frozen_development"
+    ],
+    "v2": [
+      "min_abs_return",
+      "annual_expanding"
+    ]
+  },
+  "created_at": "2026-07-29T01:18:48.892956+00:00",
+  "design": "2x2 defect attribution; every cell executed from identical source bytes",
+  "experiment": "fnsipid_tail_risk_factorial_v1",
+  "finding": {
+    "calibration_driver": "annual_expanding_volatility_refit",
+    "news_arrival": "improves paired FZ0 loss in all four cells",
+    "price_repair_effect": "improves std(z) and ES residual, not M1 VaR hit rate alone",
+    "semantics": "no detectable incremental paired FZ0 improvement in all four cells",
+    "signed_tone": "no detectable incremental paired FZ0 improvement in all four cells"
+  },
+  "identical_sample": {
+    "evaluation_news_rows": 415758,
+    "evaluation_rows": 958461,
+    "evaluation_target_dates": 1758,
+    "panel_rows": 1788282,
+    "retained_firms": 561
+  },
+  "outputs": {
+    "calibration_comparison.csv": {
+      "sha256": "fdc660bc783d3a8e8a1b350c5b1980616fd1e6f0ab3726dfc91fecd5c4f538ad",
+      "size_bytes": 551
+    },
+    "contrast_comparison.csv": {
+      "sha256": "23acb96c6ca4d08ce26a8c62fbe69fb5eab2ffee53e2730030bdc54b0b0fe53e",
+      "size_bytes": 1092
+    },
+    "factorial_effects.csv": {
+      "sha256": "c3c6edef746f51cd86b34e6062fda74d7bfc96390ac55ac981619287a6a50aca",
+      "size_bytes": 478
+    },
+    "summary.md": {
+      "sha256": "1952c9b9b7ba3335640c81b73baff82564660199a2b3290625e0e82b8404d5a3",
+      "size_bytes": 4348
+    },
+    "ucl_run_record.txt": {
+      "sha256": "96dfc9849b9bdc9eadfe6cf0de21506e11a477942b3bd4452a5fbf16925d1187",
+      "size_bytes": 613
+    }
+  },
+  "schema_version": 1,
+  "source_commit": "7bfc332dc8f1c56dca267ad47fc1aee5d7ed3cec",
+  "source_hashes": {
+    "helper_module": "71cb8c978552c06e571d55aea1dc9531d8b06ad8a8cc6f2f3ed03de936d0e75c",
+    "notebook_ipynb": "066a5ac7927856c12acea9278d1108a2f9e2d855d3ad9ece775bfc60efb0368b",
+    "notebook_source": "42727ffa704d64cf71e87838f37e50a4f9aceb46789e1b655092332e693ad92f"
+  },
+  "source_manifests": {
+    "price_only": {
+      "path": "reports/fnsipid_tail_risk_core_price_only/manifest.json",
+      "sha256": "2939d83809a1ba2a46e8bfb5f3279e0040bcfe57af6a491d06621a4b5bd45078"
+    },
+    "refit_only": {
+      "path": "reports/fnsipid_tail_risk_core_refit_only/manifest.json",
+      "sha256": "2acc34a01889f1b90c6fd373d895bc75250a45f3f0a211bf6b918785bf426d45"
+    },
+    "v1": {
+      "path": "reports/fnsipid_tail_risk_core_v1/manifest.json",
+      "sha256": "74b85f8a0f48380522de17856b66bba9e49cd1239aa11fa709dae78164ab6b16"
+    },
+    "v2": {
+      "path": "reports/fnsipid_tail_risk_core_v2/manifest.json",
+      "sha256": "0e09203b50954eb5e447f63355edca748ebf94bee20d18be5bf755cdca0d47cc"
+    }
+  },
+  "status": "completed",
+  "ucl_execution": {
+    "gpu": "NVIDIA GeForce RTX 4070 Ti SUPER",
+    "gpu_used_by_notebook": false,
+    "host": "chub-l.cs.ucl.ac.uk",
+    "note": "CPU-only NumPy/SciPy/arch workload; GPU occupied by another process at launch",
+    "python": "3.12.13"
+  },
+  "verification": {
+    "price_only": {
+      "assertions": [
+        33,
+        33
+      ],
+      "bad_hashes": [],
+      "gates": [
+        10,
+        10
+      ],
+      "notebook_errors": 0,
+      "runtime_min": 186.875,
+      "status": "completed"
+    },
+    "refit_only": {
+      "assertions": [
+        37,
+        37
+      ],
+      "bad_hashes": [],
+      "gates": [
+        10,
+        10
+      ],
+      "notebook_errors": 0,
+      "runtime_min": 199.75666666666666,
+      "status": "completed"
+    },
+    "v1": {
+      "assertions": [
+        33,
+        33
+      ],
+      "bad_hashes": [],
+      "gates": [
+        10,
+        10
+      ],
+      "notebook_errors": 0,
+      "runtime_min": 197.58333333333334,
+      "status": "completed"
+    },
+    "v2": {
+      "assertions": [
+        37,
+        37
+      ],
+      "bad_hashes": [],
+      "gates": [
+        10,
+        10
+      ],
+      "notebook_errors": 0,
+      "runtime_min": 191.52333333333334,
+      "status": "completed"
+    }
+  }
+}

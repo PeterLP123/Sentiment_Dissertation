@@ -1,0 +1,218 @@
+{
+  "experiment": "fnsipid_tail_risk_explainer_v1",
+  "figures": [
+    {
+      "file": "figures/e01_funnel.png",
+      "takeaway": "Only 13 of 574 cohort firms are lost, and every exclusion has one deterministic reason.",
+      "title": "From 28.6 million raw news rows to 416 thousand scored news days"
+    },
+    {
+      "file": "figures/e02_timing_rule.png",
+      "takeaway": "The exhaustive check over all 4,779 calendar dates in the window found 0 mappings that were not strictly forward.",
+      "title": "The leak-safe timing rule: news reacts, then we forecast the day after"
+    },
+    {
+      "file": "figures/e03_nested_models.png",
+      "takeaway": "The comparison is M2 vs M1, not M2 vs nothing — the bar M2 has to clear is 'beyond arrival and volume'.",
+      "title": "Three strictly nested information sets"
+    },
+    {
+      "file": "figures/e04_loss_ladder.png",
+      "takeaway": "On news days, arrival + volume buys -0.00972 of loss; semantics buys -0.000307 — about 3% as much.",
+      "title": "Adding news arrival moves the loss. Adding sentiment barely moves it."
+    },
+    {
+      "file": "figures/e05_effect_sizes.png",
+      "takeaway": "The semantic effect is 3.2% the size of the arrival effect, and its interval spans zero.",
+      "title": "News arrival clears zero decisively. Sentiment does not come close."
+    },
+    {
+      "file": "figures/e06_bootstrap_distributions.png",
+      "takeaway": "Arrival: 100.0% of replicates below zero. Sentiment: 60.1%. Signed tone: 36.9%.",
+      "title": "The design can detect an effect — it detects one, just not from sentiment"
+    },
+    {
+      "file": "figures/e07_where_it_comes_from.png",
+      "takeaway": "The semantic curve is flat until the 2020 crash drops it to -8.1e-04, then drifts back to -3.1e-04. No persistent slope; the arrival curve, by contrast, declines throughout.",
+      "title": "The semantic difference is one crisis, then a drift back toward zero"
+    },
+    {
+      "file": "figures/e08_how_much_do_models_disagree.png",
+      "takeaway": "Median absolute disagreement is 6.7 bp, or 2.16% of the VaR level. Against M1, M2 shifts VaR by +0.039 standardised units on neutral text, -0.065 on very adverse text and -0.089 on very positive text — so it is the confidence of the text that deepens the tail, not its direction, and the residual asymmetry runs slightly the other way.",
+      "title": "Sentiment moves the tail through intensity, not direction — and only by a couple of percent"
+    },
+    {
+      "file": "figures/e09_price_adjustment_integrity.png",
+      "takeaway": "470 of 1,788,865 firm-days (0.026%) are flagged, and they breach at 66% against 3.0% on clean days. Common targets enter each model's nonlinear FZ0 loss differently, so they can move M2-vs-M1; the declared repair check moved the estimate but its interval still spanned zero.",
+      "title": "The price archive has adjustment discontinuities that manufacture fake tail losses"
+    },
+    {
+      "file": "figures/e10_illustrative_firm.png",
+      "takeaway": "V is the most news-covered retained operating company with a clean adjusted-price series. Both models widen sharply into the March 2020 crash, driven by the volatility filter rather than by text.",
+      "title": "One company's tail forecasts through 2020: V"
+    },
+    {
+      "file": "figures/e11_calibration.png",
+      "takeaway": "Breach rate is about 3.06% against a nominal 2.5%. The M2-vs-M1 comparison is a paired ranking, so this bias cancels — but no model here is deployable as stated.",
+      "title": "All four models are equally under-conservative — the ranking survives, absolute accuracy does not"
+    },
+    {
+      "file": "figures/e12_volatility_filter.png",
+      "takeaway": "Overall std(z) is 1.117, and 2020 reaches 1.40 — that is the main source of the over-breaching in the previous figure.",
+      "title": "The volatility filter, not the text, is doing the heavy lifting — and it is stretched"
+    },
+    {
+      "file": "figures/e13_robustness_forest.png",
+      "takeaway": "7 of 8 rows cover zero. The only one that does not is the aggregation variant that discards cross-firm date dependence by construction.",
+      "title": "The null is not an artifact of one arbitrary choice"
+    }
+  ],
+  "inputs_verified": [
+    {
+      "artifact": "forecasts.parquet",
+      "sha256": "1d97face561a8d35...",
+      "sha256_matches_manifest": true,
+      "size_mb": 233.42
+    },
+    {
+      "artifact": "model_comparison.csv",
+      "sha256": "4ddf6fce2cd33dd6...",
+      "sha256_matches_manifest": true,
+      "size_mb": 0.01
+    },
+    {
+      "artifact": "bootstrap.csv",
+      "sha256": "1553e94a10702d07...",
+      "sha256_matches_manifest": true,
+      "size_mb": 0.0
+    },
+    {
+      "artifact": "calibration.csv",
+      "sha256": "7c73b79bc3f92edf...",
+      "sha256_matches_manifest": true,
+      "size_mb": 0.01
+    },
+    {
+      "artifact": "robustness.csv",
+      "sha256": "5315d0a941932975...",
+      "sha256_matches_manifest": true,
+      "size_mb": 0.0
+    },
+    {
+      "artifact": "garch_fit_summary.csv",
+      "sha256": "8da058efd122eb90...",
+      "sha256_matches_manifest": true,
+      "size_mb": 0.13
+    },
+    {
+      "artifact": "price_validation.csv",
+      "sha256": "68bb380a8c775b20...",
+      "sha256_matches_manifest": true,
+      "size_mb": 0.09
+    },
+    {
+      "artifact": "attrition.csv",
+      "sha256": "52de6fbacecf5e2c...",
+      "sha256_matches_manifest": true,
+      "size_mb": 0.0
+    }
+  ],
+  "notebook_source": {
+    "path": "notebooks/fnsipid_tail_risk_explainer.py",
+    "sha256": "8617357d79f83930260124f18d24629bbda96a88c88b04572b2bfde4cf2cb94d"
+  },
+  "outputs": {
+    "README.md": {
+      "sha256": "f77de23bb7fef3d919a284e73633a97ee3c884a7b7f9f4c944b669e45fefd9db",
+      "size_bytes": 7645
+    },
+    "figures/e01_funnel.png": {
+      "sha256": "c5ee5b9ee4bb5778d07e11c9c54a4eb821dfa569fcbe680ba192c817084c614f",
+      "size_bytes": 236078
+    },
+    "figures/e02_timing_rule.png": {
+      "sha256": "f8df124dd07979b2c22c923181668eb5b3a047aa529ac5e3180f8f17f6c97c08",
+      "size_bytes": 235923
+    },
+    "figures/e03_nested_models.png": {
+      "sha256": "3b7f21bdb00001cc377b4c0501e3eca0e2244ab0c9b68473c5ae64e454820fe4",
+      "size_bytes": 197064
+    },
+    "figures/e04_loss_ladder.png": {
+      "sha256": "b694805e60dd81436e9d1d24b5aaec0664362c987d0cbb685ff923f015bee8d4",
+      "size_bytes": 176462
+    },
+    "figures/e05_effect_sizes.png": {
+      "sha256": "01c98b40ddf4d8f9b4f91b597980b961527863ac9da4dc786fd366b997677a66",
+      "size_bytes": 186024
+    },
+    "figures/e06_bootstrap_distributions.png": {
+      "sha256": "e7994439a18d880a6f5fd49ce109ed903226cd6fccb3f4bc59bcabf2db95ea8b",
+      "size_bytes": 194324
+    },
+    "figures/e07_where_it_comes_from.png": {
+      "sha256": "dba9b40d77e963657e46072e638c87a5dab04657ad290d2890d19dc0a6eb850f",
+      "size_bytes": 268906
+    },
+    "figures/e08_how_much_do_models_disagree.png": {
+      "sha256": "588dda16cd2b1505bed5ca50e3ec1c122eb75aed8d9fa61a8409585ef3e114f4",
+      "size_bytes": 383807
+    },
+    "figures/e09_price_adjustment_integrity.png": {
+      "sha256": "37a44aa232397e21aab95ed498a8831c826feb6a478cc55d5c338d95b507bd07",
+      "size_bytes": 265751
+    },
+    "figures/e10_illustrative_firm.png": {
+      "sha256": "48898bee1192beca9ce7e11cff57d466a10542662b5450e980d3a1e2d97b2437",
+      "size_bytes": 289038
+    },
+    "figures/e11_calibration.png": {
+      "sha256": "f6db686197e17be9a3a565d5d09edb4d69e6480e70acea3f195205ddcc54b4be",
+      "size_bytes": 200236
+    },
+    "figures/e12_volatility_filter.png": {
+      "sha256": "57b9303e44dbd9eaa3651c2152310656a73bd727f49c8d2417f7ead2bdfafbff",
+      "size_bytes": 229113
+    },
+    "figures/e13_robustness_forest.png": {
+      "sha256": "08f03b41cd3d7bdb21388b8be7ec3b0c687fb6c366f0776eb8566779b6f00537",
+      "size_bytes": 206786
+    },
+    "price_adjustment_flagged_days.csv": {
+      "sha256": "d0ccc44db8ce272c428b27e5ab32543d8ad1446a88e69114f1579e1bf3a89982",
+      "size_bytes": 16704
+    },
+    "price_adjustment_integrity.csv": {
+      "sha256": "42c3c91c24f0e62b9dba1717ad282428602dfe58bc061fa6b89b6da89dc228e7",
+      "size_bytes": 16063
+    }
+  },
+  "purpose": "visual explanation of the frozen core run; no model is estimated here",
+  "recomputation": {
+    "bootstrap_replicates": "recomputed with the frozen block length, replications and seed, then asserted equal to bootstrap.csv to 1e-12 before plotting",
+    "price_adjustment_scan": {
+      "affects_model_comparison": true,
+      "archive": "/Users/peterprendergast/Documents/Sentiment_Dissertation_data/FNSPID/bf9189c41527198897d1af3e17b1a0095279fc45/raw/Stock_price/full_history.zip",
+      "breach_rate_clean": 0.030423120277209535,
+      "breach_rate_flagged": 0.6598240469208211,
+      "description": "read-only diagnostic over the declared input price archive; compares adjusted-close and raw-close log returns",
+      "firm_days_scanned": 1788865,
+      "firms_affected": 301,
+      "flagged_firm_days": 470,
+      "reason": "common contaminated targets enter each model's nonlinear FZ0 loss differently; the declared 2 x 2 repair moved M2-minus-M1, while repaired-cell intervals still spanned zero",
+      "threshold": 0.05,
+      "window": [
+        "2011-01-01",
+        "2023-12-31"
+      ]
+    }
+  },
+  "schema_version": 1,
+  "source_run": {
+    "created_at": "2026-07-29T01:11:02.130821+00:00",
+    "experiment": "fnsipid_tail_risk_core_v1",
+    "git_commit": null,
+    "path": "reports/fnsipid_tail_risk_core_v1",
+    "run_mode": "full"
+  }
+}

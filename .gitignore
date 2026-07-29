@@ -17,6 +17,7 @@ results/*
 # Keep narrative source files under reports/ trackable, but require an explicit
 # force-add for any generated run directory that is intentionally published.
 /reports/*_20??????/
+/reports/reproductions/
 # Tail-risk bundles contain multi-hundred-MB forecasts and generated figures.
 # Track only the compact provenance and result summaries needed to audit a run.
 /reports/fnsipid_tail_risk_core_v1/*
@@ -35,6 +36,7 @@ results/*
 !/reports/fnsipid_tail_risk_factorial_v1/summary.md
 !/reports/fnsipid_tail_risk_factorial_v1/manifest.json
 !/reports/fnsipid_tail_risk_factorial_v1/*.csv
+!/reports/fnsipid_tail_risk_factorial_v1/ucl_run_record.txt
 /reports/fnsipid_tail_risk_explainer_v1/*
 !/reports/fnsipid_tail_risk_explainer_v1/README.md
 !/reports/fnsipid_tail_risk_explainer_v1/manifest.json
