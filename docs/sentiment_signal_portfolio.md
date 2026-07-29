@@ -7,6 +7,8 @@ not help. For the command surface, options and defaults, see the
 [CLI reference](cli_reference.md). The two frozen runs are
 `results/signal_portfolio/sentiment_signal_portfolio_gross_h1_20260729/` and
 `results/signal_portfolio/sentiment_signal_portfolio_net_h1_20260729/`.
+The companion [findings notebook](../output/jupyter-notebook/sentiment_signal_portfolio_findings.ipynb)
+verifies the recorded output hashes and visualises the frozen results.
 
 > **Evidence status:** this is an **exploratory**, **in-sample selection** study on a
 > cohort that earlier work in this repository has already examined. It is **not
@@ -52,15 +54,20 @@ the two designs. This study accepts a worse per-scorer rule in exchange for a cl
 combination question.
 
 **Session accounting.** The raw chronological split is 87 development and 41
-evaluation sessions. The module drops five structurally inactive sessions on which no
-scorer holds any position: `2025-12-26` (the ragged first price session, with only 7
-of the 33 symbols priced), `2026-05-01` (the forced split-boundary liquidation, which
-is cost-only and has zero gross return), and `2026-06-29`, `2026-06-30` and
-`2026-07-01` at the sample end. Two fall in development and three in evaluation,
-leaving **85 development and 38 evaluation sessions**. Keeping them would shrink every
-signal's mean and variance by the same factor and would inflate the measured
-correlation between signals, because all seven series would carry identical zeros on
-the same dates.
+evaluation sessions. The module filters five dates on which the summed
+`active_stock_count` is zero: `2025-12-26` (the ragged first price session, with
+only 7 of the 33 symbols priced), `2026-05-01` (the forced split-boundary
+liquidation), and `2026-06-29`, `2026-06-30` and `2026-07-01` at the sample end.
+Two fall in development and three in evaluation, leaving **85 development and 38
+evaluation sessions**.
+
+This is an activity-count filter, not a pure all-zero-return filter. All five
+dates have zero gross return, but `2026-05-01` and `2026-06-29` carry liquidation
+turnover for every scorer and therefore negative net returns before filtering;
+the other three have zero turnover and zero net return. The frozen net run
+therefore excludes those two exit-cost rows. Gross results are unaffected by this
+distinction, while the reported net results and breakeven cost use the filtered
+session convention.
 
 ## The four questions and their answers
 
