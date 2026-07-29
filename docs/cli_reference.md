@@ -527,6 +527,72 @@ eligible negative pairs, frozen weights, equity/correlation figures, a ranked
 checks, and a hashed manifest. An empty
 weights file and an explicit “no eligible pair” conclusion are valid results.
 
+## `optimize-signal-portfolio`
+
+```bash
+sentiment-bench optimize-signal-portfolio \
+  --signals Data/collections/lseg_us_sector_33_6m/derived/headline_value_models_20260715/daily_signals.csv \
+  --prices Data/collections/lseg_us_sector_33_6m/derived/headline_value_analysis_lseg_priced/sweep_ws/prices.csv \
+  --scorers headline/actionable_sentiment_all,headline/sentiment_all,headline/sentiment_non_reuters,headline/sentiment_reuters,llm/finbert,llm/gemma-4-31b,llm/vader \
+  --run-id sentiment_signal_portfolio_gross_h1_20260729 \
+  --return-variant gross --holding-period 1
+```
+
+Combines one daily strategy return series per scorer into portfolios and reports
+which combination maximises Sharpe. What is **frozen** is the signal rule: every
+scorer shares one absolute threshold and one holding period, so the panel embeds
+no per-scorer development grid search. This is the deliberate contrast with
+`compare-week6-models`, which calibrates a gate quantile and holding period per
+scorer and is therefore the more heavily searched of the two. What is **selected**
+is only the combination: the best two signals, the best three, every add/drop-stable
+subset from an exhaustive scan of all `2^n - 1` subsets, and the Sharpe-optimal
+sum-to-one weights for each pair by Lagrange multipliers.
+
+Selection complies with the standing rule at the end of this reference against
+choosing a best-Sharpe scorer on the same period used to report performance. The
+subset scan, the stepwise paths and the weight solve read development returns only;
+the evaluation block is scored once for the already-frozen choices and is never
+consulted by the search. Because a maximum over many correlated candidates is still
+a multiple-comparison procedure, the command refuses to run unless the study is
+registered as exploratory and discloses that it was specified after the Week 6
+results were observed, and it always reports the Lo (2002) Sharpe standard error
+beside a demeaned moving-block bootstrap null of the *maximum* subset Sharpe.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `--signals` | required | One `daily_signals.csv` containing identical company-day keys for every scorer. |
+| `--prices` | required | Corresponding daily OHLCV panel. |
+| `--run-id` | required | Name of a new immutable study directory; existing directories are never overwritten. |
+| `--scorers` | required | Comma-separated scorer IDs, at least two and unique, combined on identical company-days. |
+| `--output-root` | `results/signal_portfolio` | Parent directory for signal-portfolio studies. |
+| `--return-variant` | `gross` | Selection surface: `gross` (before cost) or `net` (after cost). |
+| `--threshold` | `0` | Shared absolute score gate applied to every scorer; never calibrated per scorer. |
+| `--holding-period` | `1` | Shared holding period in sessions. |
+| `--transaction-cost-bps-per-side` | `10` | Cost charged on absolute position change. |
+| `--development-fraction` | `0.7` | Chronological fraction of news dates used to select (bounded to `0.05`–`0.95`). |
+| `--bootstrap-replications` | `2000` | Replications for both the no-edge null and the winning-subset interval. |
+| `--random-seed` | `20260729` | Seed for both bootstraps; the interval bootstrap uses `seed + 1`. |
+
+`--starting-capital` (`100000`), the `252`-period annualisation, the zero risk-free
+rate and the five-session bootstrap block are fixed study constants rather than CLI
+options, so two runs differ only in the flags above. Exhaustive enumeration is capped
+at 20 signals.
+
+Outputs under `results/signal_portfolio/<run-id>/` are `signal_panel.csv` (the
+per-scorer daily gross/net return, turnover and active-stock series with split
+labels), `subset_sharpe.csv` (all `127` subsets for seven signals, with development
+and evaluation Sharpe and standard errors), `stability_certificates.csv` (the best
+forgone addition and removal for each candidate subset), `pair_weight_solutions.csv`
+(the Lagrange solve for every pair, including the closed-form cross-check, the
+multiplier, `1' Sigma^-1 mu`, whether the stationary point is a maximum, gross
+leverage, the covariance condition number, a brute-force grid check and the long-only
+KKT variant), `development_correlations.csv`, `stepwise_paths.csv` (the forward and
+backward hill-climb traces), `summary.md`, and a hashed `manifest.json`. A monotone
+Sharpe decline in subset size, so that the only stable subset is a singleton and
+averaging never helps, is a valid result. See
+[Sentiment signal portfolio](sentiment_signal_portfolio.md) for the derivations, the
+selection-luck null and the cost verdict.
+
 ## `sweep-trading-strategy`
 
 ```bash

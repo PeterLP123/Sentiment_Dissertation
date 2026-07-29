@@ -1,0 +1,116 @@
+{
+  "analysis": {
+    "causal_claim": false,
+    "exploratory": true,
+    "interpretation_notes": "Subset and weight selection maximise a development Sharpe over many correlated candidates. The demeaned no-edge null quantifies the resulting selection bias; the winning Sharpe is an upper bound rather than an estimate.",
+    "preregistered": false,
+    "specified_after_week6_results": true
+  },
+  "command": "/Users/peterprendergast/Documents/Sentiment_Dissertation/src/sentiment_benchmark/cli.py optimize-signal-portfolio --signals Data/collections/lseg_us_sector_33_6m/derived/headline_value_models_20260715/daily_signals.csv --prices Data/collections/lseg_us_sector_33_6m/derived/headline_value_analysis_lseg_priced/sweep_ws/prices.csv --scorers headline/actionable_sentiment_all,headline/sentiment_all,headline/sentiment_non_reuters,headline/sentiment_reuters,llm/finbert,llm/gemma-4-31b,llm/vader --run-id sentiment_signal_portfolio_net_h1_20260729 --return-variant net --holding-period 1",
+  "configuration": {
+    "annual_risk_free_rate": 0.0,
+    "annualization_periods": 252,
+    "bootstrap_block_length": 5,
+    "bootstrap_replications": 2000,
+    "development_fraction": 0.7,
+    "drop_inactive_sessions": true,
+    "exchange_timezone": "America/New_York",
+    "exploratory": true,
+    "holding_period": 1,
+    "random_seed": 20260729,
+    "return_variant": "net",
+    "run_id": "sentiment_signal_portfolio_net_h1_20260729",
+    "scorer_ids": [
+      "headline/actionable_sentiment_all",
+      "headline/sentiment_all",
+      "headline/sentiment_non_reuters",
+      "headline/sentiment_reuters",
+      "llm/finbert",
+      "llm/gemma-4-31b",
+      "llm/vader"
+    ],
+    "specified_after_week6_results": true,
+    "starting_capital": 100000.0,
+    "threshold": 0.0,
+    "transaction_cost_bps_per_side": 10.0
+  },
+  "development_evaluation": {
+    "development_sessions": 85,
+    "evaluation_sessions": 38,
+    "split_date": "2026-05-02"
+  },
+  "generated_at": "2026-07-29T09:30:17.809533+00:00",
+  "git": {
+    "available": true,
+    "branch": "feature/fnspid-tail-risk",
+    "commit": "070af782b60b1ce85abc7882265ef156d02fd6a6",
+    "dirty": true
+  },
+  "inference": {
+    "breakeven_cost_bps_per_side": 6.86039129373012,
+    "selection_null": {
+      "block_length": 5,
+      "maximum_max_sharpe": 6.706619373828023,
+      "mean_max_sharpe": 1.3975619003471316,
+      "median_max_sharpe": 1.36131846887286,
+      "percentile_95_max_sharpe": 4.077643659860093,
+      "replications": 2000,
+      "seed": 20260729,
+      "share_at_or_above_observed": 0.8955,
+      "subsets_searched": 127
+    },
+    "winning_subset_bootstrap": {
+      "block_length": 5,
+      "confidence_interval_high": 3.1163076994071366,
+      "confidence_interval_low": -3.9573037769394053,
+      "mean": -0.5220592648933219,
+      "replications": 2000,
+      "seed": 20260730,
+      "share_at_or_below_zero": 0.6195,
+      "standard_deviation": 1.7910440244445862
+    }
+  },
+  "inputs": {
+    "daily_signals": {
+      "path": "/Users/peterprendergast/Documents/Sentiment_Dissertation/Data/collections/lseg_us_sector_33_6m/derived/headline_value_models_20260715/daily_signals.csv",
+      "sha256": "71cdeed1e3528c779afad457b773c7acb328f3f0e3e80845e51e57269667d8b9"
+    },
+    "prices": {
+      "path": "/Users/peterprendergast/Documents/Sentiment_Dissertation/Data/collections/lseg_us_sector_33_6m/derived/headline_value_analysis_lseg_priced/sweep_ws/prices.csv",
+      "sha256": "aa758910dec0b6184ea5c3d3c90c559ea8535ac410c3b1b43d717f09204f8fd1"
+    }
+  },
+  "output_hashes": {
+    "development_correlations.csv": "ccbe4e5bd03f79db2c049749136a3afd97abfb12fecd615db77c071bbac2a960",
+    "pair_weight_solutions.csv": "9f91069e3e46965d1194664580d6ef7dc544f0ad731555165d7e925072d679ee",
+    "signal_panel.csv": "2d31caf66e46eb5cd6a32255ed50c393f0e85ea1f5bd448bc27f60872145b57c",
+    "stability_certificates.csv": "9570c4aa6c5ec475c497e41fe0f4486ce5b8822c2eb0acf7910e90fb1cc44fa7",
+    "stepwise_paths.csv": "84028469feda62085d95397f7e2e9acfab84757730abe11d210e8bfd78724dc4",
+    "subset_sharpe.csv": "36706eb2a2535da57ac19dc773c9c88fdf66608338d78472f0449dce4ce5cd9e",
+    "summary.md": "df37d8cc6b1ee975809ef3d3c5fb618b420736bce0ca70650cc0821e697be9ee"
+  },
+  "selection": {
+    "add_drop_stable_subsets": [
+      [
+        "headline/sentiment_all"
+      ],
+      [
+        "llm/vader"
+      ]
+    ],
+    "best_pair": [
+      "headline/sentiment_all",
+      "headline/sentiment_non_reuters"
+    ],
+    "best_triple": [
+      "headline/sentiment_all",
+      "headline/sentiment_non_reuters",
+      "llm/vader"
+    ],
+    "global_best_development_sharpe": -0.5833226065827505,
+    "global_best_subset": [
+      "headline/sentiment_all"
+    ],
+    "subsets_searched": 127
+  }
+}

@@ -29,6 +29,7 @@ This documentation is organized by reader task ([Diátaxis](https://diataxis.fr/
 | [Architecture](architecture.md) | Explanation | Why source data, providers, runs, corpora, and exports are separated. |
 | [Research protocol](research_protocol.md) | Explanation | The refocused agreement-validity and incremental held-out market design, inference, artifacts, and interpretation limits. |
 | [Trading pre-registration](trading_preregistration.md) | Explanation | A filed confirmatory trading test (collection parked 2026-07-01; binds only if executed). |
+| [Sentiment signal portfolio](sentiment_signal_portfolio.md) | Explanation | Why Sharpe-maximising combination of the seven scorer signals collapses to a single signal, the Lagrange weight derivation, and the selection-luck null. |
 
 ## Choose A Starting Point
 

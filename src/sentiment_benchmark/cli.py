@@ -112,6 +112,7 @@ from .reliability import run_agreement
 from .runner import BenchmarkRunner
 from .sc_runner import SelfConsistencyRunner
 from .self_consistency import SelfConsistencyResult
+from .signal_portfolio import SignalPortfolioConfig, SignalPortfolioError, run_signal_portfolio
 from .storage import BenchmarkStore
 from .strategies import available as available_strategies
 from .strategies import get as get_strategy
@@ -313,6 +314,75 @@ def compare_week6_models_command(
     console.print(f"Frozen evaluation begins {result.split_date}.")
     for scorer_id, quantile, threshold, holding in result.selected_rules:
         console.print(f"{scorer_id}: development gate q={quantile:.0%} -> {threshold:.4f}; holding={holding}.")
+
+
+@app.command("optimize-signal-portfolio")
+def optimize_signal_portfolio_command(
+    signals: Annotated[Path, typer.Option("--signals", help="Multi-scorer daily_signals.csv input.")],
+    prices: Annotated[Path, typer.Option("--prices", help="Corresponding daily OHLCV prices CSV.")],
+    run_id: Annotated[str, typer.Option("--run-id", help="New immutable study directory name.")],
+    scorers: Annotated[str, typer.Option("--scorers", help="Comma-separated scorer ids combined on identical company-days.")],
+    output_root: Annotated[
+        Path,
+        typer.Option("--output-root", help="Parent directory for signal-portfolio studies."),
+    ] = Path("results/signal_portfolio"),
+    return_variant: Annotated[
+        str,
+        typer.Option("--return-variant", help="Selection surface: gross (before cost) or net (after cost)."),
+    ] = "gross",
+    threshold: Annotated[
+        float,
+        typer.Option("--threshold", min=0.0, help="Shared absolute score gate applied to every scorer."),
+    ] = 0.0,
+    holding_period: Annotated[
+        int,
+        typer.Option("--holding-period", min=1, help="Shared holding period in sessions."),
+    ] = 1,
+    transaction_cost_bps_per_side: Annotated[
+        float,
+        typer.Option("--transaction-cost-bps-per-side", min=0.0, help="Cost charged on absolute position change."),
+    ] = 10.0,
+    development_fraction: Annotated[
+        float,
+        typer.Option("--development-fraction", min=0.05, max=0.95, help="Fraction of news dates used to select."),
+    ] = 0.7,
+    bootstrap_replications: Annotated[
+        int,
+        typer.Option("--bootstrap-replications", min=1, help="Replications for the null and interval bootstraps."),
+    ] = 2_000,
+    random_seed: Annotated[int, typer.Option("--random-seed", help="Seed for both bootstraps.")] = 20260729,
+) -> None:
+    """Select Sharpe-maximising signal subsets and solve two-signal weights by Lagrange multipliers."""
+
+    scorer_ids = tuple(value.strip() for value in scorers.split(",") if value.strip())
+    try:
+        config = SignalPortfolioConfig(
+            run_id=run_id,
+            scorer_ids=scorer_ids,
+            return_variant=return_variant,
+            threshold=threshold,
+            holding_period=holding_period,
+            transaction_cost_bps_per_side=transaction_cost_bps_per_side,
+            development_fraction=development_fraction,
+            bootstrap_replications=bootstrap_replications,
+            random_seed=random_seed,
+        )
+        result = run_signal_portfolio(
+            signals,
+            prices,
+            output_root,
+            config,
+            command=shlex.join(sys.argv),
+            repo_root=Path.cwd(),
+        )
+    except (SignalPortfolioError, Week6PnlError) as exc:
+        console.print(f"[red]Signal portfolio study failed:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    console.print(f"[green]Signal portfolio study complete:[/green] {result.output_dir}")
+    console.print(f"Frozen evaluation begins {result.split_date}.")
+    console.print(f"Best pair: {', '.join(result.best_pair)}")
+    console.print(f"Best triple: {', '.join(result.best_triple)}")
+    console.print(f"Add/drop-stable subsets: {len(result.stable_subsets)}; global best: {', '.join(result.global_best_subset)}")
 
 
 @app.command("score-corpus-matrix")
