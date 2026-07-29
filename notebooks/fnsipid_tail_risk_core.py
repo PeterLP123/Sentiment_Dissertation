@@ -3256,17 +3256,33 @@ def build_summary() -> str:
     if SCALE_VS_TAIL:
         baseline = SCALE_VS_TAIL["baseline_d_semantic"]
         scaled = SCALE_VS_TAIL["news_scaled_d_semantic"]
-        if baseline >= 0.0:
+        baseline_ci = SCALE_VS_TAIL["baseline_ci"]
+        scaled_ci = SCALE_VS_TAIL["news_scaled_ci"]
+        baseline_inconclusive = baseline_ci[0] <= 0.0 <= baseline_ci[1]
+        baseline_degradation = baseline_ci[0] > 0.0
+        scaled_supported = scaled_ci[1] < 0.0
+        if baseline_inconclusive:
             reading = (
-                "the baseline difference is already non-negative, so there is no semantic gain for the "
-                "news-conditioned scale to absorb and this diagnostic is uninformative about scale versus tail"
+                "the baseline interval spans zero, so this diagnostic cannot identify a semantic "
+                "increment for the scale adjustment to explain"
             )
-        elif scaled >= 0.0:
-            reading = "the gain disappears, which points to a conditional-scale effect rather than incremental tail information"
-        elif scaled > 0.5 * baseline:
-            reading = "most of the gain is absorbed by the news-conditioned scale"
+        elif baseline_degradation:
+            reading = (
+                "the baseline interval is above zero, so semantics degrades forecast loss and "
+                "there is no semantic gain for the scale adjustment to explain"
+            )
+        elif not scaled_supported:
+            reading = (
+                "the detectable negative baseline difference is not retained after the scale "
+                "adjustment, which is consistent with a conditional-scale contribution"
+            )
+        elif abs(scaled) < 0.5 * abs(baseline):
+            reading = "the detectable negative paired difference becomes less than half as large after the scale adjustment"
         else:
-            reading = "the gain largely survives, which is consistent with incremental lower-tail information"
+            reading = (
+                "a detectable negative paired difference remains after the scale adjustment, "
+                "consistent with information beyond this particular conditional-scale correction"
+            )
         lines += [
             "",
             "Scale-versus-tail diagnostic: with a frozen news-conditioned QLIKE volatility adjustment the",

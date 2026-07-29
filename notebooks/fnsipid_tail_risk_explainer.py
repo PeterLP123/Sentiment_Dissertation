@@ -409,7 +409,7 @@ finish(
     "e01_funnel",
     "From 28.6 million raw news rows to 416 thousand scored news days",
     "Bar length is relative to the first stage in each panel. Nothing was rescored or re-downloaded: the corpus, its\n"
-    "leak-safe date mapping and the FinBERT scores are reused from the completed E5/E6 runs.",
+    "point-in-time session mapping and the FinBERT scores are reused from the completed E5/E6 runs.",
     "Only 13 of 574 cohort firms are lost, and every exclusion has one deterministic reason.",
     f"Source: reports/fnsipid_tail_risk_core_v1/attrition.csv and reports/loop_moment2_finbert_20260719/manifest.json · {SAMPLE_LINE}",
 )
@@ -448,13 +448,13 @@ for index, (label, trading) in enumerate(days):
         color=MUTED,
     )
 
-# Headlines dated Friday, Saturday and Sunday all react on Monday.
+# Illustrated date-only Friday, Saturday and Sunday headlines all react on Monday.
 for source_day in (1, 2, 3):
     axis.plot([source_day], [1.62], marker="o", markersize=9, color=PALETTE["news"], zorder=5)
     axis.text(
         source_day,
         1.92,
-        f"headline\ndated {days[source_day][0]}",
+        f"date-only headline\ndated {days[source_day][0]}",
         ha="center",
         va="bottom",
         fontsize=9,
@@ -514,7 +514,7 @@ bracket(4.0, 5.0, -1.75, "close-to-close return $s \\rightarrow s+1$\n$\\rightar
 axis.text(
     -0.5,
     1.52,
-    "Saturday and Sunday news collapse onto the\nsame Monday session and are aggregated into\none firm-session feature row",
+    "Under the date-only branch, Friday through\nSunday news collapse onto the same Monday\nsession and are aggregated",
     fontsize=9,
     color=MUTED,
     style="italic",
@@ -525,11 +525,11 @@ axis.text(
 finish(
     fig,
     "e02_timing_rule",
-    "The leak-safe timing rule: news reacts, then we forecast the day after",
-    "A headline dated $d$ is mapped to the first trading session strictly after $d$. The return realised during that\n"
-    "session is a predictor; the target is the NEXT close-to-close return. The initial price response is spent before\n"
-    "the forecast is even made — that is what makes this a hard question rather than an event study.",
-    "The exhaustive check over all 4,779 calendar dates in the window found 0 mappings that were not strictly forward.",
+    "Forecasting starts only at the mapped reaction-session close",
+    "Date-only or exact-midnight rows map to the first trading session strictly after the calendar date. Rows with a\n"
+    "precise timestamp map to the containing XNYS session, or the next session if outside it. In both branches, the\n"
+    "reaction-session return is known at the close and the target is the NEXT close-to-close return.",
+    "The date-only branch checked all 4,779 calendar dates with 0 non-forward mappings. Original event timestamps are absent from the checkpoint, so the branch used by each retained headline cannot be re-verified.",
     f"Source: reports/fnsipid_tail_risk_core_v1/manifest.json (timing_rule) · {SAMPLE_LINE}",
 )
 
@@ -1332,12 +1332,12 @@ finish(
 )
 
 # %% [markdown]
-# ### Why they under-cover
+# ### A scale diagnostic, not a unique cause
 #
-# The volatility filter is fitted on 2011-2016 and frozen. If it were correctly
-# specified, standardised evaluation returns would have standard deviation 1.
-# They do not — 2017-2023 was more volatile than the filter was taught to
-# expect, and 2020 in particular.
+# Under a correctly specified conditional location-scale model, standardised
+# evaluation returns would have standard deviation 1. They are more dispersed.
+# This is consistent with the frozen volatility scale being too low, but it can
+# also reflect mean, dynamics, cross-sectional heterogeneity, or outliers.
 
 # %%
 by_year = FORECASTS.assign(year=FORECASTS["target_date"].dt.year).groupby("year")
@@ -1356,7 +1356,7 @@ for year, value in year_stats["std_z"].items():
 axis.set_xticks(year_stats.index)
 axis.set_ylabel("std. dev. of standardised return $z$")
 axis.set_xlabel("evaluation year")
-axis.set_title("The frozen filter under-predicts evaluation volatility")
+axis.set_title("Standardised returns are over-dispersed")
 tidy(axis)
 
 axis = axes[1]
@@ -1375,11 +1375,11 @@ tidy(axis, grid="both")
 finish(
     fig,
     "e12_volatility_filter",
-    "The volatility filter, not the text, is doing the heavy lifting — and it is stretched",
-    "Left: standardised evaluation returns by year; 1.0 would mean the frozen GJR-GARCH filter got the scale right.\n"
-    "Right: the fitted filters themselves. Persistence clusters just under a unit root and innovations are very fat\n"
-    "tailed (median 5 degrees of freedom), which is normal for daily equity returns.",
-    f"Overall std(z) is {FORECASTS['z_target'].std():.3f}, and 2020 reaches {year_stats.loc[2020, 'std_z']:.2f} — that is the main source of the over-breaching in the previous figure.",
+    "The volatility filter is stretched, but this diagnostic does not identify one cause",
+    "Left: standardised evaluation returns by year; 1.0 is the reference for a correctly specified conditional\n"
+    "location-scale model. Right: fitted persistence and innovation-tail parameters. The dispersion can reflect the\n"
+    "volatility scale, mean or dynamics misspecification, cross-sectional heterogeneity, and outliers.",
+    f"Overall std(z) is {FORECASTS['z_target'].std():.3f}, and 2020 reaches {year_stats.loc[2020, 'std_z']:.2f}. This is consistent with under-forecast conditional scale, but does not prove that scale is the only source of over-breaching.",
     f"Source: reports/fnsipid_tail_risk_core_v1/forecasts.parquet and garch_fit_summary.csv · {SAMPLE_LINE}",
 )
 
@@ -1514,8 +1514,8 @@ EVIDENCED  (what the executed run found)
 
   5. All four models breach too often ({panel_hit:.2%} against a nominal {ALPHA:.1%}) and fail
      their conditional-coverage tests, equally.  Standardised evaluation returns
-     have std {FORECASTS["z_target"].std():.3f}, so the frozen 2011-2016 volatility filter
-     under-predicts 2017-2023 volatility.
+     have std {FORECASTS["z_target"].std():.3f}.  That over-dispersion is consistent with
+     an under-forecast volatility scale, but does not uniquely identify its cause.
 
   6. DATA QUALITY.  {len(FLAGGED):,} firm-days ({len(FLAGGED) / PER_FIRM_GAPS["days"].sum():.3%}) carry a candidate
      adjusted/raw-return gap larger than {GAP_THRESHOLD:.0%}.  Without authoritative corporate-action
@@ -1530,7 +1530,7 @@ INFERENCE  (bounded interpretation)
   Once you know the size of the price shock, the current volatility level, the
   market state, that news arrived and how much of it arrived, the tone of that
   news carries no further information about tomorrow's lower tail - at this
-  horizon, on this panel, at calendar-date timestamp resolution.
+  horizon, on this panel, under the inherited mixed timestamp policy.
 
   The design is not blind: the same rows, the same bootstrap and the same loss
   detect the arrival effect at overwhelming confidence.  Attention is
