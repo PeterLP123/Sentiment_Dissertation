@@ -1,0 +1,9 @@
+start,step,subset,development_sharpe
+headline/sentiment_all,0,headline/sentiment_all,1.2739597659227422
+headline/actionable_sentiment_all|headline/sentiment_all|headline/sentiment_non_reuters|headline/sentiment_reuters|llm/finbert|llm/gemma-4-31b|llm/vader,0,headline/actionable_sentiment_all|headline/sentiment_all|headline/sentiment_non_reuters|headline/sentiment_reuters|llm/finbert|llm/gemma-4-31b|llm/vader,0.6301162084457625
+headline/actionable_sentiment_all|headline/sentiment_all|headline/sentiment_non_reuters|headline/sentiment_reuters|llm/finbert|llm/gemma-4-31b|llm/vader,1,headline/sentiment_all|headline/sentiment_non_reuters|headline/sentiment_reuters|llm/finbert|llm/gemma-4-31b|llm/vader,0.8136224193657633
+headline/actionable_sentiment_all|headline/sentiment_all|headline/sentiment_non_reuters|headline/sentiment_reuters|llm/finbert|llm/gemma-4-31b|llm/vader,2,headline/sentiment_all|headline/sentiment_non_reuters|llm/finbert|llm/gemma-4-31b|llm/vader,0.9472693798313406
+headline/actionable_sentiment_all|headline/sentiment_all|headline/sentiment_non_reuters|headline/sentiment_reuters|llm/finbert|llm/gemma-4-31b|llm/vader,3,headline/sentiment_all|headline/sentiment_non_reuters|llm/finbert|llm/vader,1.0546492458265786
+headline/actionable_sentiment_all|headline/sentiment_all|headline/sentiment_non_reuters|headline/sentiment_reuters|llm/finbert|llm/gemma-4-31b|llm/vader,4,headline/sentiment_all|headline/sentiment_non_reuters|llm/finbert,1.1038679318529647
+headline/actionable_sentiment_all|headline/sentiment_all|headline/sentiment_non_reuters|headline/sentiment_reuters|llm/finbert|llm/gemma-4-31b|llm/vader,5,headline/sentiment_all|headline/sentiment_non_reuters,1.1776280962506973
+headline/actionable_sentiment_all|headline/sentiment_all|headline/sentiment_non_reuters|headline/sentiment_reuters|llm/finbert|llm/gemma-4-31b|llm/vader,6,headline/sentiment_all,1.2739597659227422

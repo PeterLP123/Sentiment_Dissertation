@@ -355,3 +355,115 @@ metrics_focus = [
 ]
 cost_notes = "Cerebras Inference free-tier quota; zero marginal cost. 5,947 requests per model."
 interpretation_notes = "Primary results: gemma-4-31b accuracy 0.800 / macro-F1 0.805; gpt-oss-120b 0.773 / 0.776. Neither zero-shot LLM beats the fine-tuned FinBERT baseline (0.811 / 0.806) from clean-baselines-full-20260628 on hard labels. Run 26 was resumed across the storage throughput fixes (commits 7e00c6d..bf3b5be); responses are identical-protocol throughout."
+
+[[experiments]]
+id = "sentiment_signal_portfolio_gross_h1_20260729"
+title = "Sentiment Signal Portfolio — Gross Surface (7 scorers, h=1)"
+status = "completed"
+date = "2026-07-29"
+dissertation_relevance = "Exploratory signal-combination and Lagrange weighting study on the 33-stock LSEG sector cohort, asking which two, three, and add/drop-stable subsets of the seven daily sentiment scorers maximise a gross development Sharpe and what the sum-to-one Sharpe-optimal weights are for the best pair."
+# Run manifest records a dirty worktree at execution time; commit_sha is HEAD as recorded there.
+commit_sha = "070af782b60b1ce85abc7882265ef156d02fd6a6"
+export_path = "results/signal_portfolio/sentiment_signal_portfolio_gross_h1_20260729"
+completed_at = "2026-07-29T09:27:24.278726+00:00"
+command = "/Users/peterprendergast/Documents/Sentiment_Dissertation/src/sentiment_benchmark/cli.py optimize-signal-portfolio --signals Data/collections/lseg_us_sector_33_6m/derived/headline_value_models_20260715/daily_signals.csv --prices Data/collections/lseg_us_sector_33_6m/derived/headline_value_analysis_lseg_priced/sweep_ws/prices.csv --scorers headline/actionable_sentiment_all,headline/sentiment_all,headline/sentiment_non_reuters,headline/sentiment_reuters,llm/finbert,llm/gemma-4-31b,llm/vader --run-id sentiment_signal_portfolio_gross_h1_20260729 --return-variant gross --holding-period 1"
+
+[experiments.inputs.daily_signals]
+path = "Data/collections/lseg_us_sector_33_6m/derived/headline_value_models_20260715/daily_signals.csv"
+sha256 = "71cdeed1e3528c779afad457b773c7acb328f3f0e3e80845e51e57269667d8b9"
+
+[experiments.inputs.prices]
+path = "Data/collections/lseg_us_sector_33_6m/derived/headline_value_analysis_lseg_priced/sweep_ws/prices.csv"
+sha256 = "aa758910dec0b6184ea5c3d3c90c559ea8535ac410c3b1b43d717f09204f8fd1"
+
+[experiments.models]
+ids = [
+  "headline/actionable_sentiment_all",
+  "headline/sentiment_all",
+  "headline/sentiment_non_reuters",
+  "headline/sentiment_reuters",
+  "llm/finbert",
+  "llm/gemma-4-31b",
+  "llm/vader",
+]
+selection_notes = "The seven daily sentiment scorers carried by the Week 6 headline-value panel; several are aggregations of the same lexicon over nested headline populations, so their return series are near-duplicates (development correlation up to 0.99)."
+
+[experiments.settings]
+return_variant = "gross"
+holding_period = 1
+threshold = 0.0
+transaction_cost_bps_per_side = 10.0
+starting_capital = 100000.0
+annualization_periods = 252
+annual_risk_free_rate = 0.0
+development_fraction = 0.7
+split_date = "2026-05-02"
+development_sessions = 85
+evaluation_sessions = 38
+drop_inactive_sessions = true
+random_seed = 20260729
+bootstrap_replications = 2000
+bootstrap_block_length = 5
+
+[experiments.analysis]
+exploratory = true
+preregistered = false
+causal_claim = false
+specified_after_week6_results = true
+interpretation_notes = "Exploratory and in-sample by construction: subset and weight selection maximise a development Sharpe over 127 correlated candidate subsets. Under a demeaned moving-block bootstrap null of no edge (covariance preserved) the expected maximum subset Sharpe is 1.411 against an observed 1.274, and 52.2 percent of null replications reach or exceed the observed value. The winning subset is therefore not statistically distinguishable from data-snooping noise, and the reported Sharpe is an upper bound rather than an estimate."
+
+[[experiments]]
+id = "sentiment_signal_portfolio_net_h1_20260729"
+title = "Sentiment Signal Portfolio — Net-of-Cost Surface (7 scorers, h=1)"
+status = "completed"
+date = "2026-07-29"
+dissertation_relevance = "Exploratory signal-combination and Lagrange weighting study on the 33-stock LSEG sector cohort, repeating the subset and weight search on net-of-cost returns to test whether any combination of the seven daily sentiment scorers survives the charged 10 bps per side."
+# Run manifest records a dirty worktree at execution time; commit_sha is HEAD as recorded there.
+commit_sha = "070af782b60b1ce85abc7882265ef156d02fd6a6"
+export_path = "results/signal_portfolio/sentiment_signal_portfolio_net_h1_20260729"
+completed_at = "2026-07-29T09:30:17.809533+00:00"
+command = "/Users/peterprendergast/Documents/Sentiment_Dissertation/src/sentiment_benchmark/cli.py optimize-signal-portfolio --signals Data/collections/lseg_us_sector_33_6m/derived/headline_value_models_20260715/daily_signals.csv --prices Data/collections/lseg_us_sector_33_6m/derived/headline_value_analysis_lseg_priced/sweep_ws/prices.csv --scorers headline/actionable_sentiment_all,headline/sentiment_all,headline/sentiment_non_reuters,headline/sentiment_reuters,llm/finbert,llm/gemma-4-31b,llm/vader --run-id sentiment_signal_portfolio_net_h1_20260729 --return-variant net --holding-period 1"
+
+[experiments.inputs.daily_signals]
+path = "Data/collections/lseg_us_sector_33_6m/derived/headline_value_models_20260715/daily_signals.csv"
+sha256 = "71cdeed1e3528c779afad457b773c7acb328f3f0e3e80845e51e57269667d8b9"
+
+[experiments.inputs.prices]
+path = "Data/collections/lseg_us_sector_33_6m/derived/headline_value_analysis_lseg_priced/sweep_ws/prices.csv"
+sha256 = "aa758910dec0b6184ea5c3d3c90c559ea8535ac410c3b1b43d717f09204f8fd1"
+
+[experiments.models]
+ids = [
+  "headline/actionable_sentiment_all",
+  "headline/sentiment_all",
+  "headline/sentiment_non_reuters",
+  "headline/sentiment_reuters",
+  "llm/finbert",
+  "llm/gemma-4-31b",
+  "llm/vader",
+]
+selection_notes = "The seven daily sentiment scorers carried by the Week 6 headline-value panel, identical to the gross-surface run; only the return variant charged for turnover differs."
+
+[experiments.settings]
+return_variant = "net"
+holding_period = 1
+threshold = 0.0
+transaction_cost_bps_per_side = 10.0
+starting_capital = 100000.0
+annualization_periods = 252
+annual_risk_free_rate = 0.0
+development_fraction = 0.7
+split_date = "2026-05-02"
+development_sessions = 85
+evaluation_sessions = 38
+drop_inactive_sessions = true
+random_seed = 20260729
+bootstrap_replications = 2000
+bootstrap_block_length = 5
+
+[experiments.analysis]
+exploratory = true
+preregistered = false
+causal_claim = false
+specified_after_week6_results = true
+interpretation_notes = "Null result, retained. Net of the 10.0 bps per side charged on turnover the development Sharpe is negative for every one of the seven scorers individually (from -0.583 for headline/sentiment_all down to -3.402 for headline/sentiment_reuters) and therefore for all 127 candidate subsets, the global best being -0.583. The breakeven cost for the winning subset is 6.86 bps per side, below the charged 10.0 bps, so the gross edge does not survive execution. Because mean returns are negative, averaging signals lowers volatility without adding return and the Sharpe-maximising subset degenerates to the least-bad single signal, headline/sentiment_all, rather than a diversified combination; the best pair and triple are likewise dominated by it. 89.6 percent of demeaned no-edge null replications reach or exceed the observed -0.583."
