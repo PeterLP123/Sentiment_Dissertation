@@ -8,6 +8,7 @@ This documentation is organized by reader task ([Diátaxis](https://diataxis.fr/
 
 | Document | Type | Best for |
 | --- | --- | --- |
+| [Final experiments plan](../final_experiments/plan.html) | Plan (current) | The closing phase: six workstreams, the undecided research question and its five candidates, data to gather, code to build, and the checklist. |
 | [Dissertation execution plan](dissertation_execution_plan.md) | Plan | The refocused critical path: exact code, artifacts, gates, writing dependencies, dates, and nice-to-haves. |
 | [Getting started](getting_started.md) | Tutorial | First install, validation, pilot run, export, and news fetch. |
 | [Model providers](model_providers.md) | How-to | OpenRouter, Cerebras, and local/remote Ollama setup. |
@@ -35,6 +36,7 @@ This documentation is organized by reader task ([Diátaxis](https://diataxis.fr/
 
 | I need to... | Read this |
 | --- | --- |
+| See the closing phase's workstreams, checklist and open research question. | [Final experiments plan](../final_experiments/plan.html) |
 | See the dissertation's current critical path and deliverables. | [Dissertation execution plan](dissertation_execution_plan.md) |
 | Install the project and run the first benchmark. | [Getting started](getting_started.md) |
 | Use Gemma or another local model running on a desktop PC. | [Model providers](model_providers.md) |
@@ -110,3 +112,4 @@ Source-controlled files should explain how an experiment was produced. Local gen
 5. [Trading pipeline](trading_pipeline.md)
 6. [Research protocol](research_protocol.md)
 7. [Dissertation execution plan](dissertation_execution_plan.md)
+8. [Final experiments plan](../final_experiments/plan.html)

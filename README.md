@@ -16,6 +16,8 @@ A reproducible CLI and terminal UI for dissertation experiments on financial sen
 
 The former L1–L4 layer programme (threshold trading, crowding/reversal, G-theory reliability sizing, writer×scorer) is demoted to designed nice-to-haves and future work. See the [Dissertation execution plan](docs/dissertation_execution_plan.md) for the critical path and gates, the [Research protocol](docs/research_protocol.md) for the design, and the [Trading pre-registration](docs/trading_preregistration.md) (collection parked 2026-07-01; binds only if executed).
 
+**Closing phase opened 30 July 2026: [Final experiments plan](final_experiments/plan.html).** All remaining work is consolidated into `final_experiments/` and planned as research rather than pipeline engineering. Six workstreams — data consolidation, story filtering and publisher weighting, aggregation rules, market- and level-demeaned sentiment surprise, story-type conditioning, and the earnings-date effect — plus a cross-cutting learned-threshold arm. **The final research question is deliberately still open**; the plan lists five candidates and picks one at Gate F1, after the consolidated panel and the first exploratory pass. "Beyond the Mean" above remains the standing default until then. VaR/ES tail risk is de-prioritised as a finished result. Phase working rules are in [`AGENTS.md`](AGENTS.md) and [`CLAUDE.md`](CLAUDE.md).
+
 **Where things stand (12 July 2026)**
 
 - **Benchmark competence — done.** The provenance-clean dataset (`financial_sentiment_v2.csv`) is validated and the clean full-dataset benchmark runs for the core roster are registered; the hosted LLMs did not beat the fine-tuned FinBERT baseline.
@@ -187,6 +189,7 @@ Start here if you are setting up the project or writing the dissertation methods
 | Document | Type | Best for |
 | --- | --- | --- |
 | [Docs home](docs/README.md) | Map | Choosing the right guide. |
+| [Final experiments plan](final_experiments/plan.html) | Plan (current) | The closing phase: six workstreams, five candidate research questions, data to gather, code to build, and the checklist. |
 | [Getting started](docs/getting_started.md) | Tutorial | First install, validation, pilot run, export, and news fetch. |
 | [CLI reference](docs/cli_reference.md) | Reference | Commands, options, defaults, and examples. |
 | [TUI guide](docs/tui_guide.md) | How-to | Interactive model, prompt, run, results, and news workflows. |
