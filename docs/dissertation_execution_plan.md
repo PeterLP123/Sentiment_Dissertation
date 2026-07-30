@@ -1,277 +1,332 @@
 # Dissertation Execution Plan
 
-Last updated: 2026-07-12
-
-This is the code-repository execution plan for the refocused dissertation. The Obsidian vault's `03 Dissertation Plan.md` is the cross-project master; this document translates it into repository changes, artifacts, tests, gates, and writing dependencies.
-
-## Outcome contract
-
-Working title: **Beyond the Mean: Cross-Model Agreement and Post-News Return Resolution**
-
-Primary research question:
-
-> Does cross-model agreement—assessed against graded human annotation agreement—add out-of-sample information about firm-level post-news abnormal returns beyond mean sentiment and the initial price reaction?
-
-The critical path has three empirical stages:
-
-1. benchmark competence and PhraseBank agreement validation;
-2. a timestamp-valid LSEG event panel;
-3. a held-out comparison of strongest-scorer, mean-only, and mean-plus-agreement models.
-
-Profitability, G-theory, reliability-aware sizing, prompt factorials, futures, and writer–scorer analysis are not completion criteria.
-
-## Worktree protection
-
-The repository currently contains unrelated modified and untracked funded-portfolio work in the CLI/trading stack. Before dissertation-core implementation:
-
-1. inspect and deliberately commit/park that work, or create a separate `codex/dissertation-core` worktree;
-2. do not mix it into the core research commits;
-3. keep each dissertation deliverable independently testable and reviewable.
-
-## Critical path
-
-| Deliverable | Due | Repository outcome | Scientific/writing dependency |
-| --- | --- | --- | --- |
-| **C0 — design lock** | 14 Jul | Protocol, config identities, primary outcome, split and fallback recorded | Introduction/methods promises become stable |
-| **C1 — corpus + price feasibility** | 19 Jul | Canonical corpus, full price panel, 100-event CAR dry run, gate report | Final market or measurement-only chapter route |
-| **C2 — PhraseBank validity** | 18 Jul | Registered agreement-validation bundle | First complete results subsection |
-| **C3 — four-scorer LSEG panel** | 23 Jul | Frozen cohort and complete score matrix | Final roster/cohort prose |
-| **C4 — held-out event study** | 27 Jul | Nested predictive comparison and explanatory outputs | Main results chapter |
-| **C5 — result freeze** | 31 Jul | Reproduced manifests, generated tables/figures, no new estimands | Results/discussion finalisation |
-| **C6 — dissertation QA** | 8 Aug | Assets/build/count/reference checks pass | Complete supervisor PDF 9–10 Aug |
-
-## C0 — Freeze the core design
-
-Record before formal LSEG calls:
-
-- scorer roster and exact model IDs/versions;
-- one prompt ID/hash, temperature 0, one sample;
-- event unit and timestamp-to-session rule;
-- market benchmark and estimation window;
-- primary `CAR(+1,+5)` outcome excluding the initial reaction;
-- `+1` and `+10` sensitivity outcomes;
-- development/evaluation boundary;
-- strongest-scorer, mean-only, and mean-plus-agreement model formulas;
-- primary held-out loss comparison and bootstrap plan;
-- 19 July fallback rule.
-
-Create a dated manifest/config before any hosted request. Holdout outcomes must not change the roster, prompt, agreement definition, or cut points.
-
-## C1 — Canonical LSEG corpus and price panel
-
-### Code targets
-
-- Update `src/sentiment_benchmark/lseg_corpus.py` and `tests/test_lseg_corpus.py` so a verified auxiliary `csv/` export can coexist with canonical outputs while unrecognised non-empty derived content still causes a hard refusal.
-- Add `src/sentiment_benchmark/price_panel.py`.
-- Add `tests/test_price_panel.py`.
-- Add `configs/lseg_us_sector_33_prices.toml`.
-- Add CLI command `build-price-panel`.
-
-### Data targets
-
-- Canonical corpus rebuilt from `Data/collections/lseg_us_sector_33_6m/raw/lseg_us_sector_33_6m` with the current cleaner version and a complete manifest.
-- Analysis cohort keeps the earliest eligible `story_family × symbol` revision and records all attrition.
-- Price output: `Data/derived/prices/lseg_us_sector_33_event_study.csv` plus manifest.
-- Price universe: retained stocks plus the verified broad-market series (`^GSPC`, using the confirmed LSEG alias) and enough history to support 120 estimation sessions, a 21-session gap, the initial event session, and ten subsequent sessions.
-
-### Required dry run
-
-Run 100 representative events end-to-end and produce:
-
-- timestamp classification and assigned event session;
-- initial abnormal reaction;
-- post-event `CAR(+1,+1)`, `CAR(+1,+5)`, and `CAR(+1,+10)`;
-- failure/attrition reasons;
-- coverage by symbol and independent calendar date.
-
-### Gate
-
-Proceed with the market RQ only if:
-
-- at least 80% of holdout events align to valid return windows;
-- at least 25 symbols remain;
-- audited relevance precision is at least 0.85;
-- support across calendar dates is adequate for the declared date-block inference;
-- the 100-event run verifies that the initial reaction is not included in subsequent CAR.
-
-Otherwise activate the measurement-validity fallback and retain LSEG only as an exploratory case study.
-
-## C2 — PhraseBank agreement validation
-
-### Core roster
-
-- ProsusAI/FinBERT;
-- VADER;
-- Cerebras `gemma-4-31b`;
-- Cerebras `gpt-oss-120b`.
-
-TF–IDF is optional because its completed benchmark predictions are out-of-fold, whereas LSEG use would require a separately fitted full-data model.
-
-### Code targets
-
-- Add `src/sentiment_benchmark/agreement_validation.py`.
-- Add `tests/test_agreement_validation.py`.
-- Add CLI command `analyze-agreement-validity`.
-
-### Inputs and validation
-
-- `Data/derived/labeled/financial_sentiment_v2.csv`;
-- registered FinBERT/VADER benchmark predictions;
-- registered Gemma/GPT-OSS benchmark predictions;
-- join using stable row identity and verify sentence/content hashes;
-- restrict the human-tier test to the 4,836 PhraseBank rows.
-
-Primary item agreement is the fraction of exactly agreeing model pairs. It remains a descriptive model-output property; do not rename it reliability or trust.
-
-### Artifact bundle
-
-Write to `results/agreement_validation/phrasebank_core_v1/`:
-
-- `item_metrics.csv`;
-- `tier_summary.csv`;
-- `trend_tests.csv`;
-- `model_error_by_tier.csv`;
-- `leave_one_model_out.csv`;
-- `agreement_by_tier.png`;
-- `summary.md`;
-- `manifest.json`.
-
-Report tier means/intervals, Spearman trend, gold-class/text-length-adjusted sensitivity, consensus and individual-model error, risk–coverage/selective accuracy, and leave-one-model-out results. Exact complete coverage, hashes, model IDs, and deterministic replay are engineering acceptance criteria; the scientific result may be null.
-
-## C3 — Lean LSEG scoring
-
-The old crossed design makes approximately 147,500 calls and is no longer on the critical path. The core requires roughly 6,000 hosted calls for two LLMs over the development/evaluation cohort, with deterministic FinBERT and VADER scores assembled into the same item panel.
-
-### Code/config targets
-
-- Add `configs/dissertation_core_scoring.toml` with the two LLMs, one target-company label prompt, temperature 0, and one sample.
-- Update `src/sentiment_benchmark/corpus_scoring.py` and its tests to support a one-prompt, one-sample run with no facet subset; preserve `configs/crossed_scoring.toml` unchanged for optional work.
-- Add `src/sentiment_benchmark/corpus_baseline_scoring.py` and tests for FinBERT/VADER scoring on the identical cohort.
-- Add validated `assemble-score-panel` logic/CLI that rejects duplicate identities, model drift, content mismatch, and partial coverage beyond the declared tolerance.
-
-### Artifact bundle
-
-Write to `results/scoring/lseg_us_sector_33_core_v1/`:
-
-- `llm_scores.jsonl`;
-- `baseline_scores.jsonl`;
-- `scores.jsonl`;
-- `coverage.csv`;
-- `manifest.json`.
-
-Acceptance requires a frozen dry-run identity list, model/version/prompt/content hashes, at least 98% success per scorer and at least 95% complete four-scorer item coverage. Do not change the prompt or roster after viewing evaluation outcomes.
-
-## C4 — Refocused event study
-
-### Code targets
-
-- Refactor `src/sentiment_benchmark/l2_event_study.py`.
-- Expand `tests/test_l2_event_study.py` with synthetic timestamp, initial/post-CAR, aggregation, split-leak and bootstrap cases.
-- Leave `src/sentiment_benchmark/l3_reliability.py` untouched as optional work.
-
-### Event and return rules
-
-- Convert `version_created` from UTC to `America/New_York`.
-- Assign same-session treatment only when publication precedes the declared close rule; otherwise use the next session.
-- Treat the event-session abnormal return as `initial_reaction`.
-- Exclude that session from subsequent `CAR(+1,+5)`.
-- Aggregate multiple eligible stories to one `symbol × event_session` observation before inference.
-- Retain daily-data intraday contamination as an explicit limitation.
-
-### Nested comparisons
-
-Development-fit models:
-
-1. strongest individual scorer + initial reaction;
-2. ensemble mean sentiment + initial reaction;
-3. ensemble mean + continuous agreement + mean×agreement + initial reaction.
-
-Standardisation and any fixed choices use development data only. The primary held-out estimand is weighted `MSE(model 3) - MSE(model 2)`; a negative value favours the agreement-augmented model. Report MAE, out-of-sample R-squared, and a date-block bootstrap interval. A secondary coefficient table may use company/date-clustered uncertainty. Date fixed effects must not create unseen evaluation categories in the predictive model.
-
-### Artifact bundle
-
-Write to `results/l2/lseg_us_sector_33_core_v1/`:
-
-- `item_metrics.csv`;
-- `event_panel.csv`;
-- `development_coefficients.csv`;
-- `holdout_predictions.csv`;
-- `model_comparison.csv`;
-- `bootstrap.csv`;
-- `robustness.csv`;
-- `figures/`;
-- `summary.md`;
-- `manifest.json`.
-
-Include a full attrition table and all null results. The mean×agreement sign can describe strengthening, attenuation, continuation, or reversal; it is not evidence of investor crowding.
-
-## C5 — Registration, exports, and freeze
-
-Register these run families in `experiments/manifest.toml`:
-
-- `phrasebank-agreement-core-v1`;
-- `lseg-core-scoring-v1`;
-- `lseg-agreement-event-study-v1`.
-
-Each record must contain Git commit, input/config/model/prompt hashes, command, split identity, output hashes, and deviations. Export final LaTeX tables/figures into `dissertation/generated/`; final result values must not be typed manually.
-
-Verification sequence:
-
-```bash
-pytest -q <focused core tests>
-pytest -q
-ruff check .
-mypy src/sentiment_benchmark
-sentiment-bench validate-data
-cd dissertation
-make assets
-make count
-make pdf
+Last updated: 2026-07-30
+
+This is the delivery plan for the closing phase. The dissertation deadline is **1 September 2026**. Calendar promises from the superseded July 12 plan are retired; progress is controlled by evidence gates and stage exit conditions.
+
+- Live checklist and decisions: [Final experiments plan](../final_experiments/plan.html)
+- Scientific constraints: [Research protocol](research_protocol.md)
+- Operational notebook/data map: [Final experiments README](../final_experiments/README.md)
+
+## Outcome Contract
+
+Deliver one defensible primary empirical result about firm-day news-sentiment measurement, plus at most one secondary result, with a complete reproducibility chain into the dissertation.
+
+Completion requires:
+
+1. a documented final RQ chosen at Gate F1;
+2. one frozen primary estimand and development/evaluation design;
+3. one reproducible analysis notebook/helper chain;
+4. date-clustered or block-bootstrap uncertainty and declared multiplicity control;
+5. attrition, nulls, invalidated runs, and timing/data limitations reported;
+6. aggregate, licence-safe figures and tables promoted into the dissertation;
+7. the accepted run registered with data/code identities;
+8. no core evidence placeholders in the submitted chapter.
+
+Profitability, a significant p-value, a neural network, and a wider news collection are **not** completion criteria.
+
+## Current State
+
+| Item | Status | Evidence |
+| --- | --- | --- |
+| Closing phase opened | Complete | `final_experiments/plan.html` |
+| Primary data spine | Frozen: FNSPID 2011–2023 | `00_data_inventory` decision checklist |
+| Robustness spine | Frozen: non-pooled LSEG sector-33 + midcap-22 | Plan and protocol |
+| Earnings calendar | Gathered locally; caveats recorded | `final_experiments/data/earnings/` |
+| Firm-day panel | Built: 715,546 rows, 570 priced symbols, 3,262 sessions | `01_panel` outputs/manifest |
+| Chronological split | Frozen: development through 2019, evaluation from 2020 | `lib/panel.py`, plan, protocol |
+| Final RQ | Open | Gate F1 after Stage S2 |
+| Current active work | Story filtering and score-distribution EDA | Stage S2 |
+| Scorer selection | Closed: FinBERT primary | Benchmark and prior reports |
+| VaR/ES | Closed | FNSPID factorial report |
+| Ensemble search | Closed | Signal-portfolio report |
+
+## Critical Path
+
+```mermaid
+flowchart LR
+    S0["S0<br/>scope + authority"] --> S1["S1<br/>inventory + panel"]
+    S1 --> S2["S2<br/>filter + distribution EDA"]
+    S2 --> F1{"Gate F1<br/>choose RQ + freeze design"}
+    F1 --> S3["S3<br/>primary experiment"]
+    S3 --> F2{"Gate F2<br/>valid evidence?"}
+    F2 -->|yes| S4["S4<br/>bounded robustness / secondary"]
+    F2 -->|no| N["Report valid null / limitation"]
+    S4 --> S5["S5<br/>promote + write + register"]
+    N --> S5
 ```
 
-Before the 31 July freeze, replay the core results into a fresh output directory and compare manifests/artifacts. After freeze, permit only bug fixes, declared robustness, exact reproduction, and regenerated assets.
+Stages are sequential where later work depends on a frozen earlier decision. Notebook work within a stage may run in parallel when it does not open evaluation outcomes early.
 
-## Writing deliverables in this repository
+## Stage Plan
 
-The current scaffold reports 3,399 chapter words, but most files contain prompts/placeholders. The target is seven chapters and 9,800–10,100 main-text words:
+### S0 — Scope, authority, and environment
 
-| Chapter | Target |
-| --- | ---: |
-| Introduction | 800–900 |
-| Literature Review | 1,700–1,900 |
-| Data and Provenance | 1,200–1,400 |
-| Methodology | 1,700–1,900 |
-| Results | 2,200–2,500 |
-| Discussion and Limitations | 1,200–1,400 |
-| Conclusion | 400–600 |
+**Status:** complete.
 
-Writing is Peter-authored under the supervisor's no-AI-prose rule. Code-generated tables/figures and planning comments do not count as prose.
+Outputs:
 
-Repository writing checkpoints:
+- `final_experiments/` phase and live HTML plan;
+- agent instructions for notebook-first research mode;
+- documentation authority hierarchy;
+- explicit open-RQ status;
+- output/data ignore boundaries.
 
-- **14 Jul:** target structure compiles; title/RQ aligned; L3/L4 excluded from core.
-- **18 Jul:** Data and fixed Methods first drafts; 3,000–3,500 substantive words.
-- **23 Jul:** Literature and Data complete; benchmark/agreement assets inserted; 4,500–5,000 words.
-- **27 Jul:** Methodology complete and Results shell populated; 6,000–6,500 words.
-- **31 Jul:** Results synchronized to frozen evidence; 7,500–8,000 words.
-- **7 Aug:** 9,800–10,100 words, abstract, project summary, appendices, bibliography, AI-use log.
-- **8 Aug:** no placeholders/todos/invented examples; full build and visual PDF QA.
-- **9–10 Aug:** complete supervisor PDF.
+Exit condition: current and historical plans are visibly separated; the research question is not hard-coded prematurely.
 
-## Nice-to-haves
+### S1 — Data inventory and firm-day panel
 
-An extension can start only after core reproduction on 31 July, at least 7,500 substantive words, no core evidence placeholders, and no risk to the supervisor deadline. At most one enters the main text.
+**Status:** complete for the current checkpoint chain.
+
+Outputs:
+
+- `00_data_inventory.py` / `.ipynb`;
+- FNSPID-versus-LSEG coverage/quality comparison;
+- primary-spine decision checklist;
+- LSEG FNSPID earnings calendar and licence record;
+- `01_panel.py` / `.ipynb` and `lib/panel.py`;
+- firm-day panel, manifest, schema, attrition, and coverage plots under ignored outputs;
+- development/evaluation split recorded before downstream scoring/model selection.
+
+Exit condition: one auditable `(symbol, session_date)` panel with news, stock/market returns, earnings flags, split labels, and explicit unavailable fields.
+
+Open integrity actions before final promotion:
+
+- re-verify the large FNSPID archive checksums;
+- decide or implement explicit sector mapping if RQ-E or sector demeaning survives Gate F1;
+- preserve the current earnings-calendar coverage/title-filter caveat.
+
+### S2 — Story filtering and within-day distribution EDA
+
+**Status:** next/current.
+
+Goal: establish what the news panel contains before testing return outcomes.
+
+Build:
+
+- `02_filters_and_distributions.py` / `.ipynb`;
+- `lib/filters.py` only for reusable, silently dangerous logic;
+- source/publisher tables where available;
+- novelty, repetition, recap/routine, and direct-target features;
+- firm-day distribution summaries by story-count band;
+- seeded human-audit template and adjudicated labels;
+- `outputs/02_filters_and_distributions/summary.json` and diagnostic figures.
+
+Required analyses:
+
+- mean, median, dispersion, skew, extrema, and sentiment-class shares;
+- distribution by company, date, and story-count band;
+- prevalence of duplicates/revisions/recaps/routine reporting;
+- filter precision/recall or confusion table from the human audit;
+- explicit feasibility assessment for publisher weighting on FNSPID versus LSEG.
+
+Guardrail: do not inspect evaluation returns or rank aggregation rules on outcomes during S2.
+
+Exit condition: the data fields and audit evidence support a documented feasibility judgment for each candidate RQ.
+
+### Gate F1 — Choose the final RQ and freeze the analysis family
+
+Record in `final_experiments/outputs/02_filters_and_distributions/decision.md` and update `plan.html`:
+
+- one primary RQ and at most one secondary;
+- visible evidence used for the choice;
+- primary signal family and incumbent comparator;
+- outcome and horizon set;
+- timing/initial-reaction rule;
+- development/evaluation boundary;
+- model family and inference unit;
+- multiplicity family and correction;
+- fixed random seed(s);
+- dropped candidates and why.
+
+No evaluation-return comparison precedes this gate.
+
+### S3 — Primary experiment
+
+**Status:** blocked on Gate F1.
+
+Use the notebook matching the chosen RQ:
+
+| Chosen question | Primary implementation |
+| --- | --- |
+| RQ-A aggregation | `03_aggregation.py` / `.ipynb`, `lib/aggregators.py` |
+| RQ-B filtering | Filtering notebook extended into one frozen filtered-versus-unfiltered evaluation; no return-chosen source tiers |
+| RQ-C surprise | `04_sentiment_surprise.py` / `.ipynb`, `lib/surprise.py` |
+| RQ-D agreement | Complete the missing July 12 agreement-validation and LSEG model-panel prerequisites before outcome analysis |
+| RQ-E thresholds | Not eligible as sole primary unless Gate F1 documents a validated base signal and sector/firm support |
+
+Common evaluation harness requirements:
+
+- identical row eligibility across compared rules;
+- development-only preprocessing/fitting;
+- one-shot evaluation opening;
+- rank/forecast metrics before portfolio translation;
+- date-clustered or date-block inference;
+- full multiplicity family reported;
+- effect size, interval, p/q-value, and independent-date count;
+- nulls and failures preserved.
+
+### Gate F2 — Evidence validity
+
+Pass if:
+
+- the frozen design ran without leakage or timing violation;
+- row eligibility and attrition reconcile;
+- uncertainty matches the dependence structure;
+- multiplicity correction covers every opened comparison;
+- the result is reproducible from recorded inputs and code;
+- interpretation stays within the protocol.
+
+Statistical significance is not a pass criterion. A valid null passes. A leaky or post-selected result fails and is reported as invalidated evidence.
+
+### S4 — Bounded robustness and secondary analysis
+
+**Status:** blocked on valid S3 evidence.
 
 Priority order:
 
-1. one fixed after-cost agreement-conditioned portfolio comparison;
-2. TF–IDF fifth scorer;
-3. prompt order/paraphrase variants and stochastic self-consistency;
-4. one powered sector or event-type interaction;
-5. training-cutoff placebo;
-6. legacy threshold/index-futures replication;
-7. G-theory reliability and position sizing;
-8. writer–scorer Echo analysis;
-9. wider universes, countries, intraday data, or persona dispersion.
+1. non-pooled LSEG out-of-regime replication of the primary measurement rule;
+2. earnings-window exclusion or interaction if calendar validation passes;
+3. one pooled story-type interaction family if audit validity passes;
+4. sentiment-surprise extension if RQ-C was not primary and it directly clarifies the primary result;
+5. learned threshold only after an informative base signal exists.
 
-The old crossed/L3 workflow remains available for future work but is explicitly not part of the core delivery contract.
+Limits:
+
+- at most one secondary result enters the main text;
+- no new scorer bake-off;
+- no wider-universe collection unless the primary claim depends on missing metadata;
+- no new VaR/ES experiment;
+- no broad threshold/model tournament.
+
+### S5 — Promotion, registration, and dissertation integration
+
+**Status:** blocked on S3/S4.
+
+Outputs:
+
+- final aggregate tables: sample/attrition, primary estimate, robustness/nulls, costs where relevant;
+- final figures: panel/measurement diagnostic, primary effect, robustness or failure surface;
+- experiment entry in `experiments/manifest.toml`;
+- run manifest with data hashes/identities, code commit, package versions, seeds, split, and inference;
+- dissertation methods/results/limitations text linked to generated artifacts;
+- updated README/docs status with the selected RQ and result identity.
+
+Exit condition: a clean checkout plus authorised local inputs can regenerate the cited aggregate artifacts; every dissertation number has a source artifact.
+
+## Candidate-RQ Decision Matrix
+
+Use this at Gate F1; do not score it using evaluation returns.
+
+| Criterion | RQ-A Aggregation | RQ-B Filtering | RQ-C Surprise | RQ-D Agreement | RQ-E Thresholds |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Fits available FNSPID checkpoint fields | High | Low–medium | High | Low | Medium after sector map |
+| Motivated by prior failure/evidence | High | Medium | High | Medium | Medium |
+| Supports long-window clustered inference | High | Medium | High | Low until LSEG prerequisites exist | High |
+| Explainability | High | High | Medium | Medium | Low–medium |
+| New data/model dependency | Low | Medium–high | Low | High | Medium |
+| Risk of post-selection/overfitting | Medium | Medium | Medium | Medium | High |
+
+This is a feasibility frame, not a pre-decided winner.
+
+## Notebook And Artifact Contract
+
+Each stage notebook begins with:
+
+- question and non-goals;
+- input paths/identities;
+- data licence boundary;
+- scorer/model revision;
+- split and seed;
+- estimand and evaluation unit;
+- outputs it will write.
+
+Each completed notebook ends with:
+
+- attrition/sample counts;
+- decision or result summary;
+- nulls/failures/deviations;
+- limitations;
+- exact next gate.
+
+Generated output layout:
+
+```text
+final_experiments/outputs/
+  00_data_inventory/
+  01_panel/
+  02_filters_and_distributions/
+  03_aggregation/
+  04_sentiment_surprise/
+  05_story_types/
+  06_earnings_effects/
+  07_thresholds/
+  final/
+```
+
+The directory is ignored because outputs can be large or licensed. Promote only selected aggregate, licence-safe artifacts deliberately.
+
+## Dissertation Writing Dependencies
+
+Writing runs alongside analysis only where it does not depend on unknown results.
+
+| Chapter content | Can write now | Waits for |
+| --- | --- | --- |
+| Motivation and literature | Yes | Nothing |
+| Data provenance and source-regime comparison | Yes | Final checksum verification |
+| Benchmark competence and scorer choice | Yes | Nothing; evidence is settled |
+| Firm-day panel construction and timing | Yes | Final panel manifest reconciliation |
+| Filtering/aggregation methods | Skeleton only | Gate F1 and frozen rule family |
+| Primary results | No | Gate F2 |
+| Robustness/heterogeneity | No | S4 |
+| Limitations | Start now | Final selected RQ/result |
+| Conclusion | No | Final promoted evidence |
+
+Every result paragraph should state sample, split, estimand, effect size/interval, correction, and limitation before interpretation.
+
+## Reproducibility Commands
+
+Current completed stages:
+
+```bash
+uv run python final_experiments/00_data_inventory.py
+uv run python final_experiments/01_panel.py
+```
+
+Stable benchmark integrity:
+
+```bash
+uv run sentiment-bench validate-data
+uv run pytest tests/test_dataset.py tests/test_build_labeled_dataset.py
+```
+
+Do not run the full historical suite after each notebook edit. Focused helper tests and notebook execution are sufficient until accepted code is promoted.
+
+## Risk Register
+
+| Risk | Consequence | Control |
+| --- | --- | --- |
+| FNSPID archive integrity not rechecked | Weak provenance claim | Verify recorded SHA-256 values before promotion. |
+| Date-only publication timing | Look-ahead ambiguity | Revised next-session mapping; state residual limitation. |
+| Publisher/story-family unavailable in checkpoint | RQ-B infeasible on primary spine | Raw rescan or confine metadata-rich test to LSEG. |
+| Earnings calendar mapping/filter holes | Biased coverage or timing | Validation audit, coverage table, exclusion sensitivity. |
+| Evaluation period influenced prior work | Overstated confirmation | Call it chronological evaluation; preserve full design path. |
+| Thousands of rows but shared dates | Anti-conservative inference | Date clustering/block bootstrap; report independent dates. |
+| Aggregator/model tournament | Selection bias | Freeze family at F1; correct all opened comparisons. |
+| COVID regime dominates evaluation | Fragile generalisation | Report time-block/regime stability. |
+| Position turnover destroys economics | False alpha claim | Costs, concentration, turnover, and break-even cost. |
+| Licensed text leaks into Git | Redistribution breach | Keep raw/local outputs ignored; promote aggregates only. |
+| Documentation drifts from plan | Conflicting instructions | Plan → protocol → execution-plan authority order. |
+
+## Deliberately Out Of Scope
+
+- New VaR/ES or ES backtests.
+- New hosted-LLM or local-model bake-offs.
+- Multi-scorer signal ensembles.
+- Full production refactors or broad test expansion.
+- Causal language about news sentiment and returns.
+- Unbounded country/universe expansion.
+- Writer-scorer/persona experiments.
+- G-theory reliability sizing or crowding/reversal extensions.
+
+These remain future-work ideas, not closing-stage obligations.

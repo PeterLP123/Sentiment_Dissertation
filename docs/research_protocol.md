@@ -1,279 +1,304 @@
 # Research Protocol
 
-Last updated: 2026-07-12
+Last updated: 2026-07-30
 
-> **Protocol status.** This document records the refocused dissertation design. Items marked as implementation targets are not yet executable merely because they appear here. Formal run identities become binding only when a dated config/manifest is frozen before execution. Completed artifacts are never overwritten; revised designs receive new IDs and directories.
+> **Current status.** This protocol governs the closing `final_experiments/` phase. The final research question has **not** been selected. The live [final experiments plan](../final_experiments/plan.html) records operational decisions and checklist status; this document records the scientific constraints that remain binding across every candidate RQ.
 
-Operational planning: [Dissertation execution plan](dissertation_execution_plan.md)
+Operational guides:
+
+- [Final experiments README](../final_experiments/README.md)
+- [Dissertation execution plan](dissertation_execution_plan.md)
+- [Documentation home](README.md)
 
 ## Purpose
 
-This repository is the measurement and evidence engine for **Beyond the Mean: Cross-Model Agreement and Post-News Return Resolution**.
+The closing phase asks how financial-news sentiment should be measured at firm-day level before it is interpreted as a market signal. Earlier work established model competence and produced several trading, surprise, portfolio-combination, and tail-risk results. The remaining work concentrates on story selection, weighting, aggregation, and conditioning.
 
-Primary research question:
+The design rule is:
 
-> Does cross-model agreement—assessed against graded human annotation agreement—add out-of-sample information about firm-level post-news abnormal returns beyond mean sentiment and the initial price reaction?
+> **Fix the measurement, not the trading rule.** FinBERT is the primary scorer. The final question concerns what to do with the many stories it scores.
 
-The protocol separates three constructs that the previous four-layer design conflated:
+A null is a complete result when the panel, split, inference, multiplicity control, and limitations are valid.
 
-1. **benchmark competence** — whether each scorer classifies financial sentiment credibly;
-2. **construct validity** — whether item-level model agreement corresponds to graded human agreement and error risk;
-3. **external predictive validity** — whether agreement adds held-out market information beyond the mean score.
+## Authority And Change Control
 
-Benchmark accuracy is not treated as a market signal. Cross-model agreement is not called reliability, confidence, truth, investor positioning, or crowding.
+When documents conflict:
 
-## Core evidence flow
+1. `final_experiments/plan.html` controls live decisions and workstream status.
+2. This protocol controls scientific discipline and interpretation.
+3. `dissertation_execution_plan.md` controls stage order and promotion gates.
+4. Dated protocols/results remain immutable evidence for their own historical designs.
 
-```mermaid
-flowchart LR
-    B["Clean benchmark predictions"] --> V["PhraseBank agreement validity"]
-    C["Timestamped LSEG cohort"] --> S["Four-scorer item panel"]
-    P["Stock + market prices"] --> E["Initial reaction + post-event CAR"]
-    S --> E
-    V --> R["Evidence bundle"]
-    E --> R
-    R --> W["Generated tables/figures and dissertation"]
-```
+A changed primary RQ, data spine, split, event grain, timing rule, scorer identity, outcome, inference unit, or multiplicity family must be recorded before evaluation analysis and receives a new experiment identity. Completed result artifacts are never overwritten.
 
-Core outputs are complete even when the agreement trend or market comparison is null, provided the design, data and inference pass their gates.
+## Research Question Status
 
-## Research questions and hypotheses
+The “Beyond the Mean” cross-model-agreement question from the 12 July protocol is now a **standing fallback/default**, not the selected final RQ.
 
-### Supporting question 1 — construct validity
+Gate F1 will choose one primary RQ and at most one secondary after the data panel and filtering/distribution EDA are complete, but before any evaluation-return comparison is opened.
 
-Does agreement among the selected heterogeneous scorers increase with Financial PhraseBank annotator-agreement tiers and correspond to lower classification error?
+| Candidate | Question | Current standing |
+| --- | --- | --- |
+| **RQ-A: Aggregation** | How should multiple same-day stories be aggregated into one firm-day sentiment signal, and does a distribution-aware rule add information about post-news abnormal returns beyond the mean? | Leading candidate: strongest fit to the observed instability of company-day means. |
+| **RQ-B: Filtering** | Does conditioning on story novelty and publisher identity improve the return relevance of news sentiment? | Plausible, but FNSPID publisher/story-family fields are unavailable on the current checkpoint grain. |
+| **RQ-C: Surprise** | Is firm-level sentiment surprise, net of market return and general sentiment level, informative beyond sentiment level itself? | Prior NO-GO; only viable with the wider panel and materially different demeaning design. |
+| **RQ-D: Agreement** | Does cross-model agreement add out-of-sample information beyond mean sentiment and the initial price reaction? | Standing fallback/default; enabling PhraseBank/LSEG artifacts from the July 12 design were not completed. |
+| **RQ-E: Thresholds** | Can a learned firm- or sector-conditioned trade/no-trade threshold outperform a fixed band? | Secondary only; it presupposes an informative signal and needs an explicit sector table. |
 
-Primary expectation:
+### Gate F1 rules
 
-\[
-\rho_S(A_i,T_i) > 0,
-\]
+Before choosing:
 
-where `A_i` is continuous pairwise model agreement and `T_i` is the ordered PhraseBank tier. Report the rank association with uncertainty, tier effects, error/risk–coverage behaviour, adjusted sensitivity, and leave-one-model-out results. This expectation can be rejected without invalidating the pipeline.
+- Workstream 1 panel and attrition evidence must be complete.
+- Workstream 2 may inspect news/filter/score distributions, but not evaluation returns.
+- The choice must state what evidence was visible, what remained hidden, and why the chosen RQ is feasible on the available fields.
+- The primary estimand, horizon set, model family, inference unit, and multiplicity family must be frozen at the same gate.
+- No third primary design is invented after evaluation results are opened.
 
-### Supporting question 2 — external predictive validity
+## Evidence Already Settled
 
-Does agreement improve held-out prediction of post-news abnormal returns relative to mean sentiment alone and the strongest individual scorer?
+The closing phase does not re-run questions already answered unless a documented integrity defect appears.
 
-Primary outcome:
+- **Scorer competence:** pinned ProsusAI/FinBERT is the primary scorer. It reached 0.811 accuracy and 0.806 macro-F1 on the 5,947-row clean benchmark; hosted LLMs did not beat it.
+- **VADER limitation:** share-argmax collapses to neutral on Reuters headlines. Canonical compound may appear only as a comparator.
+- **Scorer combination:** the seven-signal subset search did not support ensembles; the best observed singleton was indistinguishable from a demeaned selection-luck null.
+- **Company-day instability:** full-population scoring materially changed daily signals despite similar marginal headline-score distributions.
+- **Surprise prior:** the 17 July Kalman-surprise pilot was a NO-GO; level beat surprise on out-of-sample R-squared and only 28 evaluation date clusters were available.
+- **Second moment:** FinBERT negative share is a required candidate aggregator because it produced the strongest corrected text result in the repository for next-session absolute abnormal return.
+- **Tail risk:** the four-cell VaR/ES factorial is closed. News arrival improved FZ0 loss; semantic tone did not add a clear increment.
+- **Trading:** the 33-stock robustness run failed after costs/turnover. Profitability is not a completion criterion.
 
-\[
-CAR_{i,+1:+5},
-\]
+## Data Policy
 
-which excludes the initial event-session reaction.
+### Primary spine: FNSPID
 
-Primary predictive comparison:
+The primary closing-stage panel uses the coherent FNSPID 2011–2023 cohort.
 
-1. strongest individual scorer + initial reaction;
-2. ensemble mean sentiment + initial reaction;
-3. ensemble mean + agreement + mean×agreement + initial reaction.
+Current evidence chain:
 
-The primary held-out estimand is `MSE(model 3) - MSE(model 2)`; a negative value favours the agreement-augmented model. Report MAE, out-of-sample R-squared, and a date-block bootstrap interval. Coefficient estimates are secondary explanatory evidence. A null means agreement has measurement relevance at most in this sample.
+- revised Gate-1 timing cohort: 574 firms and approximately 1.64 million deduplicated firm events;
+- Moment-2 FinBERT checkpoint: 1,640,796 scored events;
+- final firm-day panel: 715,546 news-bearing firm-days, 570 priced symbols, 3,262 sessions;
+- market benchmark: SPY;
+- current earnings join: local LSEG results calendar.
 
-## Dataset policy
+Primary results may use only the verified cohort/checkpoint/panel chain. Before dissertation promotion, re-verify the large FNSPID archives against their recorded SHA-256 values.
+
+Known unavailable fields on the current checkpoint grain:
+
+- point-in-time `availability_timestamp`;
+- publisher identity suitable for publisher weighting;
+- `story_family_id` revision lineage;
+- precise intraday timestamps for most events;
+- explicit sector classification.
+
+Do not impute these fields or make claims that depend on them. A raw zstd rescan or separate mapping artifact is required to add them.
+
+### Robustness spine: LSEG
+
+The LSEG sector-33 and midcap-22 corpora provide precise `version_created`, `source_code`, story-family identity, recent Reuters coverage, and partial body text. They remain licensed local data.
+
+They are an out-of-regime robustness arm only:
+
+- never pool FNSPID and LSEG rows;
+- never treat one source regime as extra observations for the other;
+- report separate estimates and explain differences in universe, window, source mix, and timing quality;
+- do not widen the LSEG universe unless the chosen RQ specifically requires it and the request budget is frozen first.
 
 ### Labeled benchmark
 
-The default dataset is `Data/derived/labeled/financial_sentiment_v2.csv`, rebuilt by `scripts/build_labeled_dataset.py`. Never edit it manually.
+`Data/derived/labeled/financial_sentiment_v2.csv` remains the default competence benchmark. Never edit it manually. `Data/data.csv` is legacy Kaggle material with 514 documented corrupt neutral duplicates and is not an ambiguity signal.
 
-- PhraseBank contributes the graded 50/66/75/100% human-agreement tiers.
-- FiQA is a benchmark complement but does not provide equivalent annotator-agreement tiers.
-- `Data/data.csv` is immutable legacy material containing documented merge corruption and is not an ambiguity source.
-- Report PhraseBank and FiQA separately when provenance fields or label-generation processes differ.
-- Record source, cleaning, mapping, split and content hashes for every derived view.
+Benchmark competence supports scorer choice; it is not evidence of market predictiveness.
 
-The construct-validity analysis uses the 4,836 PhraseBank rows with recoverable tiers and complete core-roster predictions.
+### Earnings calendar
 
-### LSEG news
+The FNSPID cohort calendar was gathered from LSEG Workspace into `final_experiments/data/earnings/`.
 
-The candidate market corpus is the existing 33-company US collection covering approximately late December 2025 through June 2026. It remains licensed local material and is conditional on the 19 July gate.
+Safe aggregate facts:
 
-The canonical analysis event is the earliest eligible revision for each `story_family × symbol`. The analysis later aggregates multiple eligible stories to one `symbol × event_session` row. Every exclusion and aggregation must be auditable.
+- 23,139 issuer-matched result events;
+- 22,883 quarterly/FY/H subset rows;
+- 490 of 574 cohort symbols with at least one kept quarterly event;
+- 12,303 BMO, 9,764 AMC, 202 during-market, and 614 unknown-time rows.
 
-Formal scoring waits for:
+CSV/JSON/checkpoint payloads are licensed and ignored. The current gather has recoverable ticker-resolution and issuer-title-filter gaps. Workstream 6 must validate calendar dates against earnings/guidance news and carry the coverage caveat.
 
-- a complete verified raw manifest;
-- a canonical cleaned corpus and cleaner version;
-- a relevance-audited cohort and attrition report;
-- an immutable chronological development/evaluation split;
-- a verified price panel and 100-event return dry run.
+## Frozen Development/Evaluation Split
 
-### Prices
+Recorded 2026-07-30 for the FNSPID primary panel:
 
-The current `Data/derived/prices/lseg_us_sector_33.csv` is not sufficient for the intended market model because it lacks the market series and has only about 127–128 sessions. The implementation target is a new hashed panel containing all retained stocks plus the verified broad-market series and enough history for:
+- **development:** `session_date <= 2019-12-31`;
+- **evaluation:** `session_date >= 2020-01-01`.
 
-- 120 estimation sessions;
-- a 21-session gap;
-- the initial event session;
-- ten subsequent sessions.
+There is no gap day. Development contains 512,153 current panel rows; evaluation contains 203,393.
 
-The core plan does not depend on index futures.
+The 2020–2023 block includes the COVID regime and is a stress-period evaluation. Earlier FNSPID work influenced the design, so use the phrase **chronological evaluation block**, never “pristine holdout” or “confirmatory sample.”
 
-## Core scorer roster
+No fitting, threshold search, aggregation-rule selection, subgroup selection, or multiplicity-family change may use evaluation rows.
 
-The fixed core roster is:
+## Event Grain, Timing, And Returns
 
-- ProsusAI/FinBERT;
-- VADER;
-- Cerebras `gemma-4-31b`;
-- Cerebras `gpt-oss-120b`.
+### Grain
 
-These are selected heterogeneous scorers, not independent raters. The same four identities and label mapping are used for PhraseBank validation and LSEG scoring.
+The current panel grain is one `(symbol, session_date)` row where:
 
-LSEG uses one target-company prompt, temperature 0, and one sample. Model IDs, provider route, prompt hash, content hash and runtime metadata are recorded. Hosted failures may be retried under the frozen policy; a different model/prompt creates a new run rather than repairing the old identity silently.
+- at least one scored news event exists;
+- a valid split-adjusted stock open exists;
+- a valid SPY open exists for the same session.
 
-TF–IDF is optional because existing benchmark predictions are out-of-fold. A valid LSEG extension must train and record a full-data estimator rather than reuse incompatible OOF identities.
+Multiple stories are aggregated before inference. Raw event count is not independent sample size.
 
-## Agreement construction
+### FNSPID timing
 
-For item `i` with `m` model labels, primary agreement is:
+News timing inherits the revised Gate-1 mapping already applied in the FinBERT checkpoint: date-only news maps to the first XNYS session strictly after the stated date. This supports next-open estimands but does not establish intraday availability.
 
-\[
-A_i = \frac{\sum_{j<k} 1(y_{ij}=y_{ik})}{\binom{m}{2}}.
-\]
+### LSEG timing
 
-Use the continuous statistic in primary analyses. Discrete high/medium/low labels are descriptive only. Preserve mean sentiment and model-score dispersion as separate fields. Within-model sampling entropy is not available in the one-sample core and belongs to optional work.
+For LSEG robustness, use `version_created` in UTC, convert to `America/New_York`, add the declared processing buffer, and trade only at the first eligible XNYS open. Do not align from `news_date` alone.
 
-Required PhraseBank reporting:
+### Earnings timing
 
-- agreement and bootstrap interval by human tier;
-- Spearman trend;
-- adjustment/sensitivity for gold class and text length;
-- consensus and model error by tier/agreement;
-- risk–coverage or selective-accuracy curve;
-- leave-one-model-out agreement analysis.
+Current mapping:
 
-Agreement corresponding to a human tier supplies convergent validity only. It does not prove the same construct transfers unchanged to LSEG company news.
+- BMO: same XNYS session;
+- AMC: next XNYS session;
+- unknown time: conservative next session;
+- during-market: current gather maps to same session, but this includes pre-news open-to-release trading and must be a declared sensitivity or exclusion.
 
-## Event timing and abnormal returns
+### Returns
 
-Use `version_created`, convert from UTC to `America/New_York`, and apply a declared session-close rule. Same-session assignment is allowed only when publication precedes that rule; otherwise use the next trading session. Daily data leave residual intraday contamination, which must be disclosed.
+The current panel stores one-session split-adjusted open-to-open stock and SPY returns, with `ar_open_h1 = stock - SPY`. Dividends are not back-adjusted.
 
-For each stock event:
+If Gate F1 selects a post-news CAR outcome, freeze the estimation window, initial-reaction treatment, and horizon set before evaluation. The event session must not be silently included in a claimed post-event outcome.
 
-1. fit the declared market model on 120 sessions ending 21 sessions before the event;
-2. calculate the event-session abnormal return as `initial_reaction`;
-3. calculate post-event `CAR(+1,+5)` without the event session;
-4. calculate `+1` and `+10` outcomes as declared sensitivities;
-5. aggregate to one `symbol × event_session` observation before inference.
+## Workstream Protocols
 
-Do not use `news_date` alone for tradable-session alignment. Do not call a sentiment-signed CAR “reaction reversal” unless the initial reaction is explicitly separated.
+### W1: Consolidated panel
 
-## Development and evaluation discipline
+Status: completed for the current FNSPID checkpoint.
 
-- Freeze the chronological boundary before formal LSEG scoring.
-- Development data determine standardisation and any model fit.
-- The evaluation block is inspected once after the frozen identity/analysis checks pass.
-- Use identical eligible events for all nested comparisons.
-- Do not choose the roster, prompt, agreement measure, bucket thresholds, horizon or subgroup from evaluation outcomes.
-- The period has already been explored with lexicon/LLM signals; describe it as a chronological evaluation block, not a pristine confirmatory holdout.
+Required evidence:
 
-The predictive model must not depend on date fixed-effect categories unavailable at evaluation time. Explanatory coefficient tables may use company/date-aware clustered uncertainty. Primary loss uncertainty uses a date-block bootstrap to preserve common market-date dependence.
+- input inventory and source identities;
+- attrition table from event checkpoint to priced firm-days;
+- coverage by month, firm, and story-count band;
+- frozen split labels;
+- earnings join and coverage;
+- explicit null/unavailable field list.
 
-## Feasibility gate
+The panel is selected on news and price availability. Treat this as a collider/selection limitation, not a solved problem.
 
-The market route passes on 19 July only if:
+### W2: Filtering and within-day distribution EDA
 
-- at least 80% of evaluation events align to valid return windows;
-- at least 25 symbols survive;
-- audited relevance precision is at least 0.85;
-- enough independent dates support the declared bootstrap/inference;
-- the 100-event dry run proves initial/post-event separation and reproduces deterministically.
+Before Gate F1:
 
-On failure, the dissertation activates this fallback:
+- describe firm-day `n`, mean, median, dispersion, skew, extrema, and positive/neutral/negative shares;
+- condition those moments on story-count bands;
+- separate direct target, contextual, technical/recap, repetition, and routine-reporting classes where fields permit;
+- build a seeded 150–200-item human audit before claiming filter precision or event-type validity;
+- do not choose publisher tiers from realised returns.
 
-> Does cross-model agreement provide a valid and practically useful uncertainty signal for financial sentiment classification across human-agreement tiers and model families?
+On FNSPID, publisher/story-family limitations may force publisher weighting and revision novelty to the LSEG robustness arm. State that rather than fabricating proxies.
 
-The LSEG evidence then becomes exploratory. The writing and submission dates do not move, and no third design is invented.
+### W3: Aggregation
 
-## Required artifacts
+The incumbent is the sign of the mean hard label. The comparison family must include:
 
-### Agreement validity
+- mean hard label;
+- mean continuous score;
+- median;
+- trimmed mean where `n` supports it;
+- negative share;
+- dispersion/IQR;
+- strongest-event selection;
+- attention/novelty weighting where measurable;
+- decayed state.
 
-`results/agreement_validation/phrasebank_core_v1/`:
+All rules use the same eligible rows, split, target, and inference. Report predictive metrics such as rank correlation/information coefficient alongside any portfolio translation. Stratify by story-count band. If portfolio outcomes are included, report turnover, concentration, transaction costs, and break-even cost.
 
-- `item_metrics.csv`
-- `tier_summary.csv`
-- `trend_tests.csv`
-- `model_error_by_tier.csv`
-- `leave_one_model_out.csv`
-- `agreement_by_tier.png`
-- `summary.md`
-- `manifest.json`
+Declare the complete `rules × horizons` multiplicity family at Gate F1 and apply Benjamini–Hochberg or the frozen alternative.
 
-### Core LSEG scoring
+### W4: Sentiment surprise
 
-`results/scoring/lseg_us_sector_33_core_v1/`:
+A valid retry must differ materially from the failed July pilot:
 
-- `llm_scores.jsonl`
-- `baseline_scores.jsonl`
-- `scores.jsonl`
-- `coverage.csv`
-- `manifest.json`
+1. raw firm-day level;
+2. minus a strictly lagged firm baseline;
+3. minus the cross-sectional daily sentiment level;
+4. optional sector-day demeaning only after a valid sector map exists.
 
-### Event study
+Return adjustment uses a declared fitted market model or the frozen SPY-adjusted alternative. The initial reaction remains separate. Compare level-only, level-plus-surprise, and surprise-only models on out-of-sample loss; coefficients are secondary.
 
-`results/l2/lseg_us_sector_33_core_v1/`:
+The report must cite the earlier NO-GO and disclose all invalidated prior runs.
 
-- `item_metrics.csv`
-- `event_panel.csv`
-- `development_coefficients.csv`
-- `holdout_predictions.csv`
-- `model_comparison.csv`
-- `bootstrap.csv`
-- `robustness.csv`
-- `figures/`
-- `summary.md`
-- `manifest.json`
+### W5: Story type
 
-Register the three run families in `experiments/manifest.toml`, export main-text tables/figures into `dissertation/generated/`, and never hand-type final result values.
+Use the existing 12-type taxonomy only after a seeded human audit. Estimate type interactions in one pooled model rather than selecting 12 independent winners. Declare the `types × horizons` family before evaluation and correct it.
 
-## Interpretation limits
+The honest default is no type weighting. A type-weighted aggregator enters W3 only if the interaction survives its frozen correction.
 
-- The study is predictive/associational, not causal.
-- Agreement is observed model behaviour, not investor holdings, order flow, adoption, or crowding.
-- Shared training data and architectures may create common bias.
-- PhraseBank validation may not transfer fully to Reuters/LSEG style, targets or event context.
-- Daily prices cannot fully isolate intraday timing.
-- Many news events share firms and dates; raw event count is not independent sample size.
-- A backtest or event study is not deployable alpha.
-- Report all nulls, attrition, effect sizes, intervals, failures and deviations.
+### W6: Earnings-date effect
 
-## Result freeze and quality checks
+Use the quarterly LSEG calendar as the default. Add `sessions_to_earnings` and freeze pre/event/post windows. Validate that `earnings_guidance` news clusters around recorded dates.
 
-Results freeze on 31 July 2026. Afterward permit only bug fixes, declared robustness, exact reproduction and regenerated assets.
+Required comparisons:
 
-Required checks:
+- inside versus outside the earnings window;
+- exclusion robustness dropping all earnings-window firm-days;
+- timing sensitivity for during-market/unknown rows;
+- clear separation from post-earnings-announcement drift.
 
-```bash
-pytest -q <focused core tests>
-pytest -q
-ruff check .
-mypy src/sentiment_benchmark
-sentiment-bench validate-data
-cd dissertation
-make assets
-make count
-make pdf
-```
+### Learned thresholds
 
-Replay the core results into a fresh directory and compare identities/hashes before freeze.
+Secondary only. Establish the fixed-band rule first. Compare logistic, gradient-boosted, and small MLP gates using development data only. Prefer sector-conditioned to stock-specific thresholds once a sector table exists. Include a label-shuffle/permutation control and report the learned threshold surface, not only performance.
 
-## Nice-to-have extensions
+## Inference And Multiplicity
 
-An extension may start only after core reproduction, at least 7,500 substantive dissertation words, no unresolved core evidence placeholder, and no risk to the 9–10 August supervisor draft. At most one enters the main text.
+Every final analysis records:
 
-Priority order:
+- unit of observation and cluster/block unit;
+- number of independent evaluation dates;
+- random seed;
+- block length and bootstrap replications where used;
+- full candidate family and correction method;
+- development-only model/threshold selection;
+- effect sizes and intervals, not only p/q-values;
+- all nulls, failed arms, attrition, and deviations.
 
-1. one fixed after-cost agreement-conditioned portfolio comparison;
-2. TF–IDF fifth scorer;
-3. prompt-order/paraphrase variants and stochastic self-consistency;
-4. one powered sector or event-type analysis;
-5. training-cutoff placebo;
-6. legacy threshold/index-futures replication;
-7. G-theory reliability, shrinkage and position sizing;
-8. writer–scorer Echo experiment;
-9. wider universes, countries, intraday data or persona dispersion.
+Date-clustered or date-block uncertainty is primary because firms share market dates. Firm-level sensitivity and time-block stability are secondary. Raw row counts must never be presented as independent sample size.
 
-The old crossed L2/L3 design remains reproducible documentation for future work, not the dissertation's critical path.
+## Artifacts And Promotion
+
+Exploratory outputs stay under `final_experiments/outputs/<stage>/` and are ignored. Notebooks and thin helpers are source-controlled.
+
+A result can be promoted into the dissertation only when:
+
+1. its Gate F1 design record exists;
+2. the data spine, split, scorer revision, estimand, and inference are frozen;
+3. evaluation was not used for selection;
+4. attrition and data-quality limitations are present;
+5. outputs reproduce from the tracked notebook/helper plus recorded local inputs;
+6. aggregate, licence-safe figures/tables are copied deliberately;
+7. the run is registered in `experiments/manifest.toml` with code/data identities.
+
+Do not hand-type final result values into the dissertation.
+
+## Interpretation Limits
+
+- Predictive/associational, not causal.
+- FinBERT tone is not investor belief, order flow, or market positioning.
+- Date-only news timing leaves residual intraday ambiguity.
+- FNSPID and LSEG differ in universe, provider, timing, and source regime.
+- Current FNSPID publisher and story-family fields are unavailable on the checkpoint grain.
+- Earnings coverage has recoverable mapping/filter holes and does not include consensus surprises.
+- Prices are split-adjusted but not dividend-adjusted.
+- Selection on news and price availability can distort relationships.
+- The evaluation block is previously explored.
+- A backtest is not deployable alpha or investment advice.
+
+## Superseded July 12 Design
+
+The earlier “Beyond the Mean” protocol specified PhraseBank agreement validation plus a four-scorer LSEG held-out event study with 19/27/31 July gates. Those dates, planned commands, and artifact paths are no longer the active critical path.
+
+The scientific question remains available as RQ-D. The implementation record is retained in [LSEG core analysis workflow](lseg_analysis_workflow.md) and the repository history; it must not be represented as completed evidence.

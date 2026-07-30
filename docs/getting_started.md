@@ -2,6 +2,9 @@
 
 You will install the project, validate the dissertation dataset, run a small model benchmark, inspect the stored metrics, export the evidence, and optionally fetch a small Tavily news corpus.
 
+> **Current phase.** This tutorial covers the stable benchmark application. Closing dissertation work now lives in [`final_experiments/`](../final_experiments/README.md) and imports this package rather than extending its CLI. The final notebooks also require licensed/local FNSPID and LSEG artifacts that are intentionally absent from a clean clone.
+
+
 ```mermaid
 flowchart LR
     S1["1–2<br/>install +<br/>credentials"] --> S3["3<br/>validate-data"]

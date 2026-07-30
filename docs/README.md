@@ -2,114 +2,152 @@
 
 ![Project workflow overview](assets/research-workflow.svg)
 
-This documentation is organized by reader task ([Diátaxis](https://diataxis.fr/)): the tutorial when you are new, how-to guides when you need to complete a job, references for exact options and schemas, and explanations for dissertation-ready rationale.
+The repository has accumulated several generations of protocols, pipelines, and result reports. This page separates the **current closing phase** from reusable tooling and historical evidence so an older plan is not mistaken for the active design.
 
-## The Full Map
+## Start Here
 
-| Document | Type | Best for |
-| --- | --- | --- |
-| [Final experiments plan](../final_experiments/plan.html) | Plan (current) | The closing phase: six workstreams, the undecided research question and its five candidates, data to gather, code to build, and the checklist. |
-| [Dissertation execution plan](dissertation_execution_plan.md) | Plan | The refocused critical path: exact code, artifacts, gates, writing dependencies, dates, and nice-to-haves. |
-| [Getting started](getting_started.md) | Tutorial | First install, validation, pilot run, export, and news fetch. |
-| [Model providers](model_providers.md) | How-to | OpenRouter, Cerebras, and local/remote Ollama setup. |
-| [News sourcing](news_sourcing.md) | How-to | Search, extract, package, and troubleshoot Tavily and NewsAPI corpora. |
-| [LSEG to Ollama pipeline](lseg_ollama_pipeline.md) | How-to | Collect, clean, score, validate, and evaluate local-only Workspace news. |
-| [LSEG analysis workflow](lseg_analysis_workflow.md) | How-to + implementation plan | The gated corpus → price/timing dry run → lean four-scorer panel → held-out event-study sequence. |
-| [Mid-cap deadline runbook](midcap_deadline_runbook.md) | Exploratory runbook | One-day Reuters headline collection, bounded local scoring, LSEG prices and funded evaluation for the 22-company extension. |
-| [Trading pipeline](trading_pipeline.md) | How-to + explanation | The news-to-price pipeline: runs, effectiveness battery, sweeps, and pluggable strategies. |
-| [Historical strategy-research pipeline](strategy_research_pipeline.md) | Technical guide | The separate point-in-time LSEG state, portfolio, ledger, tuning, and paper-order pipeline. |
-| [Sentiment trading baseline](sentiment_trading_baseline.md) | Research baseline | The literature-grounded Reuters FinBERT/VADER-share-argmax workflow from frozen collection through point-in-time adjusted-open evaluation. |
-| [Recent-news mid-cap FinBERT strategy](recent_news_midcap_finbert_strategy.md) | Strategy explainer | The accepted post-2024 positive-Sharpe rule, exact trading mechanics, metrics, uncertainty, failed alternatives, and reproducibility audit. |
-| [Recent-news FinBERT results dashboard](recent_news_midcap_finbert_dashboard.html) | Results dashboard | Plot-first summary of cumulative return, drawdown, period performance, activity, cost sensitivity, and stock contributions. |
-| [Recent-news FinBERT strategy explainer](sentiment_trading_baseline_explainer.html) | Interactive explainer | Visual guide to the accepted rule, data, timing, chronological results, rejected alternatives, uncertainty and reproducibility trail. |
-| [TUI guide](tui_guide.md) | How-to | Interactive model, prompt, run, results, and news workflows. |
-| [CLI reference](cli_reference.md) | Reference | Every command, option, default, and example. |
-| [Results and exports](results_and_exports.md) | Reference | Storage backends, export files, metrics, LaTeX tables, and trading artifacts. |
-| [Local Gemma 4 headline-return results](../reports/local_gemma4_headline_return_study.md) | Technical report | Frozen local scoring, benchmark, holdout trading results, uncertainty, and limitations without licensed text. |
-| [Dataset card](dataset_card.md) | Reference | Dataset identity, provenance, label policy, limitations, and ethics. |
-| [Architecture](architecture.md) | Explanation | Why source data, providers, runs, corpora, and exports are separated. |
-| [Research protocol](research_protocol.md) | Explanation | The refocused agreement-validity and incremental held-out market design, inference, artifacts, and interpretation limits. |
-| [Trading pre-registration](trading_preregistration.md) | Explanation | A filed confirmatory trading test (collection parked 2026-07-01; binds only if executed). |
-| [Sentiment signal portfolio](sentiment_signal_portfolio.md) | Explanation | Why Sharpe-maximising combination of the seven scorer signals collapses to a single signal, the Lagrange weight derivation, and the selection-luck null. |
-
-## Choose A Starting Point
-
-| I need to... | Read this |
+| Need | Read |
 | --- | --- |
-| See the closing phase's workstreams, checklist and open research question. | [Final experiments plan](../final_experiments/plan.html) |
-| See the dissertation's current critical path and deliverables. | [Dissertation execution plan](dissertation_execution_plan.md) |
-| Install the project and run the first benchmark. | [Getting started](getting_started.md) |
-| Use Gemma or another local model running on a desktop PC. | [Model providers](model_providers.md) |
-| Share run history across machines with Turso/libSQL. | [Results and exports](results_and_exports.md) |
-| Fetch articles from Tavily or NewsAPI into `Data/news`. | [News sourcing](news_sourcing.md) |
-| Batch-fetch and package a shareable Tavily source dataset. | [News sourcing](news_sourcing.md) |
-| Build the licensed Workspace-to-local-model pipeline. | [LSEG to Ollama pipeline](lseg_ollama_pipeline.md) |
-| Execute the refocused 33-company LSEG feasibility, scoring, and event-study workflow. | [LSEG analysis workflow](lseg_analysis_workflow.md) |
-| Run, analyze, tune, or extend the trading strategy. | [Trading pipeline](trading_pipeline.md) |
-| Run the separate historical sentiment-state research portfolio. | [Historical strategy-research pipeline](strategy_research_pipeline.md) |
-| Understand the filed (currently parked) confirmatory trading test. | [Trading pre-registration](trading_preregistration.md) |
-| Work through the terminal UI. | [TUI guide](tui_guide.md) |
-| Look up a command, option, or default. | [CLI reference](cli_reference.md) |
-| Understand exported files and metrics. | [Results and exports](results_and_exports.md) |
-| Explain the system design in a methods chapter. | [Architecture](architecture.md) and [Research protocol](research_protocol.md) |
-| Cite or describe the benchmark dataset. | [Dataset card](dataset_card.md) |
+| Understand the project in five minutes | [Main README](../README.md) |
+| See current decisions and checklist status | [Final experiments plan](../final_experiments/plan.html) |
+| Work inside `final_experiments/` | [Final experiments README](../final_experiments/README.md) |
+| Understand the current scientific constraints | [Research protocol](research_protocol.md) |
+| See stage order and exit conditions | [Dissertation execution plan](dissertation_execution_plan.md) |
+| Install the package and run the benchmark | [Getting started](getting_started.md) |
+| Find a command or artifact schema | [CLI reference](cli_reference.md) · [Results and exports](results_and_exports.md) |
+
+## Documentation Authority
+
+When two documents conflict, use this order:
+
+1. [`final_experiments/plan.html`](../final_experiments/plan.html): live decisions and checklist.
+2. [`research_protocol.md`](research_protocol.md): phase-wide scientific guardrails.
+3. [`dissertation_execution_plan.md`](dissertation_execution_plan.md): execution order and promotion gates.
+4. [`final_experiments/README.md`](../final_experiments/README.md): operational notebook/data map.
+5. Dated protocols and result reports: immutable historical evidence for the design they record.
+
+The final research question is still open. “Beyond the Mean” cross-model agreement is a standing fallback/default, not the chosen final RQ.
+
+## Current Closing Phase
+
+| Document | Type | What it establishes |
+| --- | --- | --- |
+| [Final experiments plan](../final_experiments/plan.html) | Live HTML plan | Six workstreams, five candidate RQs, completed/open checklist items, primary-spine decision, and frozen split. |
+| [Final experiments README](../final_experiments/README.md) | Operational guide | Notebook order, local data prerequisites, generated outputs, and provenance boundary. |
+| [Research protocol](research_protocol.md) | Scientific protocol | Open-RQ discipline, FNSPID primary/LSEG robustness roles, inference requirements, and interpretation limits. |
+| [Dissertation execution plan](dissertation_execution_plan.md) | Delivery plan | Stages S0–S5, current status, stage exit conditions, and writing dependencies. |
+
+### Current facts
+
+- Primary spine: FNSPID 2011–2023; LSEG is a non-pooled robustness arm.
+- Firm-day panel: 715,546 rows, 570 priced symbols, 3,262 sessions.
+- Frozen split: development through 2019-12-31; evaluation from 2020-01-01.
+- Earnings data: LSEG results calendar gathered locally for the FNSPID cohort; coverage caveats remain.
+- Gate F1 is still open: filtering/distribution EDA comes before selecting the final RQ.
+- VaR/ES, scorer selection, and multi-scorer ensemble search are closed workstreams.
+
+## Tutorials And How-To Guides
+
+| Document | Status | Best for |
+| --- | --- | --- |
+| [Getting started](getting_started.md) | Current | Python 3.12 setup, validation, pilot benchmark, result export, and where final experiments fit. |
+| [Model providers](model_providers.md) | Current | OpenRouter, Cerebras, and local/remote Ollama setup. |
+| [News sourcing](news_sourcing.md) | Current | Tavily and NewsAPI search, extraction, packaging, and troubleshooting. |
+| [LSEG to Ollama pipeline](lseg_ollama_pipeline.md) | Current technical guide | Collecting, cleaning, scoring, and validating licensed Workspace news. |
+| [TUI guide](tui_guide.md) | Current technical guide | Interactive model, prompt, run, results, and news workflows. |
+| [UCL GPU labeling](ucl_gpu_labeling.md) | Operational | Running local-model labeling on the UCL GPU machines. |
+| [UCL GPU SSH handoff](ucl_gpu_ssh_handoff.md) | Operational | Gateway, workstation, and handoff conventions for remote GPU jobs. |
+| [Mid-cap deadline runbook](midcap_deadline_runbook.md) | Historical runbook | The completed July 2026 one-day Reuters collection/scoring extension. Not the current critical path. |
+
+## Technical Reference And Architecture
+
+| Document | Best for |
+| --- | --- |
+| [CLI reference](cli_reference.md) | Every `sentiment-bench` command, option, and default. |
+| [Results and exports](results_and_exports.md) | Databases, run exports, strategy artifacts, and final-experiment output boundaries. |
+| [Dataset card](dataset_card.md) | Clean benchmark identity, provenance, label policy, limitations, and ethics. |
+| [Architecture](architecture.md) | Stable library boundaries plus the notebook-first final-experiments layer. |
+| [Trading pipeline](trading_pipeline.md) | Historical news-to-price pipeline, funded P&L, sweeps, and pluggable strategies. It is reusable infrastructure, not the current research question. |
+| [Historical strategy-research pipeline](strategy_research_pipeline.md) | Separate point-in-time state, portfolio, ledger, tuning, and evaluation path. |
+| [LSEG core analysis workflow](lseg_analysis_workflow.md) | Superseded July 12 cross-model-agreement implementation plan, retained for audit. |
+
+## Frozen Protocols And Result Records
+
+These documents record what was planned or observed at the time. Their claims remain bounded to their own samples and dates.
+
+| Document | Evidence status |
+| --- | --- |
+| [FNSPID tail-risk variant comparison](fnspid_tail_risk_variant_comparison.md) | Verified four-cell factorial; retained result, no new VaR/ES work planned. |
+| [Sentiment signal portfolio](sentiment_signal_portfolio.md) | Exploratory seven-signal combination study; singleton winner indistinguishable from selection luck. |
+| [Sentiment trading baseline](sentiment_trading_baseline.md) | Literature-grounded Reuters FinBERT/VADER comparator and frozen v1/v2 rules. |
+| [Recent-news mid-cap FinBERT protocol](recent_news_midcap_finbert_protocol.md) | Frozen protocol for the 22-stock replay. |
+| [Recent-news mid-cap FinBERT result](recent_news_midcap_finbert_strategy.md) | Positive but inconclusive and concentrated chronological result. |
+| [Recent-news sector-33 FinBERT protocol](recent_news_sector33_finbert_protocol.md) | Frozen robustness protocol. |
+| [Recent-news sector-33 FinBERT result](recent_news_sector33_finbert_result.md) | Failed robustness test; valid null. |
+| [Recent-news sentiment persistence protocol/result](recent_news_sentiment_persistence_protocol.md) | Five-session persistence test; failed at 5/10/20 bps. |
+| [FinBERT strategy search decision note](finbert_strategy_search_20260722.md) | Development-only search record preserving failed alternatives. |
+| [Week 7 receipt-aligned P&L](week7_receipt_aligned_pnl.md) | Supervisor receipt-date accounting view for the accepted mid-cap run. |
+| [Trading pre-registration](trading_preregistration.md) | Filed but parked 2026-07-01; binds only if its forward collection is executed. |
+| [Local Gemma 4 headline-return report](../reports/local_gemma4_headline_return_study.md) | Frozen 2,282-headline comparison; all clustered intervals include zero. |
+| [Full-population FinBERT/VADER report](../reports/week6_finbert_vader_full_population_test.md) | Complete 568,707-headline score comparison and funded evaluation. |
+| [Gemma rerun requirement](../reports/week6_model_comparison_rerun_required.md) | Blocking note: Gemma arm has only 15.12% population coverage. |
+
+## Visual Plans, Dashboards, And Explainers
+
+| Document | Purpose |
+| --- | --- |
+| [Recent-news FinBERT dashboard](recent_news_midcap_finbert_dashboard.html) | Plot-first mid-cap result dashboard. |
+| [Sentiment trading baseline explainer](sentiment_trading_baseline_explainer.html) | Interactive explanation of the accepted historical rule and its limitations. |
+| [Week 6 trade explorer](week6_trade_explorer.md) | How the local execution-to-headline explorer is assembled and interpreted. |
+| [Tavily dataset plan](tavily_dataset_plan.html) | Historical plan for a provenance-first Tavily corpus. |
 
 ## Project At A Glance
 
 ```mermaid
 flowchart TB
-    subgraph Source["Source material"]
-        D["financial_sentiment_v2.csv<br/>labeled benchmark"]
-        N["Tavily + NewsAPI corpora<br/>Data/news/*"]
-        LS["LSEG Workspace corpus<br/>local-only, licensed"]
+    subgraph Stable["Stable library and evidence"]
+        D["financial_sentiment_v2.csv"]
+        CLI["sentiment-bench CLI / TUI"]
+        OLD["Frozen benchmarks, trading studies,<br/>tail-risk studies"]
+        D --> CLI --> OLD
     end
-    subgraph Execution["Execution"]
-        CLI["sentiment-bench CLI"]
-        TUI["sentiment-bench tui"]
-        P["Provider adapter<br/>OpenRouter, Cerebras, or Ollama"]
+    subgraph Final["Current final experiments"]
+        F["FNSPID 2011–2023"]
+        E["LSEG earnings calendar"]
+        P["715,546-row firm-day panel"]
+        W["Filtering + aggregation + surprise<br/>type / earnings / thresholds"]
+        G{"Gate F1<br/>choose final RQ"}
+        F --> P
+        E --> P
+        P --> W --> G
     end
-    subgraph Evidence["Evidence"]
-        DB["SQLite or Turso/libSQL<br/>run history"]
-        E["results/exports/run_&lt;id&gt;/"]
-        TR["results/trading/&lt;run-id&gt;/<br/>+ analysis + sweep"]
-        L23["results/l2 + results/l3<br/>event study + reliability"]
-        M["experiments/manifest.toml"]
+    subgraph Robustness["Non-pooled robustness"]
+        L["LSEG sector-33 + midcap-22"]
     end
-    D --> CLI
-    N --> CLI
-    LS --> CLI
-    D --> TUI
-    CLI --> P
-    TUI --> P
-    CLI --> DB
-    TUI --> DB
-    DB --> E
-    CLI --> TR
-    CLI --> L23
-    E --> M
-    TR --> M
-    L23 --> M
+    OLD --> Final
+    L --> W
+    G --> OUT["Licence-safe figures, tables,<br/>experiment registration, dissertation"]
 ```
 
-## What Is Source-Controlled
-
-Source-controlled files should explain how an experiment was produced. Local generated files hold the heavy or changing evidence.
+## Source-Control Boundary
 
 | Source-controlled | Local/generated |
 | --- | --- |
-| Code under `src/` and tests under `tests/`. | SQLite run database and Turso local replica under `results/`. |
-| `Data/derived/labeled/financial_sentiment_v2.csv` default benchmark dataset. | Export folders under `results/exports/` and trading evidence under `results/trading/`. |
-| `Data/data.csv` legacy Kaggle source dataset. | Tavily corpora and licensed LSEG checkpoints under `Data/news/` or `Data/collections/`. |
-| Prompt and run configs under `configs/`. | Local credentials in `.env`. |
-| Experiment registry `experiments/manifest.toml`. | Temporary or ad hoc derived datasets outside the tracked labeled default. |
+| `src/`, `scripts/`, configs, notebooks, thin final-experiment helpers | Databases, model caches, large panels, fitted models |
+| Clean labeled benchmark and its dataset card | FNSPID archives and licensed LSEG corpora |
+| Protocols, compact manifests, aggregate reports | `final_experiments/outputs/` |
+| `final_experiments/data/earnings/{README.md,license_record.md,.gitignore}` | Earnings CSV/JSON/checkpoints from LSEG |
+| `experiments/manifest.toml` | Unregistered exploratory output directories |
+
+Do not commit licensed headline/body text or earnings payloads. Promote only aggregate, licence-safe figures and tables after the result is accepted.
 
 ## Recommended Reading Order
 
-1. [Getting started](getting_started.md)
-2. [Model providers](model_providers.md)
-3. [CLI reference](cli_reference.md)
-4. [Results and exports](results_and_exports.md)
-5. [Trading pipeline](trading_pipeline.md)
-6. [Research protocol](research_protocol.md)
-7. [Dissertation execution plan](dissertation_execution_plan.md)
-8. [Final experiments plan](../final_experiments/plan.html)
+1. [Main README](../README.md)
+2. [Final experiments README](../final_experiments/README.md)
+3. [Final experiments plan](../final_experiments/plan.html)
+4. [Research protocol](research_protocol.md)
+5. [Dissertation execution plan](dissertation_execution_plan.md)
+6. [Architecture](architecture.md)
+7. [Results and exports](results_and_exports.md)
+8. The frozen result record relevant to the chapter being written

@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-12
 
-> **Implementation status.** Corpus/cohort/scoring/L2 foundations exist, but the refocused workflow is not yet fully executable. Commands explicitly marked **planned** require the implementation tasks in [the execution plan](dissertation_execution_plan.md). The former 147,500-call crossed L2/L3 workflow is retained as an optional extension, not the dissertation critical path.
+> **Historical status (30 July 2026).** This July 12 cross-model-agreement workflow is retained as an implementation record, not the current critical path. Its planned commands were not completed as core evidence. Cross-model agreement remains candidate RQ-D/fallback in the [current protocol](research_protocol.md); live work uses the FNSPID-first [final experiments plan](../final_experiments/plan.html).
 
 ## Objective
 

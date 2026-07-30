@@ -206,6 +206,23 @@ raw scores → [SignalBuilder] → daily signals → [EventSelector] → tradeab
 
 Adding an idea usually means implementing one seam (a `DecisionPolicy`) and calling `register(Strategy(...))`; the sweep, effectiveness battery, and experiment registry then work on it unchanged. A run selects its idea with the config `[strategy]` table (`id`, optional idea params, and `eval_frame`) and records the resolved `strategy_id`/params in `experiments/manifest.toml`; a sweep selects it with `--strategy`. `event_study` preserves the fixed-notional per-event diagnostic, while `cross_sectional` evaluates the same decisions as a funded long/short book configured in `[portfolio]`. Each scorer/horizon owns an independent NAV, and multi-session holdings use rotating sleeves so overlapping cohorts cannot each consume the full capital base. List the registry with `sentiment-bench list-strategies`.
 
+## Final Experiments Layer
+
+The closing `final_experiments/` programme sits **above**, not inside, the stable package:
+
+```text
+local FNSPID/LSEG inputs
+  -> jupytext notebook pair
+  -> thin helper in final_experiments/lib
+  -> ignored final_experiments/outputs/<stage>
+  -> deliberately promoted aggregate figures/tables
+  -> experiments/manifest.toml + dissertation
+```
+
+This separation is intentional. `src/sentiment_benchmark` remains the tested source of reusable scoring, calendar, price, and inference utilities. Final-experiment notebooks own exploratory joins, plots, and decision records. A helper moves into the stable package only after an accepted result needs it as a durable interface.
+
+The current primary panel is FNSPID 2011–2023; LSEG is a non-pooled robustness arm. Licensed earnings/news payloads and large generated panels stay local. See the [final experiments README](../final_experiments/README.md), [live plan](../final_experiments/plan.html), and [current research protocol](research_protocol.md).
+
 ## Trade-Offs
 
 | Choice | Benefit | Cost |

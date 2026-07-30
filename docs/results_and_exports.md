@@ -36,6 +36,8 @@ flowchart LR
 | `results/strategy_research/<run-id>/directional_event_gate/` | `strategy model-only-event-gate` | Aggregate validation-fold direction spreads, subgroup diagnostics, block-bootstrap inference, gate decision, and figure. No article text or event identifiers. | Ignored. |
 | `results/strategy_research/<run-id>/signal_quality_validation/` | `strategy validate-signal-audit` | Human-model agreement metrics, frozen gate checks, and an interpretation-limited validation report. | Ignored. |
 | `results/strategy_research/paper/journal.jsonl` | Future accepted `strategy paper` phase | Prospective-only, append-only hash-chained observation/order/outcome journal; the current command is write-gated. | Ignored. |
+| `final_experiments/data/earnings/` | LSEG Workspace earnings gather | Local licensed FNSPID-cohort results-calendar CSV/JSON files and resumable checkpoints. Only README/licence metadata is tracked. | Payloads ignored. |
+| `final_experiments/outputs/<stage>/` | Final-experiment notebooks/helpers | Generated panels, manifests, attrition tables, diagnostics, figures, and fitted artifacts. May contain licensed-derived data. | Ignored; promote aggregate licence-safe artifacts deliberately. |
 | `experiments/manifest.toml` | Manual curation | Formal dissertation experiment registry. | Source-controlled. |
 
 ## Optional Turso/libSQL Cloud Database

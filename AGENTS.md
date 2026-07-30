@@ -72,15 +72,20 @@ This repository contains code, data, experiments, and supporting artifacts for a
 ## Final Experiments Phase (opened 2026-07-30)
 
 `final_experiments/` holds the consolidated closing work for the dissertation.
-`final_experiments/plan.html` is the live plan and checklist; keep it current as items land.
+Read `final_experiments/README.md` for the notebook/data map and
+`final_experiments/plan.html` for live decisions and checklist status. For scientific
+constraints and stage order, use `docs/research_protocol.md` and
+`docs/dissertation_execution_plan.md`. Dated protocols/results are historical evidence,
+not competing current plans.
 
 ### The research question is not decided
 
-- **Do not hard-code a single RQ** into new code, docs, or dissertation text. Candidate
-  framings are enumerated in `final_experiments/plan.html`. Design each experiment so it
-  can serve more than one candidate, and record which candidate a result speaks to.
-- The "Beyond the Mean" cross-model-agreement RQ in `docs/research_protocol.md` remains
-  the standing default until a replacement is chosen. That is a default, not a decision.
+- **Do not hard-code a single RQ** into new code, docs, or dissertation text. Gate F1
+  follows the filtering/distribution EDA and precedes any evaluation-return comparison.
+  Candidate framings are enumerated in `final_experiments/plan.html`; record which
+  candidate each result speaks to.
+- The "Beyond the Mean" cross-model-agreement RQ remains the standing fallback/default.
+  That is not a decision.
 
 ### Working style: researcher, not production engineer
 
@@ -100,17 +105,22 @@ looser so iteration is fast:
 - Treat `src/sentiment_benchmark` as a library to import from, not a place to extend. New
   helpers belong in `final_experiments/lib/`.
 
-### Workstreams
+### Current state and workstreams
 
-1. **Data consolidation.** One firm-day news panel over a larger universe and a longer
-   window, biased toward high-impact stories. Two candidate spines already exist: FNSPID
-   (2011-2023, 574 coherent firms, ~1.64M deduplicated firm events, CC BY-NC 4.0) for
-   breadth and history, and the LSEG collections (33 + 22 US names, 2025-2026) for
-   recency and Reuters body text. Record which spine each result uses.
+Workstream 1 is complete for the current checkpoint chain: FNSPID 2011-2023 is the
+primary spine; the panel has 715,546 news-bearing firm-days, 570 priced symbols and 3,262
+sessions. LSEG sector-33 + midcap-22 is a non-pooled robustness arm. The chronological
+split is frozen at development through 2019-12-31 and evaluation from 2020-01-01.
+Workstream 2 is next.
+
+1. **Data consolidation (complete).** FNSPID provides breadth/history; LSEG provides
+   recent Reuters metadata/body text for separate robustness. Never pool the source
+   regimes.
 2. **Story filtering and weighting.** Publisher/source weighting, plus rules or a
    classifier separating genuinely new breaking news from repetition/syndication and from
    routine scheduled corporate reporting. Includes exploratory analysis of the daily
-   distribution of scores within a company-day.
+   distribution of scores within a company-day. FNSPID publisher/story-family fields are
+   unavailable on the current checkpoint grain; do not invent proxies.
 3. **Aggregation.** Compare ways of collapsing many stories into one signal: mean of hard
    labels (the current rule), mean continuous score, median, trimmed mean, negative
    share, dispersion, strongest-event selection, attention weighting, decayed state.
@@ -119,8 +129,9 @@ looser so iteration is fast:
    (cross-sectional daily mean and the firm's own trailing baseline).
 5. **Story-type conditioning.** Whether the signal should be scaled by event type, using
    the existing 12-type taxonomy, under an explicitly declared multiplicity family.
-6. **Earnings-date effect.** Needs a scheduled-earnings calendar, which does not exist
-   anywhere under `Data/` today.
+6. **Earnings-date effect.** An LSEG scheduled-results calendar now exists locally under
+   `final_experiments/data/earnings/`; its mapping, title-filter and coverage caveats are
+   binding until validated.
 
 ### Scope notes
 
@@ -133,10 +144,11 @@ looser so iteration is fast:
 
 ### Still binding in this phase
 
-Speed does not relax honesty. Chronological splits frozen before scoring; date-clustered
-or block-bootstrap inference; costs and break-even reported; licensed LSEG/FNSPID text
-kept local and gitignored; nulls reported as results. `final_experiments/outputs/` is
-gitignored - commit figures and tables only when they are aggregate and licence-safe.
+Speed does not relax honesty. Freeze downstream fitting/model selection before opening
+evaluation outcomes; use date-clustered or block-bootstrap inference; report costs and
+break-even where portfolio outcomes appear; keep licensed LSEG/FNSPID text local and
+gitignored; report nulls as results. `final_experiments/outputs/` is gitignored - commit
+figures and tables only when they are aggregate and licence-safe.
 
 ## Command Guidance
 

@@ -2,6 +2,8 @@
 
 Last updated: 2026-07-13
 
+> **Historical status (30 July 2026).** This runbook records a completed July extension. Its accepted and failed results are linked from the [documentation home](README.md); it is not the current critical path.
+
 This is the deadline-bounded exploratory extension requested for completion by
 Wednesday 15 July 2026. It keeps the existing 33-company collection and Week 6
 evidence untouched.

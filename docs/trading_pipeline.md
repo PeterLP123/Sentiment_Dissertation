@@ -4,6 +4,8 @@ Last updated: 2026-07-11
 
 This guide explains the news-to-price trading pipeline end to end: how articles become sentiment scores, how scores become daily signals and trades, how event returns and funded portfolio P&L are computed, and how the analysis, effectiveness battery, parameter sweep, and pluggable strategy layer fit together.
 
+> **Closing-phase status (30 July 2026).** This is reusable historical infrastructure, not the active dissertation design. The current work asks how to filter and aggregate firm-day news in [`final_experiments/`](../final_experiments/README.md); it imports stable utilities here without treating another backtest as the research objective.
+
 > **Interpretation limit.** Everything here is research infrastructure for the dissertation's L1 layer, not a live-order system or investment advice. Company-day events overlap and are treated as independent by the statistics, so all p-values are optimistic *screening diagnostics* — a confirmatory claim requires a plan filed before its data, e.g. the (currently parked) [Trading pre-registration](trading_preregistration.md).
 
 ## The Pipeline At A Glance
@@ -279,4 +281,4 @@ flowchart LR
     E --> D["dissertation chapters<br/>cite run ids + hashes"]
 ```
 
-Related reading: [Trading pre-registration](trading_preregistration.md) (the filed, currently parked confirmatory test), [Research protocol](research_protocol.md) (L1–L4 design), [Results and exports](results_and_exports.md) (artifact schemas), [Architecture](architecture.md) (module boundaries).
+Related reading: [Trading pre-registration](trading_preregistration.md) (filed but parked; binds only if its forward collection is executed), [Research protocol](research_protocol.md) (current closing-phase guardrails), [Results and exports](results_and_exports.md) (artifact schemas), [Architecture](architecture.md) (module boundaries).
