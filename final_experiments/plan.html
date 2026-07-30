@@ -535,8 +535,8 @@
         <span>Candidate research questions. One gets chosen at Gate F1, after the panel and first EDA.</span>
       </div>
       <div class="metric-card">
-        <strong>1</strong>
-        <span>Dataset genuinely missing from the repo: a scheduled-earnings calendar.</span>
+        <strong>2</strong>
+        <span>Cheap blockers still open: sector table and human audit labels. Earnings calendar gathered for FNSPID via LSEG.</span>
       </div>
     </div>
 
@@ -826,8 +826,9 @@
         </p>
       </div>
       <ul class="checklist" data-ck="w1">
+        <li data-done="true"><label>Inventory and quality notebook: <code>final_experiments/00_data_inventory</code> (jupytext-paired). Archives size-matched on disk; earnings calendar gathered for FNSPID via LSEG. Remaining must-gather: sector table, human audit labels. Wider LSEG only if Spine B is primary.</label></li>
         <li><label>Decide the primary spine (FNSPID vs LSEG) and write the one-paragraph justification into this plan.</label></li>
-        <li><label>Restore or re-download the FNSPID archives and re-verify the recorded upstream hashes (<code>All_external.csv</code> 5.73 GB, <code>nasdaq_exteral_data.csv</code> 23.2 GB, <code>full_history.zip</code> 589 MB).</label></li>
+        <li data-done="true"><label>Restore or re-download the FNSPID archives (present and byte-size matched to <code>download_manifest.json</code>). Still open: re-verify upstream SHA-256 before promoting Spine A results (<code>All_external.csv</code> 5.73 GB, <code>nasdaq_exteral_data.csv</code> 23.2 GB, <code>full_history.zip</code> 589 MB).</label></li>
         <li><label>Build <code>final_experiments/lib/panel.py</code>: one firm-day panel joining news, adjusted-open prices, the market benchmark, and the earnings calendar on <code>(symbol, session_date)</code>.</label></li>
         <li><label>Carry these columns through unchanged: publisher/source identity, story timestamp, <code>story_family_id</code>, <code>headline_sha256</code>, matched symbols, event type, and headline vs body flag.</label></li>
         <li><label>Populate <code>availability_timestamp</code> - it exists in the schema but is empty in every current <code>daily_signals.csv</code>, so point-in-time gating is currently unverifiable.</label></li>
@@ -1053,20 +1054,18 @@
         sentiment behaves differently around earnings.
       </p>
       <div class="warning callout">
-        <h3>This one needs new data</h3>
+        <h3>FNSPID calendar is in; validation still open</h3>
         <p>
-          There is no earnings-date or earnings-calendar data anywhere under
-          <code>Data/</code> - a search for <code>earnings_date</code>,
-          <code>earnings_calendar</code>, <code>report_date</code> and
-          <code>fiscal_period</code> returns nothing. The only trace of earnings is a regex
-          label, <code>event_type = earnings_guidance</code>. This is the single genuinely
-          missing dataset in the plan, and it must be license-recorded like every other
-          source.
+          LSEG Workspace supplied a 2011–2023 RES calendar for the 574-symbol FNSPID
+          coherent cohort under <code>final_experiments/data/earnings/</code> (licensed,
+          gitignored). Use the quarterly file for Workstream 6. Still to do: validate
+          against <code>earnings_guidance</code> headlines, define pre/event/post windows,
+          and optionally extend coverage to LSEG-only names.
         </p>
       </div>
       <ul class="checklist" data-ck="w6">
-        <li><label>Choose an earnings-calendar source and record its licence, access date, and any redistribution limit. <code>yfinance</code> is already a dependency and exposes report dates; a vendor calendar would be more reliable but needs a licence note.</label></li>
-        <li><label>Required fields: report date, before/after market close flag, fiscal period, and - if available - actual versus consensus EPS.</label></li>
+        <li data-done="true"><label>Choose an earnings-calendar source and record its licence, access date, and any redistribution limit. Done for FNSPID via LSEG Workspace (<code>final_experiments/data/earnings/license_record.md</code>); yfinance held as fallback only.</label></li>
+        <li data-done="true"><label>Required fields for FNSPID gather: report date, BMO/AMC timing flag (from <code>TR.EventStartTime</code>), fiscal period parsed from title, event status. EPS actual/consensus not pulled yet.</label></li>
         <li><label>Validate the calendar against the news panel: do <code>earnings_guidance</code> headlines actually cluster on the recorded report dates? Report the hit rate.</label></li>
         <li><label>Add <code>sessions_to_earnings</code> to the panel and define the pre-earnings, earnings, and post-earnings windows explicitly.</label></li>
         <li><label>Test the earnings interaction: is the sentiment-return relationship different inside the earnings window than outside it?</label></li>
@@ -1135,8 +1134,8 @@
         <tbody>
           <tr>
             <td>Scheduled earnings calendar</td>
-            <td><strong>Missing entirely.</strong> No earnings-date data anywhere under <code>Data/</code>.</td>
-            <td>Source, license-record, validate against the news panel. Blocks Workstream 6.</td>
+            <td><strong>FNSPID cohort gathered via LSEG</strong> (2011–2023): 22,883 quarterly rows / 490 symbols under <code>final_experiments/data/earnings/</code> (gitignored; see <code>license_record.md</code>). LSEG names still outstanding.</td>
+            <td>Validate against <code>earnings_guidance</code> headlines. Optionally extend to LSEG universes. yfinance only if LSEG gaps need filling.</td>
           </tr>
           <tr>
             <td>FNSPID archives</td>
@@ -1182,6 +1181,7 @@
         <li><label><code>final_experiments/lib/thresholds.py</code> - fixed band, logistic, gradient-boosted, and small MLP gates behind one interface.</label></li>
         <li><label><code>final_experiments/lib/evaluate.py</code> - one evaluation harness: chronological split, date-clustered errors, block bootstrap, Benjamini-Hochberg, turnover and break-even. Everything routes through it so arms are comparable.</label></li>
         <li><label><code>final_experiments/lib/plots.py</code> - the handful of recurring figures. Reuse <code>plotting.py</code> and <code>trading_plots.py</code> rather than reinventing them.</label></li>
+        <li data-done="true"><label><code>00_data_inventory</code> — coverage, quality, and need-more decision support (landed 2026-07-30).</label></li>
         <li><label>Notebooks, one per workstream, jupytext-paired: <code>01_panel</code>, <code>02_filters_and_distribution</code>, <code>03_aggregation</code>, <code>04_surprise</code>, <code>05_story_type</code>, <code>06_earnings</code>, <code>07_thresholds</code>.</label></li>
         <li><label>Tests: only for <code>panel.py</code> joins and <code>evaluate.py</code> split/inference logic, where a silent error corrupts everything downstream. Nothing else.</label></li>
       </ul>
@@ -1413,7 +1413,9 @@
           var box = document.createElement("input");
           box.type = "checkbox";
           box.id = id;
-          box.checked = state[id] === true;
+          box.checked =
+            state[id] === true ||
+            (state[id] === undefined && item.getAttribute("data-done") === "true");
           label.setAttribute("for", id);
           item.insertBefore(box, label);
           box.addEventListener("change", function () {

@@ -1,0 +1,5 @@
+# Licensed LSEG-derived calendar artifacts stay local.
+# Provenance notes may be committed.
+earnings/*.csv
+earnings/*.json
+earnings/checkpoints/
