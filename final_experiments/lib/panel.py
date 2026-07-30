@@ -39,9 +39,12 @@ DEFAULT_EARNINGS = (
 )
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "final_experiments" / "outputs" / "01_panel"
 
-# Proposed chronological freeze (recorded, not used for any fit in S1).
-PROPOSED_DEV_END = "2019-12-31"
-PROPOSED_EVAL_START = "2020-01-01"
+# Frozen chronological split (plan.html, 2026-07-30). Do not fit on evaluation.
+FROZEN_DEV_END = "2019-12-31"
+FROZEN_EVAL_START = "2020-01-01"
+# Back-compat aliases for any early callers.
+PROPOSED_DEV_END = FROZEN_DEV_END
+PROPOSED_EVAL_START = FROZEN_EVAL_START
 
 
 @dataclass(frozen=True)
@@ -361,11 +364,11 @@ def build_fnspid_firm_day_panel(
     panel = attach_open_returns(panel)
     _step("firm_days_final", len(panel))
 
-    # Chronological split labels (no fitting).
+    # Chronological split labels (frozen; no fitting on evaluation).
     panel["split"] = np.where(
-        panel["session_date"] <= pd.Timestamp(PROPOSED_DEV_END),
+        panel["session_date"] <= pd.Timestamp(FROZEN_DEV_END),
         "development",
-        np.where(panel["session_date"] >= pd.Timestamp(PROPOSED_EVAL_START), "evaluation", "gap"),
+        np.where(panel["session_date"] >= pd.Timestamp(FROZEN_EVAL_START), "evaluation", "gap"),
     )
 
     attrition = pd.DataFrame(attrition_rows)
@@ -393,10 +396,24 @@ def build_fnspid_firm_day_panel(
             "ar_open_h1": "ret_open_h1 - spy_ret_open_h1",
             "price_convention": "split-adjusted open via open*(adj_close/close); not dividend-adjusted",
         },
+        "primary_spine": {
+            "name": "FNSPID",
+            "cohort": "2011-2023 coherent",
+            "decided": "2026-07-30",
+            "lseg_role": "out-of-regime robustness only; never pooled",
+        },
+        "frozen_chronological_split": {
+            "development_end": FROZEN_DEV_END,
+            "evaluation_start": FROZEN_EVAL_START,
+            "status": "frozen_2026-07-30",
+            "language": "chronological evaluation block — not a pristine confirmatory holdout",
+            "rule": "no fitting, threshold search, aggregator selection, or multiplicity peeking on evaluation",
+        },
+        # Alias retained so older notebook cells keep working until re-synced.
         "proposed_chronological_split": {
-            "development_end": PROPOSED_DEV_END,
-            "evaluation_start": PROPOSED_EVAL_START,
-            "status": "proposed_not_frozen_for_scoring — record before any confirmatory fit",
+            "development_end": FROZEN_DEV_END,
+            "evaluation_start": FROZEN_EVAL_START,
+            "status": "frozen_2026-07-30",
         },
         "missing_price_symbols": missing_prices,
         "n_rows": int(len(panel)),

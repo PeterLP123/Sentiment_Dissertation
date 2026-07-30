@@ -97,7 +97,8 @@ display(pd.Series({k: meta[k] for k in (
     "n_sessions",
     "earnings_session_share",
     "missing_price_symbols",
-    "proposed_chronological_split",
+    "primary_spine",
+    "frozen_chronological_split",
 )}, name="manifest_highlights"))
 
 # %% [markdown]
@@ -202,8 +203,8 @@ fig.savefig(OUTPUT_DIR / "earnings_session_share.png", dpi=140)
 plt.show()
 
 display(panel["split"].value_counts().rename("firm_days").to_frame())
-print("Proposed split is labelled only — not frozen for confirmatory scoring yet.")
-print(json.dumps(meta["proposed_chronological_split"], indent=2))
+print("Chronological split frozen 2026-07-30 (chronological evaluation block).")
+print(json.dumps(meta["frozen_chronological_split"], indent=2))
 
 # %% [markdown]
 # ## 5. Schema and caveats
@@ -233,5 +234,5 @@ for key, path in written.items():
 # 3. **Prices** are split-adjusted opens, not dividend-adjusted.
 # 4. **Selection:** rows require news and a price — collider risk for later
 #    inference.
-# 5. **Chronological split** is proposed (`dev≤2019`, `eval≥2020`) but not yet
-#    frozen in the plan for confirmatory scoring.
+# 5. **Chronological split** is frozen (`dev≤2019-12-31`, `eval≥2020-01-01`);
+#    call it a chronological evaluation block, not a pristine holdout.

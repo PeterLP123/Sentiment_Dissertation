@@ -659,13 +659,13 @@
           </p>
         </div>
         <div class="warning callout">
-          <h3>Calendar conflict to resolve</h3>
+          <h3>Dissertation calendar still open</h3>
           <p>
+            Distinct from the FNSPID chronological evaluation boundary (frozen below):
             <code>docs/research_protocol.md</code> sets a 31 July artifact freeze and
             <code>docs/dissertation_execution_plan.md</code> runs its critical path to
-            8 August. This plan is opened on 30 July. Either those dates move, or this
-            phase must be scoped to the subset that fits. Decide this before Gate F1, not
-            after.
+            8 August. This plan opened on 30 July. Either those writing deadlines move, or
+            this phase is scoped to what fits. Decide before Gate F1, not after.
           </p>
         </div>
       </div>
@@ -825,18 +825,52 @@
           the other as an out-of-regime robustness arm. Do not average across them.
         </p>
       </div>
+      <div class="mini-card blue" style="margin-top: 14px;">
+        <h3>Decision (2026-07-30): primary spine = FNSPID (Spine A)</h3>
+        <p>
+          Primary results use the FNSPID 2011–2023 coherent cohort and the S1 firm-day
+          panel under Gate-1 revised next-session timing. That choice is forced by cluster
+          count and window length: Workstream 3–4 and any learned threshold need thousands
+          of evaluation dates and a development block long enough to fit without peeking,
+          which the ~85-session LSEG windows cannot supply. Date-only stamps are acceptable
+          for the declared next-open estimands; they are not a substitute for
+          timestamp-verified availability. LSEG remains an out-of-regime robustness arm for
+          timing, publisher identity, and Reuters bodies — never pooled with FNSPID, and not
+          expanded (no wider all-source sector-33 fetch) unless a result specifically requires
+          Spine B. Missing on the primary spine and therefore out of primary claims until
+          fixed: publisher / story-family columns, point-in-time <code>availability_timestamp</code>,
+          and a sector table.
+        </p>
+      </div>
+      <div class="mini-card green" style="margin-top: 14px;">
+        <h3>Frozen chronological split (2026-07-30)</h3>
+        <p>
+          On the FNSPID primary panel, <strong>development</strong> is every firm-day with
+          <code>session_date &le; 2019-12-31</code>; <strong>evaluation</strong> (chronological
+          evaluation block) is every firm-day with <code>session_date &ge; 2020-01-01</code>.
+          There is no gap day. The cut is a calendar-year boundary chosen before confirmatory
+          scoring: it leaves ~nine years for development fits and puts 2020–2023, including
+          the COVID regime, in evaluation as a stress block rather than a fitting window.
+          This is not a pristine confirmatory holdout — both spines already influenced design —
+          so reports must use the standing phrase “chronological evaluation block.” No fitting,
+          threshold search, aggregator selection, or multiplicity peeking on evaluation rows.
+          Recorded in <code>final_experiments/lib/panel.py</code> as
+          <code>FROZEN_DEV_END</code> / <code>FROZEN_EVAL_START</code>.
+        </p>
+      </div>
       <ul class="checklist" data-ck="w1">
         <li data-done="true"><label>Inventory and quality notebook: <code>final_experiments/00_data_inventory</code> (jupytext-paired). Archives size-matched on disk; earnings calendar gathered for FNSPID via LSEG. Remaining must-gather: sector table, human audit labels. Wider LSEG only if Spine B is primary.</label></li>
-        <li><label>Decide the primary spine (FNSPID vs LSEG) and write the one-paragraph justification into this plan.</label></li>
+        <li data-done="true"><label>Decide the primary spine (FNSPID vs LSEG) and write the one-paragraph justification into this plan. Done 2026-07-30: FNSPID primary; LSEG robustness only — see decision card above.</label></li>
         <li data-done="true"><label>Restore or re-download the FNSPID archives (present and byte-size matched to <code>download_manifest.json</code>). Still open: re-verify upstream SHA-256 before promoting Spine A results (<code>All_external.csv</code> 5.73 GB, <code>nasdaq_exteral_data.csv</code> 23.2 GB, <code>full_history.zip</code> 589 MB).</label></li>
         <li data-done="true"><label>Build <code>final_experiments/lib/panel.py</code>: one firm-day panel joining news, adjusted-open prices, the market benchmark, and the earnings calendar on <code>(symbol, session_date)</code>. FNSPID S1 panel: 715,546 rows / 570 symbols under <code>outputs/01_panel/</code>.</label></li>
         <li data-done="true"><label>Carry available FNSPID columns: scores, article/recap counts, timing policy note. <code>publisher</code>, <code>story_family_id</code>, and <code>availability_timestamp</code> remain null on the checkpoint grain (documented in the panel manifest).</label></li>
         <li data-done="true"><label>Populate <code>availability_timestamp</code> - it exists in the schema but is empty in every current <code>daily_signals.csv</code>, so point-in-time gating is currently unverifiable. FNSPID panel records the same limitation explicitly.</label></li>
         <li data-done="true"><label>Apply the frozen timing rule explicitly for FNSPID: Gate-1 revised next-session mapping inherited from the FinBERT checkpoint (date-only → first XNYS session strictly after). Earnings use BMO=same / AMC=next. LSEG +15 min open rule remains for Spine B.</label></li>
-        <li><label>Freeze the chronological development/evaluation boundary and record it before any scoring runs. Panel labels a <em>proposed</em> split (dev ≤ 2019-12-31, eval ≥ 2020-01-01) — not yet written into this plan as frozen.</label></li>
+        <li data-done="true"><label>Freeze the chronological development/evaluation boundary and record it before any scoring runs. Frozen 2026-07-30: development ≤ 2019-12-31, evaluation ≥ 2020-01-01 (see card above).</label></li>
         <li data-done="true"><label>Write an attrition table for the panel: rows in, rows lost per screen, rows out, and coverage by firm and month (<code>outputs/01_panel/attrition.csv</code>).</label></li>
         <li data-done="true"><label>Plot coverage: headlines per firm-month, firms per session, and firm-day n bins (<code>01_panel</code> notebook). Monthly &gt;3× article-count breaks on the executable panel: 0 (source-regime breaks remain in Gate-1 site-level diagnostics).</label></li>
-        <li><label>If extending the LSEG universe: draft a config with a Reuters-only <code>story_source_allowlist</code> and size the request budget against the 5/sec and 10,000/day limits. Sector-33 already left 3,877 target stories unfetched and hit HTTP 429 eight times.</label></li>
+        <li><label>If extending the LSEG universe: draft a config with a Reuters-only <code>story_source_allowlist</code> and size the request budget against the 5/sec and 10,000/day limits. Sector-33 already left 3,875 target stories unfetched and hit HTTP 429 eight times. Deferred — Spine B is robustness only.</label></li>
+      </ul>
       </ul>
     </section>
 
@@ -1219,8 +1253,8 @@
         <tbody>
           <tr>
             <td><strong>S0</strong> Decide</td>
-            <td>Pick the primary spine. Resolve the freeze-date conflict. Set the evaluation boundary.</td>
-            <td>Spine, boundary and calendar written into this plan.</td>
+            <td>Primary spine = FNSPID (2026-07-30). Chronological boundary frozen: development ≤ 2019-12-31, evaluation ≥ 2020-01-01. Dissertation writing-calendar conflict (31 Jul / 8 Aug) still open.</td>
+            <td>Spine and data boundary written into this plan. Writing-calendar decision still required before Gate F1.</td>
           </tr>
           <tr>
             <td><strong>S1</strong> Panel</td>
