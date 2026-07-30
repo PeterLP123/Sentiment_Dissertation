@@ -1,0 +1,1444 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Final Experiments Plan - Sentiment Dissertation</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172033;
+      --muted: #5d6b82;
+      --soft: #eef3f8;
+      --line: #d9e2ec;
+      --panel: #ffffff;
+      --accent: #0f766e;
+      --accent-strong: #115e59;
+      --blue: #1d4ed8;
+      --amber: #a16207;
+      --rose: #be123c;
+      --green-soft: #e7f5ef;
+      --blue-soft: #e9f0ff;
+      --amber-soft: #fff7df;
+      --rose-soft: #fff1f2;
+      --shadow: 0 18px 45px rgba(23, 32, 51, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: #f7fafc;
+      font: 16px/1.55 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    a {
+      color: var(--blue);
+    }
+
+    .hero {
+      background:
+        linear-gradient(115deg, rgba(15, 118, 110, 0.95), rgba(29, 78, 216, 0.86)),
+        url("../docs/assets/research-workflow.svg");
+      background-size: cover;
+      background-position: center;
+      color: white;
+      padding: 56px 24px 42px;
+    }
+
+    .hero-inner,
+    .main {
+      width: min(1180px, calc(100vw - 48px));
+      margin: 0 auto;
+    }
+
+    .eyebrow {
+      margin: 0 0 12px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      opacity: 0.9;
+    }
+
+    h1 {
+      max-width: 850px;
+      margin: 0;
+      font-size: clamp(2.15rem, 5vw, 4.35rem);
+      line-height: 0.98;
+      letter-spacing: 0;
+    }
+
+    .hero p {
+      max-width: 820px;
+      margin: 20px 0 0;
+      font-size: 1.08rem;
+      color: rgba(255, 255, 255, 0.92);
+    }
+
+    .meta-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 28px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 6px 11px;
+      border: 1px solid rgba(255, 255, 255, 0.34);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      color: white;
+      font-size: 0.88rem;
+      font-weight: 650;
+      backdrop-filter: blur(10px);
+    }
+
+    .main {
+      padding: 28px 0 56px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin: -52px 0 26px;
+    }
+
+    .metric-card {
+      min-height: 142px;
+      padding: 18px;
+      border: 1px solid rgba(217, 226, 236, 0.9);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .metric-card strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--accent-strong);
+      font-size: 1.85rem;
+      line-height: 1;
+    }
+
+    .metric-card span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.94rem;
+    }
+
+    section {
+      margin: 28px 0;
+      padding: 26px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: 0 6px 18px rgba(23, 32, 51, 0.04);
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 1.45rem;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 18px 0 8px;
+      font-size: 1.03rem;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    h3:first-child {
+      margin-top: 0;
+    }
+
+    p {
+      margin: 0 0 14px;
+      color: var(--muted);
+    }
+
+    p:last-child {
+      margin-bottom: 0;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .callout {
+      padding: 16px;
+      border-left: 4px solid var(--accent);
+      border-radius: 6px;
+      background: var(--green-soft);
+    }
+
+    .warning {
+      border-left-color: var(--amber);
+      background: var(--amber-soft);
+    }
+
+    .risk {
+      border-left-color: var(--rose);
+      background: var(--rose-soft);
+    }
+
+    .callout p,
+    .callout li {
+      color: #274237;
+    }
+
+    .warning p,
+    .warning li {
+      color: #5d420c;
+    }
+
+    .risk p,
+    .risk li {
+      color: #6f1d2d;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .flow-step {
+      position: relative;
+      min-height: 150px;
+      padding: 16px 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfdff;
+    }
+
+    .flow-step::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      right: -10px;
+      width: 10px;
+      height: 2px;
+      background: var(--line);
+    }
+
+    .flow-step:last-child::after {
+      display: none;
+    }
+
+    .step-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      margin-bottom: 10px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: white;
+      font-weight: 800;
+      font-size: 0.82rem;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .mini-card {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfdff;
+    }
+
+    .mini-card.blue {
+      background: var(--blue-soft);
+    }
+
+    .mini-card.green {
+      background: var(--green-soft);
+    }
+
+    .mini-card.amber {
+      background: var(--amber-soft);
+    }
+
+    ul,
+    ol {
+      margin: 8px 0 0;
+      padding-left: 20px;
+      color: var(--muted);
+    }
+
+    li {
+      margin: 6px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 14px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+    }
+
+    th,
+    td {
+      padding: 12px 13px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      font-size: 0.95rem;
+    }
+
+    th {
+      background: #edf5f4;
+      color: #123733;
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    code {
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: #eef2f7;
+      color: #243042;
+      font-size: 0.9em;
+    }
+
+    .workstream-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--accent-strong);
+      font-size: 0.74rem;
+      font-weight: 750;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .tag.blue {
+      background: var(--blue-soft);
+      color: #1e3a8a;
+    }
+
+    .tag.amber {
+      background: var(--amber-soft);
+      color: #78350f;
+    }
+
+    .tag.rose {
+      background: var(--rose-soft);
+      color: #881337;
+    }
+
+    .checklist {
+      margin: 10px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .checklist li {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      margin: 0;
+      padding: 9px 12px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fbfdff;
+      color: var(--ink);
+      font-size: 0.95rem;
+    }
+
+    .checklist li + li {
+      margin-top: 6px;
+    }
+
+    .checklist input[type="checkbox"] {
+      flex: 0 0 auto;
+      width: 17px;
+      height: 17px;
+      margin: 2px 0 0;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .checklist label {
+      cursor: pointer;
+    }
+
+    .checklist li.done {
+      background: var(--green-soft);
+      border-color: #bfe0d2;
+    }
+
+    .checklist li.done label {
+      color: #40584b;
+      text-decoration: line-through;
+    }
+
+    .progress {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .progress-track {
+      flex: 1;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--soft);
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 999px;
+      background: var(--accent);
+      transition: width 0.2s ease;
+    }
+
+    .reset-button {
+      padding: 6px 12px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: white;
+      color: var(--muted);
+      font: inherit;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+
+    .footer {
+      margin-top: 28px;
+      color: var(--muted);
+      font-size: 0.93rem;
+    }
+
+    @media (max-width: 980px) {
+      .summary-grid,
+      .grid-3 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .flow {
+        grid-template-columns: 1fr;
+      }
+
+      .flow-step::after {
+        display: none;
+      }
+
+      .two-col,
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .hero {
+        padding: 42px 18px 38px;
+      }
+
+      .hero-inner,
+      .main {
+        width: min(100vw - 28px, 1180px);
+      }
+
+      .summary-grid {
+        grid-template-columns: 1fr;
+        margin-top: -38px;
+      }
+
+      section {
+        padding: 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <p class="eyebrow">Sentiment Dissertation - Closing Phase Planning Artifact</p>
+      <h1>Final Experiments Plan</h1>
+      <p>
+        A consolidated final push. One clean news panel over a wider universe and a longer
+        window, a defensible filter for which stories deserve weight, an honest comparison
+        of aggregation rules, and a properly controlled retry of the sentiment-surprise
+        idea. Written to work like research, not like a production system.
+      </p>
+      <div class="meta-strip" aria-label="Plan metadata">
+        <span class="pill">Prepared: 2026-07-30</span>
+        <span class="pill">Folder: final_experiments/</span>
+        <span class="pill">Final RQ: not yet decided</span>
+        <span class="pill">Mode: notebooks, plots, fewer tests</span>
+        <span class="pill">VaR / ES: de-prioritised</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="summary-grid" aria-label="Plan summary">
+      <div class="metric-card">
+        <strong>6</strong>
+        <span>Workstreams, from data consolidation through to the earnings-date effect.</span>
+      </div>
+      <div class="metric-card">
+        <strong id="metric-items">-</strong>
+        <span>Checklist items across build, gather, and experiment tasks.</span>
+      </div>
+      <div class="metric-card">
+        <strong>5</strong>
+        <span>Candidate research questions. One gets chosen at Gate F1, after the panel and first EDA.</span>
+      </div>
+      <div class="metric-card">
+        <strong>1</strong>
+        <span>Dataset genuinely missing from the repo: a scheduled-earnings calendar.</span>
+      </div>
+    </div>
+
+    <section>
+      <h2>What This Phase Is</h2>
+      <div class="two-col">
+        <div>
+          <p>
+            The repository already contains a hardened pipeline, nine registered
+            experiments, four frozen tail-risk cells, and a long trail of honest nulls.
+            What it does not contain is a single clean body of work that answers one
+            question well. This phase builds that.
+          </p>
+          <p>
+            The strategy is deliberately narrow: <strong>fix the measurement, not the
+            trading rule</strong>. Every trading result so far has failed or been
+            inconclusive, and the diagnostics point at the same culprit each time - the
+            signal is a mean of tone over a badly filtered set of stories, computed on a
+            company-day grain that is unstable. So the final work concentrates on how
+            stories are selected, weighted, and combined, and treats the portfolio layer
+            as a downstream sanity check rather than the object of study.
+          </p>
+          <p>
+            The output is notebooks, figures and tables that a reader can follow, not
+            another CLI surface.
+          </p>
+        </div>
+        <div class="callout">
+          <h3>Core rule for this phase</h3>
+          <p>
+            Aggregate across <em>stories</em>, not across <em>scorers</em>. The
+            signal-portfolio study already showed that combining scorers monotonically
+            destroys Sharpe here (1.274 at k=1 down to 0.630 at k=7), and that the winner
+            is indistinguishable from selection luck. FinBERT is the scorer. The open
+            question is what to do with the many stories it scores.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Already Settled - Do Not Re-Run</h2>
+      <p>
+        These are recorded results in this repository. They constrain the plan, and citing
+        them is cheaper than repeating them.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Finding</th>
+            <th>Evidence</th>
+            <th>Consequence for this plan</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>FinBERT is the competent scorer</td>
+            <td>Accuracy 0.811 [0.801, 0.820], macro-F1 0.806 on <code>financial_sentiment_v2.csv</code> (5,947 rows). Cerebras <code>gemma-4-31b</code> 0.800; local <code>gemma4:12b</code> 0.811; VADER 0.519; majority 0.485.</td>
+            <td>Use pinned FinBERT as the primary scorer. No new model bake-off.</td>
+          </tr>
+          <tr>
+            <td>VADER share-argmax collapses on Reuters headlines</td>
+            <td>Label counts 11 negative / 4,758 neutral / 21 positive; firm-session actions 9 short / 1,655 flat / 20 long.</td>
+            <td>If VADER appears at all, use canonical compound with the +/-0.05 band, as a lexicon comparator only.</td>
+          </tr>
+          <tr>
+            <td>Combining scorers does not help</td>
+            <td>All 127 subsets enumerated; Sharpe monotonically decreasing in subset size; only add/drop-stable subset is the singleton; 52.2% of demeaned block-bootstrap replications match or beat the winner (gross), 89.5% net.</td>
+            <td>No ensembles. Aggregation work targets stories within a company-day.</td>
+          </tr>
+          <tr>
+            <td>Company-day aggregates are fragile</td>
+            <td>Going from an 85,961-headline subset to the full 568,707 barely moved the headline-level score distribution but changed daily company scores materially (correlation 0.664 FinBERT / 0.663 VADER); median scored headlines per company-day rose 11 to 76.</td>
+            <td>This is the strongest argument that aggregation (Workstream 3) is the highest-value theme.</td>
+          </tr>
+          <tr>
+            <td>Sentiment surprise lost to sentiment level</td>
+            <td>Out-of-sample R-squared: level +0.003411, Kalman surprise -0.005515, naive delta -0.005577. Surprise beside level t = -0.84 against a declared |t| &gt; 2 gate. Only 28 evaluation date clusters. NO-GO recorded 2026-07-17.</td>
+            <td>Workstream 4 is a retry with orders of magnitude more clusters and a proper demeaning stack, or it is dropped. It must not silently repeat the same design.</td>
+          </tr>
+          <tr>
+            <td>Text moves the second moment, not the first</td>
+            <td><code>finbert_negative_share</code> on next-session |AR| coefficient +0.00084313, t = 5.19, BH q = 1.35e-06; <code>finbert_mean</code> on the tail LPM -0.00621, q = 0.0165. Delta R-squared ~1.5e-04.</td>
+            <td>Negative share is a mandatory aggregator to test in Workstream 3. It is the one text feature with a strong, corrected signal anywhere in this repo.</td>
+          </tr>
+          <tr>
+            <td>Tail risk (VaR / ES) is closed</td>
+            <td>Paired FZ0, 561 firms, 958,461 evaluation rows: news arrival M1-M0 = -0.00972 [-0.01775, -0.00386], 100% of replicates below zero. Semantics M2-M1 = -0.000307, only 60.1% below zero - a valid null.</td>
+            <td>Cite as a finished chapter. No new VaR / ES work in this phase.</td>
+          </tr>
+          <tr>
+            <td>Breadth without a holding rule destroys net returns</td>
+            <td>33-stock robustness run: development net -9.159% (Sharpe -2.491), evaluation -5.035% (-3.682), turnover 405.6x annualised, break-even 3.31 / -0.53 bps per side.</td>
+            <td>Any wider-universe result must report turnover and break-even cost alongside return, and must vary the holding rule.</td>
+          </tr>
+          <tr>
+            <td>Relevance is the largest data defect</td>
+            <td>Seed-42 stratified audit of 100 records: only 41 headlines named the target company; 31 were associated with multiple configured companies; 6.13% of bodies still carried Reuters contact blocks.</td>
+            <td>Workstream 2 is load-bearing, not cosmetic. Filter precision needs a labelled audit sample before any signal claim.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>The Research Question Is Still Open</h2>
+      <div class="two-col">
+        <div>
+          <p>
+            The final RQ has not been chosen. That is deliberate: the choice should follow
+            the data panel and the first exploratory pass, not precede them. Until then,
+            the "Beyond the Mean" cross-model-agreement question in
+            <code>docs/research_protocol.md</code> remains the standing default, and no new
+            code or dissertation text should assume a single framing.
+          </p>
+          <p>
+            <strong>Gate F1</strong> is the decision point: after Workstream 1 is built and
+            Workstream 2's exploratory analysis is read, pick one primary RQ and at most one
+            secondary. Record the choice, the date, and what was known at the time.
+          </p>
+        </div>
+        <div class="warning callout">
+          <h3>Calendar conflict to resolve</h3>
+          <p>
+            <code>docs/research_protocol.md</code> sets a 31 July artifact freeze and
+            <code>docs/dissertation_execution_plan.md</code> runs its critical path to
+            8 August. This plan is opened on 30 July. Either those dates move, or this
+            phase must be scoped to the subset that fits. Decide this before Gate F1, not
+            after.
+          </p>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Candidate</th>
+            <th>Question</th>
+            <th>Feeds on</th>
+            <th>Standing</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>RQ-A</strong> Aggregation</td>
+            <td>How should many same-day stories be aggregated into one firm-day sentiment signal, and does a distribution-aware aggregator carry information about post-news abnormal returns beyond the mean?</td>
+            <td>W1, W2, W3</td>
+            <td>Strongest fit. Largest sample, cleanest estimand, and the repo already shows the mean is unstable and that negative share works where the mean does not.</td>
+          </tr>
+          <tr>
+            <td><strong>RQ-B</strong> Filtering</td>
+            <td>Does conditioning on story novelty and publisher identity improve the return-relevance of news sentiment?</td>
+            <td>W1, W2, W5</td>
+            <td>Good fit, and directly addresses the 41/100 relevance defect. Risk: novelty labels are model-generated, not human ground truth.</td>
+          </tr>
+          <tr>
+            <td><strong>RQ-C</strong> Surprise</td>
+            <td>Is firm-level sentiment surprise, net of the market return and of the general sentiment level, informative beyond the sentiment level itself?</td>
+            <td>W1, W4</td>
+            <td>Already has one recorded NO-GO. Only viable with a much larger sample and a materially different design; must disclose the prior attempt.</td>
+          </tr>
+          <tr>
+            <td><strong>RQ-D</strong> Agreement</td>
+            <td>Does cross-model agreement, benchmarked against graded human annotation agreement, add out-of-sample information beyond mean sentiment and the initial price reaction?</td>
+            <td>Existing protocol</td>
+            <td>The standing default. Cheapest to write because the protocol is already frozen, but the enabling artifacts do not exist yet and two supporting commands are unimplemented.</td>
+          </tr>
+          <tr>
+            <td><strong>RQ-E</strong> Thresholds</td>
+            <td>Can a learned, firm- or sector-specific trading threshold outperform a fixed no-trade band on a sentiment signal?</td>
+            <td>W1, W3, cross-cutting NN</td>
+            <td>Interesting but the weakest as a primary. It is a decision-rule question sitting on top of a signal we have not yet shown to be informative. Better as a secondary.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Shape Of The Work</h2>
+      <div class="flow">
+        <div class="flow-step">
+          <span class="step-number">1</span>
+          <h3>Consolidate</h3>
+          <p>One firm-day news panel. Wider universe, longer window, publisher and timestamp preserved.</p>
+        </div>
+        <div class="flow-step">
+          <span class="step-number">2</span>
+          <h3>Filter</h3>
+          <p>Publisher weight, novelty vs repetition vs routine reporting, and EDA of the within-day score distribution.</p>
+        </div>
+        <div class="flow-step">
+          <span class="step-number">3</span>
+          <h3>Aggregate</h3>
+          <p>Nine aggregation rules on the same panel, same split, same inference.</p>
+        </div>
+        <div class="flow-step">
+          <span class="step-number">4</span>
+          <h3>Condition</h3>
+          <p>Surprise net of market and sentiment level; event type; earnings proximity; learned thresholds.</p>
+        </div>
+        <div class="flow-step">
+          <span class="step-number">5</span>
+          <h3>Write</h3>
+          <p>One chosen RQ, its figures and tables, and the nulls reported as results.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Folder Layout</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Path</th>
+            <th>Purpose</th>
+            <th>Git policy</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>final_experiments/plan.html</code></td>
+            <td>This document. The live plan and checklist.</td>
+            <td>Tracked</td>
+          </tr>
+          <tr>
+            <td><code>final_experiments/notebooks/</code></td>
+            <td>Analysis notebooks, jupytext <code>.py</code> pair committed beside each <code>.ipynb</code>.</td>
+            <td>Tracked (pair); outputs stripped where large</td>
+          </tr>
+          <tr>
+            <td><code>final_experiments/lib/</code></td>
+            <td>Thin reusable helpers imported by the notebooks - panel builder, novelty features, aggregators, demeaning stack, threshold learner.</td>
+            <td>Tracked</td>
+          </tr>
+          <tr>
+            <td><code>final_experiments/configs/</code></td>
+            <td>TOML for any new collection or run, following the existing <code>configs/</code> conventions.</td>
+            <td>Tracked</td>
+          </tr>
+          <tr>
+            <td><code>final_experiments/outputs/</code></td>
+            <td>Generated panels, figures, tables, model artifacts. May contain licensed headline text.</td>
+            <td><strong>Gitignored.</strong> Promote only aggregate, licence-safe figures.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <div class="workstream-head">
+        <span class="tag">Workstream 1</span>
+        <h2 style="margin: 0;">Consolidated Data Panel</h2>
+      </div>
+      <p>
+        <strong>Goal.</strong> One firm-day news panel over a larger set of stocks and a
+        longer window, biased toward high-impact stories, with publisher, timestamp,
+        dedup identity and story type preserved on every row.
+      </p>
+      <div class="grid-2">
+        <div class="mini-card blue">
+          <h3>Spine A - breadth and history (FNSPID)</h3>
+          <p>
+            2011-2023. Under the approved date-only to strictly-next-XNYS-session rule,
+            Gate 1 passes: 8,997,559 symbol rows reduce to 5,730,630 deduplicated firm
+            events over 8,552 symbols; the 2011-2023 coherent cohort is 574 firms and
+            1,641,283 events. CC BY-NC 4.0, upstream hashes verified. FinBERT throughput
+            measured at 106.24 headlines/s on CPU, about 4.29 h for the full window.
+          </p>
+        </div>
+        <div class="mini-card green">
+          <h3>Spine B - recency and body text (LSEG)</h3>
+          <p>
+            <code>lseg_us_sector_33_6m</code>: 33 names, 2025-12-26 to 2026-06-26,
+            710,625 deduplicated headlines across 2,854 source codes, with Reuters bodies
+            for 19,306 of 23,191 targets. <code>lseg_us_midcap_22_1y</code>: 22 names,
+            one year, 2,637 headlines, 100% Reuters, headline-only. Licensed - stays local.
+          </p>
+        </div>
+      </div>
+      <div class="warning callout" style="margin-top: 14px;">
+        <h3>The honest trade-off</h3>
+        <p>
+          "Larger universe" and "longer window" point at FNSPID; "high impact" and
+          "publisher metadata" point at LSEG. They cannot be pooled - the firm universes
+          and source regimes differ, and the term-structure pilot already declined to pool
+          the two LSEG cohorts for exactly that reason. Pick one spine as primary and use
+          the other as an out-of-regime robustness arm. Do not average across them.
+        </p>
+      </div>
+      <ul class="checklist" data-ck="w1">
+        <li><label>Decide the primary spine (FNSPID vs LSEG) and write the one-paragraph justification into this plan.</label></li>
+        <li><label>Restore or re-download the FNSPID archives and re-verify the recorded upstream hashes (<code>All_external.csv</code> 5.73 GB, <code>nasdaq_exteral_data.csv</code> 23.2 GB, <code>full_history.zip</code> 589 MB).</label></li>
+        <li><label>Build <code>final_experiments/lib/panel.py</code>: one firm-day panel joining news, adjusted-open prices, the market benchmark, and the earnings calendar on <code>(symbol, session_date)</code>.</label></li>
+        <li><label>Carry these columns through unchanged: publisher/source identity, story timestamp, <code>story_family_id</code>, <code>headline_sha256</code>, matched symbols, event type, and headline vs body flag.</label></li>
+        <li><label>Populate <code>availability_timestamp</code> - it exists in the schema but is empty in every current <code>daily_signals.csv</code>, so point-in-time gating is currently unverifiable.</label></li>
+        <li><label>Apply the frozen timing rule explicitly: UTC to America/New_York, +15 min processing buffer, first XNYS adjusted open strictly after. Never key off <code>news_date</code> alone.</label></li>
+        <li><label>Freeze the chronological development/evaluation boundary and record it before any scoring runs.</label></li>
+        <li><label>Write an attrition table for the panel: rows in, rows lost per screen, rows out, and coverage by firm and month.</label></li>
+        <li><label>Plot coverage: headlines per firm-month, firms per session, and flag any &gt;3x consecutive monthly change as a source-regime break (60 such breaks already documented in FNSPID, 239 symbol-months in the LSEG cohorts).</label></li>
+        <li><label>If extending the LSEG universe: draft a config with a Reuters-only <code>story_source_allowlist</code> and size the request budget against the 5/sec and 10,000/day limits. Sector-33 already left 3,877 target stories unfetched and hit HTTP 429 eight times.</label></li>
+      </ul>
+    </section>
+
+    <section>
+      <div class="workstream-head">
+        <span class="tag">Workstream 2</span>
+        <h2 style="margin: 0;">Which Stories Deserve Weight</h2>
+      </div>
+      <p>
+        <strong>Goal.</strong> A defensible filter and weighting scheme, plus the
+        exploratory analysis of the within-company-day score distribution that the rest of
+        the plan depends on.
+      </p>
+      <h3>Publisher weighting</h3>
+      <p>
+        There is no prior art here - the repo filters and splits by source but has never
+        weighted one. Available structure: <code>source_code</code> with 2,854 distinct
+        values in the sector-33 corpus (largest single source <code>NS:GLORDP</code> at
+        16.0%; Reuters <code>NS:RTRS</code> is 23,191 of 710,625 rows), and per-site row
+        and symbol counts for FNSPID. Note the one measured data point: separating Reuters
+        from non-Reuters produced two signals correlated 0.99 with the parent, and the
+        Reuters-only arm had a <em>negative</em> gross Sharpe of -0.449. Weighting by
+        prestige is a hypothesis, not a known win.
+      </p>
+      <h3>Breaking news vs repetition vs routine reporting</h3>
+      <p>
+        Three-way classification. Existing ingredients: <code>story_family_id</code>
+        revision chains, exact and normalised headline hashes, a market-recap regex that
+        flags 9.86% of FNSPID headlines, the 12-type event taxonomy, and an LLM-scored
+        five-level novelty label validated against strictly-earlier same-company headlines.
+        New candidates: first-mention flag, near-duplicate distance against the firm's
+        trailing 30-day headline corpus, revision count within family, and time-since-last-
+        story-for-this-firm.
+      </p>
+      <ul class="checklist" data-ck="w2">
+        <li><label>Build a publisher table: rows, unique firm-headline pairs, firm-day coverage, and mean absolute score by <code>source_code</code> (or FNSPID site), for the primary spine.</label></li>
+        <li><label>Define publisher tiers by an ex-ante, stated criterion (primary wire vs aggregator vs syndicator vs promotional) - not by realised returns.</label></li>
+        <li><label>Test one publisher weighting scheme against unweighted, on the same split. Report it even if it loses.</label></li>
+        <li><label>Build <code>final_experiments/lib/novelty.py</code>: first-mention flag, trailing-window near-duplicate distance, family revision count, recap-regex flag, time-since-last-story.</label></li>
+        <li><label>Classify each story as breaking / repetition / routine scheduled reporting and report the mix by firm and month.</label></li>
+        <li><label>Hand-label a stratified audit sample (target 150-200 stories, seed recorded) and report filter precision and recall per class. Without this the filter is an uncalibrated heuristic - the existing 460,429 "actionable" count is explicitly flagged as provisional.</label></li>
+        <li><label><strong>EDA: within-company-day score distribution.</strong> Per firm-day, plot and tabulate n, mean, median, std, skew, min, max, share negative / neutral / positive, and the gap between mean and median.</label></li>
+        <li><label>Plot how each of those moments behaves as n grows (n = 1, 2-5, 6-20, 21-75, 76+). This is the count-conditioned bias that made the 11-to-76 headline jump move daily signals so much.</label></li>
+        <li><label>Show the distribution of firm-days by story count, and how much of the panel's mass sits in low-n days where the mean is noise.</label></li>
+        <li><label>Check for a Berkson/collider warning in writing: conditioning on coverage and on executability is itself a selection, and the repo already flags this risk.</label></li>
+      </ul>
+    </section>
+
+    <section>
+      <div class="workstream-head">
+        <span class="tag blue">Workstream 3</span>
+        <h2 style="margin: 0;">Aggregation Rules</h2>
+      </div>
+      <p>
+        <strong>Goal.</strong> Compare ways of collapsing many story scores into one
+        firm-day signal, on one panel, one split, one inference procedure. This is the
+        most likely home for the primary RQ.
+      </p>
+      <p>
+        The current production rule everywhere in this repo is <em>sign of the mean hard
+        label</em> - <code>build_event_labels</code> and <code>MeanSignalBuilder</code> both
+        average -1/0/+1 and trade the sign. Nothing has ever been tested against it on a
+        level playing field.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Rule</th>
+            <th>Definition</th>
+            <th>Why it is on the list</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Mean hard label</td>
+            <td>Mean of -1/0/+1, trade the sign.</td>
+            <td>The incumbent. The baseline everything is measured against.</td>
+          </tr>
+          <tr>
+            <td>Mean continuous</td>
+            <td>Mean of <code>p_pos - p_neg</code>.</td>
+            <td>Keeps magnitude; already computed in every score file.</td>
+          </tr>
+          <tr>
+            <td>Median</td>
+            <td>Median continuous score.</td>
+            <td>Robust to one extreme headline dominating a high-n day.</td>
+          </tr>
+          <tr>
+            <td>Trimmed mean</td>
+            <td>Mean after dropping the top and bottom 10%.</td>
+            <td>Middle ground between mean and median; needs n to be meaningful.</td>
+          </tr>
+          <tr>
+            <td>Negative share</td>
+            <td>Fraction of stories labelled negative.</td>
+            <td><strong>The only text feature with a strongly significant, BH-corrected effect anywhere in this repo</strong> (t = 5.19 on next-session |AR|).</td>
+          </tr>
+          <tr>
+            <td>Dispersion</td>
+            <td>Std or IQR of same-day scores.</td>
+            <td>Disagreement within a day is a natural uncertainty proxy and connects to the standing agreement RQ.</td>
+          </tr>
+          <tr>
+            <td>Strongest event</td>
+            <td>Single story per firm-day, ranked by materiality, novelty, then |score|; opposite-direction ties excluded.</td>
+            <td>Already implemented in <code>directional_event_gate.py</code>; never benchmarked against the mean.</td>
+          </tr>
+          <tr>
+            <td>Attention weighted</td>
+            <td>Score weighted by <code>log(1 + n)</code>, or by publisher tier, or by novelty class.</td>
+            <td>Volume is the one thing that decisively mattered for tail risk; it should be tested on the first moment too.</td>
+          </tr>
+          <tr>
+            <td>Decayed state</td>
+            <td>Half-life decay with severity impulse and reversal reset, from <code>state.py</code>.</td>
+            <td>Exists and is tuned; belongs in the comparison as the multi-day memory arm.</td>
+          </tr>
+        </tbody>
+      </table>
+      <ul class="checklist" data-ck="w3">
+        <li><label>Build <code>final_experiments/lib/aggregators.py</code>: one function per rule, identical signature <code>(story_rows) -&gt; float</code>, so the comparison harness is trivial.</label></li>
+        <li><label>Fix the evaluation target before running: primary is market-adjusted abnormal return over a declared horizon, event session excluded. Declare the sensitivity horizons at the same time.</label></li>
+        <li><label>Score all rules on the same development split with the same inference: date-clustered standard errors plus a block bootstrap, block length and seed recorded.</label></li>
+        <li><label>Declare the multiplicity family up front (nine rules times the horizon set) and apply Benjamini-Hochberg. This is the single largest garden-of-forking-paths risk in the plan.</label></li>
+        <li><label>Report information coefficient and rank correlation, not just portfolio return, so the result survives even if no trading rule is profitable.</label></li>
+        <li><label>Stratify every rule's result by story count per firm-day. The interesting claim is likely "rule X beats the mean when n is large", not a flat average.</label></li>
+        <li><label>Add turnover and break-even cost per side to every arm - the 33-stock failure was a turnover failure, not a signal failure.</label></li>
+        <li><label>Produce the headline figure: aggregation rule on one axis, out-of-sample metric with confidence intervals on the other, faceted by story count band.</label></li>
+        <li><label>Report the nulls. If the mean wins, that is the result.</label></li>
+      </ul>
+    </section>
+
+    <section>
+      <div class="workstream-head">
+        <span class="tag amber">Workstream 4</span>
+        <h2 style="margin: 0;">Sentiment Surprise, Properly Controlled</h2>
+      </div>
+      <p>
+        <strong>Goal.</strong> Separate what is genuinely new in a firm's sentiment from
+        the market-wide sentiment level and the firm's own habitual tone. The July pilot
+        did this once and recorded a NO-GO; this is a redesign, not a repeat.
+      </p>
+      <div class="risk callout">
+        <h3>What went wrong last time, and what must change</h3>
+        <ul>
+          <li>Only <strong>28 evaluation date clusters</strong>. The new design must use the wide-panel spine, where the tail-risk work had 1,758 target dates.</li>
+          <li>Market effect stripped as a raw difference (stock minus <code>^GSPC</code>), with <strong>no fitted market model</strong>. Use the <code>alpha, beta</code> market model already implemented in <code>l2_event_study.py</code>.</li>
+          <li>Only the firm's own history was removed. <strong>The cross-sectional daily mean sentiment was never removed</strong>, so "surprise" still contained market-wide tone.</li>
+          <li>Three evaluation runs, two invalidated. Disclose the run count and the reason for each invalidation in whatever is written.</li>
+        </ul>
+      </div>
+      <h3>The demeaning stack</h3>
+      <p>
+        Peel the signal in a declared order, and report the incremental effect of each
+        layer rather than only the final residual:
+      </p>
+      <ol>
+        <li>Raw firm-day sentiment.</li>
+        <li>Minus the firm's trailing baseline (EWMA or trailing-k-news-day mean, strictly excluding today).</li>
+        <li>Minus the cross-sectional daily mean across the panel - the market sentiment level.</li>
+        <li>Optionally minus a sector-day mean, to separate firm-specific from sector news.</li>
+      </ol>
+      <p>
+        On the return side, strip the market with a fitted market model over a declared
+        estimation window rather than a raw difference, and keep the initial price reaction
+        as a separate regressor so surprise is not just re-reading the event-day move.
+      </p>
+      <ul class="checklist" data-ck="w4">
+        <li><label>Build <code>final_experiments/lib/surprise.py</code> implementing the four-layer demeaning stack, each layer switchable.</label></li>
+        <li><label>Use the fitted market model for abnormal returns; record the estimation window and the gap before the event.</label></li>
+        <li><label>Keep the initial reaction as its own regressor in every specification.</label></li>
+        <li><label>Run the nested comparison: level only, then level plus surprise, then surprise only. Primary statistic is the out-of-sample loss difference, not a coefficient t-statistic.</label></li>
+        <li><label>Report the number of evaluation date clusters prominently. If it is not at least an order of magnitude above 28, the arm is not worth running.</label></li>
+        <li><label>Cross-reference the July NO-GO explicitly, including that level beat surprise on out-of-sample R-squared (+0.003411 vs -0.005515).</label></li>
+        <li><label>Plot the decomposition: how much of a firm-day score is baseline, how much is market-wide, how much is genuinely idiosyncratic.</label></li>
+      </ul>
+    </section>
+
+    <section>
+      <div class="workstream-head">
+        <span class="tag blue">Workstream 5</span>
+        <h2 style="margin: 0;">Conditioning The Signal On Story Type</h2>
+      </div>
+      <p>
+        <strong>Goal.</strong> Test whether the signal should be scaled by what kind of
+        news it is. The 12-type taxonomy already exists
+        (<code>earnings_guidance</code>, <code>analyst_rating</code>,
+        <code>mna_strategy</code>, <code>legal_regulatory</code>,
+        <code>product_technology</code>, <code>management_governance</code>,
+        <code>macro_sector</code>, <code>commodity_rates_fx</code>,
+        <code>labor_esg</code>, <code>market_price_technical</code>,
+        <code>generic_low_information</code>, <code>other</code>) along with
+        <code>tradability_class</code> and <code>expected_horizon</code>. It has never been
+        joined to returns under multiplicity control - and the local Gemma study left this
+        as an explicit open question.
+      </p>
+      <ul class="checklist" data-ck="w5">
+        <li><label>Report the event-type mix on the primary spine, with unique firm-day counts per type, and mark which types are too thin to be powered.</label></li>
+        <li><label>Estimate the sentiment-return relationship per event type, in one pooled model with type interactions rather than 12 separate regressions.</label></li>
+        <li><label>Declare the multiplicity family (types x horizons) before looking, and apply Benjamini-Hochberg.</label></li>
+        <li><label>Validate the classifier: hand-check a stratified sample of type assignments and report agreement. The taxonomy is regex-derived and unvalidated.</label></li>
+        <li><label>Only if a type effect survives correction: build one type-weighted aggregator and test it as an arm in Workstream 3, rather than as a separate result.</label></li>
+        <li><label>State plainly that a per-type breakdown with 12 cells is a look-elsewhere risk, and that the honest default is no type conditioning.</label></li>
+      </ul>
+    </section>
+
+    <section>
+      <div class="workstream-head">
+        <span class="tag amber">Workstream 6</span>
+        <h2 style="margin: 0;">Earnings-Date Effect</h2>
+      </div>
+      <p>
+        <strong>Goal.</strong> Separate scheduled from unscheduled news, and test whether
+        sentiment behaves differently around earnings.
+      </p>
+      <div class="warning callout">
+        <h3>This one needs new data</h3>
+        <p>
+          There is no earnings-date or earnings-calendar data anywhere under
+          <code>Data/</code> - a search for <code>earnings_date</code>,
+          <code>earnings_calendar</code>, <code>report_date</code> and
+          <code>fiscal_period</code> returns nothing. The only trace of earnings is a regex
+          label, <code>event_type = earnings_guidance</code>. This is the single genuinely
+          missing dataset in the plan, and it must be license-recorded like every other
+          source.
+        </p>
+      </div>
+      <ul class="checklist" data-ck="w6">
+        <li><label>Choose an earnings-calendar source and record its licence, access date, and any redistribution limit. <code>yfinance</code> is already a dependency and exposes report dates; a vendor calendar would be more reliable but needs a licence note.</label></li>
+        <li><label>Required fields: report date, before/after market close flag, fiscal period, and - if available - actual versus consensus EPS.</label></li>
+        <li><label>Validate the calendar against the news panel: do <code>earnings_guidance</code> headlines actually cluster on the recorded report dates? Report the hit rate.</label></li>
+        <li><label>Add <code>sessions_to_earnings</code> to the panel and define the pre-earnings, earnings, and post-earnings windows explicitly.</label></li>
+        <li><label>Test the earnings interaction: is the sentiment-return relationship different inside the earnings window than outside it?</label></li>
+        <li><label>Run the exclusion robustness check: does any headline result survive dropping all earnings-window firm-days?</label></li>
+        <li><label>Note the drift confound in writing - post-earnings announcement drift is a documented anomaly, so a positive result inside the earnings window is not necessarily a sentiment result.</label></li>
+      </ul>
+    </section>
+
+    <section>
+      <div class="workstream-head">
+        <span class="tag rose">Cross-cutting</span>
+        <h2 style="margin: 0;">Learned Thresholds</h2>
+      </div>
+      <p>
+        Every strategy in this repo gates on a fixed symmetric band -
+        <code>no_trade_band = 0.10</code> with a <code>[0.0, 0.10, 0.20]</code> grid, or
+        threshold quantiles, or VADER's +/-0.05. A learned threshold - possibly per stock
+        or per sector - is worth one honest attempt.
+      </p>
+      <div class="grid-3">
+        <div class="mini-card">
+          <h3>Framing</h3>
+          <p>
+            Learn a gate, not a return forecast: map firm-day features (score moments,
+            story count, dispersion, publisher mix, novelty class, event type, trailing
+            volatility, sector) to a trade / no-trade decision or an expected-|return|
+            threshold.
+          </p>
+        </div>
+        <div class="mini-card amber">
+          <h3>Sample constraint</h3>
+          <p>
+            The LSEG development window is about 85 sessions. A neural net there is
+            guaranteed overfitting. This arm only makes sense on the wide FNSPID spine, and
+            with a linear or gradient-boosted baseline reported beside it.
+          </p>
+        </div>
+        <div class="mini-card">
+          <h3>Honesty requirement</h3>
+          <p>
+            Fit development-only, no evaluation peeking, seed recorded, and the comparison
+            is always against the fixed band. If the fixed band wins, that is the finding
+            and it strengthens the paper.
+          </p>
+        </div>
+      </div>
+      <ul class="checklist" data-ck="nn">
+        <li><label>Establish the fixed-band baseline first, on the same panel and split, so there is something to beat.</label></li>
+        <li><label>Build a small MLP plus a gradient-boosted comparator plus a logistic baseline. Report all three; a tiny net that ties a logistic regression is itself a result.</label></li>
+        <li><label>Try the per-sector variant before the per-stock variant - per-stock thresholds on this sample size will not have the data to support them.</label></li>
+        <li><label>Report the learned thresholds themselves, not just performance. A threshold surface that varies sensibly with story count and volatility is interpretable; one that looks like noise should be reported as noise.</label></li>
+        <li><label>Add a permutation or label-shuffle control so an apparent gain can be distinguished from capacity to memorise.</label></li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Data To Gather</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Status today</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Scheduled earnings calendar</td>
+            <td><strong>Missing entirely.</strong> No earnings-date data anywhere under <code>Data/</code>.</td>
+            <td>Source, license-record, validate against the news panel. Blocks Workstream 6.</td>
+          </tr>
+          <tr>
+            <td>FNSPID archives</td>
+            <td>Hashes and licence recorded in <code>reports/fnspid_feasibility_20260718/</code>; the archives themselves are local-only and gitignored.</td>
+            <td>Restore or re-download, re-verify hashes, confirm the revised timing rule still reproduces the 574-firm cohort.</td>
+          </tr>
+          <tr>
+            <td>Sector / industry mapping</td>
+            <td>Only implicit - 11 sector buckets inside the sector-33 config. No explicit classification table.</td>
+            <td>Build an explicit per-symbol sector table. Blocks the per-sector threshold arm and any sector-day demeaning.</td>
+          </tr>
+          <tr>
+            <td>Market benchmark returns</td>
+            <td>Present: <code>Data/derived/prices/lseg_sp500_*.csv</code> for <code>^GSPC</code>; the FNSPID work used SPY.</td>
+            <td>Confirm the benchmark covers the full chosen window before fitting any market model.</td>
+          </tr>
+          <tr>
+            <td>Wider LSEG collection (optional)</td>
+            <td>Not collected. Sector-33 left 3,877 target stories unfetched and hit the rate limit.</td>
+            <td>Only if Spine B is chosen as primary. Reuters-only allowlist, budgeted against 5/sec and 10,000/day.</td>
+          </tr>
+          <tr>
+            <td>Human audit labels</td>
+            <td>Templates generated but <strong>no labels exist</strong> - <code>sample_label_template.csv</code> and every Tavily <code>screening_index.csv</code> are empty or pending.</td>
+            <td>Label one stratified sample for filter precision (Workstream 2) and one for event-type validity (Workstream 5). Small samples, recorded seeds.</td>
+          </tr>
+          <tr>
+            <td>Corporate-action metadata</td>
+            <td>Absent. Prices are split-adjusted but <strong>not dividend-adjusted</strong>; 470 firm-days flagged with &gt;5% adjusted/raw return gaps.</td>
+            <td>Not blocking. Carry the existing limitation text forward verbatim rather than re-deriving it.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>To Build</h2>
+      <ul class="checklist" data-ck="build">
+        <li><label><code>final_experiments/lib/panel.py</code> - firm-day panel builder: news, prices, market, earnings, sector.</label></li>
+        <li><label><code>final_experiments/lib/novelty.py</code> - first-mention, near-duplicate distance, family revision count, recap flag, time-since-last-story.</label></li>
+        <li><label><code>final_experiments/lib/aggregators.py</code> - the nine aggregation rules behind one signature.</label></li>
+        <li><label><code>final_experiments/lib/surprise.py</code> - the four-layer demeaning stack plus the fitted market model wrapper.</label></li>
+        <li><label><code>final_experiments/lib/thresholds.py</code> - fixed band, logistic, gradient-boosted, and small MLP gates behind one interface.</label></li>
+        <li><label><code>final_experiments/lib/evaluate.py</code> - one evaluation harness: chronological split, date-clustered errors, block bootstrap, Benjamini-Hochberg, turnover and break-even. Everything routes through it so arms are comparable.</label></li>
+        <li><label><code>final_experiments/lib/plots.py</code> - the handful of recurring figures. Reuse <code>plotting.py</code> and <code>trading_plots.py</code> rather than reinventing them.</label></li>
+        <li><label>Notebooks, one per workstream, jupytext-paired: <code>01_panel</code>, <code>02_filters_and_distribution</code>, <code>03_aggregation</code>, <code>04_surprise</code>, <code>05_story_type</code>, <code>06_earnings</code>, <code>07_thresholds</code>.</label></li>
+        <li><label>Tests: only for <code>panel.py</code> joins and <code>evaluate.py</code> split/inference logic, where a silent error corrupts everything downstream. Nothing else.</label></li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>To Review Before Trusting</h2>
+      <p>
+        Known defects in existing code and artifacts that this phase will lean on. Each one
+        needs a decision: fix, avoid, or document.
+      </p>
+      <ul class="checklist" data-ck="review">
+        <li><label><code>l2_event_study.py</code> aligns events using <code>news_date</code> rather than the precise <code>version_created</code> timing rule. Fix or do not use it for the primary result.</label></li>
+        <li><label>Existing CAR windows include the initial price reaction; the refocused outcome must exclude it.</label></li>
+        <li><label><code>availability_timestamp</code> is present but empty in every current <code>daily_signals.csv</code> and <code>trading_returns.csv</code>, so point-in-time availability is not currently verifiable.</label></li>
+        <li><label>The 12-type taxonomy and the <code>tradability_class</code> screens are regex-derived and uncalibrated. The 460,429 "actionable" count is explicitly marked provisional.</label></li>
+        <li><label>TF-IDF logistic regression is out-of-fold; it cannot be applied to news without a documented full-data refit.</label></li>
+        <li><label>The Gemma headline arm covers only 15.12% of the population and hit HTTP 402 quota failures. Do not present it as a complete-corpus comparison.</label></li>
+        <li><label>The 2025-2026 LSEG window and the 2011-2023 FNSPID window have both already influenced design decisions. Neither can be described as a pristine confirmatory holdout - use the repo's standing phrase, "chronological evaluation block".</label></li>
+        <li><label>The four tail-risk cells are not registered in <code>experiments/manifest.toml</code> and carry <code>Git commit: unavailable</code>. If they are cited in the dissertation, register them.</label></li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Sequencing</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Stage</th>
+            <th>Contains</th>
+            <th>Exit condition</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>S0</strong> Decide</td>
+            <td>Pick the primary spine. Resolve the freeze-date conflict. Set the evaluation boundary.</td>
+            <td>Spine, boundary and calendar written into this plan.</td>
+          </tr>
+          <tr>
+            <td><strong>S1</strong> Panel</td>
+            <td>Workstream 1 in full, plus the earnings calendar and sector table from the gather list.</td>
+            <td>One panel file, one attrition table, one coverage figure. No modelling yet.</td>
+          </tr>
+          <tr>
+            <td><strong>S2</strong> Look</td>
+            <td>Workstream 2's exploratory analysis and the filter classification. No return regressions.</td>
+            <td>The within-day distribution figures exist and have been read.</td>
+          </tr>
+          <tr>
+            <td><strong>Gate F1</strong></td>
+            <td>Choose the primary RQ and at most one secondary from the five candidates.</td>
+            <td>Choice, date, and rationale recorded here. Everything after this is confirmatory-shaped.</td>
+          </tr>
+          <tr>
+            <td><strong>S3</strong> Core</td>
+            <td>The workstream that serves the chosen RQ, run end to end through <code>evaluate.py</code>.</td>
+            <td>Headline figure, headline table, and the declared multiplicity correction applied.</td>
+          </tr>
+          <tr>
+            <td><strong>S4</strong> Arms</td>
+            <td>Remaining workstreams as robustness or secondary arms, in the plan's order, as time allows.</td>
+            <td>Each arm either has a result or is explicitly recorded as not run.</td>
+          </tr>
+          <tr>
+            <td><strong>S5</strong> Write</td>
+            <td>Promote licence-safe figures and tables, register the runs, write the chapter.</td>
+            <td>Nulls reported as results; no claim exceeds the evidence.</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="footer">
+        Stages are ordered, not dated. S1 and the earnings-calendar gather can run in
+        parallel; nothing after Gate F1 should start before it.
+      </p>
+    </section>
+
+    <section>
+      <h2>How We Would Fool Ourselves</h2>
+      <div class="grid-3">
+        <div class="mini-card risk">
+          <h3>Forking paths</h3>
+          <p>
+            Nine aggregation rules, twelve event types, several horizons and two spines is a
+            large implicit search. Declare each family before looking and apply
+            Benjamini-Hochberg. The signal-portfolio study is the cautionary tale: its
+            winner was beaten by 52.2% of a demeaned null.
+          </p>
+        </div>
+        <div class="mini-card risk">
+          <h3>Selection on coverage</h3>
+          <p>
+            Firms and days only enter the panel when they have news and a tradable price.
+            That is a collider. State it, and check whether results differ between
+            high-coverage and low-coverage firms.
+          </p>
+        </div>
+        <div class="mini-card risk">
+          <h3>Model labels as truth</h3>
+          <p>
+            Novelty, materiality and event type are all model- or regex-derived. Treating
+            them as ground truth is an assumption, not a measurement - the repo already has
+            a written record of exactly this decision. Audit samples are the mitigation.
+          </p>
+        </div>
+        <div class="mini-card risk">
+          <h3>Reused samples</h3>
+          <p>
+            Both candidate spines have already influenced design. Nothing here can be
+            called confirmatory. Use "chronological evaluation block" and mean it.
+          </p>
+        </div>
+        <div class="mini-card risk">
+          <h3>Turnover blindness</h3>
+          <p>
+            A gross result that dies at 10 bps per side is not a result. Every arm reports
+            turnover and break-even cost. The 33-stock run reached 405.6x annualised
+            turnover and a break-even of 3.31 bps.
+          </p>
+        </div>
+        <div class="mini-card risk">
+          <h3>Scope creep back into VaR</h3>
+          <p>
+            Tail risk is answered and the machinery is inviting. It is out of scope. Cite
+            the factorial and move on.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Out Of Scope</h2>
+      <ul>
+        <li><strong>New VaR / ES work.</strong> The factorial is finished: arrival matters, semantics do not, and the effect runs through intensity rather than direction.</li>
+        <li><strong>New model bake-offs.</strong> FinBERT wins on the labelled benchmark and hosted LLMs did not beat it. Scorer choice is settled.</li>
+        <li><strong>Multi-scorer ensembles.</strong> Enumerated and measured: they lose here.</li>
+        <li><strong>Learned text weights</strong> in the Ke-Kelly-Xiu style. Already deferred as too data-hungry for these cohorts.</li>
+        <li><strong>Intraday execution, borrow, spread and market-impact modelling.</strong> Carry the existing limitation text; do not build it.</li>
+        <li><strong>Reuters symbol enrichment for FNSPID.</strong> Needs a point-in-time security master; already deferred as a separate validated extension.</li>
+        <li><strong>New CLI subcommands, frozen manifests, or pipeline stages</strong> unless a result is being promoted into the dissertation.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Progress</h2>
+      <div class="progress">
+        <span id="progress-label">0 of 0 complete</span>
+        <span class="progress-track"><span class="progress-fill" id="progress-fill"></span></span>
+        <button class="reset-button" id="reset-button" type="button">Clear all</button>
+      </div>
+      <p class="footer">
+        Checkbox state is stored in this browser only, so it is a working aid rather than a
+        record. Anything that matters - a chosen spine, a chosen RQ, a completed arm - gets
+        written into the prose of this plan or into <code>experiments/manifest.toml</code>.
+      </p>
+    </section>
+
+    <p class="footer">
+      Grounded in this repository as of 2026-07-30: <code>docs/research_protocol.md</code>,
+      <code>docs/dissertation_execution_plan.md</code>,
+      <code>docs/sentiment_signal_portfolio.md</code>,
+      <code>docs/fnspid_tail_risk_variant_comparison.md</code>,
+      <code>docs/recent_news_sector33_finbert_result.md</code>,
+      <code>reports/fnspid_feasibility_20260718/revised_timing_addendum.md</code>,
+      <code>reports/loop_moment2_finbert_20260719/</code>,
+      <code>reports/pilot_sentiment_surprise_20260717/</code>,
+      <code>reports/week6_finbert_vader_full_population_test.md</code>,
+      <code>Data/collections/lseg_us_sector_33_6m/reports/clean_csv_quality_audit.md</code>.
+      Working rules for this phase are recorded in <code>AGENTS.md</code> and
+      <code>CLAUDE.md</code>.
+    </p>
+  </main>
+
+  <script>
+    (function () {
+      var STORAGE_KEY = "final-experiments-plan-checklist-v1";
+      var boxes = [];
+      var state = {};
+
+      try {
+        state = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") || {};
+      } catch (error) {
+        state = {};
+      }
+
+      function persist() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        } catch (error) {
+          /* storage unavailable; checklist still works for this page view */
+        }
+      }
+
+      function refresh() {
+        var done = 0;
+        boxes.forEach(function (box) {
+          var item = box.closest("li");
+          if (box.checked) {
+            done += 1;
+            item.classList.add("done");
+          } else {
+            item.classList.remove("done");
+          }
+        });
+        var total = boxes.length;
+        var label = document.getElementById("progress-label");
+        var fill = document.getElementById("progress-fill");
+        if (label) {
+          label.textContent = done + " of " + total + " complete";
+        }
+        if (fill) {
+          fill.style.width = (total ? (done / total) * 100 : 0) + "%";
+        }
+      }
+
+      document.querySelectorAll(".checklist").forEach(function (list) {
+        var group = list.getAttribute("data-ck") || "x";
+        Array.prototype.forEach.call(list.children, function (item, index) {
+          var label = item.querySelector("label");
+          if (!label) {
+            return;
+          }
+          var id = "ck-" + group + "-" + index;
+          var box = document.createElement("input");
+          box.type = "checkbox";
+          box.id = id;
+          box.checked = state[id] === true;
+          label.setAttribute("for", id);
+          item.insertBefore(box, label);
+          box.addEventListener("change", function () {
+            state[id] = box.checked;
+            persist();
+            refresh();
+          });
+          boxes.push(box);
+        });
+      });
+
+      var metric = document.getElementById("metric-items");
+      if (metric) {
+        metric.textContent = String(boxes.length);
+      }
+
+      var reset = document.getElementById("reset-button");
+      if (reset) {
+        reset.addEventListener("click", function () {
+          boxes.forEach(function (box) {
+            box.checked = false;
+          });
+          state = {};
+          persist();
+          refresh();
+        });
+      }
+
+      refresh();
+    })();
+  </script>
+</body>
+</html>

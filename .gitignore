@@ -73,6 +73,10 @@ exports/
 # so it never shadows the tracked week_4_tasks/outputs/.gitignore. Keeps
 # licensed LSEG story text out of version control.
 /outputs/
+# Final-experiments phase: generated panels, figures, tables and fitted models may
+# contain licensed LSEG/FNSPID headline text. Promote only aggregate, licence-safe
+# artifacts, by explicit force-add.
+final_experiments/outputs/
 # Tavily shared news packages are out-of-band deliverables, not source.
 tavily_shared_*.zip
 # LaTeX build artifacts; dissertation/main.pdf is reproducible via latexmk -pdf,
