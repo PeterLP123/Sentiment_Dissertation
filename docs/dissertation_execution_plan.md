@@ -1,6 +1,6 @@
 # Dissertation Execution Plan
 
-Last updated: 2026-07-30
+Last updated: 2026-07-31
 
 This is the delivery plan for the closing phase. The dissertation deadline is **1 September 2026**. Calendar promises from the superseded July 12 plan are retired; progress is controlled by evidence gates and stage exit conditions.
 
@@ -36,7 +36,8 @@ Profitability, a significant p-value, a neural network, and a wider news collect
 | Firm-day panel | Built: 715,546 rows, 570 priced symbols, 3,262 sessions | `01_panel` outputs/manifest |
 | Chronological split | Frozen: development through 2019, evaluation from 2020 | `lib/panel.py`, plan, protocol |
 | Final RQ | Open | Gate F1 after Stage S2 |
-| Current active work | Story filtering and score-distribution EDA | Stage S2 |
+| Current active work | Finish/waive the unlabelled novelty audit, then take Gate F1 | Stage S2 exit / Gate F1 |
+| Exploratory W3/W4 chain | Repaired and rerun; not promoted because it ran before Gate F1 | `03`–`07`, `INVALIDATED_RUNS.md` |
 | Scorer selection | Closed: FinBERT primary | Benchmark and prior reports |
 | VaR/ES | Closed | FNSPID factorial report |
 | Ensemble search | Closed | Signal-portfolio report |
@@ -98,19 +99,19 @@ Open integrity actions before final promotion:
 
 ### S2 — Story filtering and within-day distribution EDA
 
-**Status:** next/current.
+**Status:** executable EDA complete; exit blocked by the unlabelled human audit and unavailable publisher fields.
 
 Goal: establish what the news panel contains before testing return outcomes.
 
 Build:
 
-- `02_filters_and_distributions.py` / `.ipynb`;
-- `lib/filters.py` only for reusable, silently dangerous logic;
+- `02_filters_and_distribution.py` / `.ipynb`;
+- `lib/novelty.py` and `lib/distribution.py` for reusable, silently dangerous logic;
 - source/publisher tables where available;
 - novelty, repetition, recap/routine, and direct-target features;
 - firm-day distribution summaries by story-count band;
 - seeded human-audit template and adjudicated labels;
-- `outputs/02_filters_and_distributions/summary.json` and diagnostic figures.
+- `outputs/02_filters_and_distribution/summary.json` and diagnostic figures.
 
 Required analyses:
 
@@ -126,7 +127,7 @@ Exit condition: the data fields and audit evidence support a documented feasibil
 
 ### Gate F1 — Choose the final RQ and freeze the analysis family
 
-Record in `final_experiments/outputs/02_filters_and_distributions/decision.md` and update `plan.html`:
+Record in `final_experiments/outputs/02_filters_and_distribution/decision.md` and update `plan.html`:
 
 - one primary RQ and at most one secondary;
 - visible evidence used for the choice;
@@ -151,7 +152,7 @@ Use the notebook matching the chosen RQ:
 | --- | --- |
 | RQ-A aggregation | `03_aggregation.py` / `.ipynb`, `lib/aggregators.py` |
 | RQ-B filtering | Filtering notebook extended into one frozen filtered-versus-unfiltered evaluation; no return-chosen source tiers |
-| RQ-C surprise | `04_sentiment_surprise.py` / `.ipynb`, `lib/surprise.py` |
+| RQ-C surprise | `04_surprise.py` / `.ipynb`, `lib/surprise.py` |
 | RQ-D agreement | Complete the missing July 12 agreement-validation and LSEG model-panel prerequisites before outcome analysis |
 | RQ-E thresholds | Not eligible as sole primary unless Gate F1 documents a validated base signal and sector/firm support |
 
@@ -161,7 +162,7 @@ Common evaluation harness requirements:
 - development-only preprocessing/fitting;
 - one-shot evaluation opening;
 - rank/forecast metrics before portfolio translation;
-- date-clustered or date-block inference;
+- daily cross-sectional HAC, date-clustered regression, or date-block inference as the estimand requires;
 - full multiplicity family reported;
 - effect size, interval, p/q-value, and independent-date count;
 - nulls and failures preserved.
@@ -255,14 +256,21 @@ Generated output layout:
 final_experiments/outputs/
   00_data_inventory/
   01_panel/
-  02_filters_and_distributions/
+  02_filters_and_distribution/
   03_aggregation/
-  04_sentiment_surprise/
-  05_story_types/
-  06_earnings_effects/
-  07_thresholds/
+  04_surprise/
+  05_interpretation/
+  06_strategy/
+  07_strategy_analysis/
+  superseded/
   final/
 ```
+
+`03`–`07` are exploratory evidence produced before Gate F1. The 2026-07-31
+rigour repair corrected return timing, split leakage, IC definition, portfolio
+construction, and event-time inference. The invalid predecessor is preserved in
+`final_experiments/INVALIDATED_RUNS.md`; the repaired chain still cannot be
+described as a preregistered primary experiment.
 
 The directory is ignored because outputs can be large or licensed. Promote only selected aggregate, licence-safe artifacts deliberately.
 
@@ -291,6 +299,12 @@ Current completed stages:
 ```bash
 uv run python final_experiments/00_data_inventory.py
 uv run python final_experiments/01_panel.py
+uv run python final_experiments/02_filters_and_distribution.py
+uv run python final_experiments/03_aggregation.py
+uv run python final_experiments/04_surprise.py
+uv run python final_experiments/05_interpretation.py
+uv run python final_experiments/06_strategy.py
+uv run python final_experiments/07_strategy_analysis.py
 ```
 
 Stable benchmark integrity:
@@ -311,7 +325,7 @@ Do not run the full historical suite after each notebook edit. Focused helper te
 | Publisher/story-family unavailable in checkpoint | RQ-B infeasible on primary spine | Raw rescan or confine metadata-rich test to LSEG. |
 | Earnings calendar mapping/filter holes | Biased coverage or timing | Validation audit, coverage table, exclusion sensitivity. |
 | Evaluation period influenced prior work | Overstated confirmation | Call it chronological evaluation; preserve full design path. |
-| Thousands of rows but shared dates | Anti-conservative inference | Date clustering/block bootstrap; report independent dates. |
+| Thousands of rows but shared dates | Anti-conservative inference | Daily cross-sectional HAC, date clustering, or date-block bootstrap; report independent dates. |
 | Aggregator/model tournament | Selection bias | Freeze family at F1; correct all opened comparisons. |
 | COVID regime dominates evaluation | Fragile generalisation | Report time-block/regime stability. |
 | Position turnover destroys economics | False alpha claim | Costs, concentration, turnover, and break-even cost. |

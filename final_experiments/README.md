@@ -24,8 +24,9 @@ The split is a **chronological evaluation block**, not a pristine holdout. The s
 ## Workstream Order
 
 1. **Inventory and panel**: completed. Data paths, primary spine, earnings calendar, panel, attrition, and coverage plots exist.
-2. **Filtering and distribution EDA**: next. Publisher/source structure, novelty/repetition/routine classification, audit labels, and within-firm-day score moments.
-3. **Gate F1**: choose one primary RQ and at most one secondary after reading the EDA.
+2. **Filtering and distribution EDA**: executable EDA is complete; publisher fields are unavailable and the 180-row human audit is still unlabelled, so the S2 exit condition is not met.
+3. **Gate F1**: next formal decision. Choose one primary RQ and at most one secondary after resolving or explicitly waiving the audit blocker.
+   `05_interpretation` assembles the evidence ledger that feeds this decision.
 4. **Core experiment**: run the workstream serving the chosen RQ through one common evaluation harness.
 5. **Secondary arms**: surprise, story type, earnings, and learned thresholds only where the primary design supports them.
 6. **Promotion**: register the accepted run and export aggregate, licence-safe figures/tables to the dissertation.
@@ -42,6 +43,26 @@ The split is a **chronological evaluation block**, not a pristine holdout. The s
 | `data/earnings/*.csv`, `*.json`, `checkpoints/` | Licensed LSEG results-calendar payloads. | Ignored/local |
 | `outputs/00_data_inventory/` | Generated inventory tables and figures. | Ignored/local |
 | `outputs/01_panel/` | Generated panel, manifest, attrition, schema, and coverage figures. | Ignored/local |
+| `02_filters_and_distribution.py` / `.ipynb` | Within-day score EDA plus novelty heuristic mix and audit template. | Active |
+| `lib/distribution.py` | Firm-day score moments and n-bin mass helpers. | Active |
+| `lib/novelty.py` | Strictly-earlier first-mention / near-dup features and separate market-recap flag. | Active |
+| `outputs/02_filters_and_distribution/` | Moments, repetition-screen mix, blinded audit plus weight key (gitignored). | Ignored/local |
+| `03_aggregation.py` / `.ipynb` | Nine aggregator signals; development IC vs `ar_open_h1`, BH, n-bin facet, turnover/break-even. | Active |
+| `lib/aggregators.py` | Same-day aggregation rules, decayed state, mean daily cross-sectional Spearman IC with HAC inference. | Active |
+| `lib/evaluate.py` | Portfolio translation, turnover, break-even, block bootstrap. | Active |
+| `outputs/03_aggregation/` | Aggregator panel, IC tables, portfolio arm tables and figures. | Ignored/local |
+| `04_surprise.py` / `.ipynb` | Demeaning stack, market-model AR, nested OOS surprise horse race against a control-only nest. | Active |
+| `lib/surprise.py` | Firm/CS demeaning, trailing market model, OOS R² comparison with block-bootstrap differentials. | Active |
+| `outputs/04_surprise/` | Surprise panel, decomposition, horse-race tables/figures. | Ignored/local |
+| `05_interpretation.py` / `.ipynb` | Rule redundancy, dispersion-vs-volume conditioning, significance-vs-economics, Gate F1 evidence ledger. | Active |
+| `outputs/05_interpretation/` | Distinctness, fixed-n IC, position-mode comparison, OOS-vs-control figures and ledger. | Ignored/local |
+| `06_strategy.py` / `.ipynb` | Strategy backtest: horizon × breadth sweep on development, frozen spec, one evaluation run, equity/drawdown/cost curve. | Active |
+| `lib/strategy.py` | Overlapping-tranche backtest on dense returns, development sweep, frozen-spec runner. | Active |
+| `outputs/06_strategy/` | Sweep, `frozen_spec.json`, daily series, equity/drawdown, per-year and cost-curve figures. | Ignored/local |
+| `07_strategy_analysis.py` / `.ipynb` | Strategy-null diagnostics plus Q5−Q1 date-block inference and BH over the displayed signal×lag family. | Active |
+| `lib/plots.py` | House figure style and the colour roles (categorical / ordinal / diverging / status). | Active |
+| `outputs/07_strategy_analysis/` | Event-time CAR, quantile spread and monotonicity, sweep surface, monthly heatmap, book-health figures. | Ignored/local |
+| `INVALIDATED_RUNS.md` | Source-controlled ledger for superseded/invalidated result chains and their generated snapshot locations. | Active |
 | `plan.html` | Live phase plan and checklist. | Tracked |
 
 Planned notebook/helper names remain listed in `plan.html`; create them only when their workstream starts.
@@ -53,6 +74,12 @@ From the repository root, using Python 3.12 with the `tailrisk`, `finbert`, and 
 ```bash
 uv run python final_experiments/00_data_inventory.py
 uv run python final_experiments/01_panel.py
+uv run python final_experiments/02_filters_and_distribution.py
+uv run python final_experiments/03_aggregation.py
+uv run python final_experiments/04_surprise.py
+uv run python final_experiments/05_interpretation.py
+uv run python final_experiments/06_strategy.py
+uv run python final_experiments/07_strategy_analysis.py
 ```
 
 The `.py` files are jupytext mirrors of the `.ipynb` notebooks. Run from the repository root so relative paths resolve consistently.
@@ -110,7 +137,7 @@ See [`data/earnings/README.md`](data/earnings/README.md) before using Workstream
 
 ### Returns
 
-The panel uses split-adjusted opens and SPY-adjusted one-session returns. Dividends are not back-adjusted. Rows are selected on both news and price availability, which creates a collider/selection limitation for inference.
+The panel uses split-adjusted opens and exact next-exchange-session SPY-adjusted returns. A missing stock price on that immediate session remains missing rather than jumping to the next observed stock date (715,534 of 715,546 rows currently have `ret_open_h1`). Dividends are not back-adjusted. Rows are selected on both news and price availability, which creates a collider/selection limitation for inference.
 
 ## Output And Licence Boundary
 
@@ -123,6 +150,58 @@ A result may be promoted only when:
 3. attrition and known timing/data gaps are carried into the report;
 4. the promoted artifact contains aggregate evidence only;
 5. the run is registered in `experiments/manifest.toml` with code/data identities.
+
+## Standing Analysis Rules
+
+Learned from correcting the first W3/W4 pass. These bind every later arm.
+
+- **Forward returns come from the exchange calendar, never from shifting inside
+  an event panel.** `shift(-1)` on a news-bearing panel returns the firm's next
+  *news* day. On this spine that is more than one session away for ~31% of rows
+  (median gap 2 calendar days, 99th percentile 26, max 1,018), which silently
+  paired a multi-week stock return with a one-session SPY return. Pass the dense
+  price frame; `attach_open_returns` now requires it.
+- **A cross-sectional book must be checked for neutrality, not assumed.** Record
+  `net_exposure` on every arm and assert it. Two separate bugs — the `sign`
+  position mode and the breadth cut over a tie block — each produced a
+  one-sided book that read as a signal result.
+- **Every signal comparison needs a null nest.** An OOS R² of +0.003 is
+  meaningless until the model with no sentiment in it is scored on the same rows.
+  `MODEL_SPECS` carries `M_control_only` for this reason; do not drop it.
+- **Rank within the session before taking positions.** `position_mode="sign"`
+  shorts every name of a non-negative signal and never goes long, and it collapses
+  any two rules that share a sign onto one book. Use `position_mode="cs_rank"`
+  for signal comparisons; `"sign"` exists only to reproduce the first pass.
+- **Report the effective number of tests beside the BH family.** Nine aggregation
+  rules are about four independent statistics on this panel.
+- **Condition on `n` before claiming a distribution-shape effect.** Half the
+  panel is `n=1`, where most rules are identical and dispersion is zero, and
+  dispersion is Spearman-0.87 correlated with the article count.
+- **A ranking without an interval is not a result.** OOS R² differences get a
+  date-block bootstrap on the paired loss differential.
+- **A pooled rank correlation with clustered errors is not a cross-sectional
+  IC.** Rank signal and return within each session, average the daily Spearman
+  correlations through time, and use HAC or a date-block bootstrap.
+- **Holding-period tails may not cross the frozen split.** A development
+  formation is eligible only when every return through its declared horizon
+  ends by 2019-12-31; final positions pay liquidation turnover.
+- **Match the cost label to the turnover definition.** Turnover is half the L1
+  weight change. A quoted per-side cost is therefore charged as
+  `2 × turnover × cost_bps_per_side / 10_000`; break-even uses the same factor.
+- **An event-time shape is descriptive until its spread has dependence-aware
+  inference.** `07_strategy_analysis` uses a 20-session date-block bootstrap and
+  BH across all 4 displayed signals × 20 lags; zero of 80 cells currently survives.
+- **Use event time diagnostically, not as an automatic rescue of a portfolio
+  null.** `strategy.event_time_car` shows descriptive CAR by signal quantile;
+  the Q5−Q1 path needs the block-bootstrap/BH procedure before interpretation.
+- **Do not overclaim either a signal or a null.** The repaired lag-1 Q5−Q1
+  spreads are about 1.2–1.8 bps versus a 20 bps round trip, but every displayed
+  interval crosses zero. The supported statement is economic non-viability;
+  neither a predictive effect nor a reversal is established by this family.
+- **Figures: colour by the job it does** (`lib/plots.py`). Categorical for
+  identity, one-hue ordinal for ranked groups, diverging with a **neutral grey**
+  midpoint for signed quantities. A coloured midpoint makes zero look like a
+  value; more than about five series becomes small multiples, not more hues.
 
 ## Working Style
 

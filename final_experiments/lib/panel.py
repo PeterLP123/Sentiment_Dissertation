@@ -256,25 +256,79 @@ def map_earnings_to_sessions(
     return out
 
 
-def attach_open_returns(panel: pd.DataFrame) -> pd.DataFrame:
-    """Attach next-session open-to-open simple returns for stock and SPY."""
-    out = panel.sort_values(["symbol", "session_date"]).copy()
-    out["next_adjusted_open"] = out.groupby("symbol", sort=False)["adjusted_open"].shift(-1)
-    out["ret_open_h1"] = out["next_adjusted_open"] / out["adjusted_open"] - 1.0
-    out["spy_next_adjusted_open"] = out.groupby("symbol", sort=False)["spy_adjusted_open"].shift(-1)
-    # SPY series is constant across symbols on a date; shift within symbol still works
-    # because spy_adjusted_open is aligned per row. Prefer date-level lead for market:
-    spy_lead = (
-        out[["session_date", "spy_adjusted_open"]]
-        .drop_duplicates("session_date")
+def attach_open_returns(panel: pd.DataFrame, prices: pd.DataFrame) -> pd.DataFrame:
+    """Attach next-*session* open-to-open simple returns for stock and SPY.
+
+    ``prices`` must be the dense daily price frame, not the panel. The next open
+    has to come from the exchange calendar: shifting inside the news-bearing
+    panel takes the firm's next *news* day instead, which on this spine is more
+    than one session away for ~31% of rows (median gap 2 calendar days, 99th
+    percentile 26, max over 1,000). That would pair a multi-week stock return
+    with a one-session SPY return and label the difference a one-session
+    abnormal return.
+    """
+    dense = prices.sort_values(["symbol", "session_date"], kind="mergesort").copy()
+    dense["session_date"] = pd.to_datetime(dense["session_date"]).dt.normalize()
+    dense["symbol"] = dense["symbol"].astype(str).str.upper()
+    market_calendar = (
+        dense.loc[dense["symbol"] == "SPY", ["session_date"]]
+        .drop_duplicates()
         .sort_values("session_date")
-        .assign(
-            spy_next_adjusted_open=lambda d: d["spy_adjusted_open"].shift(-1),
-            spy_ret_open_h1=lambda d: d["spy_adjusted_open"].shift(-1) / d["spy_adjusted_open"] - 1.0,
-        )[["session_date", "spy_next_adjusted_open", "spy_ret_open_h1"]]
     )
-    out = out.drop(columns=["spy_next_adjusted_open"], errors="ignore")
-    out = out.merge(spy_lead, on="session_date", how="left")
+    market_calendar["return_end_date"] = market_calendar["session_date"].shift(-1)
+    next_prices = dense[["symbol", "session_date", "adjusted_open"]].rename(
+        columns={
+            "session_date": "return_end_date",
+            "adjusted_open": "next_adjusted_open",
+        }
+    )
+    stock_lead = dense[["symbol", "session_date"]].merge(
+        market_calendar,
+        on="session_date",
+        how="left",
+        validate="m:1",
+    )
+    stock_lead = stock_lead.merge(
+        next_prices,
+        on=["symbol", "return_end_date"],
+        how="left",
+        validate="m:1",
+    )
+
+    out = panel.sort_values(["symbol", "session_date"], kind="mergesort").copy()
+    out["session_date"] = pd.to_datetime(out["session_date"]).dt.normalize()
+    key = out["symbol"].astype(str).str.upper()
+    lookup = out[["session_date"]].assign(symbol=key)
+    merged = lookup.merge(stock_lead, on=["symbol", "session_date"], how="left", validate="m:1")
+    out["return_end_date"] = merged["return_end_date"].to_numpy()
+    out["next_adjusted_open"] = merged["next_adjusted_open"].to_numpy()
+    out["ret_open_h1"] = out["next_adjusted_open"] / out["adjusted_open"] - 1.0
+
+    market = dense.loc[dense["symbol"] == "SPY", ["session_date", "adjusted_open"]].merge(
+        market_calendar,
+        on="session_date",
+        how="left",
+        validate="1:1",
+    )
+    market = market.merge(
+        dense.loc[dense["symbol"] == "SPY", ["session_date", "adjusted_open"]].rename(
+            columns={
+                "session_date": "return_end_date",
+                "adjusted_open": "spy_next_adjusted_open",
+            }
+        ),
+        on="return_end_date",
+        how="left",
+        validate="1:1",
+    ).rename(columns={"adjusted_open": "_spy_open"})
+    market["spy_ret_open_h1"] = market["spy_next_adjusted_open"] / market["_spy_open"] - 1.0
+    out = out.drop(columns=["spy_next_adjusted_open", "spy_ret_open_h1"], errors="ignore")
+    out = out.merge(
+        market[["session_date", "spy_next_adjusted_open", "spy_ret_open_h1"]],
+        on="session_date",
+        how="left",
+        validate="m:1",
+    )
     out["ar_open_h1"] = out["ret_open_h1"] - out["spy_ret_open_h1"]
     return out
 
@@ -361,7 +415,7 @@ def build_fnspid_firm_day_panel(
         "left join; not a filter",
     )
 
-    panel = attach_open_returns(panel)
+    panel = attach_open_returns(panel, prices)
     _step("firm_days_final", len(panel))
 
     # Chronological split labels (frozen; no fitting on evaluation).
@@ -392,9 +446,14 @@ def build_fnspid_firm_day_panel(
             "publisher_story_family": "null — require zstd rescan to populate",
         },
         "returns": {
-            "ret_open_h1": "next session adjusted_open / adjusted_open - 1",
+            "ret_open_h1": (
+                "immediate next SPY-calendar session adjusted_open / adjusted_open - 1; "
+                "missing if the stock lacks that exact session"
+            ),
             "ar_open_h1": "ret_open_h1 - spy_ret_open_h1",
             "price_convention": "split-adjusted open via open*(adj_close/close); not dividend-adjusted",
+            "n_with_ret_open_h1": int(panel["ret_open_h1"].notna().sum()),
+            "n_missing_exact_next_session_return": int(panel["ret_open_h1"].isna().sum()),
         },
         "primary_spine": {
             "name": "FNSPID",
@@ -483,7 +542,12 @@ def main() -> int:
     paths = PanelPaths()
     panel, attrition, meta = build_fnspid_firm_day_panel(paths)
     written = write_panel_outputs(panel, attrition, meta, paths.output_dir)
-    print(json.dumps({"n_rows": meta["n_rows"], "n_symbols": meta["n_symbols"], "outputs": {k: str(v) for k, v in written.items()}}, indent=2))
+    summary = {
+        "n_rows": meta["n_rows"],
+        "n_symbols": meta["n_symbols"],
+        "outputs": {k: str(v) for k, v in written.items()},
+    }
+    print(json.dumps(summary, indent=2))
     print(attrition.to_string(index=False))
     return 0
 
