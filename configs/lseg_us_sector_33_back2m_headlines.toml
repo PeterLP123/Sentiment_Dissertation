@@ -1,0 +1,248 @@
+# Immutable backward extension of the completed sector-33 corpus.
+#
+# This collects all entitled English-language headline sources for the two
+# months immediately before `lseg_us_sector_33_6m`. Story retrieval is disabled.
+# The boundary is intentionally shared with the existing collection; any exact
+# boundary duplicate is removed during the later deterministic consolidation.
+
+[collection]
+id = "us_sector_33_back2m_headlines"
+start = "2025-10-26T00:00:00Z"
+end = "2025-12-26T00:00:00Z"
+language = "en"
+session = "desktop"
+page_size = 100
+max_pages = 50
+retries = 3
+requests_per_second = 3.0
+max_requests_per_run = 8000
+window_days = 1
+fetch_story_bodies = false
+
+[cleaning]
+min_text_chars = 0
+max_scoring_chars = 1000
+
+[outputs]
+raw_output_root = "Data/collections/lseg_us_sector_33_back2m_headlines/raw"
+derived_output_root = "Data/collections/lseg_us_sector_33_back2m_headlines/derived"
+
+# Information technology
+[[companies]]
+symbol = "AAPL"
+name = "Apple Inc."
+ric = "AAPL.O"
+news_query = "R:AAPL.O and Language:LEN"
+aliases = ["Apple", "AAPL"]
+[[companies]]
+symbol = "MSFT"
+name = "Microsoft Corporation"
+ric = "MSFT.O"
+news_query = "R:MSFT.O and Language:LEN"
+aliases = ["Microsoft", "MSFT"]
+[[companies]]
+symbol = "NVDA"
+name = "NVIDIA Corporation"
+ric = "NVDA.O"
+news_query = "R:NVDA.O and Language:LEN"
+aliases = ["NVIDIA", "NVDA"]
+
+# Communication services
+[[companies]]
+symbol = "GOOGL"
+name = "Alphabet Inc."
+ric = "GOOGL.O"
+news_query = "R:GOOGL.O and Language:LEN"
+aliases = ["Alphabet", "Google", "GOOGL"]
+[[companies]]
+symbol = "META"
+name = "Meta Platforms Inc."
+ric = "META.O"
+news_query = "R:META.O and Language:LEN"
+aliases = ["Meta", "Facebook", "META"]
+[[companies]]
+symbol = "NFLX"
+name = "Netflix Inc."
+ric = "NFLX.O"
+news_query = "R:NFLX.O and Language:LEN"
+aliases = ["Netflix", "NFLX"]
+
+# Consumer discretionary
+[[companies]]
+symbol = "AMZN"
+name = "Amazon.com Inc."
+ric = "AMZN.O"
+news_query = "R:AMZN.O and Language:LEN"
+aliases = ["Amazon", "AMZN"]
+[[companies]]
+symbol = "TSLA"
+name = "Tesla Inc."
+ric = "TSLA.O"
+news_query = "R:TSLA.O and Language:LEN"
+aliases = ["Tesla", "TSLA"]
+[[companies]]
+symbol = "HD"
+name = "The Home Depot Inc."
+ric = "HD.N"
+news_query = "R:HD.N and Language:LEN"
+aliases = ["Home Depot", "HD"]
+
+# Financials
+[[companies]]
+symbol = "JPM"
+name = "JPMorgan Chase & Co."
+ric = "JPM.N"
+news_query = "R:JPM.N and Language:LEN"
+aliases = ["JPMorgan", "JPM"]
+[[companies]]
+symbol = "BAC"
+name = "Bank of America Corporation"
+ric = "BAC.N"
+news_query = "R:BAC.N and Language:LEN"
+aliases = ["Bank of America", "BofA", "BAC"]
+[[companies]]
+symbol = "GS"
+name = "The Goldman Sachs Group Inc."
+ric = "GS.N"
+news_query = "R:GS.N and Language:LEN"
+aliases = ["Goldman Sachs", "GS"]
+
+# Healthcare
+[[companies]]
+symbol = "JNJ"
+name = "Johnson & Johnson"
+ric = "JNJ.N"
+news_query = "R:JNJ.N and Language:LEN"
+aliases = ["Johnson & Johnson", "J&J", "JNJ"]
+[[companies]]
+symbol = "UNH"
+name = "UnitedHealth Group Incorporated"
+ric = "UNH.N"
+news_query = "R:UNH.N and Language:LEN"
+aliases = ["UnitedHealth", "UNH"]
+[[companies]]
+symbol = "LLY"
+name = "Eli Lilly and Company"
+ric = "LLY.N"
+news_query = "R:LLY.N and Language:LEN"
+aliases = ["Eli Lilly", "Lilly", "LLY"]
+
+# Energy
+[[companies]]
+symbol = "XOM"
+name = "Exxon Mobil Corporation"
+ric = "XOM.N"
+news_query = "R:XOM.N and Language:LEN"
+aliases = ["Exxon", "ExxonMobil", "XOM"]
+[[companies]]
+symbol = "CVX"
+name = "Chevron Corporation"
+ric = "CVX.N"
+news_query = "R:CVX.N and Language:LEN"
+aliases = ["Chevron", "CVX"]
+[[companies]]
+symbol = "COP"
+name = "ConocoPhillips"
+ric = "COP.N"
+news_query = "R:COP.N and Language:LEN"
+aliases = ["ConocoPhillips", "COP"]
+
+# Industrials
+[[companies]]
+symbol = "CAT"
+name = "Caterpillar Inc."
+ric = "CAT.N"
+news_query = "R:CAT.N and Language:LEN"
+aliases = ["Caterpillar", "CAT"]
+[[companies]]
+symbol = "BA"
+name = "The Boeing Company"
+ric = "BA.N"
+news_query = "R:BA.N and Language:LEN"
+aliases = ["Boeing", "BA"]
+[[companies]]
+symbol = "GE"
+name = "GE Aerospace"
+ric = "GE.N"
+news_query = "R:GE.N and Language:LEN"
+aliases = ["GE Aerospace", "General Electric", "GE"]
+
+# Consumer staples
+[[companies]]
+symbol = "WMT"
+name = "Walmart Inc."
+ric = "WMT.N"
+news_query = "R:WMT.N and Language:LEN"
+aliases = ["Walmart", "Wal-Mart", "WMT"]
+[[companies]]
+symbol = "PG"
+name = "The Procter & Gamble Company"
+ric = "PG.N"
+news_query = "R:PG.N and Language:LEN"
+aliases = ["Procter & Gamble", "P&G", "PG"]
+[[companies]]
+symbol = "KO"
+name = "The Coca-Cola Company"
+ric = "KO.N"
+news_query = "R:KO.N and Language:LEN"
+aliases = ["Coca-Cola", "Coca Cola", "KO"]
+
+# Utilities
+[[companies]]
+symbol = "NEE"
+name = "NextEra Energy Inc."
+ric = "NEE.N"
+news_query = "R:NEE.N and Language:LEN"
+aliases = ["NextEra Energy", "NEE"]
+[[companies]]
+symbol = "DUK"
+name = "Duke Energy Corporation"
+ric = "DUK.N"
+news_query = "R:DUK.N and Language:LEN"
+aliases = ["Duke Energy", "DUK"]
+[[companies]]
+symbol = "SO"
+name = "The Southern Company"
+ric = "SO.N"
+news_query = "R:SO.N and Language:LEN"
+aliases = ["Southern Company", "SO"]
+
+# Real estate
+[[companies]]
+symbol = "PLD"
+name = "Prologis Inc."
+ric = "PLD.N"
+news_query = "R:PLD.N and Language:LEN"
+aliases = ["Prologis", "PLD"]
+[[companies]]
+symbol = "AMT"
+name = "American Tower Corporation"
+ric = "AMT.N"
+news_query = "R:AMT.N and Language:LEN"
+aliases = ["American Tower", "AMT"]
+[[companies]]
+symbol = "EQIX"
+name = "Equinix Inc."
+ric = "EQIX.O"
+news_query = "R:EQIX.O and Language:LEN"
+aliases = ["Equinix", "EQIX"]
+
+# Materials
+[[companies]]
+symbol = "LIN"
+name = "Linde plc"
+ric = "LIN.O"
+news_query = "R:LIN.O and Language:LEN"
+aliases = ["Linde", "LIN"]
+[[companies]]
+symbol = "FCX"
+name = "Freeport-McMoRan Inc."
+ric = "FCX.N"
+news_query = "R:FCX.N and Language:LEN"
+aliases = ["Freeport-McMoRan", "Freeport", "FCX"]
+[[companies]]
+symbol = "NEM"
+name = "Newmont Corporation"
+ric = "NEM.N"
+news_query = "R:NEM.N and Language:LEN"
+aliases = ["Newmont", "NEM"]

@@ -1,0 +1,117 @@
+# Immutable breadth extension for the sector-balanced LSEG headline corpus.
+#
+# One high-liquidity US large-cap company is added per sector. The additions
+# were frozen before retrieval and without inspecting their returns or sentiment
+# results. All entitled English-language sources are retained; bodies are not
+# requested. This is a breadth robustness arm and does not alter the original
+# sector-33 analysis population.
+
+[collection]
+id = "us_sector_add11_8m_headlines"
+start = "2025-10-26T00:00:00Z"
+end = "2026-06-26T00:00:00Z"
+language = "en"
+session = "desktop"
+page_size = 100
+max_pages = 50
+retries = 3
+requests_per_second = 3.0
+max_requests_per_run = 8000
+window_days = 1
+fetch_story_bodies = false
+
+[cleaning]
+min_text_chars = 0
+max_scoring_chars = 1000
+
+[outputs]
+raw_output_root = "Data/collections/lseg_us_sector_add11_8m_headlines/raw"
+derived_output_root = "Data/collections/lseg_us_sector_add11_8m_headlines/derived"
+
+# Information technology
+[[companies]]
+symbol = "AVGO"
+name = "Broadcom Inc."
+ric = "AVGO.O"
+news_query = "R:AVGO.O and Language:LEN"
+aliases = ["Broadcom", "Broadcom Inc.", "AVGO"]
+
+# Communication services
+[[companies]]
+symbol = "TMUS"
+name = "T-Mobile US Inc."
+ric = "TMUS.O"
+news_query = "R:TMUS.O and Language:LEN"
+aliases = ["T-Mobile", "T-Mobile US", "TMUS"]
+
+# Consumer discretionary
+[[companies]]
+symbol = "MCD"
+name = "McDonald's Corporation"
+ric = "MCD.N"
+news_query = "R:MCD.N and Language:LEN"
+aliases = ["McDonald's", "McDonalds", "MCD"]
+
+# Financials
+[[companies]]
+symbol = "WFC"
+name = "Wells Fargo & Company"
+ric = "WFC.N"
+news_query = "R:WFC.N and Language:LEN"
+aliases = ["Wells Fargo", "WFC"]
+
+# Healthcare
+[[companies]]
+symbol = "ABBV"
+name = "AbbVie Inc."
+ric = "ABBV.N"
+news_query = "R:ABBV.N and Language:LEN"
+aliases = ["AbbVie", "AbbVie Inc.", "ABBV"]
+
+# Energy
+[[companies]]
+symbol = "EOG"
+name = "EOG Resources Inc."
+ric = "EOG.N"
+news_query = "R:EOG.N and Language:LEN"
+aliases = ["EOG Resources", "EOG"]
+
+# Industrials
+[[companies]]
+symbol = "RTX"
+name = "RTX Corporation"
+ric = "RTX.N"
+news_query = "R:RTX.N and Language:LEN"
+aliases = ["RTX", "Raytheon Technologies", "RTX Corporation"]
+
+# Consumer staples
+[[companies]]
+symbol = "COST"
+name = "Costco Wholesale Corporation"
+ric = "COST.O"
+news_query = "R:COST.O and Language:LEN"
+aliases = ["Costco", "Costco Wholesale", "COST"]
+
+# Utilities
+[[companies]]
+symbol = "AEP"
+name = "American Electric Power Company Inc."
+ric = "AEP.O"
+news_query = "R:AEP.O and Language:LEN"
+aliases = ["American Electric Power", "AEP"]
+
+# Real estate
+[[companies]]
+symbol = "WELL"
+name = "Welltower Inc."
+ric = "WELL.N"
+news_query = "R:WELL.N and Language:LEN"
+aliases = ["Welltower", "WELL"]
+
+# Materials
+[[companies]]
+symbol = "SHW"
+name = "The Sherwin-Williams Company"
+ric = "SHW.N"
+news_query = "R:SHW.N and Language:LEN"
+aliases = ["Sherwin-Williams", "Sherwin Williams", "SHW"]
