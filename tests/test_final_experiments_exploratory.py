@@ -1,0 +1,96 @@
+from __future__ import annotations
+
+import numpy as np
+import pandas as pd
+import pytest
+
+from final_experiments.lib.earnings import attach_earnings_distance, map_earnings_sessions
+from final_experiments.lib.lseg_robustness import attach_next_open_returns, lseg_ic_table
+from final_experiments.lib.thresholds import choose_probability_cutoff
+
+
+def test_earnings_mapping_and_event_time_sign() -> None:
+    sessions = pd.Series(pd.to_datetime(["2024-01-02", "2024-01-03", "2024-01-04"]))
+    calendar = pd.DataFrame(
+        {
+            "symbol": ["AAA"],
+            "report_date": ["2024-01-03"],
+            "session_rule": ["same_session"],
+            "timing_flag": ["BMO"],
+        }
+    )
+    mapped = map_earnings_sessions(calendar, sessions)
+    assert mapped.loc[0, "earnings_session"] == pd.Timestamp("2024-01-03")
+
+    firm_day = pd.DataFrame(
+        {
+            "symbol": ["AAA", "AAA", "AAA"],
+            "session_date": sessions,
+        }
+    )
+    attached = attach_earnings_distance(firm_day, mapped).sort_values("session_date")
+    assert attached["sessions_to_earnings"].tolist() == [-1, 0, 1]
+    assert attached["earnings_window"].tolist() == ["pre", "event", "post"]
+
+
+def test_next_session_rule_is_strict() -> None:
+    sessions = pd.Series(pd.to_datetime(["2024-01-02", "2024-01-03", "2024-01-04"]))
+    calendar = pd.DataFrame(
+        {
+            "symbol": ["AAA"],
+            "report_date": ["2024-01-03"],
+            "session_rule": ["next_session"],
+            "timing_flag": ["AMC"],
+        }
+    )
+    mapped = map_earnings_sessions(calendar, sessions)
+    assert mapped.loc[0, "earnings_session"] == pd.Timestamp("2024-01-04")
+
+
+def test_lseg_date_only_news_uses_strictly_later_open() -> None:
+    panel = pd.DataFrame({"symbol": ["AAA"], "news_date": ["2024-01-02"]})
+    prices = pd.DataFrame(
+        {
+            "symbol": ["AAA", "AAA", "AAA"],
+            "session_date": ["2024-01-02", "2024-01-03", "2024-01-04"],
+            "adjusted_open": [100.0, 110.0, 121.0],
+        }
+    )
+    attached = attach_next_open_returns(panel, prices)
+    assert attached.loc[0, "entry_session"] == pd.Timestamp("2024-01-03")
+    assert attached.loc[0, "raw_open_h1"] == pytest.approx(0.10)
+
+
+def test_probability_cutoff_cannot_win_by_almost_never_trading() -> None:
+    dates = pd.date_range("2024-01-02", periods=10, freq="D")
+    frame = pd.DataFrame(
+        {
+            "session_date": np.repeat(dates, 10),
+            "symbol": [f"S{i:02d}" for _ in dates for i in range(10)],
+            "oriented_rank": np.tile(np.linspace(-1.0, 1.0, 10), len(dates)),
+            "ar_open_h1": np.tile(np.linspace(-0.01, 0.01, 10), len(dates)),
+        }
+    )
+    probabilities = np.full(len(frame), 0.51)
+    cutoff, sweep = choose_probability_cutoff(frame, probabilities)
+    assert cutoff == 0.50
+    assert bool(sweep.loc[sweep["cutoff"] == 0.50, "selection_eligible"].iloc[0])
+    assert not bool(sweep.loc[sweep["cutoff"] == 0.525, "selection_eligible"].iloc[0])
+
+
+def test_lseg_ic_excludes_dense_panel_no_news_rows() -> None:
+    frame = pd.DataFrame(
+        {
+            "entry_session": pd.to_datetime(["2024-01-03"] * 4 + ["2024-01-04"] * 4),
+            "headline_count": [1, 1, 1, 0, 1, 1, 1, 0],
+            "mean_sentiment_score": [-1.0, 0.0, 1.0, 99.0] * 2,
+            "raw_open_h1": [-0.01, 0.0, 0.01, -0.99] * 2,
+        }
+    )
+    result = lseg_ic_table(
+        frame,
+        arms=("mean_sentiment_score",),
+        family="test family",
+    )
+    assert int(result.loc[0, "n"]) == 6
+    assert int(result.loc[0, "n_clusters"]) == 2

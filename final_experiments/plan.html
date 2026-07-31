@@ -906,11 +906,11 @@
         story-for-this-firm.
       </p>
       <ul class="checklist" data-ck="w2">
-        <li><label>Build a publisher table: rows, unique firm-headline pairs, firm-day coverage, and mean absolute score by <code>source_code</code> (or FNSPID site), for the primary spine. <em>Blocked on Spine A:</em> site/publisher absent from the FinBERT checkpoint; needs zstd rescan or Spine B.</label></li>
-        <li><label>Define publisher tiers by an ex-ante, stated criterion (primary wire vs aggregator vs syndicator vs promotional) - not by realised returns. Blocked until publisher identity exists.</label></li>
-        <li><label>Test one publisher weighting scheme against unweighted, on the same split. Report it even if it loses. Blocked until publisher identity exists.</label></li>
+        <li><label>Build a publisher table: rows, unique firm-headline pairs, firm-day coverage, and mean absolute score by <code>source_code</code> (or FNSPID site), for the primary spine. <em>Still blocked on Spine A:</em> site/publisher absent from the FinBERT checkpoint. A 594,287-event LSEG sector-33 fallback table was executed in <code>11_lseg_robustness</code>; it is not presented as FNSPID evidence.</label></li>
+        <li><label>Define publisher tiers by an ex-ante, stated criterion (primary wire vs aggregator vs syndicator vs promotional) - not by realised returns. Reuters is identified ex ante as the primary wire in notebook 11, but opaque non-Reuters source codes cannot be responsibly split into the remaining three tiers without source metadata.</label></li>
+        <li data-done="true"><label>Test one publisher weighting scheme against unweighted, on the same split. Completed on the non-pooled LSEG sector-33 robustness arm: Reuters receives weight 2, all unresolved other sources weight 1. Zero of five source/actionability arms survives BH; the Reuters-2× IC is +0.00153 (p=0.924).</label></li>
         <li data-done="true"><label>Build <code>final_experiments/lib/novelty.py</code>: first-mention flag, trailing-window near-duplicate distance, market-recap flag, time-since-prior-story-date. Comparisons use strictly earlier firm dates; same-session order and family revision remain unavailable on the checkpoint grain. Landed 2026-07-30.</label></li>
-        <li><label>Classify breaking / repetition / routine scheduled reporting. Partial only: a strictly-earlier repetition screen reports <code>repetition</code> vs <code>novel_or_unclassified</code>; market recap is separate. Breaking vs routine remains blocked pending human labels or the event taxonomy.</label></li>
+        <li data-done="true"><label>Classify breaking / repetition / routine scheduled reporting. Notebook 08 now produces all three <em>candidate</em> classes by combining the strictly-earlier repetition screen with the ordered event taxonomy. This is a completed machine exploratory arm, not a validated classifier; market recap remains a separate flag.</label></li>
         <li><label>Hand-label a stratified audit sample (target 150-200 stories, seed recorded) and report weighted precision and recall per class. Blinded template ready: <code>novelty_audit_sample.csv</code> (seed 42, n=180), with predictions, inclusion probabilities and inverse-probability weights isolated in <code>novelty_audit_key.csv</code>. Labels remain empty.</label></li>
         <li data-done="true"><label><strong>EDA: within-company-day score distribution.</strong> Per firm-day, plot and tabulate n, mean, median, std, skew, min, max, share negative / neutral / positive, and the gap between mean and median. Landed in <code>02_filters_and_distribution</code> / <code>outputs/02_filters_and_distribution/</code>.</label></li>
         <li data-done="true"><label>Plot how each of those moments behaves as n grows (n = 1, 2-5, 6-20, 21-75, 76+). This is the count-conditioned bias that made the 11-to-76 headline jump move daily signals so much.</label></li>
@@ -1079,12 +1079,12 @@
         as an explicit open question.
       </p>
       <ul class="checklist" data-ck="w5">
-        <li><label>Report the event-type mix on the primary spine, with unique firm-day counts per type, and mark which types are too thin to be powered.</label></li>
-        <li><label>Estimate the sentiment-return relationship per event type, in one pooled model with type interactions rather than 12 separate regressions.</label></li>
-        <li><label>Declare the multiplicity family (types x horizons) before looking, and apply Benjamini-Hochberg.</label></li>
+        <li data-done="true"><label>Report the event-type mix on the primary spine, with unique firm-day counts per type, and mark which types are too thin to be powered. Completed in <code>08_story_type</code>.</label></li>
+        <li data-done="true"><label>Estimate the sentiment-return relationship per event type, in one pooled model with type interactions rather than 12 separate regressions. Completed on development rows with session-date clustered errors.</label></li>
+        <li data-done="true"><label>Declare the multiplicity family (types x horizons) before looking, and apply Benjamini-Hochberg. Completed: 12 types × h1; zero survives.</label></li>
         <li><label>Validate the classifier: hand-check a stratified sample of type assignments and report agreement. The taxonomy is regex-derived and unvalidated.</label></li>
-        <li><label>Only if a type effect survives correction: build one type-weighted aggregator and test it as an arm in Workstream 3, rather than as a separate result.</label></li>
-        <li><label>State plainly that a per-type breakdown with 12 cells is a look-elsewhere risk, and that the honest default is no type conditioning.</label></li>
+        <li data-done="true"><label>Only if a type effect survives correction: build one type-weighted aggregator and test it as an arm in Workstream 3, rather than as a separate result. The generated gate found zero survivors, so no type-weighted arm was created and the unweighted default is retained.</label></li>
+        <li data-done="true"><label>State plainly that a per-type breakdown with 12 cells is a look-elsewhere risk, and that the honest default is no type conditioning. Recorded in notebook 08 and the experiment ledger.</label></li>
       </ul>
     </section>
 
@@ -1110,11 +1110,11 @@
       <ul class="checklist" data-ck="w6">
         <li data-done="true"><label>Choose an earnings-calendar source and record its licence, access date, and any redistribution limit. Done for FNSPID via LSEG Workspace (<code>final_experiments/data/earnings/license_record.md</code>); yfinance held as fallback only.</label></li>
         <li data-done="true"><label>Required fields for FNSPID gather: report date, BMO/AMC timing flag (from <code>TR.EventStartTime</code>), fiscal period parsed from title, event status. EPS actual/consensus not pulled yet.</label></li>
-        <li><label>Validate the calendar against the news panel: do <code>earnings_guidance</code> headlines actually cluster on the recorded report dates? Report the hit rate.</label></li>
-        <li><label>Add <code>sessions_to_earnings</code> to the panel and define the pre-earnings, earnings, and post-earnings windows explicitly.</label></li>
-        <li><label>Test the earnings interaction: is the sentiment-return relationship different inside the earnings window than outside it?</label></li>
-        <li><label>Run the exclusion robustness check: does any headline result survive dropping all earnings-window firm-days?</label></li>
-        <li><label>Note the drift confound in writing - post-earnings announcement drift is a documented anomaly, so a positive result inside the earnings window is not necessarily a sentiment result.</label></li>
+        <li data-done="true"><label>Validate the calendar against the news panel: machine <code>earnings_guidance</code> firm-days fall within ±1 session 23.97% and within ±5 sessions 42.27% of the time. This validates clustering only; taxonomy human validation remains open.</label></li>
+        <li data-done="true"><label>Add <code>sessions_to_earnings</code> to the panel and define windows explicitly. Completed in notebook 09: pre −5…−1, event 0, post +1…+5.</label></li>
+        <li data-done="true"><label>Test the earnings interaction inside versus outside. Completed as one pooled, date-clustered three-interaction model; zero survives BH.</label></li>
+        <li data-done="true"><label>Run the exclusion robustness check. Completed: after dropping every ±5-session earnings window, <code>negative_share</code> remains the only W3 BH survivor (IC −0.00551, HAC t −2.90).</label></li>
+        <li data-done="true"><label>Note the drift confound in writing. Notebook 09 explicitly prevents a PEAD interpretation: h1 is the outcome and earnings windows are conditioning variables.</label></li>
       </ul>
     </section>
 
@@ -1157,11 +1157,11 @@
         </div>
       </div>
       <ul class="checklist" data-ck="nn">
-        <li><label>Establish the fixed-band baseline first, on the same panel and split, so there is something to beat.</label></li>
-        <li><label>Build a small MLP plus a gradient-boosted comparator plus a logistic baseline. Report all three; a tiny net that ties a logistic regression is itself a result.</label></li>
-        <li><label>Try the per-sector variant before the per-stock variant - per-stock thresholds on this sample size will not have the data to support them.</label></li>
-        <li><label>Report the learned thresholds themselves, not just performance. A threshold surface that varies sensibly with story count and volatility is interpretable; one that looks like noise should be reported as noise.</label></li>
-        <li><label>Add a permutation or label-shuffle control so an apparent gain can be distinguished from capacity to memorise.</label></li>
+        <li data-done="true"><label>Establish the fixed-band baseline first, on the same panel and split. Completed: the least-bad validation band is 0.8; evaluation net Sharpe is −3.135 at 10 bps/side.</label></li>
+        <li data-done="true"><label>Build a small MLP plus a gradient-boosted comparator plus a logistic baseline. Completed with fit through 2017 and cutoff selection on 2018–2019; all three evaluation net Sharpes are negative.</label></li>
+        <li><label>Try the per-sector variant before the per-stock variant. Correctly blocked: no explicit point-in-time sector map exists for the 570-symbol FNSPID panel. The binding sector-first order also blocks stock-specific fitting.</label></li>
+        <li data-done="true"><label>Report the learned thresholds themselves, not just performance. Frozen cutoffs and story-count × dispersion threshold surfaces are emitted by notebook 10. Cutoff selection requires at least five active names on average and activity on at least half of sessions.</label></li>
+        <li data-done="true"><label>Add a permutation or label-shuffle control. Completed with a shuffled-label MLP; its evaluation AUC is 0.492 and net Sharpe −1.205.</label></li>
       </ul>
     </section>
 

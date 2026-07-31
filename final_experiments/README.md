@@ -24,12 +24,11 @@ The split is a **chronological evaluation block**, not a pristine holdout. The s
 ## Workstream Order
 
 1. **Inventory and panel**: completed. Data paths, primary spine, earnings calendar, panel, attrition, and coverage plots exist.
-2. **Filtering and distribution EDA**: executable EDA is complete; publisher fields are unavailable and the 180-row human audit is still unlabelled, so the S2 exit condition is not met.
-3. **Gate F1**: next formal decision. Choose one primary RQ and at most one secondary after resolving or explicitly waiving the audit blocker.
+2. **Filtering and distribution EDA**: executable EDA and the provisional machine-class arms are complete. Publisher fields are unavailable and the 180-row human audit is still unlabelled, so the validation exit condition is not met.
+3. **Exploratory secondary arms**: story type, earnings, pooled learned thresholds, and both non-pooled LSEG regimes have now been run. See [`EXPLORATORY_EXPERIMENT_LEDGER.md`](EXPLORATORY_EXPERIMENT_LEDGER.md).
+4. **Gate F1**: next formal decision. Choose one primary RQ and at most one secondary after resolving or explicitly waiving the audit blocker.
    `05_interpretation` assembles the evidence ledger that feeds this decision.
-4. **Core experiment**: run the workstream serving the chosen RQ through one common evaluation harness.
-5. **Secondary arms**: surprise, story type, earnings, and learned thresholds only where the primary design supports them.
-6. **Promotion**: register the accepted run and export aggregate, licence-safe figures/tables to the dissertation.
+5. **Promotion**: register the accepted run and export aggregate, licence-safe figures/tables to the dissertation.
 
 ## Files
 
@@ -60,6 +59,15 @@ The split is a **chronological evaluation block**, not a pristine holdout. The s
 | `lib/strategy.py` | Overlapping-tranche backtest on dense returns, development sweep, frozen-spec runner. | Active |
 | `outputs/06_strategy/` | Sweep, `frozen_spec.json`, daily series, equity/drawdown, per-year and cost-curve figures. | Ignored/local |
 | `07_strategy_analysis.py` / `.ipynb` | Strategy-null diagnostics plus Q5−Q1 date-block inference and BH over the displayed signal×lag family. | Active |
+| `08_story_type.py` / `.ipynb` | Provisional three-way story classes and one pooled 12-type interaction model; writes a blinded human-audit sheet and conditional type-weighting gate. | Executed; human validation blocked |
+| `lib/event_types.py` | Vectorised ordered taxonomy, candidate story classes, audit sampling, and date-clustered pooled type slopes. | Active |
+| `09_earnings.py` / `.ipynb` | Exchange-session earnings distance, pre/event/post interactions, timing sensitivity, taxonomy/calendar validation, and W3 exclusion robustness. | Executed |
+| `lib/earnings.py` | Frozen calendar mapping, signed event-time windows, and date-clustered interaction inference. | Active |
+| `10_thresholds.py` / `.ipynb` | Fixed-band, logistic, gradient-boosted, MLP, and label-shuffle gates with chronological fit/validation/evaluation and activity constraints. | Executed; sector input blocked |
+| `lib/thresholds.py` | Gate features, model definitions, dollar-neutral gated portfolios, cutoff selection, costs, and date-block intervals. | Active |
+| `11_lseg_robustness.py` / `.ipynb` | LSEG publisher inventory, ex-ante Reuters weighting, and separate sector-33/midcap-22 IC families. | Executed |
+| `lib/lseg_robustness.py` | Publisher aggregation, strict next-open mapping, source weighting, and HAC IC tables. | Active |
+| `EXPLORATORY_EXPERIMENT_LEDGER.md` | Aggregate completion/result ledger, including blocked inputs and null arms. | Current |
 | `lib/plots.py` | House figure style and the colour roles (categorical / ordinal / diverging / status). | Active |
 | `outputs/07_strategy_analysis/` | Event-time CAR, quantile spread and monotonicity, sweep surface, monthly heatmap, book-health figures. | Ignored/local |
 | `INVALIDATED_RUNS.md` | Source-controlled ledger for superseded/invalidated result chains and their generated snapshot locations. | Active |
@@ -80,6 +88,10 @@ uv run python final_experiments/04_surprise.py
 uv run python final_experiments/05_interpretation.py
 uv run python final_experiments/06_strategy.py
 uv run python final_experiments/07_strategy_analysis.py
+uv run python final_experiments/08_story_type.py
+uv run python final_experiments/09_earnings.py
+uv run python final_experiments/10_thresholds.py
+uv run python final_experiments/11_lseg_robustness.py
 ```
 
 The `.py` files are jupytext mirrors of the `.ipynb` notebooks. Run from the repository root so relative paths resolve consistently.
