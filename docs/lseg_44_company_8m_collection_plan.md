@@ -77,3 +77,25 @@ For each collection, require a completed manifest, a consolidated
 recorded output hash. Offline consolidation must deduplicate exact shared-boundary
 records using the stable headline identity fields; source collections remain
 unchanged.
+
+## Completed merged artifact
+
+The three inputs were merged offline on 2026-08-03 with
+`scripts/merge_lseg_headline_collections.py`. The merger verifies every source
+manifest and headline-file hash, uses LSEG `story_id` as the deduplication key,
+unions ticker/query/source-collection associations, and leaves all source files
+unchanged.
+
+- Input rows: 1,166,116.
+- Duplicate story IDs across collections: 7,354.
+- Output rows: 1,158,762.
+- Symbols: 44.
+- Coverage: 2025-10-26 00:01:06.326 through 2026-06-26 00:00:00.
+- Output: `Data/collections/lseg_us_sector_44_8m_headlines/derived/merged/headlines.jsonl`.
+- SHA-256: `7f48c46690f3293cbfe846ddecc701852daf3c35643f2747dcbc39f829927878`.
+
+There were 345 duplicate-story cases with conflicting non-empty top-level
+`source_code` values. The merge deterministically retains the first non-empty
+value in declared source order, records the conflict count, and preserves the
+underlying `raw_rows` plus all source-collection identities for audit. No rows
+were removed on the basis of this metadata conflict.
