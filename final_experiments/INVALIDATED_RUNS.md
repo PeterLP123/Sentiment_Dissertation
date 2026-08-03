@@ -38,3 +38,22 @@ daily cross-sectional Spearman IC with HAC inference, canonical dollar-neutral
 cross-sectional rank books, and date-block/BH inference for event-time spreads.
 It supersedes this snapshot only after all affected notebooks have rerun and
 their outputs have passed the focused validation suite.
+
+## 2026-08-03 pre-threshold-neutrality repair
+
+Recoverable source state: `c32c74165dc803d70f9027cc74bff0666089b312`
+(`final_experiments/10_thresholds.ipynb`).
+
+Status: **invalidated; do not quote its evaluation portfolio results.**
+
+The gate zeroed rejected names and then gross-normalised the surviving book as
+a whole. If only one rank direction survived, the result was a directional
+market bet rather than the declared dollar-neutral trade/no-trade strategy.
+Mean evaluation net exposures ranged from −0.978 to +0.112, so the old net
+Sharpes (fixed band −3.135; logistic −3.699; gradient boosted −1.938; MLP
+−1.827; shuffled-label MLP −1.205) do not estimate the declared strategy.
+
+The repaired implementation normalises surviving positive and negative legs
+separately to +0.5 and −0.5 gross and sends one-sided selections flat. Notebook
+10 was then rerun in full. This is one valid evaluation disclosure after one
+void predecessor; it does not restore a pristine holdout.

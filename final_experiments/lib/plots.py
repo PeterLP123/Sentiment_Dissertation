@@ -70,6 +70,58 @@ INK = {
 }
 
 
+# Reader-facing labels for the compact identifiers used in tables and files.
+# Keep identifiers in data artifacts for reproducibility; translate them only at
+# the figure boundary so dissertation plots do not read like debug output.
+DISPLAY_LABELS: dict[str, str] = {
+    "mean_hard_label": "Mean hard label",
+    "mean_continuous": "Mean continuous score",
+    "median_continuous": "Median continuous score",
+    "trimmed_mean": "Trimmed mean",
+    "negative_share": "Negative-story share",
+    "dispersion": "Score dispersion",
+    "strongest_event": "Strongest event",
+    "attention_log_n": "Log-count weighted mean",
+    "decayed_state": "Decayed sentiment state",
+    "M_control_only": "Prior-return control",
+    "M_level": "Sentiment level",
+    "M_firm_only": "Firm-demeaned sentiment",
+    "M_surprise": "Firm + market demeaned",
+    "M_both": "Level + full surprise",
+    "firm_baseline": "Firm baseline",
+    "market_wide_cs": "Market-wide mean",
+    "idiosyncratic": "Idiosyncratic residual",
+    "fixed_band": "Fixed band",
+    "logistic": "Logistic gate",
+    "gradient_boosted": "Gradient-boosted gate",
+    "mlp": "MLP gate",
+    "mlp_label_shuffle": "Shuffled-label MLP",
+    "earnings_guidance": "Earnings / guidance",
+    "analyst_rating": "Analyst rating",
+    "mna_strategy": "M&A / strategy",
+    "legal_regulatory": "Legal / regulatory",
+    "product_technology": "Product / technology",
+    "management_governance": "Management / governance",
+    "macro_sector": "Macro / sector",
+    "commodity_rates_fx": "Commodities / rates / FX",
+    "labor_esg": "Labour / ESG",
+    "market_price_technical": "Market-price / technical",
+    "generic_low_information": "Generic / low information",
+    "other": "Other",
+    "mean_sentiment_score": "All-story mean",
+    "mean_reuters_sentiment_score": "Reuters-only mean",
+    "mean_non_reuters_sentiment_score": "Non-Reuters mean",
+    "reuters_2x_weighted_score": "Reuters 2x weighted",
+    "mean_actionable_sentiment_score": "Actionable-only mean",
+}
+
+
+def display_label(value: Any) -> str:
+    """Translate an internal identifier into a compact figure label."""
+    text = str(value)
+    return DISPLAY_LABELS.get(text, text.replace("_", " ").strip().capitalize())
+
+
 def diverging_cmap() -> LinearSegmentedColormap:
     """Blue → neutral grey → red, for signed quantities."""
     return LinearSegmentedColormap.from_list(

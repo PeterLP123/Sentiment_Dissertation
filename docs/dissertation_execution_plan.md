@@ -1,6 +1,6 @@
 # Dissertation Execution Plan
 
-Last updated: 2026-07-31
+Last updated: 2026-08-03
 
 This is the delivery plan for the closing phase. The dissertation deadline is **1 September 2026**. Calendar promises from the superseded July 12 plan are retired; progress is controlled by evidence gates and stage exit conditions.
 
@@ -81,11 +81,11 @@ Exit condition: current and historical plans are visibly separated; the research
 
 Outputs:
 
-- `00_data_inventory.py` / `.ipynb`;
+- `00_data_inventory.ipynb`;
 - FNSPID-versus-LSEG coverage/quality comparison;
 - primary-spine decision checklist;
 - LSEG FNSPID earnings calendar and licence record;
-- `01_panel.py` / `.ipynb` and `lib/panel.py`;
+- `01_panel.ipynb` and `lib/panel.py`;
 - firm-day panel, manifest, schema, attrition, and coverage plots under ignored outputs;
 - development/evaluation split recorded before downstream scoring/model selection.
 
@@ -105,13 +105,13 @@ Goal: establish what the news panel contains before testing return outcomes.
 
 Build:
 
-- `02_filters_and_distribution.py` / `.ipynb`;
+- `02_filters_and_distribution.ipynb`;
 - `lib/novelty.py` and `lib/distribution.py` for reusable, silently dangerous logic;
 - source/publisher tables where available;
 - novelty, repetition, recap/routine, and direct-target features;
 - firm-day distribution summaries by story-count band;
 - seeded human-audit template and adjudicated labels;
-- `outputs/02_filters_and_distribution/summary.json` and diagnostic figures.
+- `outputs/02_filters_and_distribution/manifest.json` and diagnostic figures.
 
 Required analyses:
 
@@ -150,9 +150,9 @@ Use the notebook matching the chosen RQ:
 
 | Chosen question | Primary implementation |
 | --- | --- |
-| RQ-A aggregation | `03_aggregation.py` / `.ipynb`, `lib/aggregators.py` |
+| RQ-A aggregation | `03_aggregation.ipynb`, `lib/aggregators.py` |
 | RQ-B filtering | Filtering notebook extended into one frozen filtered-versus-unfiltered evaluation; no return-chosen source tiers |
-| RQ-C surprise | `04_surprise.py` / `.ipynb`, `lib/surprise.py` |
+| RQ-C surprise | `04_surprise.ipynb`, `lib/surprise.py` |
 | RQ-D agreement | Complete the missing July 12 agreement-validation and LSEG model-panel prerequisites before outcome analysis |
 | RQ-E thresholds | Not eligible as sole primary unless Gate F1 documents a validated base signal and sector/firm support |
 
@@ -297,15 +297,11 @@ Every result paragraph should state sample, split, estimand, effect size/interva
 Current completed stages:
 
 ```bash
-uv run python final_experiments/00_data_inventory.py
-uv run python final_experiments/01_panel.py
-uv run python final_experiments/02_filters_and_distribution.py
-uv run python final_experiments/03_aggregation.py
-uv run python final_experiments/04_surprise.py
-uv run python final_experiments/05_interpretation.py
-uv run python final_experiments/06_strategy.py
-uv run python final_experiments/07_strategy_analysis.py
+uv run jupyter nbconvert --to notebook --execute --inplace final_experiments/00_data_inventory.ipynb
 ```
+
+Repeat in numeric order through `11_lseg_robustness.ipynb`; the numbered
+notebooks are the sole stage sources and import reusable helpers from `lib/`.
 
 Stable benchmark integrity:
 

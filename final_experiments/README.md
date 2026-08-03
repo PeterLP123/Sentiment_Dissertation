@@ -34,38 +34,38 @@ The split is a **chronological evaluation block**, not a pristine holdout. The s
 
 | Path | Role | Status |
 | --- | --- | --- |
-| `00_data_inventory.py` / `.ipynb` | Inventories FNSPID/LSEG assets, profiles the earnings gather, and records the spine decision evidence. | Completed |
-| `01_panel.py` / `.ipynb` | Builds the FNSPID firm-day panel and writes attrition/coverage evidence. | Completed |
+| `00_data_inventory.ipynb` | Inventories FNSPID/LSEG assets, profiles the earnings gather, and records the spine decision evidence. | Completed |
+| `01_panel.ipynb` | Builds the FNSPID firm-day panel and writes attrition/coverage evidence. | Completed |
 | `lib/panel.py` | Thin reusable panel builder and frozen split constants. | Active |
 | `data/earnings/README.md` | Earnings-calendar schema, session mapping, and quality caveats. | Tracked |
 | `data/earnings/license_record.md` | LSEG source, access date, requested fields, redistribution boundary, and safe aggregate counts. | Tracked |
 | `data/earnings/*.csv`, `*.json`, `checkpoints/` | Licensed LSEG results-calendar payloads. | Ignored/local |
 | `outputs/00_data_inventory/` | Generated inventory tables and figures. | Ignored/local |
 | `outputs/01_panel/` | Generated panel, manifest, attrition, schema, and coverage figures. | Ignored/local |
-| `02_filters_and_distribution.py` / `.ipynb` | Within-day score EDA plus novelty heuristic mix and audit template. | Active |
+| `02_filters_and_distribution.ipynb` | Within-day score EDA plus novelty heuristic mix and audit template. | Active |
 | `lib/distribution.py` | Firm-day score moments and n-bin mass helpers. | Active |
 | `lib/novelty.py` | Strictly-earlier first-mention / near-dup features and separate market-recap flag. | Active |
 | `outputs/02_filters_and_distribution/` | Moments, repetition-screen mix, blinded audit plus weight key (gitignored). | Ignored/local |
-| `03_aggregation.py` / `.ipynb` | Nine aggregator signals; development IC vs `ar_open_h1`, BH, n-bin facet, turnover/break-even. | Active |
+| `03_aggregation.ipynb` | Nine aggregator signals; development IC vs `ar_open_h1`, BH, n-bin facet, turnover/break-even. | Active |
 | `lib/aggregators.py` | Same-day aggregation rules, decayed state, mean daily cross-sectional Spearman IC with HAC inference. | Active |
 | `lib/evaluate.py` | Portfolio translation, turnover, break-even, block bootstrap. | Active |
 | `outputs/03_aggregation/` | Aggregator panel, IC tables, portfolio arm tables and figures. | Ignored/local |
-| `04_surprise.py` / `.ipynb` | Demeaning stack, market-model AR, nested OOS surprise horse race against a control-only nest. | Active |
+| `04_surprise.ipynb` | Demeaning stack, market-model AR, nested OOS surprise horse race against a control-only nest. | Active |
 | `lib/surprise.py` | Firm/CS demeaning, trailing market model, OOS R² comparison with block-bootstrap differentials. | Active |
 | `outputs/04_surprise/` | Surprise panel, decomposition, horse-race tables/figures. | Ignored/local |
-| `05_interpretation.py` / `.ipynb` | Rule redundancy, dispersion-vs-volume conditioning, significance-vs-economics, Gate F1 evidence ledger. | Active |
+| `05_interpretation.ipynb` | Rule redundancy, dispersion-vs-volume conditioning, significance-vs-economics, Gate F1 evidence ledger. | Active |
 | `outputs/05_interpretation/` | Distinctness, fixed-n IC, position-mode comparison, OOS-vs-control figures and ledger. | Ignored/local |
-| `06_strategy.py` / `.ipynb` | Strategy backtest: horizon × breadth sweep on development, frozen spec, one evaluation run, equity/drawdown/cost curve. | Active |
+| `06_strategy.ipynb` | Strategy backtest: horizon × breadth sweep on development, frozen spec, corrected evaluation run plus disclosed void predecessor, equity/drawdown/cost curve. | Active |
 | `lib/strategy.py` | Overlapping-tranche backtest on dense returns, development sweep, frozen-spec runner. | Active |
 | `outputs/06_strategy/` | Sweep, `frozen_spec.json`, daily series, equity/drawdown, per-year and cost-curve figures. | Ignored/local |
-| `07_strategy_analysis.py` / `.ipynb` | Strategy-null diagnostics plus Q5−Q1 date-block inference and BH over the displayed signal×lag family. | Active |
-| `08_story_type.py` / `.ipynb` | Provisional three-way story classes and one pooled 12-type interaction model; writes a blinded human-audit sheet and conditional type-weighting gate. | Executed; human validation blocked |
+| `07_strategy_analysis.ipynb` | Strategy-null diagnostics plus Q5−Q1 date-block inference and BH over the displayed signal×lag family. | Active |
+| `08_story_type.ipynb` | Provisional three-way story classes and one pooled 12-type interaction model; writes a blinded human-audit sheet and conditional type-weighting gate. | Executed; human validation blocked |
 | `lib/event_types.py` | Vectorised ordered taxonomy, candidate story classes, audit sampling, and date-clustered pooled type slopes. | Active |
-| `09_earnings.py` / `.ipynb` | Exchange-session earnings distance, pre/event/post interactions, timing sensitivity, taxonomy/calendar validation, and W3 exclusion robustness. | Executed |
+| `09_earnings.ipynb` | Exchange-session earnings distance, pre/event/post interactions, timing sensitivity, taxonomy/calendar validation, and W3 exclusion robustness. | Executed |
 | `lib/earnings.py` | Frozen calendar mapping, signed event-time windows, and date-clustered interaction inference. | Active |
-| `10_thresholds.py` / `.ipynb` | Fixed-band, logistic, gradient-boosted, MLP, and label-shuffle gates with chronological fit/validation/evaluation and activity constraints. | Executed; sector input blocked |
+| `10_thresholds.ipynb` | Fixed-band, logistic, gradient-boosted, MLP, and label-shuffle gates with chronological fit/validation/evaluation, activity constraints, and bilateral dollar-neutral normalisation. | Executed; sector input blocked |
 | `lib/thresholds.py` | Gate features, model definitions, dollar-neutral gated portfolios, cutoff selection, costs, and date-block intervals. | Active |
-| `11_lseg_robustness.py` / `.ipynb` | LSEG publisher inventory, ex-ante Reuters weighting, and separate sector-33/midcap-22 IC families. | Executed |
+| `11_lseg_robustness.ipynb` | LSEG publisher inventory, ex-ante Reuters weighting, and separate sector-33/midcap-22 IC families. | Executed |
 | `lib/lseg_robustness.py` | Publisher aggregation, strict next-open mapping, source weighting, and HAC IC tables. | Active |
 | `EXPLORATORY_EXPERIMENT_LEDGER.md` | Aggregate completion/result ledger, including blocked inputs and null arms. | Current |
 | `lib/plots.py` | House figure style and the colour roles (categorical / ordinal / diverging / status). | Active |
@@ -73,28 +73,22 @@ The split is a **chronological evaluation block**, not a pristine holdout. The s
 | `INVALIDATED_RUNS.md` | Source-controlled ledger for superseded/invalidated result chains and their generated snapshot locations. | Active |
 | `plan.html` | Live phase plan and checklist. | Tracked |
 
-Planned notebook/helper names remain listed in `plan.html`; create them only when their workstream starts.
+All numbered stage notebooks now exist. Gate F1 and promotion remain decisions,
+not missing notebook implementations.
 
 ## Running The Existing Notebooks
 
 From the repository root, using Python 3.12 with the `tailrisk`, `finbert`, and figure dependencies installed:
 
 ```bash
-uv run python final_experiments/00_data_inventory.py
-uv run python final_experiments/01_panel.py
-uv run python final_experiments/02_filters_and_distribution.py
-uv run python final_experiments/03_aggregation.py
-uv run python final_experiments/04_surprise.py
-uv run python final_experiments/05_interpretation.py
-uv run python final_experiments/06_strategy.py
-uv run python final_experiments/07_strategy_analysis.py
-uv run python final_experiments/08_story_type.py
-uv run python final_experiments/09_earnings.py
-uv run python final_experiments/10_thresholds.py
-uv run python final_experiments/11_lseg_robustness.py
+uv run jupyter nbconvert --to notebook --execute --inplace \
+  final_experiments/00_data_inventory.ipynb
 ```
 
-The `.py` files are jupytext mirrors of the `.ipynb` notebooks. Run from the repository root so relative paths resolve consistently.
+Repeat in numeric order for `01_panel.ipynb` through
+`11_lseg_robustness.ipynb`. Run from the repository root so relative paths
+resolve consistently. The numbered `.ipynb` files are the sole notebook source;
+reusable code remains under `lib/`.
 
 These are not clone-only examples. They require local artifacts that are intentionally absent from Git:
 
@@ -174,9 +168,9 @@ Learned from correcting the first W3/W4 pass. These bind every later arm.
   paired a multi-week stock return with a one-session SPY return. Pass the dense
   price frame; `attach_open_returns` now requires it.
 - **A cross-sectional book must be checked for neutrality, not assumed.** Record
-  `net_exposure` on every arm and assert it. Two separate bugs — the `sign`
-  position mode and the breadth cut over a tie block — each produced a
-  one-sided book that read as a signal result.
+  `net_exposure` on every arm and assert it. The historical `sign` mode, a
+  breadth cut over a tie block, and row-level gating without separate long/short
+  leg normalisation each produced a one-sided book that read as a signal result.
 - **Every signal comparison needs a null nest.** An OOS R² of +0.003 is
   meaningless until the model with no sentiment in it is scored on the same rows.
   `MODEL_SPECS` carries `M_control_only` for this reason; do not drop it.

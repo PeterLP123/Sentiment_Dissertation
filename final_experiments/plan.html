@@ -761,9 +761,9 @@
             <td>Tracked</td>
           </tr>
           <tr>
-            <td><code>final_experiments/notebooks/</code></td>
-            <td>Analysis notebooks, jupytext <code>.py</code> pair committed beside each <code>.ipynb</code>.</td>
-            <td>Tracked (pair); outputs stripped where large</td>
+            <td><code>final_experiments/00_*.ipynb</code> … <code>11_*.ipynb</code></td>
+            <td>Numbered analysis notebooks. These <code>.ipynb</code> files are the sole stage sources; reusable logic stays in <code>lib/</code>.</td>
+            <td>Tracked; generated outputs remain ignored</td>
           </tr>
           <tr>
             <td><code>final_experiments/lib/</code></td>
@@ -859,7 +859,7 @@
         </p>
       </div>
       <ul class="checklist" data-ck="w1">
-        <li data-done="true"><label>Inventory and quality notebook: <code>final_experiments/00_data_inventory</code> (jupytext-paired). Archives size-matched on disk; earnings calendar gathered for FNSPID via LSEG. Remaining must-gather: sector table, human audit labels. Wider LSEG only if Spine B is primary.</label></li>
+        <li data-done="true"><label>Inventory and quality notebook: <code>final_experiments/00_data_inventory.ipynb</code>. Archives size-matched on disk; earnings calendar gathered for FNSPID via LSEG. Remaining must-gather: sector table, human audit labels. Wider LSEG only if Spine B is primary.</label></li>
         <li data-done="true"><label>Decide the primary spine (FNSPID vs LSEG) and write the one-paragraph justification into this plan. Done 2026-07-30: FNSPID primary; LSEG robustness only — see decision card above.</label></li>
         <li data-done="true"><label>Restore or re-download the FNSPID archives (present and byte-size matched to <code>download_manifest.json</code>). Still open: re-verify upstream SHA-256 before promoting Spine A results (<code>All_external.csv</code> 5.73 GB, <code>nasdaq_exteral_data.csv</code> 23.2 GB, <code>full_history.zip</code> 589 MB).</label></li>
         <li data-done="true"><label>Build <code>final_experiments/lib/panel.py</code>: one firm-day panel joining news, adjusted-open prices, the market benchmark, and the earnings calendar on <code>(symbol, session_date)</code>. FNSPID S1 panel: 715,546 rows / 570 symbols under <code>outputs/01_panel/</code>.</label></li>
@@ -1157,11 +1157,11 @@
         </div>
       </div>
       <ul class="checklist" data-ck="nn">
-        <li data-done="true"><label>Establish the fixed-band baseline first, on the same panel and split. Completed: the least-bad validation band is 0.8; evaluation net Sharpe is −3.135 at 10 bps/side.</label></li>
+        <li data-done="true"><label>Establish the fixed-band baseline first, on the same panel and split. Corrected 2026-08-03: the frozen validation band is 0.4; evaluation net Sharpe is −0.108 at 10 bps/side after bilateral long/short normalisation.</label></li>
         <li data-done="true"><label>Build a small MLP plus a gradient-boosted comparator plus a logistic baseline. Completed with fit through 2017 and cutoff selection on 2018–2019; all three evaluation net Sharpes are negative.</label></li>
         <li><label>Try the per-sector variant before the per-stock variant. Correctly blocked: no explicit point-in-time sector map exists for the 570-symbol FNSPID panel. The binding sector-first order also blocks stock-specific fitting.</label></li>
         <li data-done="true"><label>Report the learned thresholds themselves, not just performance. Frozen cutoffs and story-count × dispersion threshold surfaces are emitted by notebook 10. Cutoff selection requires at least five active names on average and activity on at least half of sessions.</label></li>
-        <li data-done="true"><label>Add a permutation or label-shuffle control. Completed with a shuffled-label MLP; its evaluation AUC is 0.492 and net Sharpe −1.205.</label></li>
+        <li data-done="true"><label>Add a permutation or label-shuffle control. Completed with a shuffled-label MLP; its evaluation AUC is 0.492 and corrected net Sharpe −0.757.</label></li>
       </ul>
     </section>
 
@@ -1222,17 +1222,17 @@
         <li data-done="true"><label><code>final_experiments/lib/novelty.py</code> - strictly-earlier first-mention and near-duplicate distance, separate market-recap flag, blinded weighted audit; routine reporting and family revision unavailable on checkpoint grain.</label></li>
         <li data-done="true"><label><code>final_experiments/lib/aggregators.py</code> - the nine aggregation rules behind one signature.</label></li>
         <li data-done="true"><label><code>final_experiments/lib/surprise.py</code> - demeaning stack, trailing market-model AR, nested OOS horse race.</label></li>
-        <li><label><code>final_experiments/lib/thresholds.py</code> - fixed band, logistic, gradient-boosted, and small MLP gates behind one interface.</label></li>
+        <li data-done="true"><label><code>final_experiments/lib/thresholds.py</code> - fixed band, logistic, gradient-boosted, and small MLP gates behind one interface; post-gate long/short legs are normalised separately to preserve dollar neutrality.</label></li>
         <li data-done="true"><label><code>final_experiments/lib/evaluate.py</code> - chronological split, mean daily cross-sectional IC with HAC inference, block bootstrap, Benjamini-Hochberg, turnover and break-even. Aggregation arms route through it.</label></li>
         <li data-done="true"><label><code>final_experiments/lib/plots.py</code> — house figure style plus colour assigned by job: categorical for identity, one-hue ordinal for ranked groups, diverging with a <strong>neutral grey</strong> midpoint for signed quantities, reserved status colours. Includes collision-free direct labelling. Replaces the per-notebook rcParams drift and the <code>RdYlGn</code> scale in <code>06</code>, whose coloured midpoint made a zero Sharpe read as a value.</label></li>
-        <li data-done="true"><label><code>final_experiments/lib/strategy.py</code> + <code>06_strategy</code> — overlapping-tranche backtest on dense returns, development sweep over horizon × breadth, pre-declared selection rule frozen to <code>frozen_spec.json</code>, single evaluation run, equity/drawdown/per-year/cost-curve (landed 2026-07-31).</label></li>
+        <li data-done="true"><label><code>final_experiments/lib/strategy.py</code> + <code>06_strategy</code> — overlapping-tranche backtest on dense returns, development sweep over horizon × breadth, pre-declared selection rule frozen to <code>frozen_spec.json</code>, and one valid corrected evaluation read. One pre-repair read is void and disclosed in <code>INVALIDATED_RUNS.md</code> (landed 2026-07-31).</label></li>
         <li data-done="true"><label><code>07_strategy_analysis</code> — strategy-null diagnostics plus Q5−Q1 date-block intervals and BH over the displayed 4×20 event-time family; zero survivors in the repaired run.</label></li>
         <li data-done="true"><label><code>00_data_inventory</code> — coverage, quality, and need-more decision support (landed 2026-07-30).</label></li>
         <li data-done="true"><label><code>final_experiments/lib/panel.py</code> + <code>01_panel</code> — FNSPID firm-day panel, attrition, coverage (landed 2026-07-30).</label></li>
         <li data-done="true"><label><code>final_experiments/lib/distribution.py</code> + <code>02_filters_and_distribution</code> — within-day moments vs n, mass, collider note (landed 2026-07-30).</label></li>
-        <li data-done="true"><label>Notebooks landed: <code>00_data_inventory</code>, <code>01_panel</code>, <code>02_filters_and_distribution</code>, <code>03_aggregation</code>, <code>04_surprise</code>, <code>05_interpretation</code>, <code>06_strategy</code>, <code>07_strategy_analysis</code>. Still to build: <code>08_story_type</code>, <code>09_earnings</code>, <code>10_thresholds</code>.</label></li>
+        <li data-done="true"><label>Numbered notebooks <code>00_data_inventory.ipynb</code> through <code>11_lseg_robustness.ipynb</code> are present and executable. The notebooks are the sole stage sources; top-level jupytext mirrors were retired 2026-08-03.</label></li>
         <li data-done="true"><label><code>05_interpretation</code> — rule redundancy and effective test count, dispersion-vs-volume conditioning, position-mode correction, significance-vs-economics figure, and the Gate F1 evidence ledger (landed 2026-07-31).</label></li>
-        <li data-done="true"><label>Focused helper tests: 56 across seven files, including exact exchange-session returns, non-overlapping W4 timing, daily cross-sectional IC, cs-rank neutrality, strict development/evaluation horizon boundaries, terminal liquidation, and block-bootstrap event-time spread inference. All green; plotting/notebook glue remains untested per phase rules.</label></li>
+        <li data-done="true"><label>Focused helper tests cover exact exchange-session returns, non-overlapping W4 timing, development-only W4 coefficients, daily cross-sectional IC, cs-rank and gated-book neutrality, strict development/evaluation horizon boundaries, terminal liquidation, and block-bootstrap event-time spread inference. Plotting/notebook glue is validated by clean notebook execution rather than unit tests.</label></li>
       </ul>
     </section>
 
@@ -1300,7 +1300,7 @@
             <td><strong>S4</strong> Arms</td>
             <td>Remaining workstreams as robustness or secondary arms, in the plan's order, as time allows.</td>
             <td>Each arm either has a result or is explicitly recorded as not run.</td>
-            <td>🟡 <strong>Partial and out of order.</strong> W3 and W4 have results; W5 (story type), W6 (earnings, beyond the calendar gather) and the threshold work are not run.</td>
+            <td>✅ <strong>Complete but exploratory and out of order.</strong> W3–W6, the pooled threshold arm, and both separate LSEG robustness arms have results. Sector/stock thresholds and calibrated filtering remain explicitly blocked by missing inputs; none of these arms is promoted before Gate F1.</td>
           </tr>
           <tr>
             <td><strong>S5</strong> Write</td>

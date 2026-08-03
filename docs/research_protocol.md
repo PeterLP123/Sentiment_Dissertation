@@ -1,6 +1,6 @@
 # Research Protocol
 
-Last updated: 2026-07-30
+Last updated: 2026-08-03
 
 > **Current status.** This protocol governs the closing `final_experiments/` phase. The final research question has **not** been selected. The live [final experiments plan](../final_experiments/plan.html) records operational decisions and checklist status; this document records the scientific constraints that remain binding across every candidate RQ.
 
@@ -251,7 +251,7 @@ Required comparisons:
 
 ### Learned thresholds
 
-Secondary only. Establish the fixed-band rule first. Compare logistic, gradient-boosted, and small MLP gates using development data only. Prefer sector-conditioned to stock-specific thresholds once a sector table exists. Include a label-shuffle/permutation control and report the learned threshold surface, not only performance.
+Secondary only. Establish the fixed-band rule first. Compare logistic, gradient-boosted, and small MLP gates using development data only. Prefer sector-conditioned to stock-specific thresholds once a sector table exists. Include a label-shuffle/permutation control and report the learned threshold surface, not only performance. After row-level gating, normalise surviving long and short rank legs separately to 0.5 gross; a one-sided selection must go flat rather than become a directional market bet.
 
 ## Inference And Multiplicity
 

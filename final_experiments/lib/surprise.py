@@ -353,10 +353,12 @@ def nested_oos_horse_race(
     evaluation_start: str = FROZEN_EVAL_START,
     model_specs: dict[str, tuple[str, ...]] | None = None,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
-    """Fit on development, score OOS R² on evaluation; clustered coefs on eval.
+    """Fit on development and score OOS R² on evaluation.
 
     Primary statistic: evaluation OOS R² vs predicting the development mean of
-    ``outcome_col``. Coefficient t-stats are secondary.
+    ``outcome_col``. Secondary coefficient estimates and date-clustered standard
+    errors come from the development fit; the evaluation block is used only for
+    out-of-sample loss.
     """
     specs = model_specs or MODEL_SPECS
     # ``split`` is optional: derived from the frozen dates when absent.
@@ -404,24 +406,24 @@ def nested_oos_horse_race(
     for model_name, predictors in specs.items():
         dev_x = sm.add_constant(development[list(predictors)], has_constant="add")
         ev_x = sm.add_constant(evaluation[list(predictors)], has_constant="add")
-        dev_fit = sm.OLS(development[outcome_col], dev_x).fit()
+        dev_fit = sm.OLS(development[outcome_col], dev_x).fit(
+            cov_type="cluster",
+            cov_kwds={"groups": development["session_date"]},
+        )
         pred = dev_fit.predict(ev_x)
         model_sse = float(np.square(evaluation[outcome_col] - pred).sum())
         oos_r2 = 1.0 - model_sse / benchmark_sse
 
-        ev_fit = sm.OLS(evaluation[outcome_col], ev_x).fit(
-            cov_type="cluster",
-            cov_kwds={"groups": evaluation["session_date"]},
-        )
-        for term in ev_fit.params.index:
+        for term in dev_fit.params.index:
             rows.append(
                 {
                     "model": model_name,
                     "term": str(term),
-                    "coefficient": float(ev_fit.params[term]),
-                    "std_error": float(ev_fit.bse[term]),
-                    "t_stat": float(ev_fit.tvalues[term]),
-                    "p_value": float(ev_fit.pvalues[term]),
+                    "coefficient": float(dev_fit.params[term]),
+                    "std_error": float(dev_fit.bse[term]),
+                    "t_stat": float(dev_fit.tvalues[term]),
+                    "p_value": float(dev_fit.pvalues[term]),
+                    "coefficient_sample": "development",
                     "oos_r2": oos_r2,
                     "oos_sse": model_sse,
                     "benchmark_sse": benchmark_sse,

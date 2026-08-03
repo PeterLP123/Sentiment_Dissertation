@@ -6,7 +6,7 @@ import pytest
 
 from final_experiments.lib.earnings import attach_earnings_distance, map_earnings_sessions
 from final_experiments.lib.lseg_robustness import attach_next_open_returns, lseg_ic_table
-from final_experiments.lib.thresholds import choose_probability_cutoff
+from final_experiments.lib.thresholds import choose_probability_cutoff, gate_daily_portfolio
 
 
 def test_earnings_mapping_and_event_time_sign() -> None:
@@ -76,6 +76,34 @@ def test_probability_cutoff_cannot_win_by_almost_never_trading() -> None:
     assert cutoff == 0.50
     assert bool(sweep.loc[sweep["cutoff"] == 0.50, "selection_eligible"].iloc[0])
     assert not bool(sweep.loc[sweep["cutoff"] == 0.525, "selection_eligible"].iloc[0])
+
+
+def test_threshold_gate_remains_dollar_neutral_after_row_selection() -> None:
+    frame = pd.DataFrame(
+        {
+            "session_date": pd.to_datetime(["2024-01-02"] * 5),
+            "symbol": list("ABCDE"),
+            "oriented_rank": [-1.0, -0.5, 0.0, 0.5, 1.0],
+            "ar_open_h1": [0.01, 0.005, 0.0, -0.005, -0.01],
+        }
+    )
+    daily = gate_daily_portfolio(frame, np.array([True, False, False, True, True]))
+    assert daily.loc[0, "n_active"] == 3
+    assert daily.loc[0, "net_exposure"] == pytest.approx(0.0, abs=1e-12)
+
+
+def test_threshold_gate_does_not_trade_a_one_sided_selection() -> None:
+    frame = pd.DataFrame(
+        {
+            "session_date": pd.to_datetime(["2024-01-02"] * 4),
+            "symbol": list("ABCD"),
+            "oriented_rank": [-1.0, -0.5, 0.5, 1.0],
+            "ar_open_h1": [0.01, 0.005, -0.005, -0.01],
+        }
+    )
+    daily = gate_daily_portfolio(frame, np.array([False, False, True, True]))
+    assert daily.loc[0, "n_active"] == 0
+    assert daily.loc[0, "net_exposure"] == 0.0
 
 
 def test_lseg_ic_excludes_dense_panel_no_news_rows() -> None:

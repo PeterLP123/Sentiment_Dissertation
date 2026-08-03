@@ -16,8 +16,8 @@ The project is now in its **final experiments phase**. The priority is to improv
 | Primary data spine | **FNSPID 2011–2023** for breadth and date-cluster support; LSEG is a non-pooled, out-of-regime robustness arm. |
 | Current firm-day panel | 715,546 news-bearing firm-days, 570 priced symbols, 3,262 sessions; 2011–2023 |
 | Frozen chronological split | Development through 2019-12-31; evaluation from 2020-01-01. Call it a *chronological evaluation block*, not a pristine holdout. |
-| Completed closing-stage work | Data inventory, primary-spine decision, LSEG earnings-calendar gather, and FNSPID firm-day panel |
-| Next stage | Story filtering, publisher/novelty analysis, and within-company-day score-distribution EDA |
+| Completed closing-stage work | Notebooks `00`–`11` executed: panel, filtering/distribution, aggregation, surprise, strategy diagnostics, story type, earnings, pooled thresholds, and separate LSEG robustness arms |
+| Next stage | Gate F1: resolve or explicitly waive the unlabelled novelty audit, then choose one primary RQ and at most one secondary |
 | Deliberately closed | New VaR/ES work, new scorer bake-offs, and multi-scorer signal ensembles |
 
 The standing “Beyond the Mean” cross-model-agreement question is now a **fallback/default, not the chosen final RQ**. The live plan compares it with aggregation, filtering, sentiment-surprise, and learned-threshold questions before Gate F1.
@@ -129,14 +129,14 @@ LSEG workflows require an entitled, signed-in Workspace desktop session and the 
 
 ## Working With The Final Experiments
 
-Start with the [phase README](final_experiments/README.md) and [live plan](final_experiments/plan.html). The tracked `.py`/`.ipynb` pairs are the research record; heavy outputs stay local.
+Start with the [phase README](final_experiments/README.md) and [live plan](final_experiments/plan.html). The numbered `.ipynb` files are the research record; reusable helpers live under `final_experiments/lib/` and heavy outputs stay local.
 
 ```bash
 # Inventory both candidate data spines and the earnings calendar.
-uv run python final_experiments/00_data_inventory.py
+uv run jupyter nbconvert --to notebook --execute --inplace final_experiments/00_data_inventory.ipynb
 
 # Rebuild the current FNSPID firm-day panel.
-uv run python final_experiments/01_panel.py
+uv run jupyter nbconvert --to notebook --execute --inplace final_experiments/01_panel.ipynb
 ```
 
 These commands are **not clone-only demos**. They require the licensed/local archives and generated checkpoints recorded in each notebook. The notebook narrative explains the expected paths and provenance. Never commit raw headline text, the earnings-calendar CSV/JSON files, or `final_experiments/outputs/`.

@@ -112,7 +112,14 @@ def gate_daily_portfolio(
     *,
     cost_bps_per_side: float = 10.0,
 ) -> pd.DataFrame:
-    """Dollar-neutral rank portfolio after a row-level trade/no-trade gate."""
+    """Dollar-neutral rank portfolio after a row-level trade/no-trade gate.
+
+    A gate can retain an unbalanced subset of the original cross-section. Merely
+    zeroing inactive ranks and normalising total gross would therefore turn the
+    result into a directional long- or short-only book. Preserve the original
+    rank direction and normalise the surviving long and short legs separately
+    to 0.5 gross each. If either leg is empty, the session is not traded.
+    """
     use = frame[["session_date", "symbol", "oriented_rank", "ar_open_h1"]].copy()
     use["active"] = np.asarray(active, dtype=bool)
     use = use.sort_values(["session_date", "symbol"], kind="mergesort")
@@ -121,10 +128,14 @@ def gate_daily_portfolio(
     cost_rate = cost_bps_per_side / 10_000.0
     for session, day in use.groupby("session_date", sort=True):
         raw = np.where(day["active"], day["oriented_rank"], 0.0).astype(float)
-        gross_exposure = float(np.abs(raw).sum())
-        weights = raw / gross_exposure if gross_exposure > 0 else np.zeros(len(day))
+        long_gross = float(raw[raw > 0].sum())
+        short_gross = float(-raw[raw < 0].sum())
+        weights = np.zeros(len(day), dtype=float)
+        if long_gross > 0 and short_gross > 0:
+            weights[raw > 0] = 0.5 * raw[raw > 0] / long_gross
+            weights[raw < 0] = 0.5 * raw[raw < 0] / short_gross
         if np.count_nonzero(weights) < 2:
-            weights = np.zeros(len(day))
+            weights = np.zeros(len(day), dtype=float)
         current = {symbol: float(weight) for symbol, weight in zip(day["symbol"].astype(str), weights, strict=True) if weight != 0.0}
         names = set(previous) | set(current)
         turnover = 0.5 * sum(abs(current.get(s, 0.0) - previous.get(s, 0.0)) for s in names)

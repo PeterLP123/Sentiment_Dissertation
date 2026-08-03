@@ -165,6 +165,7 @@ def test_oos_horse_race_prefers_true_signal() -> None:
     assert meta["eval_clusters_pass"] is False  # 150 < 280 gate
     oos = result.drop_duplicates("model").set_index("model")["oos_r2"]
     assert oos["M_surprise"] > oos["M_level"]
+    assert set(result["coefficient_sample"]) == {"development"}
     # The null nest must be present, or none of the other R2 values are attributable.
     assert oos["M_surprise"] > oos["M_control_only"]
 
