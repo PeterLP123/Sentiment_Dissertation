@@ -104,6 +104,14 @@ looser so iteration is fast:
   beats another abstraction layer.
 - Treat `src/sentiment_benchmark` as a library to import from, not a place to extend. New
   helpers belong in `final_experiments/lib/`.
+- **Refresh the full affected notebook chain after strategy changes.** Whenever a signal,
+  portfolio rule, holding period, breadth, threshold, cost, turnover/accounting rule,
+  deployment gate, or strategy result changes, inspect every numbered notebook under
+  `final_experiments/` and rerun each notebook whose inputs, cached outputs, figures,
+  manifests, or interpretation could change. Do not refresh only the notebook directly
+  edited. Trace dependencies from generated paths and prose references; if impact is
+  uncertain, rerun the notebook. Update the README, experiment ledger, live plan, and
+  invalidation history when their recorded results or status change.
 
 ### Current state and workstreams
 

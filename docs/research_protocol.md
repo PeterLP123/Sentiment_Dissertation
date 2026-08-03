@@ -60,7 +60,7 @@ Before choosing:
 The closing phase does not re-run questions already answered unless a documented integrity defect appears.
 
 - **Scorer competence:** pinned ProsusAI/FinBERT is the primary scorer. It reached 0.811 accuracy and 0.806 macro-F1 on the 5,947-row clean benchmark; hosted LLMs did not beat it.
-- **VADER limitation:** share-argmax collapses to neutral on Reuters headlines. Canonical compound may appear only as a comparator.
+- **VADER exclusion (researcher decision 2026-08-03):** prior share-argmax results collapse to neutral on Reuters headlines. Preserve those historical results, but do not spend further compute on VADER or carry it into new tables, agreement metrics, or return analyses.
 - **Scorer combination:** the seven-signal subset search did not support ensembles; the best observed singleton was indistinguishable from a demeaned selection-luck null.
 - **Company-day instability:** full-population scoring materially changed daily signals despite similar marginal headline-score distributions.
 - **Surprise prior:** the 17 July Kalman-surprise pilot was a NO-GO; level beat surprise on out-of-sample R-squared and only 28 evaluation date clusters were available.

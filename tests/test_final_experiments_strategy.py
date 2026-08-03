@@ -12,6 +12,7 @@ import pandas as pd
 from final_experiments.lib.strategy import (
     StrategyConfig,
     _tranche_weights,
+    assess_deployment_viability,
     build_daily_ar_panel,
     event_time_car,
     event_time_spread_inference,
@@ -104,9 +105,7 @@ def test_longer_horizon_cuts_turnover() -> None:
 
     turnovers = {}
     for horizon in (1, 5):
-        config = StrategyConfig(
-            signal="signal", horizon=horizon, cost_bps_per_side=0.0, min_names=2
-        )
+        config = StrategyConfig(signal="signal", horizon=horizon, cost_bps_per_side=0.0, min_names=2)
         result = run_backtest(firm_day, ar, config, split="development")
         # Ignore the ramp: the first `horizon` sessions are still building the book.
         turnovers[horizon] = float(result.daily["turnover"].iloc[horizon + 1 :].mean())
@@ -126,11 +125,9 @@ def test_tied_signal_with_breadth_cut_stays_neutral_or_does_not_trade() -> None:
     rows = []
     for date in dates:
         for i in range(12):  # 12 names tied at zero
-            rows.append({"symbol": f"T{i}", "session_date": date, "signal": 0.0,
-                         "split": "development"})
+            rows.append({"symbol": f"T{i}", "session_date": date, "signal": 0.0, "split": "development"})
         for i, value in enumerate([0.1, 0.4, 0.9]):  # 3 names with real dispersion
-            rows.append({"symbol": f"D{i}", "session_date": date, "signal": value,
-                         "split": "development"})
+            rows.append({"symbol": f"D{i}", "session_date": date, "signal": value, "split": "development"})
     firm_day = pd.DataFrame(rows)
 
     price_rows = []
@@ -143,16 +140,18 @@ def test_tied_signal_with_breadth_cut_stays_neutral_or_does_not_trade() -> None:
 
     for breadth in (0.0, 0.5, 0.8):
         config = StrategyConfig(
-            signal="signal", horizon=1, breadth=breadth, orient=-1.0,
-            cost_bps_per_side=0.0, min_names=2,
+            signal="signal",
+            horizon=1,
+            breadth=breadth,
+            orient=-1.0,
+            cost_bps_per_side=0.0,
+            min_names=2,
         )
         result = run_backtest(firm_day, ar, config, split="development")
         if result.daily.empty:
             continue
         traded = result.daily.loc[result.daily["gross_exposure"] > 0]
-        assert float(traded["net_exposure"].abs().max() if len(traded) else 0.0) < 1e-9, (
-            f"breadth={breadth} produced a directional book"
-        )
+        assert float(traded["net_exposure"].abs().max() if len(traded) else 0.0) < 1e-9, f"breadth={breadth} produced a directional book"
 
 
 def test_max_drawdown_matches_a_hand_computed_curve() -> None:
@@ -165,12 +164,28 @@ def test_select_frozen_spec_applies_eligibility_before_ranking() -> None:
     sweep = pd.DataFrame(
         [
             # Best Sharpe but far too few sessions to be a portfolio.
-            {"signal": "a", "horizon": 1, "breadth": 0.0, "sharpe_net": 9.0,
-             "n_sessions": 10, "mean_positions": 50.0, "annualized_turnover": 100.0,
-             "mean_net": 0.01, "breakeven_bps_per_side": 50.0},
-            {"signal": "b", "horizon": 5, "breadth": 0.5, "sharpe_net": 1.0,
-             "n_sessions": 900, "mean_positions": 40.0, "annualized_turnover": 50.0,
-             "mean_net": 0.001, "breakeven_bps_per_side": 20.0},
+            {
+                "signal": "a",
+                "horizon": 1,
+                "breadth": 0.0,
+                "sharpe_net": 9.0,
+                "n_sessions": 10,
+                "mean_positions": 50.0,
+                "annualized_turnover": 100.0,
+                "mean_net": 0.01,
+                "breakeven_bps_per_side": 50.0,
+            },
+            {
+                "signal": "b",
+                "horizon": 5,
+                "breadth": 0.5,
+                "sharpe_net": 1.0,
+                "n_sessions": 900,
+                "mean_positions": 40.0,
+                "annualized_turnover": 50.0,
+                "mean_net": 0.001,
+                "breakeven_bps_per_side": 20.0,
+            },
         ]
     )
     spec = select_frozen_spec(sweep, min_sessions=250, min_positions=5.0)
@@ -178,6 +193,50 @@ def test_select_frozen_spec_applies_eligibility_before_ranking() -> None:
     assert spec["horizon"] == 5
     assert spec["n_cells_eligible"] == 1
     assert spec["selection_split"] == "development"
+
+
+def test_deployment_gate_can_choose_cash_instead_of_forcing_a_loser() -> None:
+    sweep = pd.DataFrame(
+        [
+            {
+                "signal": "least_bad",
+                "horizon": 5,
+                "breadth": 0.5,
+                "n_sessions": 900,
+                "mean_positions": 20.0,
+                "sharpe_net": -0.2,
+                "breakeven_bps_per_side": 4.0,
+                "bootstrap_net_ci_low": -0.001,
+                "annualized_turnover": 10.0,
+            }
+        ]
+    )
+    gate = assess_deployment_viability(sweep, cost_bps_per_side=10.0)
+    assert gate["action"] == "cash"
+    assert gate["candidate"] is None
+    assert gate["n_cells_eligible"] == 1
+    assert gate["n_cells_clearing_cost"] == 0
+
+
+def test_deployment_gate_returns_a_candidate_only_after_all_gates_pass() -> None:
+    sweep = pd.DataFrame(
+        [
+            {
+                "signal": "usable",
+                "horizon": 2,
+                "breadth": 0.5,
+                "n_sessions": 900,
+                "mean_positions": 20.0,
+                "sharpe_net": 0.5,
+                "breakeven_bps_per_side": 15.0,
+                "bootstrap_net_ci_low": 0.00001,
+                "annualized_turnover": 8.0,
+            }
+        ]
+    )
+    gate = assess_deployment_viability(sweep, cost_bps_per_side=10.0)
+    assert gate["action"] == "trade"
+    assert gate["candidate"]["signal"] == "usable"
 
 
 def test_development_horizon_never_uses_evaluation_returns() -> None:
@@ -236,9 +295,7 @@ def test_event_time_car_recovers_drift_that_stops() -> None:
     firm_rows = []
     for date in dates:
         for symbol, value in (("GOOD", 2.0), ("FLATA", 0.5), ("FLATB", -0.5), ("BAD", -2.0)):
-            firm_rows.append(
-                {"symbol": symbol, "session_date": date, "signal": value, "split": "development"}
-            )
+            firm_rows.append({"symbol": symbol, "session_date": date, "signal": value, "split": "development"})
     firm_day = pd.DataFrame(firm_rows)
 
     car = event_time_car(
@@ -259,10 +316,7 @@ def test_event_time_car_recovers_drift_that_stops() -> None:
     assert float(bottom.loc[bottom["lag"] == drift_days, "cum_ar"].iloc[0]) < 0
     # Monotone in quantile at every lag: 4 above 1.
     for lag in (1, 3, 6):
-        assert (
-            float(top.loc[top["lag"] == lag, "cum_ar"].iloc[0])
-            > float(bottom.loc[bottom["lag"] == lag, "cum_ar"].iloc[0])
-        )
+        assert float(top.loc[top["lag"] == lag, "cum_ar"].iloc[0]) > float(bottom.loc[bottom["lag"] == lag, "cum_ar"].iloc[0])
 
 
 def test_event_time_spread_has_block_bootstrap_uncertainty() -> None:
@@ -272,9 +326,7 @@ def test_event_time_spread_has_block_bootstrap_uncertainty() -> None:
     for symbol, drift in (("SPY", 0.0), ("GOOD", 0.003), ("BAD", -0.003)):
         level = 100.0
         for date in dates:
-            prices_rows.append(
-                {"symbol": symbol, "session_date": date, "adjusted_open": level}
-            )
+            prices_rows.append({"symbol": symbol, "session_date": date, "adjusted_open": level})
             level *= 1.0 + drift
     firm_day = pd.DataFrame(
         [

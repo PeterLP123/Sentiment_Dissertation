@@ -98,16 +98,10 @@ def build_daily_ar_panel(
     frame = prices.sort_values(["symbol", "session_date"], kind="mergesort").copy()
     frame["session_date"] = pd.to_datetime(frame["session_date"]).dt.normalize()
     frame["symbol"] = frame["symbol"].astype(str).str.upper()
-    calendar = (
-        frame.loc[frame["symbol"] == market_symbol.upper(), ["session_date"]]
-        .drop_duplicates()
-        .sort_values("session_date")
-    )
+    calendar = frame.loc[frame["symbol"] == market_symbol.upper(), ["session_date"]].drop_duplicates().sort_values("session_date")
     calendar["return_end_date"] = calendar["session_date"].shift(-1)
     dense = frame.merge(calendar, on="session_date", how="left", validate="m:1")
-    lead = frame.rename(
-        columns={"session_date": "return_end_date", "adjusted_open": "next_open"}
-    )
+    lead = frame.rename(columns={"session_date": "return_end_date", "adjusted_open": "next_open"})
     dense = dense.merge(
         lead[["symbol", "return_end_date", "next_open"]],
         on=["symbol", "return_end_date"],
@@ -133,9 +127,7 @@ def build_daily_ar_panel(
         validate="m:1",
     )
     out["ar"] = out["fwd_ret"] - out["fwd_mkt"]
-    return out.dropna(subset=["ar"])[
-        ["symbol", "session_date", "return_end_date", "ar"]
-    ]
+    return out.dropna(subset=["ar"])[["symbol", "session_date", "return_end_date", "ar"]]
 
 
 def _formation_matrix(
@@ -180,9 +172,7 @@ def _formation_matrix(
     # mode had. With per-leg normalisation a day whose surviving names are all
     # long or all short has an empty leg and is simply not traded.
     frame["_leg"] = np.sign(frame["_z"].to_numpy())
-    leg_gross = frame.groupby(["_row", "_leg"], sort=False)["_z"].transform(
-        lambda s: s.abs().sum()
-    )
+    leg_gross = frame.groupby(["_row", "_leg"], sort=False)["_z"].transform(lambda s: s.abs().sum())
     n_long = frame.groupby("_row", sort=False)["_leg"].transform(lambda s: (s > 0).sum())
     n_short = frame.groupby("_row", sort=False)["_leg"].transform(lambda s: (s < 0).sum())
     active = n_long + n_short
@@ -256,9 +246,7 @@ def build_grid(
 
     if split == "development":
         boundary = pd.Timestamp(FROZEN_DEV_END)
-        ar = ar.loc[
-            (ar["session_date"] <= boundary) & (ar["return_end_date"] <= boundary)
-        ]
+        ar = ar.loc[(ar["session_date"] <= boundary) & (ar["return_end_date"] <= boundary)]
     elif split == "evaluation":
         ar = ar.loc[ar["session_date"] >= pd.Timestamp(FROZEN_EVAL_START)]
 
@@ -333,9 +321,7 @@ def backtest_on_grid(
             "turnover": turnover,
             "cost": cost,
             "net_return": gross - cost,
-            "missing_weight_share": np.divide(
-                missing_weight, held, out=np.zeros_like(held), where=held > 0
-            ),
+            "missing_weight_share": np.divide(missing_weight, held, out=np.zeros_like(held), where=held > 0),
         }
     )
     # Drop the flat lead-in before the first position is ever opened.
@@ -398,11 +384,7 @@ def summarize_backtest(daily: pd.DataFrame, config: StrategyConfig) -> dict[str,
         replications=config.bootstrap_replications,
         seed=config.random_seed,
     )
-    breakeven = (
-        float(10_000.0 * np.mean(gross_r) / (2.0 * mean_turnover))
-        if mean_turnover > 0
-        else None
-    )
+    breakeven = float(10_000.0 * np.mean(gross_r) / (2.0 * mean_turnover)) if mean_turnover > 0 else None
     return {
         "signal": config.signal,
         "horizon": config.horizon,
@@ -451,9 +433,7 @@ def sweep_development(
     evaluation block is not touched.
     """
     orient_map = orients or {}
-    grid = build_grid(
-        firm_day, daily_ar, split="development", tail_horizon=max(horizons)
-    )
+    grid = build_grid(firm_day, daily_ar, split="development", tail_horizon=max(horizons))
     if grid is None:
         return pd.DataFrame()
 
@@ -499,14 +479,10 @@ def select_frozen_spec(
     Sharpe after costs, among cells with enough sessions and enough names to be
     a real portfolio. Ties break on lower turnover.
     """
-    eligible = sweep.loc[
-        (sweep["n_sessions"] >= min_sessions) & (sweep["mean_positions"] >= min_positions)
-    ].copy()
+    eligible = sweep.loc[(sweep["n_sessions"] >= min_sessions) & (sweep["mean_positions"] >= min_positions)].copy()
     if eligible.empty:
         raise ValueError("no sweep cell satisfies the eligibility filters")
-    eligible = eligible.sort_values(
-        [criterion, "annualized_turnover"], ascending=[False, True]
-    )
+    eligible = eligible.sort_values([criterion, "annualized_turnover"], ascending=[False, True])
     best = eligible.iloc[0]
     return {
         "signal": str(best["signal"]),
@@ -517,16 +493,87 @@ def select_frozen_spec(
         "eligibility": {"min_sessions": min_sessions, "min_positions": min_positions},
         "development_sharpe_net": float(best["sharpe_net"]),
         "development_mean_net": float(best["mean_net"]),
-        "development_breakeven_bps_per_side": (
-            float(best["breakeven_bps_per_side"])
-            if pd.notna(best["breakeven_bps_per_side"])
-            else None
-        ),
+        "development_breakeven_bps_per_side": (float(best["breakeven_bps_per_side"]) if pd.notna(best["breakeven_bps_per_side"]) else None),
         "n_cells_considered": int(len(sweep)),
         "n_cells_eligible": int(len(eligible)),
         "development_end": FROZEN_DEV_END,
         "evaluation_start": FROZEN_EVAL_START,
     }
+
+
+def assess_deployment_viability(
+    sweep: pd.DataFrame,
+    *,
+    cost_bps_per_side: float,
+    min_sessions: int = 250,
+    min_positions: float = 5.0,
+    require_positive_net_ci: bool = True,
+) -> dict[str, Any]:
+    """Decide whether the development sweep supports trading or cash.
+
+    Strategy selection and strategy deployment are different decisions.  A
+    ranking rule can always identify the least-bad cell, even when every cell
+    loses after costs.  This gate makes cash an explicit admissible action and
+    prevents a development sweep from forcing a losing strategy into the next
+    sample.
+
+    A deployable cell must have sufficient history/breadth, a positive net
+    Sharpe, and a break-even cost at least as high as the declared charge.  By
+    default its block-bootstrap lower bound on mean net return must also exceed
+    zero.  All inputs are development-only summaries produced by
+    :func:`sweep_development`.
+    """
+    if cost_bps_per_side < 0:
+        raise ValueError("cost_bps_per_side must be non-negative")
+    required = {
+        "signal",
+        "horizon",
+        "breadth",
+        "n_sessions",
+        "mean_positions",
+        "sharpe_net",
+        "breakeven_bps_per_side",
+        "bootstrap_net_ci_low",
+        "annualized_turnover",
+    }
+    missing = required - set(sweep.columns)
+    if missing:
+        raise ValueError(f"sweep missing columns: {sorted(missing)}")
+
+    eligible = sweep.loc[(sweep["n_sessions"] >= min_sessions) & (sweep["mean_positions"] >= min_positions)].copy()
+    clears_cost = eligible.loc[eligible["sharpe_net"].gt(0) & eligible["breakeven_bps_per_side"].ge(cost_bps_per_side)].copy()
+    deployable = clears_cost.loc[clears_cost["bootstrap_net_ci_low"].gt(0)].copy() if require_positive_net_ci else clears_cost
+
+    result: dict[str, Any] = {
+        "action": "cash" if deployable.empty else "trade",
+        "selection_split": "development",
+        "cost_bps_per_side": float(cost_bps_per_side),
+        "min_sessions": int(min_sessions),
+        "min_positions": float(min_positions),
+        "require_positive_net_ci": bool(require_positive_net_ci),
+        "n_cells_considered": int(len(sweep)),
+        "n_cells_eligible": int(len(eligible)),
+        "n_cells_clearing_cost": int(len(clears_cost)),
+        "n_cells_deployable": int(len(deployable)),
+    }
+    if deployable.empty:
+        result["reason"] = (
+            "no development cell clears the cost and uncertainty gate; retain cash until a newly frozen sample provides evidence"
+        )
+        result["candidate"] = None
+        return result
+
+    best = deployable.sort_values(["sharpe_net", "annualized_turnover"], ascending=[False, True]).iloc[0]
+    result["reason"] = "at least one development cell clears the predeclared gate"
+    result["candidate"] = {
+        "signal": str(best["signal"]),
+        "horizon": int(best["horizon"]),
+        "breadth": float(best["breadth"]),
+        "development_sharpe_net": float(best["sharpe_net"]),
+        "development_breakeven_bps_per_side": float(best["breakeven_bps_per_side"]),
+        "development_net_ci_low": float(best["bootstrap_net_ci_low"]),
+    }
+    return result
 
 
 def run_frozen_spec(
@@ -569,11 +616,7 @@ def yearly_table(daily: pd.DataFrame) -> pd.DataFrame:
                 "sessions": int(len(net)),
                 "net_return": float(equity[-1] - 1.0),
                 "ann_vol": vol * math.sqrt(TRADING_SESSIONS_PER_YEAR) if vol == vol else float("nan"),
-                "sharpe_net": (
-                    float(math.sqrt(TRADING_SESSIONS_PER_YEAR) * np.mean(net) / vol)
-                    if vol and vol > 0
-                    else float("nan")
-                ),
+                "sharpe_net": (float(math.sqrt(TRADING_SESSIONS_PER_YEAR) * np.mean(net) / vol) if vol and vol > 0 else float("nan")),
                 "max_drawdown": max_drawdown(equity),
                 "mean_turnover": float(group["turnover"].mean()),
             }
@@ -708,9 +751,7 @@ def event_time_spread_inference(
     frame = frame.dropna(subset=["_row", "_col"])
     frame["_oriented"] = orient * frame[signal].astype(float)
     pct = frame.groupby("_row", sort=False)["_oriented"].rank(method="first", pct=True)
-    frame["_q"] = np.clip(
-        np.ceil(pct.to_numpy() * n_quantiles), 1, n_quantiles
-    ).astype(int)
+    frame["_q"] = np.clip(np.ceil(pct.to_numpy() * n_quantiles), 1, n_quantiles).astype(int)
 
     formation_rows = np.array(sorted(frame["_row"].astype(int).unique()), dtype=int)
     per_date = np.full((len(formation_rows), max_lag), np.nan, dtype=float)
@@ -749,9 +790,7 @@ def event_time_spread_inference(
     draw_counts = np.zeros((replications, n_dates), dtype=np.int32)
     for b in range(replications):
         starts = rng.integers(0, n_dates, size=n_blocks)
-        idx = np.concatenate(
-            [np.arange(s, s + block_length) % n_dates for s in starts]
-        )[:n_dates]
+        idx = np.concatenate([np.arange(s, s + block_length) % n_dates for s in starts])[:n_dates]
         draw_counts[b] = np.bincount(idx, minlength=n_dates)
 
     filled = np.nan_to_num(per_date, nan=0.0)
@@ -846,11 +885,7 @@ def cost_curve(
             {
                 "cost_bps_per_side": bps,
                 "mean_net": float(np.mean(net)),
-                "sharpe_net": (
-                    float(math.sqrt(TRADING_SESSIONS_PER_YEAR) * np.mean(net) / vol)
-                    if vol > 0
-                    else float("nan")
-                ),
+                "sharpe_net": (float(math.sqrt(TRADING_SESSIONS_PER_YEAR) * np.mean(net) / vol) if vol > 0 else float("nan")),
                 "total_return_net": float(np.cumprod(1.0 + net)[-1] - 1.0),
             }
         )

@@ -20,7 +20,23 @@ def _collection(tmp_path: Path, collection_id: str, rows: list[dict]) -> Path:
     _write_jsonl(headlines, rows)
     manifest = {
         "status": "completed",
-        "config": {"collection": {"id": collection_id, "start": "2026-01-01", "end": "2026-02-01"}},
+        "config": {
+            "collection": {
+                "id": collection_id,
+                "start": "2026-01-01",
+                "end": "2026-02-01",
+                "language": "en",
+            },
+            "companies": [
+                {
+                    "symbol": "AAA" if collection_id == "first" else "BBB",
+                    "name": "Company A" if collection_id == "first" else "Company B",
+                    "ric": "AAA.N" if collection_id == "first" else "BBB.O",
+                    "news_query": "query-a" if collection_id == "first" else "query-b",
+                    "aliases": ["Alias A"] if collection_id == "first" else ["Alias B"],
+                }
+            ],
+        },
         "counts": {"headlines": len(rows)},
         "files": {"headlines_jsonl": {"path": headlines.name, "sha256": sha256_file(headlines)}},
     }
@@ -71,6 +87,15 @@ def test_build_merges_story_associations_and_is_idempotent(tmp_path: Path) -> No
     rows = [json.loads(line) for line in (output / "headlines.jsonl").read_text().splitlines()]
 
     assert manifest["status"] == "completed"
+    assert manifest["config"]["collection"] == {
+        "end": "2026-02-01",
+        "fetch_story_bodies": False,
+        "id": f"merged__{first.name}__{second.name}",
+        "language": "en",
+        "source_collection_ids": [first.name, second.name],
+        "start": "2026-01-01",
+    }
+    assert [company["symbol"] for company in manifest["config"]["companies"]] == ["AAA", "BBB"]
     assert manifest["counts"] == {
         "duplicate_story_ids_across_collections": 1,
         "input_rows": 3,

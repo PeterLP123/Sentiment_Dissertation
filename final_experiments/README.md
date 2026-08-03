@@ -11,7 +11,7 @@ Notebook-first closing programme for the dissertation. This directory is intenti
 | Decision | Frozen/current value |
 | --- | --- |
 | Primary spine | FNSPID 2011–2023 |
-| Robustness spine | LSEG sector-33 and midcap-22; never pooled with FNSPID |
+| Robustness spine | LSEG sector-33, midcap-22, and the expanded 44-company/8-month all-source corpus; each remains separate and is never pooled with FNSPID |
 | Firm-day panel | 715,546 news-bearing rows, 570 priced symbols, 3,262 sessions |
 | Development block | `session_date <= 2019-12-31` |
 | Evaluation block | `session_date >= 2020-01-01` |
@@ -26,6 +26,9 @@ The split is a **chronological evaluation block**, not a pristine holdout. The s
 1. **Inventory and panel**: completed. Data paths, primary spine, earnings calendar, panel, attrition, and coverage plots exist.
 2. **Filtering and distribution EDA**: executable EDA and the provisional machine-class arms are complete. Publisher fields are unavailable and the 180-row human audit is still unlabelled, so the validation exit condition is not met.
 3. **Exploratory secondary arms**: story type, earnings, pooled learned thresholds, and both non-pooled LSEG regimes have now been run. See [`EXPLORATORY_EXPERIMENT_LEDGER.md`](EXPLORATORY_EXPERIMENT_LEDGER.md).
+   The expanded LSEG follow-on has complete pinned-FinBERT coverage and a
+   completed 1,000-attempt LLM agreement audit in Notebook 12. Human validation
+   remains outstanding, and it has no promoted return result yet.
 4. **Gate F1**: next formal decision. Choose one primary RQ and at most one secondary after resolving or explicitly waiving the audit blocker.
    `05_interpretation` assembles the evidence ledger that feeds this decision.
 5. **Promotion**: register the accepted run and export aggregate, licence-safe figures/tables to the dissertation.
@@ -55,18 +58,21 @@ The split is a **chronological evaluation block**, not a pristine holdout. The s
 | `outputs/04_surprise/` | Surprise panel, decomposition, horse-race tables/figures. | Ignored/local |
 | `05_interpretation.ipynb` | Rule redundancy, dispersion-vs-volume conditioning, significance-vs-economics, Gate F1 evidence ledger. | Active |
 | `outputs/05_interpretation/` | Distinctness, fixed-n IC, position-mode comparison, OOS-vs-control figures and ledger. | Ignored/local |
-| `06_strategy.ipynb` | Strategy backtest: horizon × breadth sweep on development, frozen spec, corrected evaluation run plus disclosed void predecessor, equity/drawdown/cost curve. | Active |
+| `06_strategy.ipynb` | Strategy backtest: horizon × breadth sweep on development, frozen research spec, explicit trade-versus-cash deployment gate, corrected evaluation run plus disclosed void predecessor, equity/drawdown/cost curve. | Active |
 | `lib/strategy.py` | Overlapping-tranche backtest on dense returns, development sweep, frozen-spec runner. | Active |
 | `outputs/06_strategy/` | Sweep, `frozen_spec.json`, daily series, equity/drawdown, per-year and cost-curve figures. | Ignored/local |
-| `07_strategy_analysis.ipynb` | Strategy-null diagnostics plus Q5−Q1 date-block inference and BH over the displayed signal×lag family. | Active |
+| `07_strategy_analysis.ipynb` | Strategy-null diagnostics plus Q5−Q1 date-block inference and BH over the displayed signal×lag family; overlays the authorised recomputed cash policy while retaining the historical traded arm. | Active |
 | `08_story_type.ipynb` | Provisional three-way story classes and one pooled 12-type interaction model; writes a blinded human-audit sheet and conditional type-weighting gate. | Executed; human validation blocked |
 | `lib/event_types.py` | Vectorised ordered taxonomy, candidate story classes, audit sampling, and date-clustered pooled type slopes. | Active |
 | `09_earnings.ipynb` | Exchange-session earnings distance, pre/event/post interactions, timing sensitivity, taxonomy/calendar validation, and W3 exclusion robustness. | Executed |
 | `lib/earnings.py` | Frozen calendar mapping, signed event-time windows, and date-clustered interaction inference. | Active |
-| `10_thresholds.ipynb` | Fixed-band, logistic, gradient-boosted, MLP, and label-shuffle gates with chronological fit/validation/evaluation, activity constraints, and bilateral dollar-neutral normalisation. | Executed; sector input blocked |
+| `10_thresholds.ipynb` | Fixed-band, logistic, gradient-boosted, MLP, and label-shuffle gates with chronological fit/validation/evaluation, matched activity constraints for future comparisons, final-liquidation costs, and bilateral dollar-neutral normalisation. | Executed; sector input blocked |
 | `lib/thresholds.py` | Gate features, model definitions, dollar-neutral gated portfolios, cutoff selection, costs, and date-block intervals. | Active |
 | `11_lseg_robustness.ipynb` | LSEG publisher inventory, ex-ante Reuters weighting, and separate sector-33/midcap-22 IC families. | Executed |
 | `lib/lseg_robustness.py` | Publisher aggregation, strict next-open mapping, source weighting, and HAC IC tables. | Active |
+| `12_lseg_44_labelling.ipynb` | Expanded 44-company corpus contract, exact-hash FinBERT inheritance, aggregate label audit, and the separate LLM/human-validation gates. VADER is excluded downstream; the researcher-supplied LLM wording is frozen as `investor_headline_soft_label_v1` (`81596538d99b29b8`). | Active |
+| `lib/lseg_labelling.py` | Provenance-checks reusable exact-hash labels before resumable expanded-corpus scoring. | Active |
+| `outputs/12_lseg_44_labelling/` | Licence-safe aggregate coverage, label-distribution, and LLM-design tables/figures. | Ignored/local |
 | `EXPLORATORY_EXPERIMENT_LEDGER.md` | Aggregate completion/result ledger, including blocked inputs and null arms. | Current |
 | `lib/plots.py` | House figure style and the colour roles (categorical / ordinal / diverging / status). | Active |
 | `outputs/07_strategy_analysis/` | Event-time CAR, quantile spread and monotonicity, sweep surface, monthly heatmap, book-health figures. | Ignored/local |
@@ -86,15 +92,37 @@ uv run jupyter nbconvert --to notebook --execute --inplace \
 ```
 
 Repeat in numeric order for `01_panel.ipynb` through
-`11_lseg_robustness.ipynb`. Run from the repository root so relative paths
+`12_lseg_44_labelling.ipynb`. Run from the repository root so relative paths
 resolve consistently. The numbered `.ipynb` files are the sole notebook source;
 reusable code remains under `lib/`.
+
+### Refresh rule after a strategy update
+
+Do not rerun only the notebook that was edited. After any change to a strategy
+signal, portfolio construction, horizon, breadth, threshold, transaction cost,
+turnover/accounting convention, deployment rule, or reported strategy result:
+
+1. inspect all numbered notebooks in `final_experiments/` for generated-file
+   dependencies and result/prose references;
+2. rerun every notebook whose inputs, embedded outputs, figures, manifests, or
+   conclusions could change, in dependency order;
+3. treat uncertainty as affected and rerun the notebook rather than leaving a
+   potentially stale saved output; and
+4. reconcile `README.md`, `EXPLORATORY_EXPERIMENT_LEDGER.md`, `plan.html`, and
+   `INVALIDATED_RUNS.md` wherever the recorded result or status changed.
+
+For the current strategy chain, `06_strategy.ipynb` produces inputs consumed by
+`07_strategy_analysis.ipynb`; threshold/deployment changes can also affect
+`10_thresholds.ipynb`. This is a minimum known dependency set, not an exhaustive
+allowlist.
 
 These are not clone-only examples. They require local artifacts that are intentionally absent from Git:
 
 - FNSPID archives under the external data root recorded in `00_data_inventory`;
 - the Moment-2 FinBERT checkpoint and Gate-1 audit outputs under `reports/`;
 - the local LSEG earnings-calendar files under `data/earnings/`;
+- the local merged LSEG 44-company headline corpus, inherited score seed, and
+  completed FinBERT/LLM score artifacts under `Data/collections/`;
 - FNSPID prices and SPY data inside the recorded archive/checkpoint chain.
 
 If a path moves, update the notebook parameter cell or helper configuration and record the change. Do not silently substitute another dataset.
@@ -194,6 +222,22 @@ Learned from correcting the first W3/W4 pass. These bind every later arm.
 - **Match the cost label to the turnover definition.** Turnover is half the L1
   weight change. A quoted per-side cost is therefore charged as
   `2 × turnover × cost_bps_per_side / 10_000`; break-even uses the same factor.
+- **Let a strategy choose cash.** A ranking rule always returns a least-bad
+  cell, even when every cell loses after costs. The deployment gate therefore
+  requires sufficient history/breadth, positive net Sharpe, break-even at least
+  equal to the charged cost, and a positive block-bootstrap lower bound. If no
+  cell clears all four, the action is cash. When continued iteration on an open
+  evaluation block is explicitly authorised, recompute and compare the policy
+  directly while labelling it iterative/retrospective and preserving the prior
+  traded result.
+- **Compare threshold rules at comparable activity.** The historical fixed band
+  was selected without the learned gates' activity floor and traded on only
+  2.98% of validation sessions. Preserve that disclosed historical comparison,
+  but require every fixed or learned gate on new data to average at least five
+  active names and trade on at least half of validation sessions. Charge final
+  liquidation turnover in every arm. The authorised iterative recomputation of
+  the activity-matched band is reported beside the historical band and cash;
+  it is not presented as a pristine holdout result.
 - **An event-time shape is descriptive until its spread has dependence-aware
   inference.** `07_strategy_analysis` uses a 20-session date-block bootstrap and
   BH across all 4 displayed signals × 20 lags; zero of 80 cells currently survives.

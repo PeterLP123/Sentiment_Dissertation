@@ -138,6 +138,65 @@ def _source_metadata(source: Path) -> dict[str, Any]:
         "headlines_path": str(headlines_path),
         "headlines_sha256": actual_sha256,
         "expected_rows": expected_rows,
+        "config": config,
+    }
+
+
+def _merged_config(sources: Sequence[dict[str, Any]], output_dir: Path) -> dict[str, Any]:
+    """Build the minimal frozen config consumed by downstream headline scorers."""
+    companies: dict[str, dict[str, Any]] = {}
+    starts: list[str] = []
+    ends: list[str] = []
+    languages: set[str] = set()
+    for source in sources:
+        config = source["config"]
+        collection = config.get("collection") or {}
+        starts.append(str(collection["start"]))
+        ends.append(str(collection["end"]))
+        if collection.get("language"):
+            languages.add(str(collection["language"]))
+        for item in config.get("companies") or []:
+            symbol = str(item.get("symbol") or "").strip()
+            if not symbol:
+                continue
+            current = companies.setdefault(
+                symbol,
+                {
+                    "symbol": symbol,
+                    "name": str(item.get("name") or symbol),
+                    "ric": str(item.get("ric") or ""),
+                    "news_query": str(item.get("news_query") or ""),
+                    "aliases": [],
+                },
+            )
+            for field in ("name", "ric", "news_query"):
+                candidate = str(item.get(field) or "")
+                if current[field] and candidate and current[field] != candidate:
+                    raise ValueError(f"conflicting company {field} for {symbol}")
+                if not current[field] and candidate:
+                    current[field] = candidate
+            current["aliases"] = sorted(
+                set(current["aliases"])
+                | {str(alias) for alias in item.get("aliases") or [] if str(alias).strip()}
+            )
+    if not companies:
+        raise ValueError("source manifests contain no company definitions")
+    if len(languages) > 1:
+        raise ValueError(f"source collections use different languages: {sorted(languages)}")
+    if output_dir.parent.name == "derived":
+        collection_id = output_dir.parent.parent.name
+    else:
+        collection_id = "merged__" + "__".join(source["collection_id"] for source in sources)
+    return {
+        "collection": {
+            "id": collection_id,
+            "start": min(starts),
+            "end": max(ends),
+            "language": next(iter(languages), "en"),
+            "fetch_story_bodies": False,
+            "source_collection_ids": [source["collection_id"] for source in sources],
+        },
+        "companies": [companies[symbol] for symbol in sorted(companies)],
     }
 
 
@@ -156,7 +215,11 @@ def _source_signature(sources: Sequence[dict[str, Any]]) -> str:
     return hashlib.sha256(canonical_json(payload).encode()).hexdigest()
 
 
-def _current_manifest(output_dir: Path, source_signature: str) -> dict[str, Any] | None:
+def _current_manifest(
+    output_dir: Path,
+    source_signature: str,
+    merged_config: dict[str, Any],
+) -> dict[str, Any] | None:
     manifest_path = output_dir / "manifest.json"
     if not manifest_path.exists():
         return None
@@ -171,6 +234,15 @@ def _current_manifest(output_dir: Path, source_signature: str) -> dict[str, Any]
     output_path = output_dir / str(entry.get("path") or "")
     if not output_path.exists() or sha256_file(output_path) != entry.get("sha256"):
         return None
+    if manifest.get("config") != merged_config:
+        manifest["config"] = merged_config
+        manifest_temp = output_dir / ".manifest.json.tmp"
+        manifest_temp.write_text(
+            json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+        os.replace(manifest_temp, output_dir / "manifest.json")
     return manifest
 
 
@@ -195,8 +267,9 @@ def build(sources: Sequence[Path], output_dir: Path) -> dict[str, Any]:
     if len(collection_ids) != len(set(collection_ids)):
         raise ValueError("source collection IDs must be unique")
     signature = _source_signature(source_metadata)
+    merged_config = _merged_config(source_metadata, output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    current = _current_manifest(output_dir, signature)
+    current = _current_manifest(output_dir, signature, merged_config)
     if current is not None:
         return current
     if any(output_dir.iterdir()):
@@ -277,7 +350,11 @@ def build(sources: Sequence[Path], output_dir: Path) -> dict[str, Any]:
             "built_at": datetime.now(UTC).isoformat(),
             "merger_version": MERGER_VERSION,
             "source_signature": signature,
-            "sources": source_metadata,
+            "sources": [
+                {key: value for key, value in source.items() if key != "config"}
+                for source in source_metadata
+            ],
+            "config": merged_config,
             "deduplication": {
                 "key": "story_id",
                 "list_fields": "sorted set union",

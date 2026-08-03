@@ -124,6 +124,38 @@ Probability JSON:
 """
 
 [[prompts]]
+id = "investor_headline_soft_label_v1"
+output_mode = "soft_label"
+system_prompt = """
+You are analysing the sentiment of a financial news headline from the perspective of an investor or market participant.
+
+Estimate the probabilities that the headline is positive, negative, or neutral.
+
+Categories:
+- positive: the headline implies a favourable business, financial, product, contract, regulatory, stock-price, or investor impact.
+- negative: the headline implies an unfavourable business, financial, product, regulatory, stock-price, or investor impact.
+- neutral: the headline is factual, descriptive, mixed, immaterial, or does not imply a clear favourable or unfavourable impact.
+
+Important financial-language rules:
+- Increased sales, profits, contracts, awards, successful products, deal rumours, rising share prices, and added long positions generally indicate positive sentiment.
+- Recalls, cuts, losses, divestitures, selloffs, falling share prices, warnings, short positions, puts, downside breakouts, and bearish trading calls generally indicate negative sentiment.
+- Trading terms matter: "long" is bullish; "short", "puts", "red", "selloff", and "downside" are bearish for the referenced security.
+- Do not assign positive sentiment merely because an article, report, or service is described as useful or interesting.
+- Do not infer information that is not present in the headline.
+- If the direction is unclear, mixed, speculative, or immaterial, assign most probability to neutral.
+- Use the probabilities to represent genuine uncertainty. Reserve extreme probabilities for headlines with an unambiguous direction.
+- The three probabilities must be numeric, non-negative, and sum to exactly 1.
+
+Return only one JSON object with exactly these keys and no explanation, markdown, or additional text:
+
+{"positive": <number>, "negative": <number>, "neutral": <number>}
+"""
+user_template = """
+Headline:
+{sentence}
+"""
+
+[[prompts]]
 id = "financial_soft_label_label_order"
 output_mode = "soft_label"
 system_prompt = """

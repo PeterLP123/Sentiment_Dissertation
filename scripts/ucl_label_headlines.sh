@@ -11,12 +11,15 @@ limit="${LIMIT-100}"
 max_population="${MAX_POPULATION:-2282}"
 concurrency="${CONCURRENCY:-1}"
 max_completion_tokens="${MAX_COMPLETION_TOKENS:-64}"
+source_code="${SOURCE_CODE-NS:RTRS}"
+direct_company_only="${DIRECT_COMPANY_ONLY-1}"
 api_url="${OLLAMA_API_URL:-http://127.0.0.1:11434}"
 sentiment_bench="${project_root}/envs/sentiment/bin/sentiment-bench"
 safe_model="${model//[\/:]/_}"
 safe_prompt="${prompt_id//[\/:]/_}"
 output_path="${OUTPUT_PATH:-${run_root}/headline_scores_${safe_model}_${safe_prompt}_t${max_completion_tokens}.csv}"
 log_path="${LABEL_LOG_PATH:-${output_path}.log}"
+record_path="${RUN_RECORD_PATH:-${output_path}.ucl_run_record.yaml}"
 session_name="${LABEL_TMUX_SESSION:-labels-${safe_model}-t${max_completion_tokens}}"
 
 if [[ "${UCL_LABEL_INNER:-0}" != "1" ]]; then
@@ -25,12 +28,39 @@ if [[ "${UCL_LABEL_INNER:-0}" != "1" ]]; then
     exit 1
   fi
   mkdir -p "$(dirname "${output_path}")"
+  started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  gpu="$(nvidia-smi --query-gpu=name --format=csv,noheader | head -n 1)"
+  commit="$(git -C "${repo_root}" rev-parse HEAD)"
+  cat >"${record_path}" <<EOF
+run_id: ${session_name}
+started_at_utc: ${started_at}
+host: $(hostname -s)
+gpu: ${gpu}
+gpu_check_at_utc: ${started_at}
+project_root: ${project_root}
+repository: ${repo_root}
+commit: ${commit}
+environment: ${project_root}/envs/sentiment
+model: ${model}
+prompt_id: ${prompt_id}
+parameters: temperature=0 max_completion_tokens=${max_completion_tokens} concurrency=${concurrency} structured_output=true source_code=${source_code:-all} direct_company_only=${direct_company_only} limit=${limit:-all}
+dataset: ${collection_root} max_population=${max_population}
+seed: null
+ordering: deterministic normalized-headline SHA-256 order
+tmux_session: ${session_name}
+command: scripts/ucl_label_headlines.sh
+output_path: ${output_path}
+checkpoint_path: ${output_path}.manifest.json
+log_path: ${log_path}
+notes: licensed text remains on UCL project storage and outside Git; agreement is not accuracy
+EOF
   tmux new-session -d -s "${session_name}" bash -lc \
-    "cd '${repo_root}' && exec env UCL_LABEL_INNER=1 UCL_PROJECT_ROOT='${project_root}' COLLECTION_ROOT='${collection_root}' RUN_ROOT='${run_root}' MODEL='${model}' PROMPT_ID='${prompt_id}' LIMIT='${limit}' MAX_POPULATION='${max_population}' CONCURRENCY='${concurrency}' MAX_COMPLETION_TOKENS='${max_completion_tokens}' OUTPUT_PATH='${output_path}' LABEL_LOG_PATH='${log_path}' '${repo_root}/scripts/ucl_label_headlines.sh' >>'${log_path}' 2>&1"
+    "cd '${repo_root}' && exec env UCL_LABEL_INNER=1 UCL_PROJECT_ROOT='${project_root}' COLLECTION_ROOT='${collection_root}' RUN_ROOT='${run_root}' MODEL='${model}' PROMPT_ID='${prompt_id}' LIMIT='${limit}' MAX_POPULATION='${max_population}' CONCURRENCY='${concurrency}' MAX_COMPLETION_TOKENS='${max_completion_tokens}' SOURCE_CODE='${source_code}' DIRECT_COMPANY_ONLY='${direct_company_only}' OUTPUT_PATH='${output_path}' LABEL_LOG_PATH='${log_path}' '${repo_root}/scripts/ucl_label_headlines.sh' >>'${log_path}' 2>&1"
   echo "Labelling started in tmux session ${session_name}."
   echo "Attach with: tmux attach -t ${session_name}"
   echo "Checkpointed output: ${output_path}"
   echo "Persistent log: ${log_path}"
+  echo "Run record: ${record_path}"
   exit 0
 fi
 
@@ -39,6 +69,7 @@ mkdir -p "${run_root}" "${project_root}/artifacts/cache"
 export OLLAMA_HOST="${api_url}"
 export OLLAMA_MODELS="${project_root}/artifacts/models/ollama"
 export XDG_CACHE_HOME="${project_root}/artifacts/cache/xdg"
+export PIP_CACHE_DIR="${project_root}/artifacts/cache/pip"
 export SENTIMENT_BENCH_MACHINE_LABEL="ucl-$(hostname -s)"
 
 "${repo_root}/scripts/ucl_ollama_server.sh"
@@ -59,13 +90,20 @@ common_args=(
   --temperature 0
   --max-completion-tokens "${max_completion_tokens}"
   --concurrency "${concurrency}"
-  --source-code NS:RTRS
-  --direct-company-only
   --max-population "${max_population}"
   --no-ollama-think
   --ollama-keep-alive -1
   --structured-output
 )
+if [[ -n "${source_code}" ]]; then
+  common_args+=(--source-code "${source_code}")
+fi
+if [[ "${direct_company_only}" == "1" ]]; then
+  common_args+=(--direct-company-only)
+elif [[ "${direct_company_only}" != "0" ]]; then
+  echo "DIRECT_COMPANY_ONLY must be 0 or 1, found: ${direct_company_only}" >&2
+  exit 1
+fi
 
 "${sentiment_bench}" score-headlines "${common_args[@]}" --dry-run
 

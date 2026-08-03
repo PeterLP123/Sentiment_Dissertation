@@ -57,3 +57,26 @@ The repaired implementation normalises surviving positive and negative legs
 separately to +0.5 and −0.5 gross and sends one-sided selections flat. Notebook
 10 was then rerun in full. This is one valid evaluation disclosure after one
 void predecessor; it does not restore a pristine holdout.
+
+## 2026-08-03 pre-liquidation and unmatched-activity threshold table
+
+Recoverable source state: `ef9a40714c0d885d4e2a2b913160fa23113d4fd4`
+(`final_experiments/10_thresholds.ipynb`).
+
+Status: **superseded for accounting and comparability; preserve the historical
+band but do not quote the old portfolio table.**
+
+The neutrality-repaired threshold backtest still received the final interval's
+return without paying to close its last held book. This understated costs,
+especially for sparse gates. In addition, learned-gate cutoffs had to average
+at least five active names and trade on at least half of validation sessions,
+while the historical fixed-band sweep had no activity floor. Its selected band
+`0.4` traded on only 2.98% of validation sessions, so it was not an activity-
+matched comparator.
+
+The repaired table charges final liquidation in every arm and retains band
+`0.4` under the explicit label “historical fixed band.” A separate fixed-band
+selection under the same activity floor chooses `0.0`. Applying that new rule
+to the already-open evaluation block is an authorised iterative/retrospective
+recomputation, not a pristine holdout result. Cash remains the deployment
+comparator and is best in the recomputed table.

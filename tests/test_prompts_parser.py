@@ -128,3 +128,11 @@ def test_crossed_soft_label_prompt_suites_are_distinct() -> None:
     assert all(prompt.output_mode == "soft_label" for prompt in [*financial, *target])
     assert len({prompt.prompt_hash for prompt in financial}) == 3
     assert len({prompt.prompt_hash for prompt in target}) == 3
+
+
+def test_investor_headline_prompt_is_frozen() -> None:
+    prompt = load_prompts(Path("configs/default_prompts.toml"))["investor_headline_soft_label_v1"]
+
+    assert prompt.output_mode == "soft_label"
+    assert prompt.user_template == "Headline:\n{sentence}"
+    assert prompt.prompt_hash == "81596538d99b29b8"

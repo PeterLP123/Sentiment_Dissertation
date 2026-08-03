@@ -595,12 +595,12 @@
           <tr>
             <td>FinBERT is the competent scorer</td>
             <td>Accuracy 0.811 [0.801, 0.820], macro-F1 0.806 on <code>financial_sentiment_v2.csv</code> (5,947 rows). Cerebras <code>gemma-4-31b</code> 0.800; local <code>gemma4:12b</code> 0.811; VADER 0.519; majority 0.485.</td>
-            <td>Use pinned FinBERT as the primary scorer. No new model bake-off.</td>
+            <td>Use pinned FinBERT as the primary scorer. No new model bake-off. The bounded structured-output LLM sample is an agreement/error audit with a blinded human subset, not scorer selection.</td>
           </tr>
           <tr>
             <td>VADER share-argmax collapses on Reuters headlines</td>
             <td>Label counts 11 negative / 4,758 neutral / 21 positive; firm-session actions 9 short / 1,655 flat / 20 long.</td>
-            <td>If VADER appears at all, use canonical compound with the +/-0.05 band, as a lexicon comparator only.</td>
+            <td>Excluded from the expanded-corpus pipeline by researcher decision on 2026-08-03; do not analyse or extend it.</td>
           </tr>
           <tr>
             <td>Combining scorers does not help</td>
@@ -811,7 +811,11 @@
             <code>lseg_us_sector_33_6m</code>: 33 names, 2025-12-26 to 2026-06-26,
             710,625 deduplicated headlines across 2,854 source codes, with Reuters bodies
             for 19,306 of 23,191 targets. <code>lseg_us_midcap_22_1y</code>: 22 names,
-            one year, 2,637 headlines, 100% Reuters, headline-only. Licensed - stays local.
+            one year, 2,637 headlines, 100% Reuters, headline-only. The authorised
+            headline-only expansion <code>lseg_us_sector_44_8m_headlines</code> covers
+            44 companies from 2025-10-26 to 2026-06-26 across all returned source codes:
+            1,158,762 story rows and 888,155 unique scorable normalized headlines.
+            Licensed - stays local.
           </p>
         </div>
       </div>
@@ -835,9 +839,10 @@
           which the ~85-session LSEG windows cannot supply. Date-only stamps are acceptable
           for the declared next-open estimands; they are not a substitute for
           timestamp-verified availability. LSEG remains an out-of-regime robustness arm for
-          timing, publisher identity, and Reuters bodies — never pooled with FNSPID, and not
-          expanded (no wider all-source sector-33 fetch) unless a result specifically requires
-          Spine B. Missing on the primary spine and therefore out of primary claims until
+          timing, publisher identity, and Reuters bodies — never pooled with FNSPID. A
+          researcher-authorised 44-company, eight-month, all-source headline expansion was
+          completed on 2026-08-03; it strengthens the separate robustness arm but does not
+          change the primary-spine decision. Missing on the primary spine and therefore out of primary claims until
           fixed: publisher / story-family columns, point-in-time <code>availability_timestamp</code>,
           and a sector table.
         </p>
@@ -859,7 +864,7 @@
         </p>
       </div>
       <ul class="checklist" data-ck="w1">
-        <li data-done="true"><label>Inventory and quality notebook: <code>final_experiments/00_data_inventory.ipynb</code>. Archives size-matched on disk; earnings calendar gathered for FNSPID via LSEG. Remaining must-gather: sector table, human audit labels. Wider LSEG only if Spine B is primary.</label></li>
+        <li data-done="true"><label>Inventory and quality notebook: <code>final_experiments/00_data_inventory.ipynb</code>. Archives size-matched on disk; earnings calendar gathered for FNSPID via LSEG. Remaining must-gather: sector table and human audit labels. A separately frozen 44-company all-source headline robustness corpus was authorised and merged on 2026-08-03.</label></li>
         <li data-done="true"><label>Decide the primary spine (FNSPID vs LSEG) and write the one-paragraph justification into this plan. Done 2026-07-30: FNSPID primary; LSEG robustness only — see decision card above.</label></li>
         <li data-done="true"><label>Restore or re-download the FNSPID archives (present and byte-size matched to <code>download_manifest.json</code>). Still open: re-verify upstream SHA-256 before promoting Spine A results (<code>All_external.csv</code> 5.73 GB, <code>nasdaq_exteral_data.csv</code> 23.2 GB, <code>full_history.zip</code> 589 MB).</label></li>
         <li data-done="true"><label>Build <code>final_experiments/lib/panel.py</code>: one firm-day panel joining news, adjusted-open prices, the market benchmark, and the earnings calendar on <code>(symbol, session_date)</code>. FNSPID S1 panel: 715,546 rows / 570 symbols under <code>outputs/01_panel/</code>.</label></li>
@@ -870,7 +875,7 @@
         <li data-done="true"><label>Write an attrition table for the panel: rows in, rows lost per screen, rows out, and coverage by firm and month (<code>outputs/01_panel/attrition.csv</code>).</label></li>
         <li data-done="true"><label>Plot coverage: headlines per firm-month, firms per session, and firm-day n bins (<code>01_panel</code> notebook). Monthly &gt;3× article-count breaks on the executable panel: 0 (source-regime breaks remain in Gate-1 site-level diagnostics).</label></li>
         <li data-done="true"><label><strong>Return-timing defects found and fixed 2026-07-31.</strong> <code>attach_open_returns</code> had shifted inside the news-bearing panel, pairing a sometimes multi-week stock return with one SPY session. It now joins the immediate next SPY-calendar session and leaves a missing stock session missing: 715,534 of 715,546 rows have an exact h1 return. The independent dense strategy panel now uses the same exact-session join. <code>04</code> was also affected differently: its dense return was backward-looking and ended at event session t while the declared outcome started at t; <code>ret_lag1</code> was then shifted one session too far back. W4 now uses open(t)→open(t+1) as outcome and the prior open→open(t) return as the non-overlapping control. <strong>All pre-repair <code>03</code>–<code>07</code> numerical conclusions are invalidated and preserved under <code>outputs/superseded/20260731_pre_rigour_repair/</code>; see <code>INVALIDATED_RUNS.md</code>.</strong></label></li>
-        <li><label>If extending the LSEG universe: draft a config with a Reuters-only <code>story_source_allowlist</code> and size the request budget against the 5/sec and 10,000/day limits. Sector-33 already left 3,875 target stories unfetched and hit HTTP 429 eight times. Deferred — Spine B is robustness only.</label></li>
+        <li data-done="true"><label>Expanded LSEG headline corpus: 44 companies, eight months, all returned sources, 1,158,762 story rows and 888,155 unique scorable headlines. Keep it local and separate from FNSPID. Notebook <code>12_lseg_44_labelling</code> registers exact-hash reuse, complete pinned-FinBERT coverage, and the bounded LLM audit: 997/1,000 valid, 69.31% hard-label agreement, κ=0.532, score Spearman ρ=0.750. This is agreement, not accuracy; human validation remains open.</label></li>
       </ul>
     </section>
 
@@ -1007,7 +1012,7 @@
         <li data-done="true"><label><strong>The economic null holds under both books.</strong> Every net Sharpe negative. This is the reportable W3 headline, not the ICs from a 512k-row sample.</label></li>
         <li data-done="true"><label><strong>Rigour-repaired aggregation result (2026-07-31).</strong> On exact h1 returns and the corrected daily cross-sectional IC, <strong>one of nine</strong> rules survives BH: <code>negative_share</code> IC −0.00543, HAC t = −3.12, p = 0.0018. Dispersion is −0.00149 (t = −0.92). Canonical <code>cs_rank</code> books are neutral to machine precision; all net Sharpes are negative and the best break-even is 0.625 bps/side versus 10 charged. This is a small statistical association, not usable alpha.</label></li>
         <li data-done="true"><label><strong>Event-time inference (<code>07_strategy_analysis</code>, repaired 2026-07-31).</strong> Q5−Q1 paths now carry a 20-session circular date-block bootstrap, with BH across the declared 4 displayed signals × 20 lags. <strong>Zero of 80 cells survives.</strong> Lag-1 cumulative spreads are about 1.2–1.8 bps and every 95% interval crosses zero; lag-20 intervals also cross zero. The earlier “real reversal” statement is withdrawn. A later sign change remains descriptive/hypothesis-generating only.</label></li>
-        <li data-done="true"><label><strong>Split-safe strategy (<code>06_strategy</code>, repaired 2026-07-31).</strong> Development formations and every held return now end by 2019-12-31; the last development output date is 2019-12-30, and final books pay liquidation turnover. Per-side costs are applied to both sides of half-L1 turnover. Across 135 cells, <strong>0 clear 10 bps/side and 0 have positive net Sharpe</strong> (94 have positive gross Sharpe). The eligible frozen spec is <code>decayed_state</code> h=10 breadth=0.8: development net Sharpe −1.693; evaluation −0.944 with mean daily net −0.000213 and block-bootstrap interval [−0.000422, +0.000001]. The prior development selection that consumed ten January-2020 sessions is invalid.</label></li>
+        <li data-done="true"><label><strong>Split-safe strategy (<code>06_strategy</code>, repaired 2026-07-31; deployment gate added 2026-08-03).</strong> Development formations and every held return now end by 2019-12-31; the last development output date is 2019-12-30, and final books pay liquidation turnover. Per-side costs are applied to both sides of half-L1 turnover. Across 135 cells, <strong>0 clear 10 bps/side and 0 have positive net Sharpe</strong> (94 have positive gross Sharpe). The historical eligible research spec remains <code>decayed_state</code> h=10 breadth=0.8: development net Sharpe −1.693; evaluation −0.944 with mean daily net −0.000213 and block-bootstrap interval [−0.000422, +0.000001]. Separately, zero of 120 history/breadth-eligible cells clears the development-only cost-and-uncertainty deployment gate, so the policy is cash. Applying that newly added gate to the already-open evaluation block changes total net return from −19.74% to 0.00%; this is explicitly iterative/retrospective, not a new holdout result. The prior development selection that consumed ten January-2020 sessions is invalid.</label></li>
       </ul>
     </section>
 
@@ -1197,9 +1202,9 @@
             <td>Confirm the benchmark covers the full chosen window before fitting any market model.</td>
           </tr>
           <tr>
-            <td>Wider LSEG collection (optional)</td>
-            <td>Not collected. Sector-33 left 3,877 target stories unfetched and hit the rate limit.</td>
-            <td>Only if Spine B is chosen as primary. Reuters-only allowlist, budgeted against 5/sec and 10,000/day.</td>
+            <td>Expanded LSEG headline robustness corpus</td>
+            <td>Collected and merged: 44 companies, 2025-10-26 to 2026-06-26, all returned source codes, 1,158,762 story rows / 888,155 unique scorable headlines. Licensed and gitignored.</td>
+            <td>Pinned FinBERT labelling and the bounded 1,000-attempt LLM agreement audit are complete. Next: human audit, then attach prices without pooling with FNSPID.</td>
           </tr>
           <tr>
             <td>Human audit labels</td>
@@ -1225,12 +1230,12 @@
         <li data-done="true"><label><code>final_experiments/lib/thresholds.py</code> - fixed band, logistic, gradient-boosted, and small MLP gates behind one interface; post-gate long/short legs are normalised separately to preserve dollar neutrality.</label></li>
         <li data-done="true"><label><code>final_experiments/lib/evaluate.py</code> - chronological split, mean daily cross-sectional IC with HAC inference, block bootstrap, Benjamini-Hochberg, turnover and break-even. Aggregation arms route through it.</label></li>
         <li data-done="true"><label><code>final_experiments/lib/plots.py</code> — house figure style plus colour assigned by job: categorical for identity, one-hue ordinal for ranked groups, diverging with a <strong>neutral grey</strong> midpoint for signed quantities, reserved status colours. Includes collision-free direct labelling. Replaces the per-notebook rcParams drift and the <code>RdYlGn</code> scale in <code>06</code>, whose coloured midpoint made a zero Sharpe read as a value.</label></li>
-        <li data-done="true"><label><code>final_experiments/lib/strategy.py</code> + <code>06_strategy</code> — overlapping-tranche backtest on dense returns, development sweep over horizon × breadth, pre-declared selection rule frozen to <code>frozen_spec.json</code>, and one valid corrected evaluation read. One pre-repair read is void and disclosed in <code>INVALIDATED_RUNS.md</code> (landed 2026-07-31).</label></li>
+        <li data-done="true"><label><code>final_experiments/lib/strategy.py</code> + <code>06_strategy</code> — overlapping-tranche backtest on dense returns, development sweep over horizon × breadth, historical research ranking frozen to <code>frozen_spec.json</code>, and a separate cost-and-uncertainty deployment gate that may choose cash. One pre-repair read is void; the 2026-08-03 cash-policy comparison is explicitly iterative/retrospective and both are disclosed in the notebook manifest and ledger.</label></li>
         <li data-done="true"><label><code>07_strategy_analysis</code> — strategy-null diagnostics plus Q5−Q1 date-block intervals and BH over the displayed 4×20 event-time family; zero survivors in the repaired run.</label></li>
         <li data-done="true"><label><code>00_data_inventory</code> — coverage, quality, and need-more decision support (landed 2026-07-30).</label></li>
         <li data-done="true"><label><code>final_experiments/lib/panel.py</code> + <code>01_panel</code> — FNSPID firm-day panel, attrition, coverage (landed 2026-07-30).</label></li>
         <li data-done="true"><label><code>final_experiments/lib/distribution.py</code> + <code>02_filters_and_distribution</code> — within-day moments vs n, mass, collider note (landed 2026-07-30).</label></li>
-        <li data-done="true"><label>Numbered notebooks <code>00_data_inventory.ipynb</code> through <code>11_lseg_robustness.ipynb</code> are present and executable. The notebooks are the sole stage sources; top-level jupytext mirrors were retired 2026-08-03.</label></li>
+        <li data-done="true"><label>Numbered notebooks <code>00_data_inventory.ipynb</code> through <code>12_lseg_44_labelling.ipynb</code> are present and executable. Notebook 12 validates the local-only expanded-corpus labels and writes only licence-safe aggregates under its ignored output directory. The notebooks are the sole stage sources; top-level jupytext mirrors were retired 2026-08-03.</label></li>
         <li data-done="true"><label><code>05_interpretation</code> — rule redundancy and effective test count, dispersion-vs-volume conditioning, position-mode correction, significance-vs-economics figure, and the Gate F1 evidence ledger (landed 2026-07-31).</label></li>
         <li data-done="true"><label>Focused helper tests cover exact exchange-session returns, non-overlapping W4 timing, development-only W4 coefficients, daily cross-sectional IC, cs-rank and gated-book neutrality, strict development/evaluation horizon boundaries, terminal liquidation, and block-bootstrap event-time spread inference. Plotting/notebook glue is validated by clean notebook execution rather than unit tests.</label></li>
       </ul>
@@ -1323,7 +1328,7 @@
         <ul>
           <li><strong>W3 is development-only</strong> and the evaluation block was never used to rank aggregators, so the exposure is a look-elsewhere risk on the rule set, not contamination of the holdout.</li>
           <li><strong>W4 opened the evaluation block.</strong> <code>04_surprise</code> fits on development and scores OOS R² on evaluation, and it did so before an RQ was chosen. The design — demeaning stack, outcome, model list, cluster gate — was frozen in the notebook's declaration cell before the block was read, and the block has now been read twice (the original run and the re-run after the control nest was added). Both readings used the same frozen specification; the second added <code>M_control_only</code> and the bootstrap without changing any other model.</li>
-          <li><strong>The strategy arm (<code>06_strategy</code>) has read evaluation twice.</strong> The first read used the defective <code>ar_open_h1</code> described in Workstream 1 and is void. The second used the corrected outcome. Both applied the same pre-declared selection rule to development only and both wrote <code>frozen_spec.json</code> before opening evaluation, but the count is disclosed rather than hidden: two reads, one void.</li>
+          <li><strong>The strategy arm (<code>06_strategy</code>) has two historical reads plus one authorised iterative policy recomputation.</strong> The first read used the defective <code>ar_open_h1</code> described in Workstream 1 and is void. The second used the corrected outcome with the historical development-only ranking rule and is the valid historical traded arm. On 2026-08-03 a newly added development-only deployment gate selected cash and was then applied to that already-open evaluation block. Its −19.74% to 0.00% comparison is labelled iterative/retrospective; it is not counted as pristine confirmation.</li>
           <li><strong>Consequence for writing.</strong> The surprise result cannot be presented as a pristine confirmatory test. It is a chronologically split exploratory result with the split declared in advance, and it must be described that way. If Gate F1 selects the surprise RQ, that history goes in the limitations, not the abstract.</li>
         </ul>
       </div>

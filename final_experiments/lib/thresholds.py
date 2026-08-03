@@ -153,6 +153,15 @@ def gate_daily_portfolio(
             }
         )
         previous = current
+    # The last held book must be closed at the final interval's ending open.
+    # Otherwise the backtest receives its last return without paying the exit
+    # cost, which makes sparse gates look slightly better than they are.
+    if rows and previous:
+        liquidation_turnover = 0.5 * sum(abs(weight) for weight in previous.values())
+        liquidation_cost = 2.0 * liquidation_turnover * cost_rate
+        rows[-1]["turnover"] += liquidation_turnover
+        rows[-1]["cost"] += liquidation_cost
+        rows[-1]["net_return"] -= liquidation_cost
     return pd.DataFrame(rows)
 
 
@@ -185,13 +194,35 @@ def portfolio_summary(daily: pd.DataFrame) -> dict[str, float | int]:
     }
 
 
-def choose_fixed_band(validation: pd.DataFrame) -> tuple[float, pd.DataFrame]:
+def _activity_eligibility(table: pd.DataFrame) -> pd.Series:
+    return (
+        table["mean_active"].ge(MIN_MEAN_ACTIVE) & table["active_session_share"].ge(MIN_ACTIVE_SESSION_SHARE) & table["net_sharpe"].notna()
+    )
+
+
+def choose_fixed_band(
+    validation: pd.DataFrame,
+    *,
+    require_activity: bool = False,
+) -> tuple[float, pd.DataFrame]:
+    """Choose a fixed band, optionally under the learned-gate activity floor.
+
+    ``require_activity=False`` preserves the historical exploratory selection.
+    New comparisons should set it to true so a nearly inactive fixed band
+    cannot appear superior merely by sitting in cash while learned gates are
+    required to trade on at least half of validation sessions.
+    """
     rows = []
     for band in FIXED_BANDS:
         daily = gate_daily_portfolio(validation, validation["abs_oriented_rank"] > band)
         rows.append({"band": band, **portfolio_summary(daily)})
     table = pd.DataFrame(rows)
-    best = table.sort_values(["net_sharpe", "band"], ascending=[False, True]).iloc[0]
+    table["selection_eligible"] = _activity_eligibility(table)
+    candidates = table.loc[table["selection_eligible"]] if require_activity else table
+    candidates = candidates.loc[candidates["net_sharpe"].notna()]
+    if candidates.empty:
+        raise ValueError("no fixed band meets the selection constraints")
+    best = candidates.sort_values(["net_sharpe", "band"], ascending=[False, True]).iloc[0]
     return float(best["band"]), table
 
 
@@ -204,9 +235,7 @@ def choose_probability_cutoff(
         daily = gate_daily_portfolio(validation, probabilities >= cutoff)
         rows.append({"cutoff": cutoff, **portfolio_summary(daily)})
     table = pd.DataFrame(rows)
-    table["selection_eligible"] = (
-        table["mean_active"].ge(MIN_MEAN_ACTIVE) & table["active_session_share"].ge(MIN_ACTIVE_SESSION_SHARE) & table["net_sharpe"].notna()
-    )
+    table["selection_eligible"] = _activity_eligibility(table)
     eligible = table.loc[table["selection_eligible"]]
     if eligible.empty:
         raise ValueError("no probability cutoff meets the minimum activity constraint")
