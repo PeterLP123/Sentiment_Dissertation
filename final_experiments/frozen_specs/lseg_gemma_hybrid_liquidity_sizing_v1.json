@@ -1,0 +1,75 @@
+{
+  "experiment_id": "N52_lseg_gemma_hybrid_liquidity_sizing_v1",
+  "frozen_at": "2026-08-06",
+  "status": "frozen_before_modified_target_returns",
+  "candidate_framing": "LSEG/Gemma semantic event selection with FinBERT cross-sectional ranking and liquidity-aware implementation",
+  "purpose": "Test one analytically derived within-leg allocation intended to reduce Notebook 51's square-root impact cost without changing event dates, selected names, signs, leg budgets, horizon, or sentiment inputs.",
+  "motivation_boundary": {
+    "opened_evidence": "Notebook 51 estimated an optimistic USD 10m capacity bound and found the first USD 25m participation breaches concentrated in DUK and PLD.",
+    "permitted_inference": "Post-result implementation diagnostic only.",
+    "forbidden_inference": "The result cannot validate alpha, select a sentiment rule, delete observed losing names, or replace the prospective new-date gate."
+  },
+  "base_strategy": {
+    "source_notebook": "final_experiments/36_lseg_gemma_finbert_hybrid_alpha_audit.ipynb",
+    "universe": "immutable original LSEG sector-33",
+    "event_schedule": "Gemma exact-extreme firm-open event counts and eligible sessions",
+    "ranking": "FinBERT strongest_event cross-sectional rank with symbol-ascending stable tie-break",
+    "selected_names_and_signs": "unchanged session by session",
+    "leg_exposure": "unchanged session by session",
+    "gross_limit": 1.0,
+    "single_name_cap": 0.25,
+    "holding_period": "one complete open-to-open session",
+    "fixed_cost_bps_per_side": 10.0,
+    "final_liquidation": true
+  },
+  "liquidity_inputs": {
+    "price_file": "Data/derived/prices/lseg_us_sector_33_8m.csv",
+    "adv_usd": "per-symbol 20-session rolling mean of close times volume, minimum five observations, shifted one complete session",
+    "volatility": "per-symbol 20-session rolling sample standard deviation of open-to-open returns, minimum five observations, shifted one complete session",
+    "volatility_floor": 0.005,
+    "missing_policy": "fail closed for every selected name",
+    "licensed_text_used": false,
+    "source_regimes_pooled": false
+  },
+  "allocation_rule": {
+    "objective_from_flat": "For each leg, minimise sum_i (sigma_i / sqrt(ADV_i)) * weight_i^(3/2).",
+    "closed_form_before_caps": "weight_i proportional to ADV_i / max(sigma_i, volatility_floor)^2",
+    "cap_solution": "Deterministic iterative water filling: cap weights above 0.25, remove their budget, and redistribute the remainder in the same priority proportions until the original leg budget is exhausted.",
+    "long_and_short_legs": "solved independently with non-negative magnitudes, then short weights receive a negative sign",
+    "unused_capacity": "No new name is introduced. If the selected names cannot support the original leg budget under the existing 25% cap, fail closed rather than change exposure.",
+    "return_information_used": false
+  },
+  "input_only_gate": {
+    "active_sessions": 70,
+    "same_selected_names_and_signs": true,
+    "same_leg_exposure_each_session": true,
+    "maximum_absolute_net_exposure": 1e-12,
+    "maximum_name_weight": 0.25,
+    "complete_lagged_inputs": true,
+    "flat_entry_impact_proxy": "strictly lower in aggregate than equal weighting",
+    "target_l1_turnover_including_entry_and_exit": "no greater than equal weighting",
+    "stop_rule": "If any condition fails, do not construct or inspect the modified strategy's forward returns. Record an input-only NO-GO."
+  },
+  "outcome_evaluation_if_input_gate_passes": {
+    "primary_initial_aum_usd": 10000000,
+    "capacity_extension_initial_aum_usd": 25000000,
+    "impact_coefficient_Y": 1.0,
+    "participation_ceiling": 0.05,
+    "comparators": [
+      "same-AUM equal-weight Notebook 36 hybrid under identical fixed and impact costs",
+      "same targets under Y=0 as a decomposition of allocation-return changes from impact savings"
+    ],
+    "paired_family": "Two liquidity-aware-minus-equal net-return comparisons, one at USD 10m and one at USD 25m; 9,999 five-session circular-block bootstrap replications; BH-FDR q=0.05.",
+    "temporal_check": "Report primary USD 10m net Sharpe and total return in both chronological halves.",
+    "primary_implementation_gate": "At USD 10m, positive total net return and net Sharpe, lower realised impact cost per traded dollar, and a positive paired mean difference with BH q<0.05.",
+    "capacity_extension_gate": "At USD 25m, positive total net return and net Sharpe, every order at or below 5% lagged full-day ADV, and a positive paired mean difference with BH q<0.05.",
+    "promotion_gate": false
+  },
+  "limitations": [
+    "The objective is exact only for trades from flat; drifted rebalances are evaluated rather than optimised.",
+    "The opened LSEG return window motivated this diagnostic.",
+    "Full-day ADV is optimistic for opening-auction execution.",
+    "The square-root impact coefficient is a scenario, not an estimate from this corpus.",
+    "A passing implementation gate cannot establish or promote alpha."
+  ]
+}
