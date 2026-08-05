@@ -43,7 +43,7 @@ Gate F1 will choose one primary RQ and at most one secondary after the data pane
 | **RQ-B: Filtering** | Does conditioning on story novelty and publisher identity improve the return relevance of news sentiment? | FNSPID publisher/story-family fields remain unavailable. The separate expanded-LSEG/Gemma publisher arm is complete as a non-pooled retrospective null; zero of four IC tests survives BH and no arm is economically viable. |
 | **RQ-C: Surprise** | Is firm-level sentiment surprise, net of market return and general sentiment level, informative beyond sentiment level itself? | Prior NO-GO; only viable with the wider panel and materially different demeaning design. |
 | **RQ-D: Agreement** | Does cross-model agreement add out-of-sample information beyond mean sentiment and the initial price reaction? | Standing fallback/default; enabling PhraseBank/LSEG artifacts from the July 12 design were not completed. |
-| **RQ-E: Thresholds** | Can a learned firm- or sector-conditioned trade/no-trade threshold outperform a fixed band? | Secondary only. The expanded LSEG map has four firms per sector but too little history for learned sector gates; the planned arm still needs a point-in-time FNSPID sector table. |
+| **RQ-E: Thresholds** | Can a learned firm- or sector-conditioned trade/no-trade threshold outperform a fixed band? | Secondary only. The expanded LSEG map has four firms per sector but too little history for learned sector gates. A fixed, retrospective sector-neutral/hysteresis translation improves gross/cost efficiency but has no BH survivor or viable 10-bps arm; the planned learned arm still needs a point-in-time FNSPID sector table. |
 
 ### Gate F1 rules
 
@@ -228,6 +228,13 @@ The incumbent is the sign of the mean hard label. The comparison family must inc
 All rules use the same eligible rows, split, target, and inference. Report predictive metrics such as rank correlation/information coefficient alongside any portfolio translation. Stratify by story-count band. If portfolio outcomes are included, report turnover, concentration, transaction costs, and break-even cost.
 
 Declare the complete `rules × horizons` multiplicity family at Gate F1 and apply Benjamini–Hochberg or the frozen alternative.
+
+The separate expanded-LSEG Notebook 17 portfolio-translation family is
+retrospective evidence, not a Gate-F1-selected W3 arm. Its best fixed rule,
+sector extremes with top-half/bottom-half retention, has gross Sharpe 1.393 and
+break-even 4.053 bps/side but trades on only 57 of 167 sessions, has gross
+block-bootstrap p=0.226, and remains negative at 10 bps/side. Preserve it as a
+turnover/coverage diagnostic and do not tune the opened window again.
 
 ### W4: Sentiment surprise
 

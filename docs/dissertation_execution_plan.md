@@ -100,9 +100,10 @@ Open integrity actions before final promotion:
 ### S2 — Story filtering and within-day distribution EDA
 
 **Status:** executable EDA complete. Expanded-LSEG publisher conditioning is a
-clean null and a separate 200-event full-text cash-flow-distance audit pack is
-prepared. Exit remains blocked by unlabelled human audits and unavailable
-publisher fields on the primary FNSPID grain.
+clean null, the fixed sector-neutral/hysteresis translation improves turnover
+but remains non-viable at 10 bps/side, and a separate 200-event full-text
+cash-flow-distance audit pack is prepared. Exit remains blocked by unlabelled
+human audits and unavailable publisher fields on the primary FNSPID grain.
 
 Goal: establish what the news panel contains before testing return outcomes.
 
