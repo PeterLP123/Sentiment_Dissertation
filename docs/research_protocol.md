@@ -727,6 +727,11 @@ fail. Both half Sharpes and every company/sector exclusion remain positive.
 Record a lower-risk/lower-turnover implementation trade-off, not policy
 superiority or validated alpha. The equal-weight hybrid remains the leading
 same-window candidate; any confirmation still requires genuinely new dates.
+The exact forward contract is now source-controlled at
+`final_experiments/frozen_specs/lseg_gemma_finbert_hybrid_prospective_v1.json`.
+It excludes the opened window, requires at least 120 complete calendar sessions,
+60 primary active sessions, and 20 active sessions per chronological half, and
+fails closed on scorer, prompt, provider, privacy, timing, or universe drift.
 
 ### W4: Sentiment surprise
 

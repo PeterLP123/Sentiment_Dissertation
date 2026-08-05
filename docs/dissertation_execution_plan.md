@@ -321,7 +321,11 @@ total turnover from 74.56 to 65.86; gross/net Sharpe remains 3.691/2.207 with
 [−2.679,+0.216] (BH q=0.123). Cash BH q=0.111 and sector-factor alpha
 p=0.0919 fail, so this is a useful risk/cost trade-off null rather than a base
 replacement or alpha promotion. Freeze the equal-weight hybrid for any future
-new-date replay and stop allocation tuning on this opened window.
+new-date replay and stop allocation tuning on this opened window. The versioned
+forward contract is
+`final_experiments/frozen_specs/lseg_gemma_finbert_hybrid_prospective_v1.json`:
+it excludes the opened window and stops before inference until at least 120
+complete sessions, 60 active sessions, and 20 active sessions per half exist.
 
 The expanded LSEG/Gemma panel now contributes a separate mechanism check rather
 than only scorer and cross-sectional nulls. Notebook 26's semantic sparse brake
