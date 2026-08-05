@@ -78,3 +78,21 @@ One aborted relaunch between the gate and this full run was stopped before any
 manifest or checkpoint activity. The post-stop audit confirmed that it added
 no rows and left the 90,055-success checkpoint unchanged, so it is excluded
 from timing, cost, and quality summaries.
+
+## Completion record
+
+The run and lower-concurrency cleanup passes completed on 2026-08-05. The final
+manifest reports 888,155/888,155 unique successful headlines and zero remaining.
+The append-only CSV has 889,103 rows: 888,155 successes, 919 historical API
+errors, 27 historical invalid outputs, and two historical malformed responses.
+Independent local validation found zero duplicate successes, zero invalid
+successful probability vectors, and a total reported cost of $33.61534475.
+
+Final private artifact:
+
+`/cs/student/project_msc/2025/cf/pprender/runs/labels/lseg_us_sector_44_8m_headlines/openrouter/headline_scores_gemma4_26b_a4b_it_deepinfra_fp8_investor_headline_soft_label_v1.csv`
+
+Its manifest is the same path plus `.manifest.json`. The final CSV SHA-256 is
+`afb2d9c3029c4fba4fce3600218233a02d14051788f87313fd49c9da681c6d2f`.
+Downstream work must select `status == "success"`; failed attempts remain only
+as audit evidence.

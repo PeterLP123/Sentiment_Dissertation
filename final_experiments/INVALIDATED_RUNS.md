@@ -80,3 +80,19 @@ selection under the same activity floor chooses `0.0`. Applying that new rule
 to the already-open evaluation block is an authorised iterative/retrospective
 recomputation, not a pristine holdout result. Cash remains the deployment
 comparator and is best in the recomputed table.
+
+## 2026-08-05 inherited FinBERT metadata contract
+
+Status: **superseded before any 44-company return result was produced.**
+
+The exact-hash FinBERT export correctly preserves 888,155 reusable labels, but
+some rows also preserve scorer-blind metadata from the older seed population:
+4,222 company-association fields, 5,805 first timestamps, and 269 direct/context
+flags differ from the current merged 44-company population. Reusing those
+fields would misalign some inherited labels to companies or return sessions.
+
+Notebook 12 records the discrepancy. Notebook 13 takes FinBERT label and score
+probabilities by exact hash, but takes association, timestamp, and filter fields
+from the current 44-company population enumerated by the completed OpenRouter
+run. No previous expanded-corpus return result existed, so no numerical result
+is invalidated; this entry prevents the stale metadata contract being revived.

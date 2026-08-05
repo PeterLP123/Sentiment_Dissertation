@@ -25,10 +25,11 @@ The split is a **chronological evaluation block**, not a pristine holdout. The s
 
 1. **Inventory and panel**: completed. Data paths, primary spine, earnings calendar, panel, attrition, and coverage plots exist.
 2. **Filtering and distribution EDA**: executable EDA and the provisional machine-class arms are complete. Publisher fields are unavailable and the 180-row human audit is still unlabelled, so the validation exit condition is not met.
-3. **Exploratory secondary arms**: story type, earnings, pooled learned thresholds, and both non-pooled LSEG regimes have now been run. See [`EXPLORATORY_EXPERIMENT_LEDGER.md`](EXPLORATORY_EXPERIMENT_LEDGER.md).
-   The expanded LSEG follow-on has complete pinned-FinBERT coverage and a
-   completed 1,000-attempt LLM agreement audit in Notebook 12. Human validation
-   remains outstanding, and it has no promoted return result yet.
+3. **Exploratory secondary arms**: story type, earnings, pooled learned thresholds, and all three non-pooled LSEG regimes have now been run. See [`EXPLORATORY_EXPERIMENT_LEDGER.md`](EXPLORATORY_EXPERIMENT_LEDGER.md).
+   The expanded LSEG follow-on now has complete pinned-FinBERT and OpenRouter
+   Gemma 4 26B coverage. Notebook 12 audits full-population scorer agreement;
+   Notebook 13 preserves the resulting null return experiment. Human validation
+   remains outstanding, and no expanded-corpus result is promoted.
 4. **Gate F1**: next formal decision. Choose one primary RQ and at most one secondary after resolving or explicitly waiving the audit blocker.
    `05_interpretation` assembles the evidence ledger that feeds this decision.
 5. **Promotion**: register the accepted run and export aggregate, licence-safe figures/tables to the dissertation.
@@ -70,13 +71,16 @@ The split is a **chronological evaluation block**, not a pristine holdout. The s
 | `lib/thresholds.py` | Gate features, model definitions, dollar-neutral gated portfolios, cutoff selection, costs, and date-block intervals. | Active |
 | `11_lseg_robustness.ipynb` | LSEG publisher inventory, ex-ante Reuters weighting, and separate sector-33/midcap-22 IC families. | Executed |
 | `lib/lseg_robustness.py` | Publisher aggregation, strict next-open mapping, source weighting, and HAC IC tables. | Active |
-| `12_lseg_44_labelling.ipynb` | Expanded 44-company corpus contract, exact-hash FinBERT inheritance, aggregate label audit, and the separate LLM/human-validation gates. VADER is excluded downstream; the researcher-supplied LLM wording is frozen as `investor_headline_soft_label_v1` (`81596538d99b29b8`). | Active |
+| `12_lseg_44_labelling.ipynb` | Expanded 44-company corpus contract, exact-hash FinBERT inheritance, full-population OpenRouter Gemma 4 26B audit, and separate human-validation gate. VADER is excluded downstream; the prompt is frozen as `investor_headline_soft_label_v1` (`81596538d99b29b8`). | Executed; human validation blocked |
 | `lib/lseg_labelling.py` | Provenance-checks reusable exact-hash labels before resumable expanded-corpus scoring. | Active |
+| `13_lseg_44_gemma_robustness.ipynb` | Retrospective non-pooled 44-company return arm: precise timestamp +15-minute mapping, two scorers × nine aggregators, fixed costs, block bootstrap, and metadata-filter sensitivity. | Executed; clean null |
+| `lib/lseg_expanded.py` | Validates append-only success rows, canonicalises current-population metadata, verifies the two LSEG price exports, maps timestamps to eligible opens, and evaluates the fixed expanded-corpus families. | Active |
 | `lib/openrouter_validation.py` | Frozen, resumable public-benchmark gate for OpenRouter Gemma 4 26B pinned to DeepInfra with ZDR, no fallback, strict probability JSON, and cost/quality metrics. It refuses to use LSEG inputs by construction. | Gate passed: 1,000/1,000 coverage; accuracy 0.808; macro-F1 0.813 |
 | `../scripts/run_openrouter_gemma4_validation.py` | Spend-gated command for preparing, executing, or explicitly retrying the 1,000-row OpenRouter validation. See [`../docs/openrouter_gemma4_validation.md`](../docs/openrouter_gemma4_validation.md). | Executed 2026-08-04; evidence ignored/local |
-| `lib/openrouter_lseg.py` | Bounded, append-only and resumable licensed-corpus scorer. Freezes the 888,155-headline population, exact input hashes, provider/privacy/FP8 contract, prompt hash, and researcher permission; failed attempts remain auditable and are retried without duplicating successes. | Full UCL run active; concurrency 25 cleared a 2,000/2,000 speed gate at 22.44 successes/second on 2026-08-04 |
-| `../scripts/run_openrouter_lseg_scoring.py` | Explicit-authorisation entrypoint for the full LSEG scorer. The private output and log paths are recorded in [`../docs/lseg_external_processing_authorisation.md`](../docs/lseg_external_processing_authorisation.md). | Running in UCL `tmux`; outputs remain off Git |
+| `lib/openrouter_lseg.py` | Bounded, append-only and resumable licensed-corpus scorer. Freezes the 888,155-headline population, exact input hashes, provider/privacy/FP8 contract, prompt hash, and researcher permission; failed attempts remain auditable and are retried without duplicating successes. | Completed 2026-08-05: 888,155/888,155 unique successes; $33.6153 |
+| `../scripts/run_openrouter_lseg_scoring.py` | Explicit-authorisation entrypoint for the full LSEG scorer. The private output and log paths are recorded in [`../docs/lseg_external_processing_authorisation.md`](../docs/lseg_external_processing_authorisation.md). | Executed; private append-only output remains off Git |
 | `outputs/12_lseg_44_labelling/` | Licence-safe aggregate coverage, label-distribution, and LLM-design tables/figures. | Ignored/local |
+| `outputs/13_lseg_44_gemma_robustness/` | Aggregate scorer/return tables, firm-open panels, daily portfolios, figures, and manifest; no headline text. | Ignored/local |
 | `EXPLORATORY_EXPERIMENT_LEDGER.md` | Aggregate completion/result ledger, including blocked inputs and null arms. | Current |
 | `lib/plots.py` | House figure style and the colour roles (categorical / ordinal / diverging / status). | Active |
 | `outputs/07_strategy_analysis/` | Event-time CAR, quantile spread and monotonicity, sweep surface, monthly heatmap, book-health figures. | Ignored/local |
@@ -96,7 +100,7 @@ uv run jupyter nbconvert --to notebook --execute --inplace \
 ```
 
 Repeat in numeric order for `01_panel.ipynb` through
-`12_lseg_44_labelling.ipynb`. Run from the repository root so relative paths
+`13_lseg_44_gemma_robustness.ipynb`. Run from the repository root so relative paths
 resolve consistently. The numbered `.ipynb` files are the sole notebook source;
 reusable code remains under `lib/`.
 
@@ -126,7 +130,8 @@ These are not clone-only examples. They require local artifacts that are intenti
 - the Moment-2 FinBERT checkpoint and Gate-1 audit outputs under `reports/`;
 - the local LSEG earnings-calendar files under `data/earnings/`;
 - the local merged LSEG 44-company headline corpus, inherited score seed, and
-  completed FinBERT/LLM score artifacts under `Data/collections/`;
+  completed FinBERT/OpenRouter score artifacts under `Data/collections/`;
+- the local 33-company and added-11 LSEG price exports used by Notebook 13;
 - FNSPID prices and SPY data inside the recorded archive/checkpoint chain.
 
 If a path moves, update the notebook parameter cell or helper configuration and record the change. Do not silently substitute another dataset.
