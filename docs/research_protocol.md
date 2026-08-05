@@ -573,13 +573,15 @@ and selection histories are not pooled or treated as directly comparable.
 A sentiment rule is eligible for promotion only if its paired net-return
 interval is favourable and excludes zero, its effect is temporally stable, its
 local predeclared gate passes, and the evidence tier is at least chronological
-or external-time. Zero of the six paired comparisons in Notebook 44 clears the
-return condition; five show lower downside loss under their source conventions.
-Those p-values are dependent and are not meta-analysed. Retain the
-sentiment-free HAR volatility target as the working conventional base, keep the
-exact HAR × sentiment product frozen only for genuinely new dates, and stop
-historical strategy tuning. This is a Gate F1 evidence input, not a selection of
-the final RQ; the human novelty-audit condition remains binding.
+or external-time. After the Notebook 46 refresh, zero of seven paired
+comparisons in Notebook 44 clears the return condition; six show lower downside
+loss under their source conventions. Those p-values are dependent and are not
+meta-analysed. Retain the sentiment-free HAR volatility target as the
+conventional research benchmark, but not as a time-stable or
+deployment-qualified strategy. Keep the exact HAR × sentiment product frozen
+only for genuinely new dates and stop historical strategy tuning. This is a
+Gate F1 evidence input, not a selection of the final RQ; the human novelty-audit
+condition remains binding.
 
 Notebook 45 is the single permitted post-result diagnostic of the repeated
 downside result. It enumerates every circular placement of the complete frozen
@@ -601,6 +603,32 @@ not a general semantic timing mechanism or Gemma alpha. Later price rows are
 not a prospective sample because the local LSEG news boundary remains
 2026-06-26. Do not open them without matching new news and a frozen prospective
 population.
+
+Notebook 46 is the external-time transfer of the independent base, not a new
+fit. It applies Notebook 21's unchanged 2011–2019 HAR coefficients and QLIKE
+scale to the 167-session 2025–2026 LSEG S&P 500 window. The forecast-transfer
+gate requires the circular-block interval for naive-minus-HAR QLIKE improvement
+to exclude zero. The base-quality gate also requires positive net performance,
+annualised volatility no greater than 12.5%, no-worse drawdown than the index,
+and nonnegative Sharpe in both chronological halves. A constant mean-matched
+exposure arm separates volatility scaling from forecast timing.
+
+The optional Gemma arm is fixed without return fitting as
+`1 − 0.75 × exact-negative firms / 44`, the equal-notional market aggregate of
+Notebook 26's exact firm brake. Its return and downside increments versus HAR
+form one two-test BH family; comparison with a constant mean-matched multiplier
+is secondary mechanism evidence. The LSEG company-return family was opened in
+earlier notebooks, so no sentiment result here can establish alpha.
+
+HAR produces 9.74% annualised volatility and −7.77% maximum drawdown, but net
+Sharpe is 0.240 versus 0.940 for constant matched exposure. Its paired timing
+effect is −2.731 bps/session [−4.394,−1.360], and the QLIKE improvement interval
+includes zero; both external-time base gates fail. The Gemma modifier adds
++0.013 bps/session and +0.007 Sharpe. Downside reduction versus HAR passes the
+two-test family (BH q=0.0244), but drawdown improves only 1.4% and the downside
+advantage is absent versus a constant multiplier (p=0.8218). Record this as
+mechanical de-risking, not semantic timing or alpha. No deployment-qualified
+base remains.
 
 ### W4: Sentiment surprise
 

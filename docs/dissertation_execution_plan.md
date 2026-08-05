@@ -36,7 +36,7 @@ Profitability, a significant p-value, a neural network, and a wider news collect
 | Firm-day panel | Built: 715,546 rows, 570 priced symbols, 3,262 sessions | `01_panel` outputs/manifest |
 | Chronological split | Frozen: development through 2019, evaluation from 2020 | `lib/panel.py`, plan, protocol |
 | Final RQ | Open | Gate F1 after Stage S2 |
-| Current active work | Finish/waive the unlabelled novelty audit and take Gate F1 using the aggregate-only synthesis plus timing-placebo boundary; no further historical sentiment-strategy tuning after Notebooks 42–45 | Stage S2 exit / Gate F1; Notebooks 40–45 |
+| Current active work | Finish/waive the unlabelled novelty audit and take Gate F1 using the aggregate-only synthesis plus timing-placebo and external-time base boundaries; no further historical sentiment-strategy tuning after Notebooks 42–46 | Stage S2 exit / Gate F1; Notebooks 40–46 |
 | Exploratory W3/W4 chain | Repaired and rerun; not promoted because it ran before Gate F1 | `03`–`07`, `INVALIDATED_RUNS.md` |
 | Scorer selection | Closed: FinBERT primary | Benchmark and prior reports |
 | VaR/ES | Closed | FNSPID factorial report |
@@ -228,8 +228,9 @@ weight turnover—are already binding here. Do not repeat its top/bottom-quintil
 sentiment strategy or scale the language model on the same outcomes.
 
 The resulting base decision is explicit: retain the sentiment-free HAR
-volatility target as the only independent price/risk base worth carrying
-forward. LSEG/Gemma remains essential measurement and robustness evidence, but
+volatility target as the independent price/risk research benchmark, but not as
+a time-stable or deployment-qualified strategy. LSEG/Gemma remains essential
+measurement and robustness evidence, but
 Notebook 43's direct negative LSEG replay means the continuous rule is no longer
 a historical strategy base or a reason to design another overlay on opened
 returns. At most, its exact frozen specification can receive one prospective
@@ -237,14 +238,16 @@ new-date replay. Notebook 42's negative 2010 replay, Notebook 43, and the public
 replication jointly argue against another historical sentiment-ranking search.
 
 Notebook 44 makes that base decision auditable without reopening row-level
-outcomes. It assigns an ordinal evidence tier to 12 representative strategy
-rows, keeps cross-regime Sharpes explicitly non-comparable, and applies one
-promotion policy to six paired sentiment comparisons. Zero paired favourable
-return intervals exclude zero, five comparisons report lower downside loss,
-and the portable continuous rule is net-negative at 10 bps/side in every one
-of five reported regime/split rows. HAR is therefore the sole working base;
-LSEG/Gemma remains central measurement and non-pooled risk-mechanism evidence,
-not a selected alpha strategy. This synthesis informs but does not take Gate F1.
+outcomes. Refreshed through Notebook 46, it assigns an ordinal evidence tier to
+14 representative strategy rows, keeps cross-regime Sharpes explicitly
+non-comparable, and applies one promotion policy to seven paired sentiment
+comparisons. Zero paired favourable return intervals exclude zero, six
+comparisons report lower downside loss, and the portable continuous rule is
+net-negative at 10 bps/side in every one of five reported regime/split rows.
+HAR is therefore the independent research benchmark, but no strategy is now a
+deployment-qualified base. LSEG/Gemma remains central measurement and
+non-pooled risk-mechanism evidence, not a selected alpha strategy. This
+synthesis informs but does not take Gate F1.
 
 Notebook 45 separates unusually informative timing from the mechanical effect
 of reducing exposure. Every circular placement of the exact state is evaluated
@@ -257,6 +260,18 @@ gates fail. This narrows the useful claim to one-period aggregate market-risk
 timing and rejects a general Gemma/downside mechanism. A prospective replay did
 not run because the local LSEG news corpus ends on 2026-06-26 even though later
 price caches exist.
+
+Notebook 46 transfers Notebook 21's unchanged 2011–2019 HAR coefficients and
+QLIKE scale to the 167-session 2025–2026 LSEG S&P 500 window, then applies a
+parameter-free market aggregate of Notebook 26's Gemma firm brakes. HAR lowers
+annualised volatility to 9.74% and drawdown to −7.77%, but its net Sharpe is
+0.240 versus 0.940 for constant matched exposure and its paired timing effect is
+−2.731 bps/session [−4.394,−1.360]. Both external-time base gates fail. The
+Gemma breadth modifier adds +0.013 bps/session and +0.007 Sharpe. Its downside
+reduction passes the two-test family (BH q=0.0244), but drawdown improves only
+1.4% and the downside advantage is absent versus a constant multiplier
+(p=0.8218). This is mechanical exposure reduction, not semantic timing or
+alpha, and leaves no deployment-qualified base.
 
 The expanded LSEG/Gemma panel now contributes a separate mechanism check rather
 than only scorer and cross-sectional nulls. Notebook 26's semantic sparse brake
@@ -483,7 +498,7 @@ fix. Do not search another story-family rule on this window.
 
 Priority order:
 
-1. use Notebooks 44–45 to write the cross-regime conclusion: HAR remains the only useful independent strategy base; aggregate sentiment shows one-period downside timing, while Gemma/LSEG measurement does not transfer into a general timing or alpha result;
+1. use Notebooks 44–46 to write the cross-regime conclusion: HAR remains the independent price/risk research benchmark but is not time-stable or deployment-qualified; aggregate sentiment shows one-period downside timing, while Gemma/LSEG adds mechanical de-risking rather than a general timing or alpha result;
 2. treat Notebooks 42–43 as falsifications, not permission to reverse sentiment, alter revision handling, or fit a regime rule on opened outcomes;
 3. finish or explicitly waive the human novelty audit and take Gate F1 before another secondary arm;
 4. only if genuinely new LSEG/Gemma dates accumulate at useful scale, replay Notebook 39's exact rule once as prospective evidence against its now-negative prior;

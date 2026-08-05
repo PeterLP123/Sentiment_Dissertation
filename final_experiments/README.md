@@ -242,15 +242,17 @@ The split is a **chronological evaluation block**, not a pristine holdout. The s
    gross and net Sharpe in both halves, and fails every economic gate. This
    closes story-family collapse and supplies direct LSEG/Gemma evidence that
    Notebook 39's portable measurement construction is not historical alpha.
-   Notebook 44 then consolidates the aggregate-only strategy evidence without
-   loading any price, return, position, or text rows. Its governance screen
-   retains the sentiment-free HAR target as the sole working base (net Sharpe
-   0.673, +29.85% net return, −15.73% drawdown). Across six paired sentiment
-   comparisons, zero favourable return interval excludes zero, although five
-   report lower downside loss. The continuous-rule stress table is net-negative
-   at 10 bps/side in all five regime/split rows. This freezes the useful result
-   as a cross-regime downside-risk mechanism plus a directional-alpha null; it
-   is an input to Gate F1, not the RQ decision.
+   Notebook 44 consolidates the aggregate-only strategy evidence without
+   loading any price, return, position, or text rows and is now refreshed
+   through Notebook 46. The sentiment-free HAR target remains the research
+   benchmark from Notebook 21 (net Sharpe 0.673, +29.85% net return, −15.73%
+   drawdown), but the later transfer failure means it is not a time-stable or
+   deployment-qualified strategy. Across seven paired sentiment comparisons,
+   zero favourable return interval excludes zero, although six report lower
+   downside loss. The continuous-rule stress table is net-negative at 10
+   bps/side in all five regime/split rows. This freezes the useful result as
+   repeated de-risking evidence plus a directional-alpha null; it is an input
+   to Gate F1, not the RQ decision.
    Notebook 45 then asks whether the lower downside loss is unusually well
    timed or merely mechanical de-risking. It enumerates every circular placement
    of the exact frozen state in three disjoint regimes. Only FNSPID 2020–2023
@@ -261,6 +263,17 @@ The split is a **chronological evaluation block**, not a pristine holdout. The s
    fails: retain one-period market-risk timing evidence, not a general semantic
    timing or Gemma-alpha claim. Later price rows are not used because no local
    LSEG news exists after 2026-06-26.
+   Notebook 46 then applies Notebook 21's unchanged 2011–2019 HAR coefficients
+   to the 167-session LSEG S&P 500 index window and composes the exact Notebook
+   26 Gemma brakes as `1 − 0.75 × exact-negative firms / 44`. HAR controls
+   realised volatility to 9.74% and drawdown to −7.77%, but its net Sharpe is
+   only 0.240 versus 0.940 for constant matched exposure; the paired timing loss
+   is −2.731 bps/session [−4.394,−1.360], and both external-time base gates fail.
+   The Gemma overlay adds only +0.013 bps/session and +0.007 Sharpe. Its downside
+   reduction passes the two-test family (BH q=0.0244), but drawdown improves only
+   1.4% and the downside advantage disappears against a constant multiplier
+   (p=0.8218). This is mechanical de-risking evidence, not semantic timing or
+   alpha; no deployment-qualified base remains.
 4. **Gate F1**: next formal decision. Choose one primary RQ and at most one secondary after resolving or explicitly waiving the audit blocker.
    `05_interpretation` assembles the evidence ledger that feeds this decision.
 5. **Promotion**: register the accepted run and export aggregate, licence-safe figures/tables to the dissertation.
@@ -343,12 +356,13 @@ The split is a **chronological evaluation block**, not a pristine holdout. The s
 | `42_fnspid_2010_preperiod_transfer.ipynb` | Backward external-time replay of Notebook 39's unchanged LSEG/Gemma-derived continuous construction on locally scored 2009-Q4/2010 FNSPID headlines, with current-open eligibility parity, input-only feasibility, costs, mechanism nulls, factor control, halves, and concentration. | Executed; 59 fully tradable active sessions, gross/net Sharpe −1.141/−3.397, all replication gates fail; stable cross-era alpha rejected |
 | `lib/preperiod_finbert.py` | Resumable local-only extraction and FinBERT scoring for the separate pre-2011 checkpoint, reusing the frozen FNSPID timing and event-identity contract while exposing only aggregate firm-session signals. | Active; 41,019 headlines scored locally, licensed text remains ignored |
 | `43_lseg_gemma_story_family_first_release.ipynb` | Bounded retrospective comparison of Notebook 39's exact continuous Gemma rule before and after return-independent first-release-per-LSEG-story-family filtering, with an input-only gate, exact ledger accounting, costs, two-test BH inference, halves, and plots. | Executed; 8,314 later-revision hashes removed, but gross/net Sharpe remains −1.473/−2.502 and both improvement/quality gates fail |
-| `44_strategy_evidence_synthesis.ipynb` | Aggregate-only evidence registry, paired sentiment-overlay scorecard, and cross-regime continuous-rule stress table with an ordinal evidence-quality policy that prevents retrospective Sharpe from overriding independence, stability, and inference. | Executed; HAR retained as sole working base, 0/6 sentiment return intervals exclude zero, no sentiment strategy promoted |
+| `44_strategy_evidence_synthesis.ipynb` | Aggregate-only evidence registry, paired sentiment-overlay scorecard, and cross-regime continuous-rule stress table with an ordinal evidence-quality policy that prevents retrospective Sharpe from overriding independence, stability, and inference. | Refreshed through N46; HAR retained only as research benchmark, 0/7 sentiment return intervals exclude zero, no deployment-qualified base or sentiment strategy |
 | `45_sentiment_downside_timing_placebo.ipynb` | Exact all-shift timing placebo for the frozen HAR sentiment products in 2013–2019 and 2020–2023 plus the separate LSEG/Gemma exact-negative firm brake, preserving schedule structure and accounting. | Executed; 2020–2023 downside timing passes BH, older FNSPID and LSEG/Gemma do not; cross-regime and return gates fail |
+| `46_lseg_external_time_har_base_transfer.ipynb` | Unchanged Notebook 21 HAR-model transfer to the later LSEG S&P 500 index window plus a parameter-free market aggregate of Notebook 26's exact-negative Gemma firm brakes, with matched-exposure controls, costs, paired/BH inference, halves, and plots. | Executed; HAR transfer and Gemma incremental gates fail; downside reduction is mechanical rather than unusually timed |
 | `lib/lseg_story_families.py` | Hash-only reconstruction of terminal-suffix LSEG story families and earliest releases with source-manifest verification; licensed headline text is never returned. | Active; used by Notebook 43 |
 | `lib/sparse_spread.py` | Tested exact-extrema equal-leg targets, symmetric capacity capping, within-sector demeaning, equal-weight sector projection, fail-closed exposure audits, and compact conversion of the validated drift-aware ledger. | Active |
 | `lib/risk_overlay.py` | Leakage-safe monthly momentum, negative-risk flags, aggregate pressure state, fixed exposure rules, dense adjusted-open returns, explicit cost accounting, and paired block-bootstrap helpers for Notebooks 19–40. | Active |
-| `lib/volatility_target.py` | Causal HAR variance features, development-only and expanding walk-forward fitting/calibration, unlevered volatility targeting, lagged price-trend construction, exposure composition, costs, and paired circular-block inference for Notebooks 21–25 and 27. | Active |
+| `lib/volatility_target.py` | Causal HAR variance features, development-only and expanding walk-forward fitting/calibration, unlevered volatility targeting, lagged price-trend construction, exposure composition, costs, and paired circular-block inference for Notebooks 21–25, 27, and 46. | Active |
 | `lib/openrouter_validation.py` | Frozen, resumable public-benchmark gate for OpenRouter Gemma 4 26B pinned to DeepInfra with ZDR, no fallback, strict probability JSON, and cost/quality metrics. It refuses to use LSEG inputs by construction. | Gate passed: 1,000/1,000 coverage; accuracy 0.808; macro-F1 0.813 |
 | `../scripts/run_openrouter_gemma4_validation.py` | Spend-gated command for preparing, executing, or explicitly retrying the 1,000-row OpenRouter validation. See [`../docs/openrouter_gemma4_validation.md`](../docs/openrouter_gemma4_validation.md). | Executed 2026-08-04; evidence ignored/local |
 | `lib/openrouter_lseg.py` | Bounded, append-only and resumable licensed-corpus scorer. Freezes the 888,155-headline population, exact input hashes, provider/privacy/FP8 contract, prompt hash, and researcher permission; failed attempts remain auditable and are retried without duplicating successes. | Completed 2026-08-05: 888,155/888,155 unique successes; $33.6153 |
@@ -387,6 +401,7 @@ The split is a **chronological evaluation block**, not a pristine holdout. The s
 | `outputs/43_lseg_gemma_story_family_first_release/` | Aggregate story-family audit, filtered/baseline schedules and paths, costs, paired inference, halves, accounting audit, figures, and manifest; no headline text. | Ignored/local |
 | `outputs/44_strategy_evidence_synthesis/` | Aggregate-only evidence registry, overlay scorecard, cross-regime transfer table, figures, source hashes, and manifest; no row-level prices, returns, positions, or text. | Ignored/local |
 | `outputs/45_sentiment_downside_timing_placebo/` | Exact circular-shift nulls, reproduction audit, prospective-input stop, timing tables, figures, source hashes, and manifest; no headline text. | Ignored/local |
+| `outputs/46_lseg_external_time_har_base_transfer/` | Aggregate external-time forecast, exposure, strategy, matched-control, cost, timing, Gemma breadth, figure, source-hash, and manifest evidence; no headline text. | Ignored/local |
 | `EXPLORATORY_EXPERIMENT_LEDGER.md` | Aggregate completion/result ledger, including blocked inputs and null arms. | Current |
 | `lib/plots.py` | House figure style and the colour roles (categorical / ordinal / diverging / status). | Active |
 | `outputs/07_strategy_analysis/` | Event-time CAR, quantile spread and monotonicity, sweep surface, monthly heatmap, book-health figures. | Ignored/local |
@@ -406,7 +421,7 @@ uv run jupyter nbconvert --to notebook --execute --inplace \
 ```
 
 Repeat in numeric order for `01_panel.ipynb` through
-`45_sentiment_downside_timing_placebo.ipynb`. Run from the repository root so relative paths
+`46_lseg_external_time_har_base_transfer.ipynb`. Run from the repository root so relative paths
 resolve consistently. The numbered `.ipynb` files are the sole notebook source;
 reusable code remains under `lib/`.
 
