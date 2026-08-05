@@ -575,7 +575,7 @@ and selection histories are not pooled or treated as directly comparable.
 A sentiment rule is eligible for promotion only if its paired net-return
 interval is favourable and excludes zero, its effect is temporally stable, its
 local predeclared gate passes, and the evidence tier is at least chronological
-or external-time. After the Notebook 51 refresh, one of eleven paired sentiment
+or external-time. After the Notebook 52 refresh, one of eleven paired sentiment
 or construction comparisons
 in Notebook 44 clears the interval condition and six show lower downside loss
 under their source conventions. The sole favourable interval is Notebook 47's
@@ -760,6 +760,25 @@ This is an implementation upper bound and failure anatomy, not deployment
 qualification, independent confirmation, or a promotion effect. A separately
 frozen liquidity-aware sizing audit may diagnose the concentrated bottleneck,
 but cannot revise the alpha conclusion or replace the prospective new-date gate.
+
+Notebook 52 performs that single permitted input-first sizing audit. For an
+entry from flat, minimising the square-root objective within an unchanged leg
+gives weights proportional to `ADV / max(sigma, 0.005)^2`; deterministic water
+filling caps any name at 25% and redistributes the remaining original leg
+budget. The rule cannot change Gemma event dates/counts, FinBERT-selected
+names/signs, gross or net exposure, horizon, cost, or source regime. Its
+predeclared input gate requires complete lagged inputs, lower aggregate
+from-flat impact proxy, and target-path L1 turnover no greater than the equal-
+weight hybrid. If any condition fails, modified returns must not be constructed.
+
+All 70 event sessions, selected names/signs, leg budgets, neutrality, cap, and
+liquidity inputs pass. The impact proxy falls 6.08%, but target-path turnover
+rises 0.54%, from 74.458 to 74.858. The turnover condition therefore fails;
+`returns_constructed` remains false, conditional result and inference tables
+remain empty, and no modified next-open return is inspected. Record an input-
+only NO-GO. Do not tune smoothing, shrinkage, refresh frequency, or another
+liquidity objective on the opened window. The equal-weight hybrid remains the
+only prospective candidate under its existing new-date contract.
 
 ### W4: Sentiment surprise
 
