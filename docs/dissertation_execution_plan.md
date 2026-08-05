@@ -36,7 +36,7 @@ Profitability, a significant p-value, a neural network, and a wider news collect
 | Firm-day panel | Built: 715,546 rows, 570 priced symbols, 3,262 sessions | `01_panel` outputs/manifest |
 | Chronological split | Frozen: development through 2019, evaluation from 2020 | `lib/panel.py`, plan, protocol |
 | Final RQ | Open | Gate F1 after Stage S2 |
-| Current active work | Finish/waive the unlabelled novelty audit and take Gate F1 using the aggregate-only synthesis plus timing-placebo, external-time base, and story-revision cost boundaries; no further historical sentiment-strategy tuning after Notebooks 42–48 | Stage S2 exit / Gate F1; Notebooks 40–48 |
+| Current active work | Finish/waive the unlabelled novelty audit and take Gate F1 using the aggregate-only synthesis plus timing-placebo, external-time base, and story-revision cost boundaries; no further historical sentiment-strategy tuning after Notebooks 42–49 | Stage S2 exit / Gate F1; Notebooks 40–49 |
 | Exploratory W3/W4 chain | Repaired and rerun; not promoted because it ran before Gate F1 | `03`–`07`, `INVALIDATED_RUNS.md` |
 | Scorer selection | Closed: FinBERT primary | Benchmark and prior reports |
 | VaR/ES | Closed | FNSPID factorial report |
@@ -238,9 +238,9 @@ new-date replay. Notebook 42's negative 2010 replay, Notebook 43, and the public
 replication jointly argue against another historical sentiment-ranking search.
 
 Notebook 44 makes that base decision auditable without reopening row-level
-outcomes. Refreshed through Notebook 48, it assigns an ordinal evidence tier to
-16 representative strategy rows, keeps cross-regime Sharpes explicitly
-non-comparable, and applies one promotion policy to nine paired sentiment
+outcomes. Refreshed through Notebook 49, it assigns an ordinal evidence tier to
+17 representative strategy rows, keeps cross-regime Sharpes explicitly
+non-comparable, and applies one promotion policy to ten paired sentiment
 comparisons. One favourable interval excludes zero: Notebook 47's retrospective
 revision-delta comparison with a matched latest-score-level construction. It is
 not a cash-alpha result and does not pass promotion. Six comparisons report
@@ -294,6 +294,17 @@ persistent-minus-event interval narrowly includes zero after BH, second-half
 net Sharpe is −1.074, and factor/dependence checks fail. Preserve the cost
 frontier—positive at 1–5 bps/side—as an implementation result, but do not tune
 expiry, decay, thresholds, lookbacks, or holding periods on this opened window.
+
+Notebook 49 closes the only predeclared semantic restriction left by the gross
+revision result: require the first and current Gemma scores to cross zero.
+Return-free feasibility is adequate—467 original-33 transition associations,
+390 firm-opens across 32 companies, and 74 both-sign sessions—but the strategy
+has gross/net Sharpe 0.256/−1.646, −7.17% net return, and only 1.34-bps/side
+break-even. It does not differ reliably from cash or the broad revision arm,
+the conditional random-name p-value is 0.4227, second-half gross Sharpe is
+−0.008, and the sector-factor intercept is significantly negative. Preserve
+this as evidence that dramatic tone reversals are not the source of Notebook
+47's gross effect and stop further revision filters on the opened window.
 
 The expanded LSEG/Gemma panel now contributes a separate mechanism check rather
 than only scorer and cross-sectional nulls. Notebook 26's semantic sparse brake
@@ -520,8 +531,8 @@ fix. Do not search another story-family rule on this window.
 
 Priority order:
 
-1. use Notebooks 44–48 to write the cross-regime conclusion: HAR remains the independent price/risk research benchmark but is not time-stable or deployment-qualified; aggregate sentiment shows one-period downside timing; Gemma/LSEG adds mechanical de-risking and a gross story-revision information effect whose economics fail at 10 bps/side;
-2. treat Notebooks 42–43 as falsifications and Notebooks 47–48 as a bounded mechanism/cost frontier, not permission to reverse sentiment or tune revision persistence on opened outcomes;
+1. use Notebooks 44–49 to write the cross-regime conclusion: HAR remains the independent price/risk research benchmark but is not time-stable or deployment-qualified; aggregate sentiment shows one-period downside timing; Gemma/LSEG adds mechanical de-risking and a gross story-revision information effect whose economics fail at 10 bps/side and are not concentrated in strict sign reversals;
+2. treat Notebooks 42–43 as falsifications and Notebooks 47–49 as a bounded mechanism/cost frontier, not permission to reverse sentiment, tune revision persistence, or search another revision filter on opened outcomes;
 3. finish or explicitly waive the human novelty audit and take Gate F1 before another secondary arm;
 4. only if genuinely new LSEG/Gemma dates accumulate at useful scale, replay Notebook 39's exact rule once as prospective evidence against its now-negative prior;
 5. earnings-window exclusion or one pooled story-type interaction family only if the corresponding calendar/audit validity gate passes;

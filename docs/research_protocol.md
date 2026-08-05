@@ -575,7 +575,7 @@ and selection histories are not pooled or treated as directly comparable.
 A sentiment rule is eligible for promotion only if its paired net-return
 interval is favourable and excludes zero, its effect is temporally stable, its
 local predeclared gate passes, and the evidence tier is at least chronological
-or external-time. After the Notebook 48 refresh, one of nine paired comparisons
+or external-time. After the Notebook 49 refresh, one of ten paired comparisons
 in Notebook 44 clears the interval condition and six show lower downside loss
 under their source conventions. The sole favourable interval is Notebook 47's
 bounded retrospective revision-delta comparison with a matched latest-level
@@ -676,6 +676,29 @@ Sharpes are +0.434/−1.074, and only 2/33 company and 2/11 sector exclusions ar
 positive. Every promotion gate fails. Preserve the turnover and cost frontier
 as useful implementation evidence and stop persistence tuning on this opened
 window.
+
+Notebook 49 is the final permitted semantic restriction of the revision signal.
+It is frozen input-first and selects only families satisfying the scale-free
+condition `initial_score × current_score < 0`; zero endpoints abstain. The
+current revised sign sets direction, multiple flip families are averaged within
+firm-open, and the original-33 one-session equal-leg 25%-cap construction and
+10-bps/side cost remain unchanged. There is no magnitude threshold, duration,
+or alternative sign definition. The broad Notebook 47 revision arm must
+reproduce exactly. Net comparisons with cash and the broad arm form one BH
+family; a conditional random-name test preserves every active date, leg count,
+feasible gross, and same-day revision-update universe.
+
+The return-free gate passes with 467 transition associations, 390 firm-opens
+across 32 companies, and 74 both-sign sessions split 46/28 by half. The strict
+subset has gross/net Sharpe 0.256/−1.646, net return −7.17%, and only
+1.34-bps/side break-even. Its cash difference is −4.366 bps/session
+[−9.428,+0.388] (BH q=0.161); its difference from broad revision delta is
++3.902 bps/session [−5.289,+13.007] (BH q=0.409). The conditional random-name
+one-sided p-value is 0.4227, gross half Sharpes are +0.452/−0.008, and the
+sector-spanning HAC intercept is −5.524 bps/session
+[−10.658,−0.390] (p=0.0350). Every promotion gate fails. Record that dramatic
+tone reversals do not explain Notebook 47's incremental gross information and
+stop all further revision filtering on this opened window.
 
 ### W4: Sentiment surprise
 
