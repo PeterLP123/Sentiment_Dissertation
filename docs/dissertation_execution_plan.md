@@ -192,6 +192,13 @@ Statistical significance is not a pass criterion. A valid null passes. A leaky o
 
 **Status:** blocked on valid S3 evidence.
 
+Exploratory work nevertheless ran out of order. The latest FNSPID risk-sizing
+arms are preserved as such: firm-level brakes on monthly momentum are a clean
+cost null, while fixed aggregate negative-pressure hysteresis raises the
+descriptive 2020–2023 SPY Sharpe from 0.568 to 0.783 but fails its paired-return,
+corrected-downside, and drawdown gates. It may motivate one unchanged-rule test
+on genuinely new data; it is not S4 confirmation or a promoted strategy.
+
 Priority order:
 
 1. non-pooled LSEG out-of-regime replication of the primary measurement rule;

@@ -66,7 +66,7 @@ The closing phase does not re-run questions already answered unless a documented
 - **Surprise prior:** the 17 July Kalman-surprise pilot was a NO-GO; level beat surprise on out-of-sample R-squared and only 28 evaluation date clusters were available.
 - **Second moment:** FinBERT negative share is a required candidate aggregator because it produced the strongest corrected text result in the repository for next-session absolute abnormal return.
 - **Tail risk:** the four-cell VaR/ES factorial is closed. News arrival improved FZ0 loss; semantic tone did not add a clear increment.
-- **Trading:** the 33-stock robustness run failed after costs/turnover. Profitability is not a completion criterion.
+- **Trading:** the 33-stock robustness run and the firm-level risk-brake retry fail after costs/turnover. A later aggregate negative-pressure SPY hysteresis arm is descriptively better than long SPY but misses its frozen inference/risk gate. Profitability is not a completion criterion.
 
 ## Data Policy
 
@@ -248,6 +248,20 @@ must freeze a tie policy and either match activity or treat abstention as an
 explicit component of the estimand. Do not describe the current result as a
 clean scorer-quality comparison or validated alpha.
 
+Notebooks 19–20 test sentiment only as a risk-sizing overlay around an
+independently specified exposure. The firm-level momentum brakes are a clean
+null: sparse exits and re-entries add cost without improving evaluation return.
+The aggregate market-pressure hysteresis arm is the sole economically
+interesting follow-on: at 2 bps/side it raises the previously opened
+2020–2023 SPY Sharpe from 0.568 to 0.783 and reduces maximum drawdown from
+−32.05% to −28.01%. It does **not** pass the frozen gate: the paired net-return
+interval spans zero, the corrected downside test fails, the drawdown reduction
+is too small, and yearly results reverse in 2022. A post-result circular-shift
+Sharpe p=0.051 is hypothesis-generating only; excluding 2020 leaves hysteresis
+with Sharpe 0.418 versus 0.617 for long SPY. Preserve the exact 1.5/0.5
+hysteresis rule as a candidate for genuinely new data; do not tune it on the
+FNSPID or opened LSEG windows.
+
 ### W4: Sentiment surprise
 
 A valid retry must differ materially from the failed July pilot:
@@ -322,6 +336,7 @@ Do not hand-type final result values into the dissertation.
 - Current FNSPID publisher and story-family fields are unavailable on the checkpoint grain.
 - Earnings coverage has recoverable mapping/filter holes and does not include consensus surprises.
 - Prices are split-adjusted but not dividend-adjusted.
+- Cash is assigned zero return in the risk-overlay notebooks rather than a historical risk-free rate.
 - Selection on news and price availability can distort relationships.
 - The evaluation block is previously explored.
 - A backtest is not deployable alpha or investment advice.
