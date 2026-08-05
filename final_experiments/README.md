@@ -244,7 +244,7 @@ The split is a **chronological evaluation block**, not a pristine holdout. The s
    Notebook 39's portable measurement construction is not historical alpha.
    Notebook 44 consolidates the aggregate-only strategy evidence without
    loading any price, return, position, or text rows and is now refreshed
-   through Notebook 51. The sentiment-free HAR target remains the research
+   through Notebook 52. The sentiment-free HAR target remains the research
    benchmark from Notebook 21 (net Sharpe 0.673, +29.85% net return, −15.73%
    drawdown), but the later transfer failure means it is not a time-stable or
    deployment-qualified strategy. Across eleven paired sentiment/construction comparisons,
@@ -338,6 +338,16 @@ The split is a **chronological evaluation block**, not a pristine holdout. The s
    eight in DUK and two in PLD. The optimistic predeclared-grid capacity bound
    is therefore $10m. This is useful implementation evidence, not new alpha;
    full-day ADV is optimistic for open-auction execution.
+   Notebook 52 then freezes the one analytical liquidity-sizing implication:
+   within each unchanged leg, allocate in proportion to
+   `ADV / max(sigma, 0.005)^2` with deterministic water filling at the 25%
+   cap. All 70 Gemma dates, FinBERT names/signs, leg budgets, and exposure
+   constraints survive, and the from-flat impact proxy falls 6.08%. However,
+   target-path L1 turnover rises 0.54%, from 74.458 to 74.858, violating the
+   predeclared no-higher-turnover gate. The notebook stops cleanly with
+   `returns_constructed = false`; no modified next-open return is inspected.
+   Preserve the input-only NO-GO and do not tune smoothing or shrinkage on the
+   opened window.
 4. **Gate F1**: next formal decision. Choose one primary RQ and at most one secondary after resolving or explicitly waiving the audit blocker.
    `05_interpretation` assembles the evidence ledger that feeds this decision.
 5. **Promotion**: register the accepted run and export aggregate, licence-safe figures/tables to the dissertation.
@@ -420,7 +430,7 @@ The split is a **chronological evaluation block**, not a pristine holdout. The s
 | `42_fnspid_2010_preperiod_transfer.ipynb` | Backward external-time replay of Notebook 39's unchanged LSEG/Gemma-derived continuous construction on locally scored 2009-Q4/2010 FNSPID headlines, with current-open eligibility parity, input-only feasibility, costs, mechanism nulls, factor control, halves, and concentration. | Executed; 59 fully tradable active sessions, gross/net Sharpe −1.141/−3.397, all replication gates fail; stable cross-era alpha rejected |
 | `lib/preperiod_finbert.py` | Resumable local-only extraction and FinBERT scoring for the separate pre-2011 checkpoint, reusing the frozen FNSPID timing and event-identity contract while exposing only aggregate firm-session signals. | Active; 41,019 headlines scored locally, licensed text remains ignored |
 | `43_lseg_gemma_story_family_first_release.ipynb` | Bounded retrospective comparison of Notebook 39's exact continuous Gemma rule before and after return-independent first-release-per-LSEG-story-family filtering, with an input-only gate, exact ledger accounting, costs, two-test BH inference, halves, and plots. | Executed; 8,314 later-revision hashes removed, but gross/net Sharpe remains −1.473/−2.502 and both improvement/quality gates fail |
-| `44_strategy_evidence_synthesis.ipynb` | Aggregate-only evidence registry, paired sentiment/construction scorecard, cross-regime continuous-rule stress table, and implementation-capacity evidence with an ordinal policy that prevents retrospective Sharpe from overriding independence, stability, and inference. | Refreshed through N51; HAR retained only as research benchmark, one of eleven favourable return intervals excludes zero but is retrospective and non-promoting, the hybrid's optimistic grid capacity is $10m, and no deployment-qualified base or sentiment strategy exists |
+| `44_strategy_evidence_synthesis.ipynb` | Aggregate-only evidence registry, paired sentiment/construction scorecard, cross-regime continuous-rule stress table, and implementation-capacity evidence with an ordinal policy that prevents retrospective Sharpe from overriding independence, stability, and inference. | Refreshed through N52; HAR retained only as research benchmark, one of eleven favourable return intervals excludes zero but is retrospective and non-promoting, the hybrid's optimistic grid capacity is $10m, the liquidity-sizing follow-up stops before returns, and no deployment-qualified base or sentiment strategy exists |
 | `45_sentiment_downside_timing_placebo.ipynb` | Exact all-shift timing placebo for the frozen HAR sentiment products in 2013–2019 and 2020–2023 plus the separate LSEG/Gemma exact-negative firm brake, preserving schedule structure and accounting. | Executed; 2020–2023 downside timing passes BH, older FNSPID and LSEG/Gemma do not; cross-regime and return gates fail |
 | `46_lseg_external_time_har_base_transfer.ipynb` | Unchanged Notebook 21 HAR-model transfer to the later LSEG S&P 500 index window plus a parameter-free market aggregate of Notebook 26's exact-negative Gemma firm brakes, with matched-exposure controls, costs, paired/BH inference, halves, and plots. | Executed; HAR transfer and Gemma incremental gates fail; downside reduction is mechanical rather than unusually timed |
 | `47_lseg_gemma_story_revision_delta.ipynb` | Original-33 one-session spread on the first-to-current Gemma score change within Reuters story families, compared with cash and a same-date/name/count/gross latest-score-level construction, with costs, BH inference, halves, factors, exclusions, and plots. | Executed; revision delta beats matched level, but cash, 10-bps quality, factor, and dependence gates fail |
@@ -429,10 +439,12 @@ The split is a **chronological evaluation block**, not a pristine holdout. The s
 | `50_lseg_gemma_hybrid_inverse_volatility.ipynb` | Return-blind inverse-volatility allocation of Notebook 36's unchanged Gemma-timed, FinBERT-ranked hybrid, using strictly lagged opens, the existing portfolio projector, the same cap/horizon/cost, paired/BH inference, factors, halves, exclusions, and plots. | Executed; risk and turnover fall, gross/net Sharpe remains 3.691/2.207, but paired improvement, cash, factor-alpha, and promotion gates fail |
 | `51_lseg_gemma_hybrid_implementation_capacity.ipynb` | Frozen implementation-capacity replay of Notebook 36's exact targets with drift-aware per-symbol orders, lagged 20-session ADV/volatility, fixed 10-bps cost, square-root impact scenarios, a predeclared AUM grid, 5%-ADV feasibility gate, bottleneck attribution, and plots. | Executed; primary Y=1 remains positive through $10m but fails by $25m, giving an optimistic $10m grid bound; no alpha promotion |
 | `frozen_specs/lseg_gemma_hybrid_capacity_v1.json` | Pre-outcome contract for Notebook 51's liquidity estimator, impact coefficients, AUM grid, participation ceiling, identity checks, and interpretation boundary. | Frozen at `71ac538`; complete |
+| `52_lseg_gemma_hybrid_liquidity_aware_sizing.ipynb` | Input-first test of the analytical square-root-impact-minimising within-leg allocation, preserving Gemma dates/counts, FinBERT names/signs, leg budgets, cap, neutrality, and horizon. | Executed input-only NO-GO; proxy −6.08% but target turnover +0.54%, so modified returns were not constructed |
+| `frozen_specs/lseg_gemma_hybrid_liquidity_sizing_v1.json` | Pre-outcome contract for Notebook 52's convex objective, capped water-filling solution, input gate, conditional AUM comparisons, and non-promoting stop rule. | Frozen at `e2112ed`; stopped at input gate |
 | `frozen_specs/lseg_gemma_finbert_hybrid_prospective_v1.json` | Source-controlled prospective contract for the unchanged Notebook 36 equal-weight hybrid, with an explicitly non-promoting Notebook 50 risk diagnostic, exact scorer/privacy/timing/portfolio contracts, minimum sample, inference, and stop gates. | Frozen at `44adccd`; awaiting LSEG news strictly after 2026-06-26 |
 | `lib/lseg_story_families.py` | Hash-only reconstruction of terminal-suffix LSEG story families, earliest releases, and first-to-current revision transitions with source-manifest verification; licensed headline text and raw story IDs are never returned. | Active; used by Notebooks 43 and 47 |
 | `lib/sparse_spread.py` | Tested exact-extrema equal-leg targets, symmetric capacity capping, within-sector demeaning, equal-weight sector projection, fail-closed exposure audits, and compact conversion of the validated drift-aware ledger. | Active |
-| `lib/capacity.py` | Tested point-in-time lagged ADV/volatility construction and drift-aware square-root impact replay, including final liquidation, per-order participation, and capacity summaries. | Active; zero-impact identity reproduces the core ledger |
+| `lib/capacity.py` | Tested point-in-time lagged ADV/volatility construction, convex capped impact-minimising leg allocation, and drift-aware square-root impact replay, including final liquidation, per-order participation, and capacity summaries. | Active; zero-impact identity reproduces the core ledger and N52's water-filling helper is unit tested |
 | `lib/risk_overlay.py` | Leakage-safe monthly momentum, negative-risk flags, aggregate pressure state, fixed exposure rules, dense adjusted-open returns, explicit cost accounting, and paired block-bootstrap helpers for Notebooks 19–40. | Active |
 | `lib/volatility_target.py` | Causal HAR variance features, development-only and expanding walk-forward fitting/calibration, unlevered volatility targeting, lagged price-trend construction, exposure composition, costs, and paired circular-block inference for Notebooks 21–25, 27, and 46. | Active |
 | `lib/openrouter_validation.py` | Frozen, resumable public-benchmark gate for OpenRouter Gemma 4 26B pinned to DeepInfra with ZDR, no fallback, strict probability JSON, and cost/quality metrics. It refuses to use LSEG inputs by construction. | Gate passed: 1,000/1,000 coverage; accuracy 0.808; macro-F1 0.813 |
@@ -479,6 +491,7 @@ The split is a **chronological evaluation block**, not a pristine holdout. The s
 | `outputs/49_lseg_gemma_story_revision_sign_flip/` | Aggregate strict-flip coverage, broad-revision reproduction, paths, costs, paired and random-name inference, factor/exclusion diagnostics, figures, source hashes, and manifest; no headline text or raw story IDs. | Ignored/local |
 | `outputs/50_lseg_gemma_hybrid_inverse_volatility/` | Aggregate input gate, equal/inverse-volatility paths, costs, paired inference, factors, halves, exclusions, figures, and manifest; no headline text. | Ignored/local |
 | `outputs/51_lseg_gemma_hybrid_implementation_capacity/` | Aggregate capacity curve, identity/liquidity audit, reference-AUM paths and order diagnostics, bottleneck attribution, figures, and manifest; no headline text. | Ignored/local |
+| `outputs/52_lseg_gemma_hybrid_liquidity_aware_sizing/` | Aggregate input gate, target audit, input-only figure, empty conditional outcome tables, and manifest; no headline text or modified returns. | Ignored/local |
 | `EXPLORATORY_EXPERIMENT_LEDGER.md` | Aggregate completion/result ledger, including blocked inputs and null arms. | Current |
 | `lib/plots.py` | House figure style and the colour roles (categorical / ordinal / diverging / status). | Active |
 | `outputs/07_strategy_analysis/` | Event-time CAR, quantile spread and monotonicity, sweep surface, monthly heatmap, book-health figures. | Ignored/local |
@@ -498,7 +511,7 @@ uv run jupyter nbconvert --to notebook --execute --inplace \
 ```
 
 Repeat in numeric order for `01_panel.ipynb` through
-`51_lseg_gemma_hybrid_implementation_capacity.ipynb`. Run from the repository root so relative paths
+`52_lseg_gemma_hybrid_liquidity_aware_sizing.ipynb`. Run from the repository root so relative paths
 resolve consistently. The numbered `.ipynb` files are the sole notebook source;
 reusable code remains under `lib/`.
 
