@@ -96,3 +96,20 @@ probabilities by exact hash, but takes association, timestamp, and filter fields
 from the current 44-company population enumerated by the completed OpenRouter
 run. No previous expanded-corpus return result existed, so no numerical result
 is invalidated; this entry prevents the stale metadata contract being revived.
+
+## 2026-08-05 Notebook 14 pre-override-fix distance state
+
+Generated snapshot:
+`outputs/superseded/20260805_notebook14_pre_override_fix/`
+
+Status: **distance h3/h5 arms invalidated; material arms unaffected.**
+
+The first execution forward-filled `distance_signal` independently. When a new
+selected material event had no cash-flow-distance phrase, pandas therefore
+carried the older classified event through the newer event. That violated the
+frozen rule that a new selected event overrides the prior state. The repaired
+state builder starts a fresh segment at every selected material event; an
+unknown-distance event now clears the older distance state. The full six-arm
+notebook was rerun so its embedded plots, tables, manifest, and interpretation
+all come from the repaired implementation. The superseded distance results must
+not be quoted.

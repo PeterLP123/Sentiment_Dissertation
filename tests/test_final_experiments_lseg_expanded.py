@@ -21,6 +21,7 @@ def _write_score_artifact(path: Path, manifest: dict[str, object]) -> None:
     pd.DataFrame(
         {
             "headline_sha256": ["a"],
+            "headline": ["AAA reports higher profit"],
             "matched_symbols": ["AAA"],
             "first_timestamp": ["2026-01-05T14:00:00Z"],
             "explicit_target": [True],
@@ -233,3 +234,40 @@ def test_score_loader_rejects_pinned_manifest_contract_drift(
 
     with pytest.raises(ValueError, match="score manifest contract mismatch"):
         load_success_scores(path, scorer=scorer, expected_population=1)
+
+
+def test_score_loader_requires_explicit_opt_in_for_licensed_headline_text(
+    tmp_path: Path,
+) -> None:
+    manifest: dict[str, object] = {
+        "model": lseg_expanded.GEMMA_MODEL,
+        "provider": "DeepInfra",
+        "quantization": "fp8",
+        "prompt_id": lseg_expanded.GEMMA_PROMPT_ID,
+        "prompt_hash": lseg_expanded.GEMMA_PROMPT_HASH,
+        "request": {
+            "provider": {
+                "only": ["deepinfra"],
+                "quantizations": ["fp8"],
+                "allow_fallbacks": False,
+                "data_collection": "deny",
+                "require_parameters": True,
+                "zdr": True,
+            }
+        },
+    }
+    path = tmp_path / "scores.csv"
+    _write_score_artifact(path, manifest)
+
+    default, _ = load_success_scores(
+        path, scorer="gemma4_26b", expected_population=1
+    )
+    opted_in, _ = load_success_scores(
+        path,
+        scorer="gemma4_26b",
+        expected_population=1,
+        include_headline=True,
+    )
+
+    assert "headline" not in default
+    assert opted_in["headline"].tolist() == ["AAA reports higher profit"]

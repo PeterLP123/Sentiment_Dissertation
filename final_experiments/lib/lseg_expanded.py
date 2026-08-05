@@ -64,6 +64,7 @@ SCORE_MANIFEST_CONTRACTS: dict[str, tuple[tuple[tuple[str, ...], Any], ...]] = {
 
 SCORE_COLUMNS = (
     "headline_sha256",
+    "headline",
     "matched_symbols",
     "first_timestamp",
     "explicit_target",
@@ -113,8 +114,14 @@ def load_success_scores(
     *,
     scorer: str,
     expected_population: int = EXPECTED_POPULATION,
+    include_headline: bool = False,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
-    """Load only successful rows and fail closed on the frozen score contract."""
+    """Load successful rows and fail closed on the frozen score contract.
+
+    Licensed headline text is excluded by default.  The explicit opt-in exists
+    only for local feature construction; callers must not write it to tracked
+    or aggregate result artifacts.
+    """
 
     score_path = Path(path)
     manifest_path = score_path.with_suffix(score_path.suffix + ".manifest.json")
@@ -139,11 +146,17 @@ def load_success_scores(
     total_rows = 0
     with score_path.open(newline="", encoding="utf-8") as handle:
         fieldnames = tuple(csv.reader(handle).__next__())
-    required = set(SCORE_COLUMNS) - {"reported_cost_usd"}
+    required = set(SCORE_COLUMNS) - {"headline", "reported_cost_usd"}
+    if include_headline:
+        required.add("headline")
     missing = required - set(fieldnames)
     if missing:
         raise ValueError(f"score artifact is missing required columns: {sorted(missing)}")
-    usecols = [column for column in SCORE_COLUMNS if column in fieldnames]
+    usecols = [
+        column
+        for column in SCORE_COLUMNS
+        if column in fieldnames and (include_headline or column != "headline")
+    ]
     for chunk in pd.read_csv(score_path, usecols=usecols, chunksize=200_000):
         total_rows += len(chunk)
         counts = chunk["status"].astype(str).value_counts()
