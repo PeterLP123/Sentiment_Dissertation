@@ -1,0 +1,83 @@
+{
+  "experiment_id": "N51_lseg_gemma_hybrid_capacity_v1",
+  "frozen_at": "2026-08-06",
+  "status": "frozen_before_capacity_outcomes",
+  "candidate_framing": "LSEG/Gemma semantic event selection with FinBERT cross-sectional ranking",
+  "purpose": "Estimate an implementation-capacity bound for the already frozen N36 hybrid without changing its signal, event schedule, holdings, or execution horizon.",
+  "strategy": {
+    "source_notebook": "final_experiments/36_lseg_gemma_finbert_hybrid_alpha_audit.ipynb",
+    "universe": "immutable original LSEG sector-33",
+    "event_schedule": "Gemma exact-extreme firm-open event counts and eligible sessions",
+    "ranking": "FinBERT strongest_event cross-sectional rank with symbol-ascending stable tie-break",
+    "holding_period": "one complete open-to-open session",
+    "gross_limit": 1.0,
+    "single_name_cap": 0.25,
+    "fixed_cost_bps_per_side": 10.0,
+    "drift_accounting": "sentiment_benchmark.strategy_research.ledger.run_open_to_open_ledger semantics, including final liquidation"
+  },
+  "inputs": {
+    "price_file": "Data/derived/prices/lseg_us_sector_33_8m.csv",
+    "price_fields": [
+      "session_date",
+      "symbol",
+      "open",
+      "close",
+      "volume"
+    ],
+    "licensed_text_used": false,
+    "source_regimes_pooled": false
+  },
+  "liquidity_estimator": {
+    "window_sessions": 20,
+    "minimum_observations": 5,
+    "adv_usd": "per-symbol rolling mean of close times volume, shifted one complete session",
+    "volatility": "per-symbol rolling sample standard deviation of open-to-open returns, shifted one complete session",
+    "missing_policy": "fail closed for every non-zero order",
+    "point_in_time_rule": "neither the current session volume nor the return ending at the current open enters the estimate"
+  },
+  "impact_model": {
+    "formula": "additional impact rate = Y * lagged_sigma20 * sqrt(abs(trade_notional_usd) / lagged_adv20_usd)",
+    "primary_coefficient_Y": 1.0,
+    "sensitivity_coefficients_Y": [
+      0.5
+    ],
+    "application": "additional to the frozen 10 bps per-side fixed cost and symmetric for buys and sells",
+    "participation_denominator": "full-day lagged ADV",
+    "hard_participation_ceiling": 0.05,
+    "scope_warning": "Full-day ADV is optimistic for a strategy specified at the opening auction; results are an upper-bound diagnostic, not a live execution claim.",
+    "references": [
+      "https://arxiv.org/abs/1811.05230",
+      "https://arxiv.org/abs/1905.04569",
+      "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3124502",
+      "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3229719"
+    ]
+  },
+  "initial_aum_usd_grid": [
+    1000000,
+    2000000,
+    5000000,
+    10000000,
+    25000000,
+    50000000,
+    100000000,
+    250000000,
+    500000000,
+    1000000000
+  ],
+  "reference_aum_usd": [
+    1000000,
+    10000000
+  ],
+  "validation_gates": {
+    "zero_impact_identity": "With Y=0, daily gross return, fixed cost, turnover, net return, and NAV must reproduce the core ledger within 1e-12.",
+    "liquidity_coverage": "Every non-zero rebalance and final-liquidation order must have finite positive lagged ADV and finite non-negative lagged volatility.",
+    "capacity_definition": "Largest predeclared AUM grid point under primary Y=1.0 with positive total net return, positive net Sharpe, and every order at or below 5% of lagged full-day ADV.",
+    "reference_reporting": "Report the complete curve plus the frozen USD 1m and USD 10m reference points even when a gate fails."
+  },
+  "multiplicity_and_selection": {
+    "new_signal_selection": false,
+    "retuning_allowed": false,
+    "promotion_effect": false,
+    "interpretation": "Implementation diagnostic for the existing retrospective hybrid only. It cannot rescue or promote the alpha claim and does not replace the prospective holdout gate."
+  }
+}
