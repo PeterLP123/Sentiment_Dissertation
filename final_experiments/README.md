@@ -242,6 +242,15 @@ The split is a **chronological evaluation block**, not a pristine holdout. The s
    gross and net Sharpe in both halves, and fails every economic gate. This
    closes story-family collapse and supplies direct LSEG/Gemma evidence that
    Notebook 39's portable measurement construction is not historical alpha.
+   Notebook 44 then consolidates the aggregate-only strategy evidence without
+   loading any price, return, position, or text rows. Its governance screen
+   retains the sentiment-free HAR target as the sole working base (net Sharpe
+   0.673, +29.85% net return, −15.73% drawdown). Across six paired sentiment
+   comparisons, zero favourable return interval excludes zero, although five
+   report lower downside loss. The continuous-rule stress table is net-negative
+   at 10 bps/side in all five regime/split rows. This freezes the useful result
+   as a cross-regime downside-risk mechanism plus a directional-alpha null; it
+   is an input to Gate F1, not the RQ decision.
 4. **Gate F1**: next formal decision. Choose one primary RQ and at most one secondary after resolving or explicitly waiving the audit blocker.
    `05_interpretation` assembles the evidence ledger that feeds this decision.
 5. **Promotion**: register the accepted run and export aggregate, licence-safe figures/tables to the dissertation.
@@ -324,6 +333,7 @@ The split is a **chronological evaluation block**, not a pristine holdout. The s
 | `42_fnspid_2010_preperiod_transfer.ipynb` | Backward external-time replay of Notebook 39's unchanged LSEG/Gemma-derived continuous construction on locally scored 2009-Q4/2010 FNSPID headlines, with current-open eligibility parity, input-only feasibility, costs, mechanism nulls, factor control, halves, and concentration. | Executed; 59 fully tradable active sessions, gross/net Sharpe −1.141/−3.397, all replication gates fail; stable cross-era alpha rejected |
 | `lib/preperiod_finbert.py` | Resumable local-only extraction and FinBERT scoring for the separate pre-2011 checkpoint, reusing the frozen FNSPID timing and event-identity contract while exposing only aggregate firm-session signals. | Active; 41,019 headlines scored locally, licensed text remains ignored |
 | `43_lseg_gemma_story_family_first_release.ipynb` | Bounded retrospective comparison of Notebook 39's exact continuous Gemma rule before and after return-independent first-release-per-LSEG-story-family filtering, with an input-only gate, exact ledger accounting, costs, two-test BH inference, halves, and plots. | Executed; 8,314 later-revision hashes removed, but gross/net Sharpe remains −1.473/−2.502 and both improvement/quality gates fail |
+| `44_strategy_evidence_synthesis.ipynb` | Aggregate-only evidence registry, paired sentiment-overlay scorecard, and cross-regime continuous-rule stress table with an ordinal evidence-quality policy that prevents retrospective Sharpe from overriding independence, stability, and inference. | Executed; HAR retained as sole working base, 0/6 sentiment return intervals exclude zero, no sentiment strategy promoted |
 | `lib/lseg_story_families.py` | Hash-only reconstruction of terminal-suffix LSEG story families and earliest releases with source-manifest verification; licensed headline text is never returned. | Active; used by Notebook 43 |
 | `lib/sparse_spread.py` | Tested exact-extrema equal-leg targets, symmetric capacity capping, within-sector demeaning, equal-weight sector projection, fail-closed exposure audits, and compact conversion of the validated drift-aware ledger. | Active |
 | `lib/risk_overlay.py` | Leakage-safe monthly momentum, negative-risk flags, aggregate pressure state, fixed exposure rules, dense adjusted-open returns, explicit cost accounting, and paired block-bootstrap helpers for Notebooks 19–40. | Active |
@@ -364,6 +374,7 @@ The split is a **chronological evaluation block**, not a pristine holdout. The s
 | `outputs/41_input_only_turnover_persistence/` | Aggregate input-only episode, target-turnover, continuation-overlap, figure, gate, and manifest evidence; no targets, text, prices, or returns. | Ignored/local |
 | `outputs/42_fnspid_2010_preperiod_transfer/` | Aggregate backward-transfer schedule, invalidation history, daily paths, costs, inference, mechanism nulls, factor intercepts, concentration, figures, and manifest; the licensed local checkpoint is ignored. | Ignored/local |
 | `outputs/43_lseg_gemma_story_family_first_release/` | Aggregate story-family audit, filtered/baseline schedules and paths, costs, paired inference, halves, accounting audit, figures, and manifest; no headline text. | Ignored/local |
+| `outputs/44_strategy_evidence_synthesis/` | Aggregate-only evidence registry, overlay scorecard, cross-regime transfer table, figures, source hashes, and manifest; no row-level prices, returns, positions, or text. | Ignored/local |
 | `EXPLORATORY_EXPERIMENT_LEDGER.md` | Aggregate completion/result ledger, including blocked inputs and null arms. | Current |
 | `lib/plots.py` | House figure style and the colour roles (categorical / ordinal / diverging / status). | Active |
 | `outputs/07_strategy_analysis/` | Event-time CAR, quantile spread and monotonicity, sweep surface, monthly heatmap, book-health figures. | Ignored/local |
@@ -383,7 +394,7 @@ uv run jupyter nbconvert --to notebook --execute --inplace \
 ```
 
 Repeat in numeric order for `01_panel.ipynb` through
-`43_lseg_gemma_story_family_first_release.ipynb`. Run from the repository root so relative paths
+`44_strategy_evidence_synthesis.ipynb`. Run from the repository root so relative paths
 resolve consistently. The numbered `.ipynb` files are the sole notebook source;
 reusable code remains under `lib/`.
 

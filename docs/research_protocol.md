@@ -562,6 +562,25 @@ construction, not historical alpha. Do not tune a different revision policy.
 Any new-date replay must retain the exact rule and be framed against this
 negative prior evidence.
 
+Notebook 44 is the aggregate-only strategy evidence synthesis. It loads source
+CSVs/manifests, never row-level prices, returns, positions, headlines, or
+licensed text. Its evidence tier is an ordinal governance aid rather than a
+statistical weight: independent price-only benchmark; frozen chronological or
+external-time test; cross-period stress test; bounded retrospective audit; and
+post-result diagnostic. Sharpe ratios across different universes, dates, costs,
+and selection histories are not pooled or treated as directly comparable.
+
+A sentiment rule is eligible for promotion only if its paired net-return
+interval is favourable and excludes zero, its effect is temporally stable, its
+local predeclared gate passes, and the evidence tier is at least chronological
+or external-time. Zero of the six paired comparisons in Notebook 44 clears the
+return condition; five show lower downside loss under their source conventions.
+Those p-values are dependent and are not meta-analysed. Retain the
+sentiment-free HAR volatility target as the working conventional base, keep the
+exact HAR × sentiment product frozen only for genuinely new dates, and stop
+historical strategy tuning. This is a Gate F1 evidence input, not a selection of
+the final RQ; the human novelty-audit condition remains binding.
+
 ### W4: Sentiment surprise
 
 A valid retry must differ materially from the failed July pilot:

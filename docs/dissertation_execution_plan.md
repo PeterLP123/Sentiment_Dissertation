@@ -36,7 +36,7 @@ Profitability, a significant p-value, a neural network, and a wider news collect
 | Firm-day panel | Built: 715,546 rows, 570 priced symbols, 3,262 sessions | `01_panel` outputs/manifest |
 | Chronological split | Frozen: development through 2019, evaluation from 2020 | `lib/panel.py`, plan, protocol |
 | Final RQ | Open | Gate F1 after Stage S2 |
-| Current active work | Finish/waive the unlabelled novelty audit, take Gate F1, and write the cross-regime null; no further historical sentiment-strategy tuning after Notebooks 42–43 | Stage S2 exit / Gate F1; Notebooks 40–43 |
+| Current active work | Finish/waive the unlabelled novelty audit and take Gate F1 using the aggregate-only strategy synthesis; no further historical sentiment-strategy tuning after Notebooks 42–44 | Stage S2 exit / Gate F1; Notebooks 40–44 |
 | Exploratory W3/W4 chain | Repaired and rerun; not promoted because it ran before Gate F1 | `03`–`07`, `INVALIDATED_RUNS.md` |
 | Scorer selection | Closed: FinBERT primary | Benchmark and prior reports |
 | VaR/ES | Closed | FNSPID factorial report |
@@ -235,6 +235,16 @@ a historical strategy base or a reason to design another overlay on opened
 returns. At most, its exact frozen specification can receive one prospective
 new-date replay. Notebook 42's negative 2010 replay, Notebook 43, and the public
 replication jointly argue against another historical sentiment-ranking search.
+
+Notebook 44 makes that base decision auditable without reopening row-level
+outcomes. It assigns an ordinal evidence tier to 12 representative strategy
+rows, keeps cross-regime Sharpes explicitly non-comparable, and applies one
+promotion policy to six paired sentiment comparisons. Zero paired favourable
+return intervals exclude zero, five comparisons report lower downside loss,
+and the portable continuous rule is net-negative at 10 bps/side in every one
+of five reported regime/split rows. HAR is therefore the sole working base;
+LSEG/Gemma remains central measurement and non-pooled risk-mechanism evidence,
+not a selected alpha strategy. This synthesis informs but does not take Gate F1.
 
 The expanded LSEG/Gemma panel now contributes a separate mechanism check rather
 than only scorer and cross-sectional nulls. Notebook 26's semantic sparse brake
@@ -461,7 +471,7 @@ fix. Do not search another story-family rule on this window.
 
 Priority order:
 
-1. write the cross-regime conclusion: sentiment measurement transfers better than trading economics, while the sentiment-free HAR volatility target remains the only useful independent strategy base;
+1. use Notebook 44's aggregate-only evidence hierarchy to write the cross-regime conclusion: sentiment measurement transfers better than trading economics, while the sentiment-free HAR volatility target remains the only useful independent strategy base;
 2. treat Notebooks 42–43 as falsifications, not permission to reverse sentiment, alter revision handling, or fit a regime rule on opened outcomes;
 3. finish or explicitly waive the human novelty audit and take Gate F1 before another secondary arm;
 4. only if genuinely new LSEG/Gemma dates accumulate at useful scale, replay Notebook 39's exact rule once as prospective evidence against its now-negative prior;
