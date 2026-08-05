@@ -9,7 +9,9 @@ from final_experiments.lib.capacity import (
     ImpactConfig,
     build_lagged_liquidity,
     fold_terminal_liquidation,
+    minimize_square_root_impact_weights,
     simulate_square_root_impact,
+    square_root_impact_proxy,
 )
 from sentiment_benchmark.strategy_research.ledger import run_open_to_open_ledger
 from sentiment_benchmark.strategy_research.market import OpenToOpenReturn
@@ -138,3 +140,47 @@ def test_nonzero_order_fails_closed_without_lagged_liquidity() -> None:
 
     with pytest.raises(CapacityError, match="missing lagged liquidity"):
         simulate_square_root_impact(target, returns, liquidity)
+
+
+def test_impact_minimizer_is_equal_when_inputs_are_equal() -> None:
+    weights = minimize_square_root_impact_weights(
+        {"AAA": 100.0, "BBB": 100.0},
+        {"AAA": 0.02, "BBB": 0.02},
+        total_weight=0.5,
+    )
+
+    assert weights == pytest.approx({"AAA": 0.25, "BBB": 0.25})
+
+
+def test_impact_minimizer_water_fills_after_name_cap() -> None:
+    weights = minimize_square_root_impact_weights(
+        {"AAA": 100.0, "BBB": 1.0, "CCC": 1.0},
+        {"AAA": 0.01, "BBB": 0.01, "CCC": 0.01},
+        total_weight=0.5,
+    )
+
+    assert weights == pytest.approx({"AAA": 0.25, "BBB": 0.125, "CCC": 0.125})
+
+
+def test_impact_minimizer_reduces_convex_proxy() -> None:
+    adv = {"AAA": 500.0, "BBB": 100.0, "CCC": 50.0}
+    volatility = {"AAA": 0.01, "BBB": 0.02, "CCC": 0.04}
+    optimized = minimize_square_root_impact_weights(
+        adv,
+        volatility,
+        total_weight=0.45,
+    )
+    equal = {symbol: 0.15 for symbol in adv}
+
+    assert sum(optimized.values()) == pytest.approx(0.45)
+    assert max(optimized.values()) <= 0.25
+    assert square_root_impact_proxy(optimized, adv, volatility) < square_root_impact_proxy(equal, adv, volatility)
+
+
+def test_impact_minimizer_fails_when_names_cannot_support_leg() -> None:
+    with pytest.raises(CapacityError, match="cannot support"):
+        minimize_square_root_impact_weights(
+            {"AAA": 100.0},
+            {"AAA": 0.02},
+            total_weight=0.5,
+        )

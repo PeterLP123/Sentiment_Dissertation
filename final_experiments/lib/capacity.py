@@ -8,7 +8,7 @@ select holdings, or optimise a capacity threshold.
 from __future__ import annotations
 
 import math
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 import numpy as np
@@ -48,6 +48,116 @@ class CapacitySimulation:
 
     daily: pd.DataFrame
     orders: pd.DataFrame
+
+
+def square_root_impact_proxy(
+    weights: Mapping[str, float],
+    adv_usd: Mapping[str, float],
+    volatility: Mapping[str, float],
+    *,
+    volatility_floor: float = 0.005,
+) -> float:
+    """Return the AUM- and coefficient-free impact objective for a target.
+
+    For an order from flat, square-root impact cost is proportional to
+    ``sigma / sqrt(ADV) * abs(weight) ** 1.5``. The omitted impact coefficient
+    and square root of AUM are common to every candidate allocation.
+    """
+
+    if not math.isfinite(volatility_floor) or volatility_floor <= 0:
+        raise ValueError("volatility_floor must be finite and positive")
+    symbols = tuple(sorted(weights))
+    if set(symbols) != set(adv_usd) or set(symbols) != set(volatility):
+        raise ValueError("weights, adv_usd, and volatility must have identical symbols")
+    objective = 0.0
+    for symbol in symbols:
+        weight = float(weights[symbol])
+        adv = float(adv_usd[symbol])
+        sigma = float(volatility[symbol])
+        if not math.isfinite(weight):
+            raise ValueError(f"weight must be finite for {symbol}")
+        if not math.isfinite(adv) or adv <= 0:
+            raise ValueError(f"ADV must be finite and positive for {symbol}")
+        if not math.isfinite(sigma) or sigma < 0:
+            raise ValueError(f"volatility must be finite and non-negative for {symbol}")
+        objective += max(sigma, volatility_floor) / math.sqrt(adv) * abs(weight) ** 1.5
+    return objective
+
+
+def minimize_square_root_impact_weights(
+    adv_usd: Mapping[str, float],
+    volatility: Mapping[str, float],
+    *,
+    total_weight: float,
+    single_name_cap: float = 0.25,
+    volatility_floor: float = 0.005,
+    tolerance: float = 1e-12,
+) -> dict[str, float]:
+    """Allocate one non-negative leg to minimise flat-entry impact.
+
+    Without caps, the convex solution is proportional to ``ADV / sigma**2``.
+    A deterministic water-filling loop caps any overweight name, removes its
+    budget, and redistributes the remainder over uncapped names using the same
+    priorities. No name is added or removed.
+    """
+
+    if not math.isfinite(total_weight) or total_weight < 0:
+        raise ValueError("total_weight must be finite and non-negative")
+    if not math.isfinite(single_name_cap) or single_name_cap <= 0:
+        raise ValueError("single_name_cap must be finite and positive")
+    if not math.isfinite(volatility_floor) or volatility_floor <= 0:
+        raise ValueError("volatility_floor must be finite and positive")
+    if not math.isfinite(tolerance) or tolerance < 0:
+        raise ValueError("tolerance must be finite and non-negative")
+    symbols = tuple(sorted(adv_usd))
+    if not symbols:
+        if total_weight <= tolerance and not volatility:
+            return {}
+        raise ValueError("a positive leg requires at least one symbol")
+    if set(symbols) != set(volatility):
+        raise ValueError("adv_usd and volatility must have identical symbols")
+    if total_weight > len(symbols) * single_name_cap + tolerance:
+        raise CapacityError("selected names cannot support the requested leg under the cap")
+
+    priorities: dict[str, float] = {}
+    for symbol in symbols:
+        adv = float(adv_usd[symbol])
+        sigma = float(volatility[symbol])
+        if not math.isfinite(adv) or adv <= 0:
+            raise ValueError(f"ADV must be finite and positive for {symbol}")
+        if not math.isfinite(sigma) or sigma < 0:
+            raise ValueError(f"volatility must be finite and non-negative for {symbol}")
+        priorities[symbol] = adv / max(sigma, volatility_floor) ** 2
+    if total_weight <= tolerance:
+        return {symbol: 0.0 for symbol in symbols}
+
+    weights = {symbol: 0.0 for symbol in symbols}
+    remaining = list(symbols)
+    remaining_budget = total_weight
+    while remaining:
+        priority_sum = sum(priorities[symbol] for symbol in remaining)
+        if not math.isfinite(priority_sum) or priority_sum <= 0:
+            raise CapacityError("impact priorities must sum to a finite positive value")
+        proposed = {symbol: remaining_budget * priorities[symbol] / priority_sum for symbol in remaining}
+        capped = [symbol for symbol in remaining if proposed[symbol] > single_name_cap + tolerance]
+        if not capped:
+            for symbol in remaining:
+                weights[symbol] = min(single_name_cap, proposed[symbol])
+            remaining_budget = 0.0
+            break
+        for symbol in capped:
+            weights[symbol] = single_name_cap
+            remaining_budget -= single_name_cap
+            remaining.remove(symbol)
+        if remaining_budget < -tolerance:
+            raise CapacityError("water-filling allocated more than the requested leg")
+
+    allocation_error = sum(weights.values()) - total_weight
+    if abs(allocation_error) > max(tolerance, 1e-12):
+        raise CapacityError(f"water-filling leg allocation error: {allocation_error}")
+    if any(weight < -tolerance or weight > single_name_cap + tolerance for weight in weights.values()):
+        raise CapacityError("water-filling violated the non-negative name cap")
+    return {symbol: 0.0 if abs(weight) <= tolerance else float(weight) for symbol, weight in weights.items()}
 
 
 def build_lagged_liquidity(
