@@ -236,6 +236,18 @@ break-even 4.053 bps/side but trades on only 57 of 167 sessions, has gross
 block-bootstrap p=0.226, and remains negative at 10 bps/side. Preserve it as a
 turnover/coverage diagnostic and do not tune the opened window again.
 
+Notebook 18 applies that exact frozen rule to paired FinBERT and Gemma scores.
+The Gemma-minus-FinBERT gross mean difference is +1.034 bps/day, but its
+five-session block-bootstrap interval [−4.863, +7.153] spans zero (p=0.731)
+and changes sign across chronological halves. Moreover, the frozen
+`strongest_event` rule returns missing when opposing stories tie at the maximum
+absolute score. Discrete Gemma outputs create this tie on 3,507/7,348
+firm-opens (47.73%), versus none for FinBERT, so the strategy comparison also
+changes the opportunity set. Any future cross-scorer strongest-event design
+must freeze a tie policy and either match activity or treat abstention as an
+explicit component of the estimand. Do not describe the current result as a
+clean scorer-quality comparison or validated alpha.
+
 ### W4: Sentiment surprise
 
 A valid retry must differ materially from the failed July pilot:

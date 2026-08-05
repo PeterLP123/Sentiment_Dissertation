@@ -101,9 +101,13 @@ Open integrity actions before final promotion:
 
 **Status:** executable EDA complete. Expanded-LSEG publisher conditioning is a
 clean null, the fixed sector-neutral/hysteresis translation improves turnover
-but remains non-viable at 10 bps/side, and a separate 200-event full-text
-cash-flow-distance audit pack is prepared. Exit remains blocked by unlabelled
-human audits and unavailable publisher fields on the primary FNSPID grain.
+but remains non-viable at 10 bps/side, and its paired-scorer robustness check
+finds no statistically robust Gemma advantage. The apparent activity benefit
+is partly a score-resolution-induced abstention policy: Gemma produces opposing
+maximum-absolute ties on 47.73% of firm-opens under `strongest_event`. A
+separate 200-event full-text cash-flow-distance audit pack is prepared. Exit
+remains blocked by unlabelled human audits and unavailable publisher fields on
+the primary FNSPID grain.
 
 Goal: establish what the news panel contains before testing return outcomes.
 

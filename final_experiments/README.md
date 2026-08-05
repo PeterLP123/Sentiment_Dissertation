@@ -35,7 +35,10 @@ The split is a **chronological evaluation block**, not a pristine holdout. The s
    the newly matched Reuters bodies to prepare a blinded 200-event human
    cash-flow-distance audit; its labels remain outstanding. Notebook 17 then
    tests fixed sector-neutral and rank-hysteresis translations of Notebook
-   13's strongest gross arm. No expanded-corpus result is promoted.
+   13's strongest gross arm. Notebook 18 applies the exact frozen hysteresis
+   rule to both scorers and shows that Gemma's apparent activity advantage is
+   partly a score-resolution-induced abstention policy, not clean evidence of
+   scorer superiority. No expanded-corpus result is promoted.
 4. **Gate F1**: next formal decision. Choose one primary RQ and at most one secondary after resolving or explicitly waiving the audit blocker.
    `05_interpretation` assembles the evidence ledger that feeds this decision.
 5. **Promotion**: register the accepted run and export aggregate, licence-safe figures/tables to the dissertation.
@@ -88,7 +91,8 @@ The split is a **chronological evaluation block**, not a pristine holdout. The s
 | `16_lseg_cash_flow_distance_audit.ipynb` | Validates the Reuters body corpus against successful Gemma hashes and prepares a return-blind 200-event audit plus an independently ordered 60-event double-code subset. Saved outputs show aggregate counts only. | Executed; audit prepared, labels outstanding |
 | `lib/cash_flow_audit.py` | Hash-validates the licensed full-text source, chooses one deterministic representative per headline, makes the fixed stratified sample, and writes leak-free local coder sheets and a private key. | Active |
 | `data/cash_flow_distance_codebook.md` | Frozen 0–3/NA construct definitions, coding fields, arbitration rule, and reliability-before-returns gate. | Tracked |
-| `17_lseg_sector_portfolio_translation.ipynb` | Four return-blind h1 translations of Gemma `strongest_event`: global rank, within-sector rank, sector extremes, and top-half/bottom-half hysteresis. Reports activity, turnover, break-even, cost curves, block-bootstrap/BH inference, temporal halves, and a labelled matched-day diagnostic. | Executed; improved gross/cost efficiency but clean 10-bps null |
+| `17_lseg_sector_portfolio_translation.ipynb` | Four return-blind h1 translations of Gemma `strongest_event`: global rank, within-sector rank, sector extremes, and top-half/bottom-half hysteresis. Reports activity, turnover, break-even, cost curves, block-bootstrap/BH inference, temporal halves, and a labelled matched-day diagnostic. The refreshed notebook records the later finding that discrete opposing Gemma extrema induce abstention. | Executed; improved gross/cost efficiency but clean 10-bps null |
+| `18_lseg_sector_hysteresis_scorer_robustness.ipynb` | Applies the exact frozen sector-hysteresis rule to paired FinBERT and Gemma scores on the same 7,348 firm-opens. Reports paired block-bootstrap inference, costs, activity overlap, temporal halves, score agreement, and the strongest-event resolution mechanism. | Executed; no robust scorer advantage and no viable 10-bps arm |
 | `lib/sector_portfolios.py` | Frozen 11-sector × four-company map, equal-sector dollar-neutral weights, extreme retention, liquidation accounting, block-mean inference, and fixed-weight cost repricing. | Active |
 | `lib/openrouter_validation.py` | Frozen, resumable public-benchmark gate for OpenRouter Gemma 4 26B pinned to DeepInfra with ZDR, no fallback, strict probability JSON, and cost/quality metrics. It refuses to use LSEG inputs by construction. | Gate passed: 1,000/1,000 coverage; accuracy 0.808; macro-F1 0.813 |
 | `../scripts/run_openrouter_gemma4_validation.py` | Spend-gated command for preparing, executing, or explicitly retrying the 1,000-row OpenRouter validation. See [`../docs/openrouter_gemma4_validation.md`](../docs/openrouter_gemma4_validation.md). | Executed 2026-08-04; evidence ignored/local |
@@ -100,6 +104,7 @@ The split is a **chronological evaluation block**, not a pristine holdout. The s
 | `outputs/15_lseg_gemma_publisher_conditioning/` | Aggregate source inventory, four-arm result tables, daily portfolios, figures, and manifest; no headline text. | Ignored/local |
 | `outputs/16_lseg_cash_flow_distance_audit/` | Licensed coder worksheets, private sampling key, aggregate sampling summary/plot, and manifest. Never commit this directory. | Ignored/local |
 | `outputs/17_lseg_sector_portfolio_translation/` | Aggregate four-arm results, activity-matched diagnostic, daily portfolios, cost curve, figures, and manifest; no headline text. | Ignored/local |
+| `outputs/18_lseg_sector_hysteresis_scorer_robustness/` | Aggregate paired-scorer results, cost curve, activity and resolution diagnostics, daily portfolios, figures, and manifest; no headline text. | Ignored/local |
 | `EXPLORATORY_EXPERIMENT_LEDGER.md` | Aggregate completion/result ledger, including blocked inputs and null arms. | Current |
 | `lib/plots.py` | House figure style and the colour roles (categorical / ordinal / diverging / status). | Active |
 | `outputs/07_strategy_analysis/` | Event-time CAR, quantile spread and monotonicity, sweep surface, monthly heatmap, book-health figures. | Ignored/local |
@@ -119,7 +124,7 @@ uv run jupyter nbconvert --to notebook --execute --inplace \
 ```
 
 Repeat in numeric order for `01_panel.ipynb` through
-`17_lseg_sector_portfolio_translation.ipynb`. Run from the repository root so relative paths
+`18_lseg_sector_hysteresis_scorer_robustness.ipynb`. Run from the repository root so relative paths
 resolve consistently. The numbered `.ipynb` files are the sole notebook source;
 reusable code remains under `lib/`.
 
@@ -150,7 +155,7 @@ These are not clone-only examples. They require local artifacts that are intenti
 - the local LSEG earnings-calendar files under `data/earnings/`;
 - the local merged LSEG 44-company headline corpus, inherited score seed, and
   completed FinBERT/OpenRouter score artifacts under `Data/collections/`;
-- the local 33-company and added-11 LSEG price exports used by Notebooks 13–15 and 17;
+- the local 33-company and added-11 LSEG price exports used by Notebooks 13–15 and 17–18;
 - the local licensed Reuters body corpus used to prepare Notebook 16's audit;
 - FNSPID prices and SPY data inside the recorded archive/checkpoint chain.
 
