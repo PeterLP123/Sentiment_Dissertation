@@ -1,0 +1,154 @@
+{
+  "schema_version": 1,
+  "status": "frozen_awaiting_genuinely_new_lseg_dates",
+  "frozen_at_utc": "2026-08-05T23:21:57Z",
+  "frozen_at_git_commit": "44adccddcba176b8c4577d2cd8991859a76f8b81",
+  "candidate_rq": "strategy construction and risk allocation; does the frozen sparse cross-scorer event rule retain next-open value on genuinely new dates?",
+  "claim_boundary": {
+    "prospective_start_utc": "2026-06-26T00:00:00Z",
+    "first_eligible_news_timestamp": "strictly after prospective_start_utc",
+    "opened_window_excluded_from_evaluation": "2025-10-26 through 2026-06-26",
+    "fnspid_pooling_permitted": false,
+    "historical_parameter_retuning_permitted": false,
+    "human_gemma_label_audit_still_required_for_promotion": true
+  },
+  "universe": {
+    "policy": "immutable first three members of every frozen sector; no substitution",
+    "sectors": {
+      "information_technology": ["AAPL", "MSFT", "NVDA"],
+      "communication_services": ["GOOGL", "META", "NFLX"],
+      "consumer_discretionary": ["AMZN", "TSLA", "HD"],
+      "financials": ["JPM", "BAC", "GS"],
+      "healthcare": ["JNJ", "UNH", "LLY"],
+      "energy": ["XOM", "CVX", "COP"],
+      "industrials": ["CAT", "BA", "GE"],
+      "consumer_staples": ["WMT", "PG", "KO"],
+      "utilities": ["NEE", "DUK", "SO"],
+      "real_estate": ["PLD", "AMT", "EQIX"],
+      "materials": ["LIN", "FCX", "NEM"]
+    },
+    "companies": 33,
+    "sectors_count": 11
+  },
+  "news_and_timing": {
+    "source": "LSEG Workspace English-language headlines under the existing research licence",
+    "deduplication_unit": "unique normalized headline hash",
+    "event_mapping": "first XNYS open at least 15 minutes after the first timestamp",
+    "date_only_or_unknown_time": "first XNYS session strictly after the stated date",
+    "holding_interval": "mapped open to immediately following XNYS open",
+    "missing_immediate_next_open": "drop the firm-open; never jump to a later observed stock date",
+    "licensed_text_source_control": false
+  },
+  "scorers": {
+    "gemma": {
+      "role": "event dates and positive/negative firm-open counts only",
+      "model": "google/gemma-4-26b-a4b-it",
+      "provider": "DeepInfra",
+      "quantization": "fp8",
+      "prompt_id": "investor_headline_soft_label_v1",
+      "prompt_hash": "81596538d99b29b8",
+      "temperature": 0.0,
+      "reasoning": "none and excluded",
+      "fallbacks": false,
+      "zero_data_retention": true,
+      "provider_data_collection": "deny",
+      "signed_score": "positive_probability minus negative_probability",
+      "hard_fail": "any model, provider, quantization, prompt, privacy, schema, or probability-validity mismatch",
+      "reference_manifest_sha256": "3249a5523cd8d692e8cad2b872beb3ce25d2425ad3e2529c6ae6e6dd52ce24ca",
+      "reference_output_sha256": "afb2d9c3029c4fba4fce3600218233a02d14051788f87313fd49c9da681c6d2f"
+    },
+    "finbert": {
+      "role": "within-session name ranking only",
+      "model": "ProsusAI/finbert",
+      "revision": "4556d13015211d73dccd3fdd39d39232506f3e43",
+      "revision_enforced": true,
+      "signed_score": "positive_probability minus negative_probability",
+      "reference_manifest_sha256": "a132925f6f91e2bd0626f3902c80bc1a05adf4238e403065fbd2838155a77615"
+    }
+  },
+  "firm_open_aggregation": {
+    "reducer": "strongest_event",
+    "priority": ["non_recap", "maximum_absolute_signed_score"],
+    "conflicting_top_direction": "abstain with missing firm-open score",
+    "stable_tie_break": "event_index ascending",
+    "gemma_positive_event": "strongest_event exactly +1.0",
+    "gemma_negative_event": "strongest_event exactly -1.0",
+    "active_session": "at least one positive-event firm and at least one negative-event firm"
+  },
+  "primary_strategy": {
+    "name": "equal_weight_gemma_timing_finbert_ranking",
+    "precedent": "Notebook 36",
+    "selection": {
+      "n_long": "number of exact-positive Gemma firms",
+      "n_short": "number of exact-negative Gemma firms",
+      "long_names": "top n_long FinBERT strongest_event ranks; symbol ascending breaks score ties",
+      "short_names": "bottom n_short FinBERT strongest_event ranks; symbol ascending breaks score ties"
+    },
+    "portfolio": {
+      "gross_limit": 1.0,
+      "net_target": 0.0,
+      "single_name_cap": 0.25,
+      "leg_exposure": "min(0.5, 0.25 * n_long, 0.25 * n_short)",
+      "within_leg_allocation": "equal weight",
+      "unused_capacity": "cash",
+      "holding_intervals": 1,
+      "cost_bps_per_traded_side": 10.0,
+      "drift_aware_turnover": true,
+      "force_final_liquidation": true
+    }
+  },
+  "secondary_risk_diagnostic": {
+    "name": "inverse_volatility_same_schedule_and_names",
+    "precedent": "Notebook 50",
+    "promotion_eligible": false,
+    "portfolio_projector": "sentiment_benchmark.strategy_research.portfolio.project_target_weights",
+    "lagged_open_return_volatility": {
+      "lookback_sessions": 20,
+      "minimum_observations": 5,
+      "shift_sessions": 1,
+      "floor": 0.005
+    },
+    "gross_limit": 1.0,
+    "net_limit": 0.0,
+    "single_name_limit": 0.25,
+    "unused_capacity": "cash",
+    "comparison_role": "report risk, turnover, drawdown, and paired net difference versus the primary; do not select the strategy from this arm"
+  },
+  "minimum_evaluation_population": {
+    "complete_price_calendar_sessions": 120,
+    "primary_active_sessions": 60,
+    "active_sessions_each_chronological_half": 20,
+    "rule_if_not_met": "stop without performance inference and continue prospective accumulation"
+  },
+  "primary_inference_and_gates": {
+    "cash_comparison": {
+      "estimand": "mean primary net return per complete calendar session",
+      "bootstrap": "9999 five-session circular-block replications",
+      "seed": 20260820,
+      "two_sided_alpha": 0.05,
+      "pass": "mean positive, interval lower bound above zero, and p < 0.05"
+    },
+    "strategy_quality": "positive net total return, break-even above 10 bps/side, and positive net Sharpe in both chronological halves",
+    "factor_alpha": "positive HAC(5) intercept with two-sided p < 0.05 in equal-weight market plus ten sector-minus-market model",
+    "dependence": "positive net return in every rebuilt leave-one-company and leave-one-sector-out replay",
+    "promotion": "all population, cash, strategy-quality, factor-alpha, and dependence gates pass; Gate F1 and the human label audit are separately satisfied"
+  },
+  "audit_requirements": {
+    "append_only_scoring": true,
+    "failed_attempts_retained": true,
+    "successful_rows_filter": "status == success",
+    "duplicate_successes_allowed": false,
+    "invalid_successful_probabilities_allowed": false,
+    "input_and_output_sha256_required": true,
+    "exact_source_manifest_required": true,
+    "source_and_scoring_completion_timestamps_required": true,
+    "aggregate_licence_safe_outputs_only": true,
+    "all_failures_and_stops_reported": true
+  },
+  "known_limitations": [
+    "The OpenRouter model identifier and provider pin do not cryptographically pin hosted model weights.",
+    "Exact +1/-1 endpoints are scorer-calibration-sensitive; any scoring-contract mismatch fails closed rather than redefining the event.",
+    "The candidate was selected on an opened eight-month LSEG window and requires genuinely new dates for credible confirmation.",
+    "Raw next-open price returns exclude dividends and do not establish intraday availability beyond the conservative timing rule."
+  ]
+}
