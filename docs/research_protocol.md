@@ -1,6 +1,6 @@
 # Research Protocol
 
-Last updated: 2026-08-03
+Last updated: 2026-08-05
 
 > **Current status.** This protocol governs the closing `final_experiments/` phase. The final research question has **not** been selected. The live [final experiments plan](../final_experiments/plan.html) records operational decisions and checklist status; this document records the scientific constraints that remain binding across every candidate RQ.
 
@@ -40,7 +40,7 @@ Gate F1 will choose one primary RQ and at most one secondary after the data pane
 | Candidate | Question | Current standing |
 | --- | --- | --- |
 | **RQ-A: Aggregation** | How should multiple same-day stories be aggregated into one firm-day sentiment signal, and does a distribution-aware rule add information about post-news abnormal returns beyond the mean? | Leading candidate: strongest fit to the observed instability of company-day means. |
-| **RQ-B: Filtering** | Does conditioning on story novelty and publisher identity improve the return relevance of news sentiment? | FNSPID publisher/story-family fields remain unavailable. The separate expanded-LSEG/Gemma publisher arm is complete as a non-pooled retrospective null; zero of four IC tests survives BH and no arm is economically viable. |
+| **RQ-B: Filtering** | Does conditioning on story novelty and publisher identity improve the return relevance of news sentiment? | FNSPID publisher/story-family fields remain unavailable. Expanded-LSEG/Gemma publisher conditioning is a four-arm retrospective null. A separate exact-family first-release screen removes 0.936% of hashes but does not rescue the frozen continuous rule; its +0.935-bps/session change is uncertain and the filtered strategy is significantly below cash. |
 | **RQ-C: Surprise** | Is firm-level sentiment surprise, net of market return and general sentiment level, informative beyond sentiment level itself? | Prior NO-GO; only viable with the wider panel and materially different demeaning design. |
 | **RQ-D: Agreement** | Does cross-model agreement add out-of-sample information beyond mean sentiment and the initial price reaction? | Standing fallback/default; enabling PhraseBank/LSEG artifacts from the July 12 design were not completed. |
 | **RQ-E: Thresholds** | Can a learned firm- or sector-conditioned trade/no-trade threshold outperform a fixed band? | Secondary only. The expanded LSEG map has four firms per sector but too little history for learned sector gates. A fixed, retrospective sector-neutral/hysteresis translation improves gross/cost efficiency but has no BH survivor or viable 10-bps arm; the planned learned arm still needs a point-in-time FNSPID sector table. |
@@ -248,10 +248,10 @@ must freeze a tie policy and either match activity or treat abstention as an
 explicit component of the estimand. Do not describe the current result as a
 clean scorer-quality comparison or validated alpha.
 
-Notebooks 19–20 test sentiment only as a risk-sizing overlay around an
+Notebooks 19–25 test sentiment only as a risk-sizing overlay around an
 independently specified exposure. The firm-level momentum brakes are a clean
 null: sparse exits and re-entries add cost without improving evaluation return.
-The aggregate market-pressure hysteresis arm is the sole economically
+The aggregate market-pressure hysteresis arm is the first economically
 interesting follow-on: at 2 bps/side it raises the previously opened
 2020–2023 SPY Sharpe from 0.568 to 0.783 and reduces maximum drawdown from
 −32.05% to −28.01%. It does **not** pass the frozen gate: the paired net-return
@@ -261,6 +261,306 @@ Sharpe p=0.051 is hypothesis-generating only; excluding 2020 leaves hysteresis
 with Sharpe 0.418 versus 0.617 for long SPY. Preserve the exact 1.5/0.5
 hysteresis rule as a candidate for genuinely new data; do not tune it on the
 FNSPID or opened LSEG windows.
+
+Notebook 21 establishes the sentiment-free HAR 10% volatility target as the
+most useful independent base on this block: net Sharpe 0.673 and maximum
+drawdown −15.73%, versus 0.568 and −32.05% for long SPY, at the cost of lower
+mean exposure and total return. Adding aggregate pressure inside the variance
+forecast does not improve QLIKE reliably and does not pass either strategy
+gate. Notebook 22 then closes the surprise-to-trading bridge using development
+only: all 12 fixed surprise arms fail at 10 bps/side, and the fully demeaned and
+firm-demeaned signals have identical within-day ranks.
+
+Notebook 23 rejects a standard one-session-lagged 200-session trend layer: it
+reduces HAR net Sharpe to 0.431. The unchanged sentiment hysteresis repairs that
+weak path to 0.677 but still does not beat HAR alone in total return or maximum
+drawdown. Notebook 24 therefore tests the direct frozen product, HAR × aggregate
+hysteresis. It has the strongest descriptive gross/net Sharpes in the chain
+(0.878/0.835) and lower downside-squared loss than HAR (p=0.0148), but its paired
+return interval spans zero, maximum drawdown is slightly worse, and its mean
+advantage reverses over 2021–2023. Neither promotion gate passes. This is a
+bounded risk-timing hypothesis for genuinely new data, not permission to tune
+either component on the opened evaluation block.
+
+Notebook 25 tests the same product over 2013–2019 with 84 expanding HAR fits;
+each fit admits only variance targets ending strictly before its refit date.
+The overlay again lowers downside-squared loss (p=0.0052), raises net Sharpe
+from 1.114 to 1.164, and improves maximum drawdown from −12.53% to −8.57%.
+It also lowers paired mean return by 0.134 bps/day, its interval spans zero,
+total return falls from +96.91% to +93.13%, and the Sharpe gain misses the 0.10
+gate. This older-date corroboration narrows the claim further: aggregate
+sentiment may be a downside-risk modifier, but the current evidence does not
+support persistent excess return.
+
+Notebook 26 supplies a separate, non-pooled LSEG/Gemma mechanism check. The
+unchanged aggregate rule cannot be judged honestly on the eight-month window:
+its 126-session warm-up leaves 41 causal z-score sessions and only one risk-off
+trigger, below the frozen 60-session/five-trigger feasibility floor. A semantic
+firm-level alternative cuts a fixed-share basket holding to 25% for one interval
+only when Gemma `strongest_event` is exactly −1.0. At 10 bps/side this raises
+gross/net Sharpe from 1.500/1.472 to 1.614/1.526 and lowers downside-squared
+loss after two-outcome BH (p=0.0088), but paired net improvement is only +0.148
+bps/day [−0.405, +0.678] (p=0.588), and the Sharpe/drawdown promotion thresholds
+are missed. Because Notebook 13 already opened this window and motivated the
+`strongest_event` follow-up, the result is corroborating downside-mechanism
+evidence, not fresh validation or alpha.
+
+Notebook 27 asks whether the 25% sentiment state should be an absolute cap on
+HAR rather than a multiplier. This is one discrete operator audit, not an
+exposure sweep. The cap marginally improves product Sharpe before 2020
+(1.176 versus 1.164) but reduces it in 2020–2023 (0.769 versus 0.835); paired
+cap-minus-product return intervals span zero in both eras. It still reduces
+downside-squared loss versus HAR after the declared four-test-per-outcome BH in
+both eras (p=0.0064 and 0.0030) and has higher Sharpe than HAR in all four
+reported subperiods. The frozen operator-selection gate fails, so the cap does
+not replace the product. The defensible claim is narrower: the binary risk
+state has repeated downside relevance, while these opened samples do not
+identify how aggressively exposure should be cut. Do not test more composition
+operators on these windows.
+
+Notebook 28 tests whether the selected Gemma `strongest_event` arm can survive
+costs as a sparse long-only rotation instead of a daily rank book. Exact −1
+holdings are cut to 25%, and released current-open notional is transferred
+equally to exact +1 firms when available. The rotation has the best descriptive
+LSEG gross/net Sharpe at 10 bps/side (1.692/1.560) and its incremental gross
+break-even over the cash brake is 23.46 bps/side. However, rotation-minus-brake
+net mean is only +0.261 bps/day [−0.238, +0.807] (p=0.323), downside does not
+improve, and the half-sample Sharpe difference changes sign. All gates fail.
+Treat this as evidence that sparse reallocation can control turnover, not that
+Gemma supplies validated incremental alpha; most performance remains the long
+44-company basket.
+
+Notebook 29 removes that basket and freezes a gross-1 dollar-neutral exact
+extrema spread: 50% long exact +1 firms, 50% short exact −1 firms, one
+open-to-open interval, and cash unless both signs exist. On 80/167 active
+sessions it reaches gross/net Sharpe 2.558/1.185, +10.74% net return, and
+18.52-bps gross break-even after charging 10 bps/side. The actual gross mean
+beats 4,999 count-matched random firm assignments (one-sided p=0.0094), so the
+predeclared mechanism gate passes. The stricter claims do not: paired net mean
+is +6.49 bps/session [−4.52, +16.95] (p=0.238), first-half net Sharpe is −0.378
+versus 2.912 in the second, and 66/80 active sessions have a one-name leg. All
+44 leave-one-company-out replays remain profitable, but Goldman Sachs supplies
+51.5% of gross profit. The two-name-per-side diagnostic is attractive at 10
+bps (net Sharpe 2.088; +9.14%; break-even 44.26 bps) but has only 14 active
+sessions. Treat this as the first strong, cost-surviving Gemma directional
+mechanism; the opened window, uncertainty, temporal reversal, and concentration
+rule out validated alpha or deployment. Do not tune it. The next valid test is
+an independently extended time period under the exact frozen rule.
+
+Notebook 30 audits Notebook 29's predeclared 25% single-name quality cap without
+changing the selected firms, active sessions, horizon, or cost assumption. The
+cap binds on 66/80 active sessions, scales both legs symmetrically to available
+name capacity, and leaves unused gross in cash. At 10 bps/side, net Sharpe rises
+from 1.185 to 1.697, maximum drawdown improves from −7.85% to −4.97%, mean
+turnover falls 40.7%, and break-even rises from 18.52 to 23.24 bps/side while
+net return remains +10.20%. Its standalone quality gate passes, but the stricter
+claims do not: capped-minus-uncapped return is −0.514 bps/session
+[−5.483, +4.291] (p=0.832), and capped-versus-cash return is +5.974 bps/session
+[−0.973, +13.217] (p=0.100). Paired downside-squared loss improves after the
+two-test BH correction (p=0.012), both half-sample Sharpes are non-negative, and
+all 44 leave-one-company-out paths remain positive. Freeze it as a credible
+risk-controlled extension candidate, not proven cap superiority or alpha. The
+next valid test remains an independently extended time period under this exact
+frozen capped rule.
+
+Notebook 31 tests whether Notebook 30's result survives exact sector-dollar
+neutrality. It subtracts each frozen four-company sector's mean target and
+scales down only when the gross/name constraints require it. The local earnings
+calendar has no overlap with the 2025–2026 LSEG panel, and exact within-sector
+opposing signs supply only 9 sessions, so neither alternative passes the
+return-blind 60-session feasibility floor. Demeaning reduces maximum sector
+weight from 50% to zero and equal-weight-market beta from 0.100 to 0.031, but
+net Sharpe/return fall from 1.697/+10.20% to −1.857/−6.78%. The paired return
+loss is −10.118 bps/session [−15.491, −4.902] (BH p=0.0004). A post-result
+arithmetic decomposition assigns 87.3% of the loss to removed gross return and
+12.7% to added cost. This is a decisive factor-control null: the positive
+sample result is not within-sector stock selection.
+
+Notebook 32 then tests the complementary between-sector projection once,
+explicitly because Notebook 31 exposed that component. Every capped target is
+replaced by its equal-weight four-company sector mean; the strategy is never
+scaled up. At 10 bps/side, its gross/net Sharpe is 3.805/1.868, net return
++6.42%, maximum drawdown −3.80%, break-even 19.36 bps/side, and maximum name
+weight 12.5%. Actual sector placement beats 4,999 count-matched random firm
+assignments (one-sided p=0.001), paired downside improves after BH (p=0.0094),
+and all company/sector exclusion paths remain positive. However, projected-
+minus-capped return is −2.198 bps/session [−7.604, +3.127] (p=0.418), the cash
+interval crosses zero (p=0.113), and half Sharpes are −0.119/3.410. Freeze this
+as a strong between-sector mechanism and one secondary arm for new dates,
+while Notebook 30 remains the primary candidate because policy selection
+failed. This is not validated alpha. Do not blend or resize the components on
+this window.
+
+Notebook 33 replays those two frozen rules on the immutable original 33-company
+universe, defined before return access as the first three members of every
+sector. Capped and projected gross/net Sharpes are 3.344/2.046 and 4.183/2.421;
+net returns are +10.42% and +8.07%, break-even costs are 25.37 and 23.25
+bps/side, and both chronological halves are positive. Both universe-quality
+gates and the sector-placement randomisation gate pass. Neither alpha gate
+passes after treating the two cash comparisons as one BH family; the projected
+cash comparison is only nominally significant (p=0.0346). The fourth-member
+addition cohort has only 3/167 eligible sessions and no multi-name sectors, so
+it is stopped before returns. This is an opened-window universe-robustness
+result, not an independent holdout, and must not trigger retuning.
+
+Notebook 34 fixes Notebook 33's Gemma activity dates, daily +1/−1 counts, cap,
+horizon, and costs, then substitutes FinBERT's within-session rank for name
+selection. FinBERT has no exact +1/−1 strongest-event scores, so it cannot
+produce the sparse trigger and the comparison is deliberately diagnostic.
+FinBERT capped is descriptively stronger (net Sharpe 2.271 versus 2.046), while
+Gemma projected is stronger (2.421 versus 1.630). Gemma-minus-FinBERT paired
+return intervals span zero for capped [−9.277,+7.271] and projected
+[−4.160,+7.153] bps/session; both selection gates fail and the scorer ordering
+reverses across halves. This supports a new-date hypothesis that Gemma timing
+and FinBERT ranking may be separable roles, but no hybrid, blend, or regime
+switch may be fitted on the opened window.
+
+Notebook 35 holds that hybrid construction fixed and circularly shifts the full
+Gemma eligibility/count schedule through all 166 non-zero alignments. The null
+therefore preserves event frequency, count distribution and clustering while
+breaking alignment with FinBERT ranks and next-open returns. Observed capped
+net mean is 6.802 bps/session versus 0.217 across shifts (98.19th percentile;
+one-sided p=0.0240); projected is 3.213 versus −1.277 (97.59th percentile;
+p=0.0299). Both net-mean timing tests survive their two-rule BH family, and both
+rules retain break-even above 10 bps/side plus positive half-sample Sharpes.
+Both timing gates pass. The permitted claim is that Gemma's exact-event schedule
+contains unusual when-to-trade information for this retrospective hybrid. The
+circular-stationarity and endpoint-wrap assumptions, opened sample, and
+post-result construction chain still prohibit an alpha or deployment claim.
+
+Notebook 36 is the direct audit of the one capped hybrid retained from that
+chain. It admits no parameter sweep: Gemma fixes exact-event dates and counts,
+FinBERT ranks names, the universe is the original 33, the cap is 25%, the
+horizon is one session, and costs are 10 bps/side with final liquidation. A
+9,999-replication five-session block comparison with cash gives +6.802
+bps/session [+0.414,+13.371] (p=0.039), gross/net Sharpe is 3.700/2.271,
+break-even is 25.24 bps/side, both chronological halves are positive, and all
+rebuilt company/sector exclusions remain positive. The retrospective cash and
+dependence gates pass. The predeclared HAC(5) market-plus-ten-sector-spread
+intercept is +4.823 bps/session [−0.436,+10.083] (p=0.072), so the stricter
+factor-alpha gate fails. The permitted claim is a leading opened-window
+strategy candidate with evidence against single-company and single-sector
+dependence. It is not validated alpha; only new-date or separately frozen
+external evidence can promote it.
+
+Notebook 37 falsifies portability of the exact numeric endpoint used to define
+that event schedule. On 85,960 identical hashes, the older partial Cerebras
+Gemma 31B checkpoint emits 10,172 exact ±1 scores versus 95 for the complete
+DeepInfra Gemma 26B checkpoint, a 107.1-fold difference. Identical firm-open
+aggregation gives only 5 shared eligible dates out of 85 in the union
+(Jaccard 0.059); positive/negative daily-count correlations are 0.035/0.016.
+Matched-coverage 26B has only six eligible sessions and therefore fails the
+pre-return 60-session floor. The permitted 31B-trigger/FinBERT-rank capped
+stress test has gross/net Sharpe 1.624/−0.543, −2.73% net return, break-even
+7.50 bps/side, negative half-sample Sharpes, and all-shift timing p=0.204.
+Both transfer and timing gates fail. The exact equality is a calibration and
+quantisation property, not a scorer-independent semantic class. Do not reuse
+it as the confirmatory event definition: a calibration-aware semantic rule
+must be frozen using return-independent evidence before any new-date replay.
+
+Notebook 38 tests one such return-independent measurement rule using the public
+1,000-row validation checkpoint. The lowest directional threshold satisfying
+the calibration requirements is 0.65, and the held-out audit precision is
+82.9% positive and 83.0% negative. The measurement gate passes, but the frozen
+binary firm-open construction does not: 5,472 of 5,511 original-33 firm-opens
+with a selected direction contain both positive and negative selected headlines
+(99.29%), so collision abstention leaves only two active sessions. Gross/net
+Sharpe is −0.755/−1.013, cash p=0.577, all-shift timing p=0.743, and the
+sector-spanning alpha p=0.428; all return and dependence gates fail. This is a
+structural NO-GO for independent binary per-headline thresholds, not a failure
+of public sentiment calibration. Any later confirmatory rule must preserve a
+continuous confidence or directional margin at firm-open grain and be frozen
+for genuinely new dates. Do not choose that resolution rule on these opened
+returns.
+
+Notebook 39 supplies the required continuous alternative without loading any
+price or return column. Across 85,960 hash-matched headlines, 31B and 26B signed
+scores have Spearman 0.953 and 89.2% sign agreement. Mean signed score at
+firm-open has Spearman 0.983, 93.9% sign agreement, median daily rank
+correlation 0.977, and top-two/bottom-two Jaccard 0.720/0.864. The predeclared
+scale-free schedule—current cross-sectional q90−q10 spread at or above its
+strictly prior trailing-60 75th percentile after 40 observations—has 22 active
+dates per model, 17 shared (Jaccard 0.630), and shared-date name Jaccard
+0.647/0.922. Mean continuous is the first reducer in the frozen simplicity
+order to pass every portability gate; strongest event fails both measurement
+and schedule gates. Applying the rule input-only to all 888,155 26B labels
+produces 40 active sessions among 127 post-warm-up sessions in the complete
+167-session rectangle. Therefore freeze mean continuous, adaptive dispersion,
+top-two/bottom-two names, 25% cap, one-session hold and 10-bps/side cost for a
+genuinely new-date replay. Do not evaluate or modify this rule on the already
+opened return window. The result supports measurement portability and strategy
+feasibility, not alpha.
+
+Notebook 40 supplies a post-research cross-regime economic stress test rather
+than pristine confirmation. Before reading FNSPID returns, the rule is
+translated to all priced news-bearing FNSPID names with relative breadth
+`ceil(n × 2/33)` and a two-name-per-leg minimum; reducer, dispersion schedule,
+cap, gross exposure, horizon, accounting, and 10-bps/side cost remain fixed.
+Because only 9/33 original LSEG names overlap and FNSPID carries FinBERT scores,
+this tests construction transfer, not same-scorer or same-universe replication.
+The evaluation gross Sharpe is 1.056 with +27.29% gross return, but break-even is
+4.904 bps/side and 10-bps net Sharpe/return are −1.103/−23.27%. Net mean is
+significantly below cash (−2.585 bps/session, [−4.662, −0.410], p=0.0185), both
+evaluation halves are negative after cost, and development gross Sharpe is only
+0.187 with 0.532-bps break-even. Conditional name selection is nominally
+promising (p=0.035) but fails the declared two-test BH family (q=0.070); timing
+and factor-alpha gates also fail. The permitted claim is that the continuous
+sentiment rank contains diversified gross evaluation-era information across a
+broad panel, while turnover, costs, and cross-era instability prevent deployment.
+No breadth, threshold, horizon, or cost assumption may now be tuned on these
+outcomes. Any next rule must be frozen from return-free signal persistence and
+turnover diagnostics, then tested on genuinely new dates.
+
+Notebook 41 executes that input-only diagnostic across the complete LSEG/Gemma
+schedule and both FNSPID eras. Its sole predeclared candidate retains the
+episode-opening basket through consecutive active sessions and exits when the
+dispersion gate turns off. Although target turnover falls 32.35%–43.30%, the
+opening names do not remain the current extrema: continuation long/short
+Jaccard is 0.275/0.157 for LSEG/Gemma and only 0.024–0.035 in FNSPID. All
+persistence gates fail. Median episode length is one, and entry/exit alone
+implies 11.03–12.84 bps of target-only cost per active session at the frozen
+cost. The candidate is rejected without reading a return. This closes the
+obvious holding-period shortcut: a future slower signal must have a separately
+motivated semantic state and be frozen on input evidence before new-date
+returns, rather than retaining stale daily sentiment ranks.
+
+Notebook 42 adds a one-shot backward external-time stress test without changing
+Notebook 39's rule. A separate local checkpoint contains 41,019 deduplicated
+2009-Q4/2010 FNSPID headlines scored with the cached FinBERT snapshot; late
+2009 supplies return-free warm-up only. The established valid-current-open
+firm-day screen leaves 24,263 aggregate firm-sessions / 537 symbols. The frozen
+input gate clears with 59 active 2010 sessions (30/29 by half), after which all
+selected returns are available. Gross/net Sharpe is −1.141/−3.397 and
+break-even is −4.802 bps/side. Net mean is significantly below cash at −6.806
+bps/session [−11.094, −2.819] (p=0.0011); both halves, both BH-controlled
+mechanism tests, and the factor-alpha gate fail. The first execution is
+invalidated because file-level price eligibility admitted later IPOs and forced
+95 sessions to cash; only the corrected firm-day-eligible result may be quoted.
+
+This is not a pristine holdout because the cohort is conditioned on later
+2011–2023 coverage, but it is sufficient to reject a stable cross-era reading
+of Notebook 40's positive 2020–2023 gross result. Do not reverse sentiment,
+change breadth, or retune the dispersion threshold on 2010.
+
+Notebook 43 then tests the remaining LSEG revision-weighting concern directly.
+It reconstructs terminal-suffix `story_id` families, keeps the earliest
+timestamped release of each family without using a return, and applies Notebook
+39's exact original-33 continuous Gemma construction. The filter removes 8,314
+later-revision-only hashes (0.936%), changes 1,938 firm-opens and eight decision
+dates, and raises active dates from 40 to 43. All-headline versus
+first-release-only gross Sharpe is −1.737/−1.473; net Sharpe is
+−2.635/−2.502 and net return is −18.13%/−16.82%. The filtered-minus-baseline
+effect is +0.935 bps/session [−0.652,+2.619] with BH q=0.262, while the filtered
+rule is significantly below cash at −10.786 bps/session (BH q=0.0366). Both
+halves and both frozen gates fail.
+
+Because the LSEG return window was already opened, Notebook 43 is bounded
+retrospective evidence rather than confirmation. It nevertheless rejects
+story-family overweighting as the explanation for the failed economics and
+provides direct LSEG/Gemma evidence that Notebook 39 is a portable measurement
+construction, not historical alpha. Do not tune a different revision policy.
+Any new-date replay must retain the exact rule and be framed against this
+negative prior evidence.
 
 ### W4: Sentiment surprise
 
