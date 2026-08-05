@@ -36,7 +36,7 @@ Profitability, a significant p-value, a neural network, and a wider news collect
 | Firm-day panel | Built: 715,546 rows, 570 priced symbols, 3,262 sessions | `01_panel` outputs/manifest |
 | Chronological split | Frozen: development through 2019, evaluation from 2020 | `lib/panel.py`, plan, protocol |
 | Final RQ | Open | Gate F1 after Stage S2 |
-| Current active work | Finish/waive the unlabelled novelty audit and take Gate F1 using the aggregate-only strategy synthesis; no further historical sentiment-strategy tuning after Notebooks 42–44 | Stage S2 exit / Gate F1; Notebooks 40–44 |
+| Current active work | Finish/waive the unlabelled novelty audit and take Gate F1 using the aggregate-only synthesis plus timing-placebo boundary; no further historical sentiment-strategy tuning after Notebooks 42–45 | Stage S2 exit / Gate F1; Notebooks 40–45 |
 | Exploratory W3/W4 chain | Repaired and rerun; not promoted because it ran before Gate F1 | `03`–`07`, `INVALIDATED_RUNS.md` |
 | Scorer selection | Closed: FinBERT primary | Benchmark and prior reports |
 | VaR/ES | Closed | FNSPID factorial report |
@@ -245,6 +245,18 @@ and the portable continuous rule is net-negative at 10 bps/side in every one
 of five reported regime/split rows. HAR is therefore the sole working base;
 LSEG/Gemma remains central measurement and non-pooled risk-mechanism evidence,
 not a selected alpha strategy. This synthesis informs but does not take Gate F1.
+
+Notebook 45 separates unusually informative timing from the mechanical effect
+of reducing exposure. Every circular placement of the exact state is evaluated
+in 2013–2019, 2020–2023, and the non-pooled LSEG/Gemma window. The observed
+2020–2023 HAR overlay ranks at the 99.1st percentile for downside reduction and
+passes the three-test family (p=0.0100, BH q=0.0301). The earlier FNSPID schedule
+is suggestive but misses BH (p=0.0455, q=0.0682); the Gemma firm brake is not
+unusually timed (p=q=0.3653). No return-timing test passes, so both cross-regime
+gates fail. This narrows the useful claim to one-period aggregate market-risk
+timing and rejects a general Gemma/downside mechanism. A prospective replay did
+not run because the local LSEG news corpus ends on 2026-06-26 even though later
+price caches exist.
 
 The expanded LSEG/Gemma panel now contributes a separate mechanism check rather
 than only scorer and cross-sectional nulls. Notebook 26's semantic sparse brake
@@ -471,7 +483,7 @@ fix. Do not search another story-family rule on this window.
 
 Priority order:
 
-1. use Notebook 44's aggregate-only evidence hierarchy to write the cross-regime conclusion: sentiment measurement transfers better than trading economics, while the sentiment-free HAR volatility target remains the only useful independent strategy base;
+1. use Notebooks 44–45 to write the cross-regime conclusion: HAR remains the only useful independent strategy base; aggregate sentiment shows one-period downside timing, while Gemma/LSEG measurement does not transfer into a general timing or alpha result;
 2. treat Notebooks 42–43 as falsifications, not permission to reverse sentiment, alter revision handling, or fit a regime rule on opened outcomes;
 3. finish or explicitly waive the human novelty audit and take Gate F1 before another secondary arm;
 4. only if genuinely new LSEG/Gemma dates accumulate at useful scale, replay Notebook 39's exact rule once as prospective evidence against its now-negative prior;

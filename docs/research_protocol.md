@@ -581,6 +581,27 @@ exact HAR × sentiment product frozen only for genuinely new dates, and stop
 historical strategy tuning. This is a Gate F1 evidence input, not a selection of
 the final RQ; the human novelty-audit condition remains binding.
 
+Notebook 45 is the single permitted post-result diagnostic of the repeated
+downside result. It enumerates every circular placement of the complete frozen
+risk-state schedule in three disjoint regimes: the 2013–2019 walk-forward HAR
+product, the 2020–2023 HAR product, and the 2025–2026 LSEG/Gemma exact-negative
+firm brake. Shifts preserve state frequency, duration, and cost accounting; the
+LSEG shifts move the full 44-company flag row together, retaining firm identity
+and cross-sectional concentration. The primary estimand is the mean reduction
+in net downside-squared return relative to the local base. One-sided exact
+shift p-values form a three-test BH family; mean net return is a separate
+three-test family. No shift, threshold, severity, or strategy is selected.
+
+Only the 2020–2023 downside result is unusually timed after BH (exact p=0.0100,
+q=0.0301). The 2013–2019 schedule is in the 95.5th percentile but misses BH
+(p=0.0455, q=0.0682), and the LSEG/Gemma brake does not beat generic placements
+(p=q=0.3653). All return-timing gates fail. Therefore the cross-regime timing
+gate fails: describe the evidence as one-period aggregate market-risk timing,
+not a general semantic timing mechanism or Gemma alpha. Later price rows are
+not a prospective sample because the local LSEG news boundary remains
+2026-06-26. Do not open them without matching new news and a frozen prospective
+population.
+
 ### W4: Sentiment surprise
 
 A valid retry must differ materially from the failed July pilot:
