@@ -558,9 +558,11 @@ Because the LSEG return window was already opened, Notebook 43 is bounded
 retrospective evidence rather than confirmation. It nevertheless rejects
 story-family overweighting as the explanation for the failed economics and
 provides direct LSEG/Gemma evidence that Notebook 39 is a portable measurement
-construction, not historical alpha. Do not tune a different revision policy.
-Any new-date replay must retain the exact rule and be framed against this
-negative prior evidence.
+construction, not historical alpha. Do not tune another collapse or
+revision-weighting policy. Notebook 47's later first-to-current delta test asks
+a distinct information question and remains bounded by the same opened-window
+restriction. Any new-date replay must retain the exact rule and be framed
+against this negative prior evidence.
 
 Notebook 44 is the aggregate-only strategy evidence synthesis. It loads source
 CSVs/manifests, never row-level prices, returns, positions, headlines, or
@@ -573,10 +575,13 @@ and selection histories are not pooled or treated as directly comparable.
 A sentiment rule is eligible for promotion only if its paired net-return
 interval is favourable and excludes zero, its effect is temporally stable, its
 local predeclared gate passes, and the evidence tier is at least chronological
-or external-time. After the Notebook 46 refresh, zero of seven paired
-comparisons in Notebook 44 clears the return condition; six show lower downside
-loss under their source conventions. Those p-values are dependent and are not
-meta-analysed. Retain the sentiment-free HAR volatility target as the
+or external-time. After the Notebook 48 refresh, one of nine paired comparisons
+in Notebook 44 clears the interval condition and six show lower downside loss
+under their source conventions. The sole favourable interval is Notebook 47's
+bounded retrospective revision-delta comparison with a matched latest-level
+construction; it is not a cash-alpha result and does not clear the remaining
+promotion conditions. Those p-values are dependent and are not meta-analysed.
+Retain the sentiment-free HAR volatility target as the
 conventional research benchmark, but not as a time-stable or
 deployment-qualified strategy. Keep the exact HAR × sentiment product frozen
 only for genuinely new dates and stop historical strategy tuning. This is a
@@ -629,6 +634,48 @@ two-test family (BH q=0.0244), but drawdown improves only 1.4% and the downside
 advantage is absent versus a constant multiplier (p=0.8218). Record this as
 mechanical de-risking, not semantic timing or alpha. No deployment-qualified
 base remains.
+
+Notebook 47 is a bounded retrospective story-revision test, not a new-date
+validation. For each Reuters story family, it computes current minus first
+Gemma signed sentiment and keeps only companies attached to both endpoints.
+The current revision maps to the first open at least 15 minutes later; the
+latest transition within each family/company/open is retained, and transitions
+are averaged within firm-open. On the immutable original 33, the frozen
+one-session gross-1 spread is long positive revision deltas and short negative
+deltas, with equal legs, a 25% name cap, unused capacity in cash, final
+liquidation, and 10 bps/side. A matched comparator holds the same dates, firms,
+long/short counts, and gross exposure while ranking latest Gemma score levels.
+
+The hash-only reconstruction yields 8,654 eligible first-to-current
+transitions, 1,606 nonzero firm-open updates, and 165 both-sign active sessions.
+Revision delta has gross/net Sharpe 1.523/−1.866 and 4.49-bps/side break-even.
+Its paired net mean versus cash is −8.268 bps/session [−17.899,+1.200]
+(BH q=0.0914), but it beats the matched latest-level construction by +15.620
+bps/session [+2.683,+28.725] (BH q=0.0368). Gross Sharpe is positive in both
+chronological halves; net Sharpe is negative in both. Record incremental
+revision information relative to score level, but do not call it cash alpha,
+factor alpha, or a deployable strategy.
+
+Notebook 48 tests the single parameter-free implementation implication from
+Notebook 47: carry each firm's last nonzero revision sign until the next
+nonzero update. It does not select an expiry, decay, threshold, lookback,
+holding period, or cost. The input gate requires at least 120 active sessions,
+50 per half, at least 60% target-turnover reduction, median state age no more
+than five sessions, p90 age no more than 20, and the unchanged 25% cap. The
+strategy and Notebook 47 event arm form a two-comparison BH family versus cash
+and versus each other; factor, temporal-half, and company/sector leave-one-out
+checks remain binding.
+
+The input gate passes: turnover falls 72.3% to 0.416 per session, median/p90
+age is 2/18 sessions, and all 167 sessions are active. Gross/net Sharpe is
+1.459/−0.331, net return is −1.39%, and break-even is 8.15 bps/side. Net Sharpe
+is positive at 1–5 bps/side but not at the frozen 10 bps. The persistent-minus-
+event effect is +7.498 bps/session [−0.006,+15.165] (BH q=0.1064), the
+cash interval includes zero, the factor intercept is negative, 10-bps half
+Sharpes are +0.434/−1.074, and only 2/33 company and 2/11 sector exclusions are
+positive. Every promotion gate fails. Preserve the turnover and cost frontier
+as useful implementation evidence and stop persistence tuning on this opened
+window.
 
 ### W4: Sentiment surprise
 

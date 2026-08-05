@@ -7,6 +7,7 @@ import pytest
 
 from final_experiments.lib.lseg_story_families import (
     StoryFamilyError,
+    load_family_revision_transitions,
     load_first_release_hashes,
     story_family_id,
 )
@@ -97,3 +98,47 @@ def test_story_family_requires_numeric_revision_suffix() -> None:
     assert story_family_id("urn:test:family:12") == "urn:test:family"
     with pytest.raises(StoryFamilyError, match="numeric revision"):
         story_family_id("urn:test:family")
+
+
+def test_revision_transitions_use_shared_symbols_and_emit_no_text(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "merged" / "headlines.jsonl"
+    rows = [
+        {
+            "story_id": "urn:test:family-a:0",
+            "version_created": "2026-01-01T10:00:00Z",
+            "headline": "First release",
+            "matched_symbols": ["AAA", "BBB"],
+        },
+        {
+            "story_id": "urn:test:family-a:2",
+            "version_created": "2026-01-01T10:05:00Z",
+            "headline": "Changed release",
+            "matched_symbols": ["AAA", "CCC"],
+        },
+        {
+            "story_id": "urn:test:family-b:0",
+            "version_created": "2026-01-02T10:00:00Z",
+            "headline": "Single release",
+            "matched_symbols": ["DDD"],
+        },
+    ]
+    _write_corpus(path, rows)
+    hashes = {headline_norm_sha256(str(row["headline"])) for row in rows}
+
+    transitions, audit = load_family_revision_transitions(
+        path, expected_hashes=hashes
+    )
+
+    assert len(transitions) == 1
+    row = transitions.iloc[0]
+    assert row["initial_headline_sha256"] == headline_norm_sha256("First release")
+    assert row["current_headline_sha256"] == headline_norm_sha256("Changed release")
+    assert row["shared_symbols"] == "AAA"
+    assert bool(row["headline_changed"])
+    assert "headline" not in transitions.columns
+    assert "story_id" not in transitions.columns
+    assert audit["families_with_multiple_distinct_revisions"] == 1
+    assert audit["licensed_headline_text_emitted"] is False
+    assert audit["raw_story_ids_emitted"] is False
