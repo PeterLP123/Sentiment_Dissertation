@@ -879,7 +879,32 @@
         <li data-done="true"><label>OpenRouter scorer benchmark gate (2026-08-04): <code>google/gemma-4-26b-a4b-it</code>, DeepInfra FP8 only, ZDR/data collection denied, no fallback, exact investor prompt and strict probability JSON. Frozen SHA-256-order n=1,000: 100% final coverage and format validity, accuracy 0.808 [0.784, 0.832], macro-F1 0.813 [0.789, 0.837], cost $0.03786. Same-row FinBERT accuracy is 0.797; the +0.011 paired difference crosses zero and McNemar p=0.505, so this supports comparability rather than superiority.</label></li>
         <li data-done="true"><label>Licensed LSEG hosted scoring completed 2026-08-05 under the permission recorded 2026-08-04: 888,155/888,155 unique successes, zero duplicate successes, zero invalid successful probabilities, and total reported cost $33.61534475. The append-only CSV retains 919 API errors, 27 invalid outputs, and two malformed responses as historical attempts; downstream analysis selects only <code>status == "success"</code>. Route remained <code>google/gemma-4-26b-a4b-it</code> through DeepInfra FP8 with ZDR, data collection denied, and no fallback.</label></li>
         <li data-done="true"><label>Expanded-corpus return robustness completed in <code>13_lseg_44_gemma_robustness</code>. Precise first-timestamp +15-minute mapping yields 929,691 headline/company associations, 7,348 priced firm-open rows, and 167 entry sessions. Zero of 18 scorer × aggregator IC arms survives BH, zero is economically viable at 10 bps/side, and zero of eight metadata-filter sensitivities survives BH. Best gross arm: Gemma <code>strongest_event</code>, IC +0.03461 (raw p=0.0992), gross Sharpe 1.250, break-even 3.709 bps/side, net Sharpe −2.119. Preserve as a retrospective null; do not tune this window.</label></li>
+        <li data-done="true"><label>Sparse-event strategy falsification completed in <code>14_lseg_sparse_event_strategy</code>. The return-blind frozen family is two Gemma signals (strongest direct single-company novel material event; the same event attenuated by an unvalidated headline-only cash-flow-distance proxy) × 1/3/5-session state. A 30-day/Jaccard-0.80 screen leaves 172,198 novel material headlines and 6,127 selected company-entry events; 2,570 selected events have a distance proxy. Zero of six IC arms survives BH and zero is economically viable at 10 bps/side. Best new gross arm is material h5: IC +0.00689 (raw p=0.596), gross Sharpe 0.663, break-even 1.904 bps/side, net Sharpe −2.820. This is worse than Notebook 13's strongest-event magnitude reference. Preserve the retrospective null; do not tune this window again.</label></li>
       </ul>
+      <div class="mini-card amber" style="margin-top: 14px;">
+        <h3>Expanded-LSEG unblocking decision (2026-08-05)</h3>
+        <p>
+          Re-audit after the complete Gemma run changes three feasibility calls without
+          changing the FNSPID primary-spine limitations. The merged 44-company corpus
+          provides 3,112 source codes over the scored hash population, so a separate
+          Gemma publisher-conditioning arm is now executable. The frozen family for
+          <code>15_lseg_gemma_publisher_conditioning</code> is four h1 signals:
+          all-source mean, Reuters-only mean, non-Reuters-only mean, and an ex-ante
+          Reuters-2× mean; BH applies once across four daily cross-sectional IC tests.
+          <code>NS:RTRS</code> is the only defensible named tier, so no return-derived or
+          guessed four-tier publisher taxonomy is permitted. The sector-balanced configs
+          also give an explicit 11-sector map with four companies per sector. That is
+          adequate for fixed sector controls and feasibility diagnostics, but not for
+          sector-specific neural thresholds on roughly 171 return sessions. Finally,
+          17,508 non-empty full-text Reuters rows exact-hash into the completed Gemma
+          population (16,861 unique hashes), so the original cash-flow-distance human
+          annotation pilot can be prepared locally. Notebook 15 has now closed the
+          four-arm publisher family as a clean null: zero BH survivors and zero
+          economically viable arms. Notebook 16 has prepared the 200-event audit and
+          60-event double-code subset; it remains blocked on human labels, not on text
+          or scorer coverage.
+        </p>
+      </div>
     </section>
 
     <section>
@@ -914,9 +939,11 @@
         story-for-this-firm.
       </p>
       <ul class="checklist" data-ck="w2">
-        <li><label>Build a publisher table: rows, unique firm-headline pairs, firm-day coverage, and mean absolute score by <code>source_code</code> (or FNSPID site), for the primary spine. <em>Still blocked on Spine A:</em> site/publisher absent from the FinBERT checkpoint. A 594,287-event LSEG sector-33 fallback table was executed in <code>11_lseg_robustness</code>; it is not presented as FNSPID evidence.</label></li>
+        <li><label>Build a publisher table for the primary FNSPID spine. <em>Still blocked on Spine A:</em> site/publisher is absent from the FinBERT checkpoint. Separate LSEG evidence now includes the 594,287-event sector-33 table and a newly feasible 44-company/Gemma source inventory; neither may be presented as FNSPID evidence.</label></li>
         <li><label>Define publisher tiers by an ex-ante, stated criterion (primary wire vs aggregator vs syndicator vs promotional) - not by realised returns. Reuters is identified ex ante as the primary wire in notebook 11, but opaque non-Reuters source codes cannot be responsibly split into the remaining three tiers without source metadata.</label></li>
         <li data-done="true"><label>Test one publisher weighting scheme against unweighted, on the same split. Completed on the non-pooled LSEG sector-33 robustness arm: Reuters receives weight 2, all unresolved other sources weight 1. Zero of five source/actionability arms survives BH; the Reuters-2× IC is +0.00153 (p=0.924).</label></li>
+        <li data-done="true"><label>Run the frozen expanded-LSEG/Gemma publisher family in <code>15_lseg_gemma_publisher_conditioning</code>: all-source, Reuters-only, non-Reuters-only, and Reuters-2× h1 signals, with source-specific earliest timestamps, HAC(5), BH over four IC tests, 10 bps/side, explicit liquidation, and five-session block bootstrap. Complete as a retrospective clean null: zero of four IC tests survives BH and zero arm is economically viable. Reuters-only IC is −0.02134 (p=0.189), gross Sharpe −1.325, break-even −2.658 bps/side, and net Sharpe −6.290. Do not search more source weights on this window.</label></li>
+        <li><label>Complete the full-text cash-flow-distance validation started in <code>16_lseg_cash_flow_distance_audit</code>. The return-blind 200-event sample and independently ordered 60-event double-code subset are prepared from 16,861 matching unique Reuters-body hashes. Code both sheets under <code>cash_flow_distance_v1</code> and preserve disagreements. The frozen gate before any return model is quadratic-weighted κ ≥ 0.60, its 95% event-bootstrap lower bound ≥ 0.40, and adjacent agreement ≥ 0.80; exact agreement and the confusion matrix are reported without another pass/fail cut.</label></li>
         <li data-done="true"><label>Build <code>final_experiments/lib/novelty.py</code>: first-mention flag, trailing-window near-duplicate distance, market-recap flag, time-since-prior-story-date. Comparisons use strictly earlier firm dates; same-session order and family revision remain unavailable on the checkpoint grain. Landed 2026-07-30.</label></li>
         <li data-done="true"><label>Classify breaking / repetition / routine scheduled reporting. Notebook 08 now produces all three <em>candidate</em> classes by combining the strictly-earlier repetition screen with the ordered event taxonomy. This is a completed machine exploratory arm, not a validated classifier; market recap remains a separate flag.</label></li>
         <li><label>Hand-label a stratified audit sample (target 150-200 stories, seed recorded) and report weighted precision and recall per class. Blinded template ready: <code>novelty_audit_sample.csv</code> (seed 42, n=180), with predictions, inclusion probabilities and inverse-probability weights isolated in <code>novelty_audit_key.csv</code>. Labels remain empty.</label></li>
@@ -1167,7 +1194,7 @@
       <ul class="checklist" data-ck="nn">
         <li data-done="true"><label>Establish the fixed-band baseline first, on the same panel and split. Corrected 2026-08-03: the frozen validation band is 0.4; evaluation net Sharpe is −0.108 at 10 bps/side after bilateral long/short normalisation.</label></li>
         <li data-done="true"><label>Build a small MLP plus a gradient-boosted comparator plus a logistic baseline. Completed with fit through 2017 and cutoff selection on 2018–2019; all three evaluation net Sharpes are negative.</label></li>
-        <li><label>Try the per-sector variant before the per-stock variant. Correctly blocked: no explicit point-in-time sector map exists for the 570-symbol FNSPID panel. The binding sector-first order also blocks stock-specific fitting.</label></li>
+        <li><label>Try the per-sector variant before the per-stock variant. Still blocked for the 570-symbol FNSPID panel because no explicit point-in-time sector map exists. The expanded LSEG configs now supply 11 sectors × four firms, but roughly 171 sessions are below the plan's own sample requirement for learned sector thresholds; use that map only for fixed controls/feasibility diagnostics, not as a loophole around the sector-first gate.</label></li>
         <li data-done="true"><label>Report the learned thresholds themselves, not just performance. Frozen cutoffs and story-count × dispersion threshold surfaces are emitted by notebook 10. Cutoff selection requires at least five active names on average and activity on at least half of sessions.</label></li>
         <li data-done="true"><label>Add a permutation or label-shuffle control. Completed with a shuffled-label MLP; its evaluation AUC is 0.492 and corrected net Sharpe −0.757.</label></li>
       </ul>
@@ -1196,8 +1223,8 @@
           </tr>
           <tr>
             <td>Sector / industry mapping</td>
-            <td>Only implicit - 11 sector buckets inside the sector-33 config. No explicit classification table.</td>
-            <td>Build an explicit per-symbol sector table. Blocks the per-sector threshold arm and any sector-day demeaning.</td>
+            <td>Still absent for the 570-symbol FNSPID primary panel. Explicitly recoverable for the expanded LSEG universe from the frozen configs: 11 sectors × four companies.</td>
+            <td>Use the LSEG map for fixed-control and power diagnostics only. A point-in-time FNSPID map remains required for the planned sector-threshold arm.</td>
           </tr>
           <tr>
             <td>Market benchmark returns</td>
@@ -1207,12 +1234,12 @@
           <tr>
             <td>Expanded LSEG headline robustness corpus</td>
             <td>Collected and merged: 44 companies, 2025-10-26 to 2026-06-26, all returned source codes, 1,158,762 story rows / 888,155 unique scorable headlines. Licensed and gitignored.</td>
-            <td>Pinned FinBERT labelling and the bounded 1,000-attempt LLM agreement audit are complete. Next: human audit, then attach prices without pooling with FNSPID.</td>
+            <td>Pinned FinBERT/Gemma labelling, price attachment, scorer/return robustness, sparse-event falsification, and publisher conditioning are complete. The local 200-event cash-flow-distance audit pack is prepared; next is independent human coding and reliability assessment. Never pool with FNSPID.</td>
           </tr>
           <tr>
             <td>Human audit labels</td>
-            <td>Templates generated but <strong>no labels exist</strong> - <code>sample_label_template.csv</code> and every Tavily <code>screening_index.csv</code> are empty or pending.</td>
-            <td>Label one stratified sample for filter precision (Workstream 2) and one for event-type validity (Workstream 5). Small samples, recorded seeds.</td>
+            <td>Templates generated but <strong>no labels exist</strong>. This now includes the 200-event LSEG full-text cash-flow-distance sheet and its 60-event double-code subset, in addition to the earlier novelty/event-type templates.</td>
+            <td>Code the cash-flow-distance pair first because the text and frozen sample now exist; assess reliability before returns. The novelty and event-type audits remain separate validation tasks.</td>
           </tr>
           <tr>
             <td>Corporate-action metadata</td>
@@ -1232,13 +1259,16 @@
         <li data-done="true"><label><code>final_experiments/lib/surprise.py</code> - demeaning stack, trailing market-model AR, nested OOS horse race.</label></li>
         <li data-done="true"><label><code>final_experiments/lib/thresholds.py</code> - fixed band, logistic, gradient-boosted, and small MLP gates behind one interface; post-gate long/short legs are normalised separately to preserve dollar neutrality.</label></li>
         <li data-done="true"><label><code>final_experiments/lib/evaluate.py</code> - chronological split, mean daily cross-sectional IC with HAC inference, block bootstrap, Benjamini-Hochberg, turnover and break-even. Aggregation arms route through it.</label></li>
+        <li data-done="true"><label><code>final_experiments/lib/sparse_events.py</code> + <code>14_lseg_sparse_event_strategy</code> — strict-prior indexed novelty, provisional material-event and cash-flow-distance features, strongest-event selection, fixed 1/3/5-session state, inactive-day closure, six-arm BH, costs, bootstrap uncertainty, temporal stability, and a preserved clean null.</label></li>
+        <li data-done="true"><label><code>final_experiments/lib/lseg_publishers.py</code> + <code>15_lseg_gemma_publisher_conditioning</code> — exact source-code inventory, source-specific timestamps, frozen four-arm h1 family, BH, costs, bootstrap uncertainty, and a preserved clean null.</label></li>
+        <li data-done="true"><label><code>final_experiments/lib/cash_flow_audit.py</code> + <code>16_lseg_cash_flow_distance_audit</code> — hash-validated Reuters bodies, deterministic 200-event return-blind stratified sample, 60-event double-code subset, private key, codebook, and aggregate sampling diagnostics. Human labels remain open.</label></li>
         <li data-done="true"><label><code>final_experiments/lib/plots.py</code> — house figure style plus colour assigned by job: categorical for identity, one-hue ordinal for ranked groups, diverging with a <strong>neutral grey</strong> midpoint for signed quantities, reserved status colours. Includes collision-free direct labelling. Replaces the per-notebook rcParams drift and the <code>RdYlGn</code> scale in <code>06</code>, whose coloured midpoint made a zero Sharpe read as a value.</label></li>
         <li data-done="true"><label><code>final_experiments/lib/strategy.py</code> + <code>06_strategy</code> — overlapping-tranche backtest on dense returns, development sweep over horizon × breadth, historical research ranking frozen to <code>frozen_spec.json</code>, and a separate cost-and-uncertainty deployment gate that may choose cash. One pre-repair read is void; the 2026-08-03 cash-policy comparison is explicitly iterative/retrospective and both are disclosed in the notebook manifest and ledger.</label></li>
         <li data-done="true"><label><code>07_strategy_analysis</code> — strategy-null diagnostics plus Q5−Q1 date-block intervals and BH over the displayed 4×20 event-time family; zero survivors in the repaired run.</label></li>
         <li data-done="true"><label><code>00_data_inventory</code> — coverage, quality, and need-more decision support (landed 2026-07-30).</label></li>
         <li data-done="true"><label><code>final_experiments/lib/panel.py</code> + <code>01_panel</code> — FNSPID firm-day panel, attrition, coverage (landed 2026-07-30).</label></li>
         <li data-done="true"><label><code>final_experiments/lib/distribution.py</code> + <code>02_filters_and_distribution</code> — within-day moments vs n, mass, collider note (landed 2026-07-30).</label></li>
-        <li data-done="true"><label>Numbered notebooks <code>00_data_inventory.ipynb</code> through <code>13_lseg_44_gemma_robustness.ipynb</code> are present and executable. Notebook 12 validates complete local-only expanded-corpus labels; Notebook 13 records the non-pooled return null. Both write only aggregate evidence under ignored output directories. The notebooks are the sole stage sources; top-level jupytext mirrors were retired 2026-08-03.</label></li>
+        <li data-done="true"><label>Numbered notebooks <code>00_data_inventory.ipynb</code> through <code>16_lseg_cash_flow_distance_audit.ipynb</code> are present and executable. Notebook 12 validates complete local-only expanded-corpus labels; Notebooks 13–15 record the non-pooled return, sparse-strategy, and publisher nulls; Notebook 16 prepares the blinded human audit. Aggregate results remain under ignored outputs, while Notebook 16's licensed coder sheets are also explicitly ignored/local. The notebooks are the sole stage sources; top-level jupytext mirrors were retired 2026-08-03.</label></li>
         <li data-done="true"><label><code>05_interpretation</code> — rule redundancy and effective test count, dispersion-vs-volume conditioning, position-mode correction, significance-vs-economics figure, and the Gate F1 evidence ledger (landed 2026-07-31).</label></li>
         <li data-done="true"><label>Focused helper tests cover exact exchange-session returns, non-overlapping W4 timing, development-only W4 coefficients, daily cross-sectional IC, cs-rank and gated-book neutrality, strict development/evaluation horizon boundaries, terminal liquidation, and block-bootstrap event-time spread inference. Plotting/notebook glue is validated by clean notebook execution rather than unit tests.</label></li>
       </ul>
@@ -1256,7 +1286,7 @@
         <li data-done="true"><label><strong>Decision taken: document, do not impute.</strong> <code>availability_timestamp</code> is present but empty in every current <code>daily_signals.csv</code> and <code>trading_returns.csv</code>, and is null on all 715,546 panel rows alongside <code>publisher</code> and <code>story_family_id</code>. Point-in-time availability is therefore not verifiable from the artifacts; recorded in the README known-null list and the <code>02</code> blockers table. Next-open estimands are supported; intraday availability is not claimed.</label></li>
         <li><label>The 12-type taxonomy and the <code>tradability_class</code> screens are regex-derived and uncalibrated. The 460,429 "actionable" count is explicitly marked provisional.</label></li>
         <li><label>TF-IDF logistic regression is out-of-fold; it cannot be applied to news without a documented full-data refit.</label></li>
-        <li data-done="true"><label><strong>Superseded warning.</strong> The older partial local Gemma arm and its HTTP 402 failures are not a complete-corpus comparison. The separately frozen OpenRouter Gemma 4 26B arm now has 888,155/888,155 valid unique successes and is the only full-population Gemma comparison used by Notebooks 12–13.</label></li>
+        <li data-done="true"><label><strong>Superseded warning.</strong> The older partial local Gemma arm and its HTTP 402 failures are not a complete-corpus comparison. The separately frozen OpenRouter Gemma 4 26B arm now has 888,155/888,155 valid unique successes and is the only full-population Gemma comparison used by Notebooks 12–14.</label></li>
         <li data-done="true"><label><strong>Decision taken: document, and the phrase is in use.</strong> The 2025-2026 LSEG window and the 2011-2023 FNSPID window have both already influenced design decisions. Neither can be described as a pristine confirmatory holdout — the standing phrase "chronological evaluation block" is now carried in the README, in <code>02</code>/<code>03</code>/<code>04</code>/<code>05</code>, and in every manifest that names the split.</label></li>
         <li><label>The four tail-risk cells are not registered in <code>experiments/manifest.toml</code> and carry <code>Git commit: unavailable</code>. If they are cited in the dissertation, register them.</label></li>
       </ul>
@@ -1308,7 +1338,7 @@
             <td><strong>S4</strong> Arms</td>
             <td>Remaining workstreams as robustness or secondary arms, in the plan's order, as time allows.</td>
             <td>Each arm either has a result or is explicitly recorded as not run.</td>
-            <td>✅ <strong>Complete but exploratory and out of order.</strong> W3–W6, the pooled threshold arm, and all three separate LSEG robustness regimes (sector-33, midcap-22, expanded-44) have results. Sector/stock thresholds and calibrated filtering remain explicitly blocked by missing inputs; none of these arms is promoted before Gate F1.</td>
+            <td>✅ <strong>Complete but exploratory and out of order.</strong> W3–W6, the pooled threshold arm, all three separate LSEG robustness regimes (sector-33, midcap-22, expanded-44), and the expanded-44 sparse-event falsification have results. Sector/stock thresholds and calibrated filtering remain explicitly blocked by missing inputs; none of these arms is promoted before Gate F1.</td>
           </tr>
           <tr>
             <td><strong>S5</strong> Write</td>

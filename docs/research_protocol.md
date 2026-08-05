@@ -40,10 +40,10 @@ Gate F1 will choose one primary RQ and at most one secondary after the data pane
 | Candidate | Question | Current standing |
 | --- | --- | --- |
 | **RQ-A: Aggregation** | How should multiple same-day stories be aggregated into one firm-day sentiment signal, and does a distribution-aware rule add information about post-news abnormal returns beyond the mean? | Leading candidate: strongest fit to the observed instability of company-day means. |
-| **RQ-B: Filtering** | Does conditioning on story novelty and publisher identity improve the return relevance of news sentiment? | Plausible, but FNSPID publisher/story-family fields are unavailable on the current checkpoint grain. |
+| **RQ-B: Filtering** | Does conditioning on story novelty and publisher identity improve the return relevance of news sentiment? | FNSPID publisher/story-family fields remain unavailable. The separate expanded-LSEG/Gemma publisher arm is complete as a non-pooled retrospective null; zero of four IC tests survives BH and no arm is economically viable. |
 | **RQ-C: Surprise** | Is firm-level sentiment surprise, net of market return and general sentiment level, informative beyond sentiment level itself? | Prior NO-GO; only viable with the wider panel and materially different demeaning design. |
 | **RQ-D: Agreement** | Does cross-model agreement add out-of-sample information beyond mean sentiment and the initial price reaction? | Standing fallback/default; enabling PhraseBank/LSEG artifacts from the July 12 design were not completed. |
-| **RQ-E: Thresholds** | Can a learned firm- or sector-conditioned trade/no-trade threshold outperform a fixed band? | Secondary only; it presupposes an informative signal and needs an explicit sector table. |
+| **RQ-E: Thresholds** | Can a learned firm- or sector-conditioned trade/no-trade threshold outperform a fixed band? | Secondary only. The expanded LSEG map has four firms per sector but too little history for learned sector gates; the planned arm still needs a point-in-time FNSPID sector table. |
 
 ### Gate F1 rules
 
@@ -200,6 +200,16 @@ Before Gate F1:
 - do not choose publisher tiers from realised returns.
 
 On FNSPID, publisher/story-family limitations may force publisher weighting and revision novelty to the LSEG robustness arm. State that rather than fabricating proxies.
+
+The expanded LSEG corpus now also supports a local full-text cash-flow-distance
+audit: 17,508 matched Reuters body rows / 16,861 unique headline hashes. The
+frozen audit is 200 events with a 60-event independent double-code subset.
+Coder sheets must remain blind to sentiment, machine strata, identity/date
+metadata, and returns. Before any return model using the human labels is
+specified or opened, quadratic-weighted Cohen's kappa must be at least 0.60,
+its 95% event-bootstrap lower bound at least 0.40, and adjacent agreement at
+least 0.80. Exact agreement and the full confusion matrix are reported without
+an additional pass/fail threshold.
 
 ### W3: Aggregation
 
