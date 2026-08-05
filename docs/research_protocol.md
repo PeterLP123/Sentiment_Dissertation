@@ -575,7 +575,7 @@ and selection histories are not pooled or treated as directly comparable.
 A sentiment rule is eligible for promotion only if its paired net-return
 interval is favourable and excludes zero, its effect is temporally stable, its
 local predeclared gate passes, and the evidence tier is at least chronological
-or external-time. After the Notebook 50 refresh, one of eleven paired sentiment
+or external-time. After the Notebook 51 refresh, one of eleven paired sentiment
 or construction comparisons
 in Notebook 44 clears the interval condition and six show lower downside loss
 under their source conventions. The sole favourable interval is Notebook 47's
@@ -732,6 +732,34 @@ The exact forward contract is now source-controlled at
 It excludes the opened window, requires at least 120 complete calendar sessions,
 60 primary active sessions, and 20 active sessions per chronological half, and
 fails closed on scorer, prompt, provider, privacy, timing, or universe drift.
+
+Notebook 51 is a frozen implementation-capacity diagnostic of that unchanged
+equal-weight hybrid, not another signal or allocation search. Its source-
+controlled specification precedes outcome calculation and fixes a 20-session
+lagged dollar-volume and open-return-volatility estimator (five-observation
+minimum), 10-bps/side fixed cost, square-root impact
+`Y × sigma × sqrt(order notional / ADV)`, primary `Y=1`, sensitivity `Y=0.5`,
+a `$1m, $2m, $5m, $10m, $25m, $50m, $100m, $250m, $500m, $1bn` grid, and a
+hard 5%-of-lagged-full-day-ADV order ceiling. Full-day ADV is explicitly an
+optimistic proxy for execution specified at the open.
+
+The zero-impact replay must reproduce the validated drift-aware ledger and
+Notebook 36 within `1e-12`; every nonzero rebalance or terminal order must have
+finite positive lagged ADV and finite non-negative lagged volatility. The
+reported capacity is the largest predeclared primary-grid point with positive
+total net return, positive net Sharpe, and every order at or below 5% ADV. All
+grid points and the frozen $1m/$10m references are reported even when they fail.
+
+Both input gates pass: the largest identity error is `2.22e-16`, and all 419
+nonzero orders have valid lagged liquidity. Under primary `Y=1`, $1m has net
+Sharpe 1.679 and +8.53% total return; $10m has net Sharpe 0.413 and +1.89%,
+with maximum participation 2.30%. At $25m, net Sharpe is −0.632, total return
+is −3.29%, and ten orders breach 5% ADV—eight DUK and two PLD—with maximum
+participation 5.52%. The optimistic grid capacity bound is therefore $10m.
+This is an implementation upper bound and failure anatomy, not deployment
+qualification, independent confirmation, or a promotion effect. A separately
+frozen liquidity-aware sizing audit may diagnose the concentrated bottleneck,
+but cannot revise the alpha conclusion or replace the prospective new-date gate.
 
 ### W4: Sentiment surprise
 
