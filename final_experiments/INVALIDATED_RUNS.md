@@ -113,3 +113,26 @@ unknown-distance event now clears the older distance state. The full six-arm
 notebook was rerun so its embedded plots, tables, manifest, and interpretation
 all come from the repaired implementation. The superseded distance results must
 not be quoted.
+
+## 2026-08-05 Notebook 42 file-level price eligibility
+
+Generated snapshot:
+`outputs/42_fnspid_2010_preperiod_transfer/invalidated_v1_file_level_price_filter/`
+
+Status: **invalidated; do not quote its performance results.**
+
+The first backward-transfer execution treated a cohort symbol as eligible for
+the 2010 sentiment cross-section whenever its FNSPID price file existed. The
+canonical FNSPID panel instead requires a valid current adjusted open on each
+firm-session before aggregation. The file-level shortcut admitted later IPOs
+and other unavailable firm-sessions into the sentiment rank, then encountered
+115 missing selected returns and forced 95 complete sessions to cash. Its 36
+active-session gross/net Sharpes of −0.384/−2.475 do not estimate the frozen
+construction and must not be used.
+
+The repaired notebook applies the valid-current-open screen before computing
+daily dispersion or ranks, without computing a return. It excludes 989
+unavailable firm-sessions, passes the input-only gate with 59 active sessions,
+and has zero missing selected returns after outcomes open. The repair was
+chosen from panel-contract parity and return availability only, not return sign
+or magnitude; the corrected negative result supersedes the invalid snapshot.
