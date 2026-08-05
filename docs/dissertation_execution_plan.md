@@ -36,7 +36,7 @@ Profitability, a significant p-value, a neural network, and a wider news collect
 | Firm-day panel | Built: 715,546 rows, 570 priced symbols, 3,262 sessions | `01_panel` outputs/manifest |
 | Chronological split | Frozen: development through 2019, evaluation from 2020 | `lib/panel.py`, plan, protocol |
 | Final RQ | Open | Gate F1 after Stage S2 |
-| Current active work | Finish/waive the unlabelled novelty audit and take Gate F1 using the aggregate-only synthesis plus timing-placebo, external-time base, and story-revision cost boundaries; no further historical sentiment-strategy tuning after Notebooks 42–49 | Stage S2 exit / Gate F1; Notebooks 40–49 |
+| Current active work | Finish/waive the unlabelled novelty audit and take Gate F1 using the aggregate-only synthesis plus timing-placebo, external-time base, story-revision cost boundaries, and the inverse-volatility allocation null; no further historical sentiment-strategy tuning after Notebook 50 | Stage S2 exit / Gate F1; Notebooks 40–50 |
 | Exploratory W3/W4 chain | Repaired and rerun; not promoted because it ran before Gate F1 | `03`–`07`, `INVALIDATED_RUNS.md` |
 | Scorer selection | Closed: FinBERT primary | Benchmark and prior reports |
 | VaR/ES | Closed | FNSPID factorial report |
@@ -238,10 +238,10 @@ new-date replay. Notebook 42's negative 2010 replay, Notebook 43, and the public
 replication jointly argue against another historical sentiment-ranking search.
 
 Notebook 44 makes that base decision auditable without reopening row-level
-outcomes. Refreshed through Notebook 49, it assigns an ordinal evidence tier to
-17 representative strategy rows, keeps cross-regime Sharpes explicitly
-non-comparable, and applies one promotion policy to ten paired sentiment
-comparisons. One favourable interval excludes zero: Notebook 47's retrospective
+outcomes. Refreshed through Notebook 50, it assigns an ordinal evidence tier to
+18 representative strategy rows, keeps cross-regime Sharpes explicitly
+non-comparable, and applies one promotion policy to eleven paired sentiment or
+construction comparisons. One favourable interval excludes zero: Notebook 47's retrospective
 revision-delta comparison with a matched latest-score-level construction. It is
 not a cash-alpha result and does not pass promotion. Six comparisons report
 lower downside loss, and the portable continuous rule is
@@ -305,6 +305,23 @@ the conditional random-name p-value is 0.4227, second-half gross Sharpe is
 −0.008, and the sector-factor intercept is significantly negative. Preserve
 this as evidence that dramatic tone reversals are not the source of Notebook
 47's gross effect and stop further revision filters on the opened window.
+
+Notebook 50 asks whether a conventional risk base can improve the strongest
+same-window LSEG/Gemma construction without altering its information set.
+Gemma exact events still set all 70 dates and long/short counts; FinBERT ranks
+still select the names. The existing portfolio projector replaces equal leg
+weights with inverse weights from strictly lagged 20-session open-return
+volatility (five-observation minimum, 50-bps floor), retains the 25% cap and
+dollar neutrality, never adds leverage, and leaves unused capacity in cash.
+The rule passes its return-blind feasibility gate and cuts target turnover
+11.7%. At 10 bps/side, annualised net volatility falls from 7.55% to 6.47% and
+total turnover from 74.56 to 65.86; gross/net Sharpe remains 3.691/2.207 with
++9.77% net return. The equal-weight hybrid is still slightly better at
+3.700/2.271 and +11.82%, and the paired difference is −1.136 bps/session
+[−2.679,+0.216] (BH q=0.123). Cash BH q=0.111 and sector-factor alpha
+p=0.0919 fail, so this is a useful risk/cost trade-off null rather than a base
+replacement or alpha promotion. Freeze the equal-weight hybrid for any future
+new-date replay and stop allocation tuning on this opened window.
 
 The expanded LSEG/Gemma panel now contributes a separate mechanism check rather
 than only scorer and cross-sectional nulls. Notebook 26's semantic sparse brake

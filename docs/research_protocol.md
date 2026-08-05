@@ -575,7 +575,8 @@ and selection histories are not pooled or treated as directly comparable.
 A sentiment rule is eligible for promotion only if its paired net-return
 interval is favourable and excludes zero, its effect is temporally stable, its
 local predeclared gate passes, and the evidence tier is at least chronological
-or external-time. After the Notebook 49 refresh, one of ten paired comparisons
+or external-time. After the Notebook 50 refresh, one of eleven paired sentiment
+or construction comparisons
 in Notebook 44 clears the interval condition and six show lower downside loss
 under their source conventions. The sole favourable interval is Notebook 47's
 bounded retrospective revision-delta comparison with a matched latest-level
@@ -699,6 +700,33 @@ sector-spanning HAC intercept is −5.524 bps/session
 [−10.658,−0.390] (p=0.0350). Every promotion gate fails. Record that dramatic
 tone reversals do not explain Notebook 47's incremental gross information and
 stop all further revision filtering on this opened window.
+
+Notebook 50 is a separate, conventional risk-allocation audit of the leading
+Notebook 36 LSEG/Gemma hybrid; it is not another sentiment threshold or event
+filter. Before reading the candidate's forward returns, it freezes the exact
+Gemma event schedule/counts and FinBERT-selected names, then applies the
+repository's existing inverse-volatility projector using a strictly lagged
+20-session open-return standard deviation, five-observation minimum, 50-bps
+floor, 25% name cap, exact dollar neutrality, no added leverage, and unused
+capacity in cash. The one-session horizon, final liquidation, and 10-bps/side
+cost remain unchanged. Paired candidate-minus-cash and candidate-minus-equal-
+weight net-return tests form one two-comparison BH family; both chronological
+halves, the Notebook 36 factor control, and rebuilt company/sector exclusions
+remain binding.
+
+The return-blind gate passes with all 70 event sessions retained (21/49 by
+half), complete selected-name volatilities, an 11.7% target-turnover reduction,
+and exact cap/neutrality compliance. Realised annualised net volatility falls
+from 7.55% to 6.47% and total turnover from 74.56 to 65.86. The inverse-
+volatility arm retains gross/net Sharpe 3.691/2.207, +9.77% net return, and
+24.37-bps/side break-even, but the equal-weight hybrid remains slightly
+stronger at 3.700/2.271 and +11.82%. The paired difference is −1.136
+bps/session [−2.679,+0.216] (BH q=0.123); cash BH q=0.111 and the
+sector-spanning alpha interval [−0.656,+8.712] bps/session (p=0.0919) also
+fail. Both half Sharpes and every company/sector exclusion remain positive.
+Record a lower-risk/lower-turnover implementation trade-off, not policy
+superiority or validated alpha. The equal-weight hybrid remains the leading
+same-window candidate; any confirmation still requires genuinely new dates.
 
 ### W4: Sentiment surprise
 
