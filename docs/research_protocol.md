@@ -209,7 +209,18 @@ metadata, and returns. Before any return model using the human labels is
 specified or opened, quadratic-weighted Cohen's kappa must be at least 0.60,
 its 95% event-bootstrap lower bound at least 0.40, and adjacent agreement at
 least 0.80. Exact agreement and the full confusion matrix are reported without
-an additional pass/fail threshold.
+an additional pass/fail threshold. Because `NA` is not ordinal, kappa excludes
+pairs containing `NA` and at least 48/60 pairs must be jointly numeric. Exact
+and adjacent agreement retain all 60 pairs (two `NA` labels agree; mixed
+numeric/`NA` does not). The 95% interval uses 9,999 event resamples with seed
+`20260819`; undefined kappa replicates are omitted. These details were frozen
+before coding.
+
+Notebook 16 now binds coder IDs/headlines/bodies with immutable semantic hashes;
+do not rerun it after coding starts. Notebook 62 validates those identities and
+executes the reliability gate only after both sheets are complete. Its current
+aggregate state is A 0/200 and B 0/60, so no reliability metric, machine proxy,
+sentiment score, or return has been opened.
 
 ### W3: Aggregation
 
@@ -575,7 +586,7 @@ and selection histories are not pooled or treated as directly comparable.
 A sentiment rule is eligible for promotion only if its paired net-return
 interval is favourable and excludes zero, its effect is temporally stable, its
 local predeclared gate passes, and the evidence tier is at least chronological
-or external-time. After the Notebook 61 refresh, one of eleven paired sentiment
+or external-time. After the Notebook 62 refresh, one of eleven paired sentiment
 or construction comparisons
 in Notebook 44 clears the interval condition and six show lower downside loss
 under their source conventions. The sole favourable interval is Notebook 47's

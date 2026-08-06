@@ -32,6 +32,7 @@ AUDIT_ALLOCATION: dict[str, int] = {
     "unmatched": 35,
 }
 DOUBLE_CODE_PER_STRATUM = 12
+EXPECTED_DOUBLE_CODE_ROWS = DOUBLE_CODE_PER_STRATUM * len(AUDIT_STRATA)
 DISTANCE_LABELS: tuple[str, ...] = ("0", "1", "2", "3", "NA")
 CONFIDENCE_LABELS: tuple[str, ...] = ("high", "medium", "low")
 RELIABILITY_BOOTSTRAP_REPLICATIONS = 9_999
@@ -298,8 +299,7 @@ def build_blinded_audit_sample(
         raise AssertionError("coder B worksheet leaks blinded fields")
     if len(coder_a) != sum(target.values()):
         raise AssertionError("coder A sample size does not match allocation")
-    expected_double = DOUBLE_CODE_PER_STRATUM * len(AUDIT_STRATA)
-    if len(coder_b) != expected_double:
+    if len(coder_b) != EXPECTED_DOUBLE_CODE_ROWS:
         raise AssertionError("coder B subset size does not match frozen design")
     return coder_a, coder_b, private_key, summary
 
@@ -442,6 +442,8 @@ def evaluate_cash_flow_reliability(
 
     if replications <= 0:
         raise ValueError("replications must be positive")
+    if len(coder_b) != EXPECTED_DOUBLE_CODE_ROWS:
+        raise ValueError(f"reliability requires exactly {EXPECTED_DOUBLE_CODE_ROWS} double-coded rows")
     a_status = validate_coder_sheet(coder_a, expected_rows=len(coder_a))
     b_status = validate_coder_sheet(coder_b, expected_rows=len(coder_b))
     if not a_status["is_complete"] or not b_status["is_complete"]:
@@ -531,6 +533,7 @@ __all__ = [
     "CONFIDENCE_LABELS",
     "DISTANCE_LABELS",
     "DOUBLE_CODE_PER_STRATUM",
+    "EXPECTED_DOUBLE_CODE_ROWS",
     "MIN_JOINT_NUMERIC",
     "RELIABILITY_BOOTSTRAP_REPLICATIONS",
     "RELIABILITY_SEED",

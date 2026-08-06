@@ -105,7 +105,9 @@ but remains non-viable at 10 bps/side, and its paired-scorer robustness check
 finds no statistically robust Gemma advantage. The apparent activity benefit
 is partly a score-resolution-induced abstention policy: Gemma produces opposing
 maximum-absolute ties on 47.73% of firm-opens under `strongest_event`. A
-separate 200-event full-text cash-flow-distance audit pack is prepared. LSEG
+separate 200-event full-text cash-flow-distance audit pack and fail-closed
+reliability notebook are prepared. Immutable ID/headline/body hashes bind the
+worksheets to the frozen sample; current progress is A 0/200 and B 0/60. LSEG
 story-family lineage is also now used directly: first-release filtering removes
 8,314 later-revision-only hashes but leaves the frozen continuous strategy
 decisively negative, so revision collapse is not a missing alpha mechanism.
@@ -238,7 +240,7 @@ new-date replay. Notebook 42's negative 2010 replay, Notebook 43, and the public
 replication jointly argue against another historical sentiment-ranking search.
 
 Notebook 44 makes that base decision auditable without reopening row-level
-outcomes. Refreshed through Notebook 61, it assigns an ordinal evidence tier to
+outcomes. Refreshed through Notebook 62, it assigns an ordinal evidence tier to
 20 representative strategy rows, keeps cross-regime Sharpes explicitly
 non-comparable, and applies one promotion policy to eleven paired sentiment or
 construction comparisons. One favourable interval excludes zero: Notebook 47's retrospective
@@ -324,6 +326,15 @@ sector-matched result remains useful gross name-selection evidence, but there is
 no stable or statistically isolated intraday/overnight mechanism. Do not create
 a component exit or continue historical session, direction, threshold, or
 allocation decomposition.
+
+Notebook 62 is the executable human cash-flow-distance reliability gate, not a
+strategy experiment. It verifies Notebook 16's frozen worksheet identities,
+reports aggregate coding progress, and remains stopped at A 0/200 and B 0/60.
+After both sheets are complete it will compute the predeclared weighted kappa,
+9,999-resample event-bootstrap interval, exact/adjacent agreement, and 5×5
+confusion matrix. `NA` pairs are excluded from ordinal kappa and at least 48/60
+pairs must be jointly numeric. No sentiment score, machine-proxy validation, or
+return is opened by this notebook.
 
 Notebook 45 separates unusually informative timing from the mechanical effect
 of reducing exposure. Every circular placement of the exact state is evaluated

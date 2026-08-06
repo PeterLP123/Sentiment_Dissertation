@@ -237,3 +237,20 @@ def test_reliability_gate_fails_insufficient_numeric_overlap_and_disagreement() 
     assert metrics["joint_numeric_rows"] == 47
     assert metrics["gate_pass"] is False
     assert metrics["exact_agreement"] < 0.5
+
+
+def test_reliability_rejects_nonfrozen_overlap_size() -> None:
+    base = pd.DataFrame(
+        {
+            "audit_id": [f"a-{index}" for index in range(59)],
+            "headline": "headline",
+            "clean_text": "text",
+        }
+    )
+    for column in CODER_COLUMNS[3:]:
+        base[column] = ""
+    labels = [str(index % 4) for index in range(59)]
+    completed = _complete_sheet(base.loc[:, CODER_COLUMNS], labels)
+
+    with pytest.raises(ValueError, match="exactly 60 double-coded rows"):
+        evaluate_cash_flow_reliability(completed, completed, replications=10)

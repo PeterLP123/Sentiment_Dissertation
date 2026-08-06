@@ -33,7 +33,10 @@ The split is a **chronological evaluation block**, not a pristine holdout. The s
    machine-proxy cash-flow-distance strategy family. Notebook 15 closes the
    expanded-corpus publisher family as another clean null. Notebook 16 uses
    the newly matched Reuters bodies to prepare a blinded 200-event human
-   cash-flow-distance audit; its labels remain outstanding. Notebook 17 then
+   cash-flow-distance audit; its labels remain outstanding. Notebook 62 now
+   validates the frozen worksheet identities, reports aggregate coding
+   progress, and conditionally executes the predeclared reliability gate; it
+   currently stops at coder A 0/200 and coder B 0/60. Notebook 17 then
    tests fixed sector-neutral and rank-hysteresis translations of Notebook
    13's strongest gross arm. Notebook 18 applies the exact frozen hysteresis
    rule to both scorers and shows that Gemma's apparent activity advantage is
@@ -244,7 +247,7 @@ The split is a **chronological evaluation block**, not a pristine holdout. The s
    Notebook 39's portable measurement construction is not historical alpha.
    Notebook 44 consolidates the aggregate-only strategy evidence without
    loading any price, return, position, or text rows and is now refreshed
-   through Notebook 61. The sentiment-free HAR target remains the research
+   through Notebook 62. The sentiment-free HAR target remains the research
    benchmark from Notebook 21 (net Sharpe 0.673, +29.85% net return, −15.73%
    drawdown), but the later transfer failure means it is not a time-stable or
    deployment-qualified strategy. Across eleven paired sentiment/construction comparisons,
@@ -453,9 +456,9 @@ The split is a **chronological evaluation block**, not a pristine holdout. The s
 | `lib/sparse_events.py` | Strict-prior indexed novelty, provisional material-event and cash-flow-distance features, strongest-event selection, exchange-session state carry, inactive-day closure, and fixed six-arm evaluation. Headline text is removed from returned frames. | Active; machine rules unvalidated |
 | `15_lseg_gemma_publisher_conditioning.ipynb` | Frozen expanded-LSEG publisher family: all-source, Reuters-only, non-Reuters-only, and Reuters-2× Gemma h1 signals with source-specific timestamps, four-test BH, costs, and block-bootstrap uncertainty. | Executed; clean null |
 | `lib/lseg_publishers.py` | Validates the merged source-code corpus, resolves only `NS:RTRS`, builds source-specific event timestamps, and evaluates the fixed four-arm family without exposing headline text. | Active |
-| `16_lseg_cash_flow_distance_audit.ipynb` | Validates the Reuters body corpus against successful Gemma hashes and prepares a return-blind 200-event audit plus an independently ordered 60-event double-code subset. Saved outputs show aggregate counts only. | Executed; audit prepared, labels outstanding |
-| `lib/cash_flow_audit.py` | Hash-validates the licensed full-text source, chooses one deterministic representative per headline, makes the fixed stratified sample, and writes leak-free local coder sheets and a private key. | Active |
-| `data/cash_flow_distance_codebook.md` | Frozen 0–3/NA construct definitions, coding fields, arbitration rule, and reliability-before-returns gate. | Tracked |
+| `16_lseg_cash_flow_distance_audit.ipynb` | Validates the Reuters body corpus against successful Gemma hashes and prepares a return-blind 200-event audit plus an independently ordered 60-event double-code subset. Immutable ID/headline/body hashes bind both worksheets to the frozen sample. | Executed; audit prepared, labels outstanding; do not rerun after coding starts |
+| `lib/cash_flow_audit.py` | Hash-validates the licensed full-text source, creates the deterministic sample, validates worksheet identity/completion, and evaluates the frozen weighted-kappa/bootstrap gate without loading returns or sentiment. | Active; focused tests pass |
+| `data/cash_flow_distance_codebook.md` | Frozen 0–3/NA definitions, coding fields, arbitration, jointly-numeric requirement, and reliability-before-returns gate. | Tracked |
 | `17_lseg_sector_portfolio_translation.ipynb` | Four return-blind h1 translations of Gemma `strongest_event`: global rank, within-sector rank, sector extremes, and top-half/bottom-half hysteresis. Reports activity, turnover, break-even, cost curves, block-bootstrap/BH inference, temporal halves, and a labelled matched-day diagnostic. The refreshed notebook records the later finding that discrete opposing Gemma extrema induce abstention. | Executed; improved gross/cost efficiency but clean 10-bps null |
 | `18_lseg_sector_hysteresis_scorer_robustness.ipynb` | Applies the exact frozen sector-hysteresis rule to paired FinBERT and Gemma scores on the same 7,348 firm-opens. Reports paired block-bootstrap inference, costs, activity overlap, temporal halves, score agreement, and the strongest-event resolution mechanism. | Executed; no robust scorer advantage and no viable 10-bps arm |
 | `lib/sector_portfolios.py` | Frozen 11-sector × four-company map, equal-sector dollar-neutral weights, extreme retention, liquidation accounting, block-mean inference, and fixed-weight cost repricing. | Active |
@@ -513,6 +516,7 @@ The split is a **chronological evaluation block**, not a pristine holdout. The s
 | `frozen_specs/lseg_gemma_hybrid_long_leg_exposure_control_v1.json` | Pre-outcome contract for Notebook 60's matched gross exposures, two paired comparisons, multiplicity family, and opened-window claim boundary. | Frozen at `daa8ebe`; complete |
 | `61_lseg_gemma_hybrid_long_leg_sector_component.ipynb` | Exact intraday/overnight decomposition of Notebook 60's selected-long minus same-sector gross difference, with a frozen two-component BH family and unchanged weights/horizon. | Executed; intraday +1.45 bps/session [−0.32,+3.40] and overnight +2.21 [−0.006,+4.85] both have BH q=0.1264; overnight reverses in the second half, neither gate passes, and no exit or component strategy is promoted |
 | `frozen_specs/lseg_gemma_hybrid_long_leg_sector_component_v1.json` | Pre-outcome contract for Notebook 61's exact additive identity, two component estimands, multiplicity family, and permanent no-exit/no-promotion boundary. | Frozen at `80f8912`; complete |
+| `62_lseg_cash_flow_distance_reliability_gate.ipynb` | Aggregate-output reliability/readiness notebook for the frozen local human audit. It verifies immutable worksheet identity, reports coding progress, and evaluates weighted kappa, its 9,999-event-bootstrap interval, exact/adjacent agreement, and the full confusion matrix only after both sheets are complete. | Executed; waiting for human labels at A 0/200 and B 0/60; no reliability metric or return opened |
 | `lib/prospective.py` | Tested fail-closed multi-batch registry auditor: verifies parent/acquisition/config/source hashes, contiguous intervals, the frozen 33, headline-only retrieval, timestamps, cross-batch deduplication, and aggregate-only outputs. | Active; synthetic contiguous/dedup and gap-rejection tests pass |
 | `lib/lseg_story_families.py` | Hash-only reconstruction of terminal-suffix LSEG story families, earliest releases, and first-to-current revision transitions with source-manifest verification; licensed headline text and raw story IDs are never returned. | Active; used by Notebooks 43 and 47 |
 | `lib/sparse_spread.py` | Tested exact-extrema equal-leg targets, symmetric capacity capping, within-sector demeaning, equal-weight sector projection, fail-closed exposure audits, and compact conversion of the validated drift-aware ledger. | Active |
