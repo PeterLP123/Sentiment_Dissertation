@@ -36,7 +36,7 @@ Profitability, a significant p-value, a neural network, and a wider news collect
 | Firm-day panel | Built: 715,546 rows, 570 priced symbols, 3,262 sessions | `01_panel` outputs/manifest |
 | Chronological split | Frozen: development through 2019, evaluation from 2020 | `lib/panel.py`, plan, protocol |
 | Final RQ | Open | Gate F1 after Stage S2 |
-| Current active work | Finish/waive the unlabelled novelty audit and take Gate F1 using the aggregate-only synthesis plus timing-placebo, external-time base, story-revision cost boundaries, inverse-volatility null, Notebook 51's implementation-capacity curve, Notebook 52's input-only liquidity-sizing stop, Notebooks 53–54's 27/120 prospective accumulation stop and append-only population ledger, Notebook 55's historical mid-cap FinBERT baseline reconciliation, Notebook 56's aggregate lineage/coverage control, and Notebook 57's role-separated candidate-base frontier. Historical alpha and allocation tuning are closed; preserve the Notebook 36 Gemma-timing/FinBERT-ranking hybrid unchanged and continue immutable new-date collection until the frozen prospective population permits its one replay. | Stage S2 exit / Gate F1; Notebooks 40–57 |
+| Current active work | Finish/waive the unlabelled novelty audit and take Gate F1 using the aggregate-only synthesis plus timing-placebo, external-time base, story-revision cost boundaries, inverse-volatility null, Notebook 51's point-estimate implementation-capacity curve, Notebook 52's input-only liquidity-sizing stop, Notebooks 53–54's 27/120 prospective accumulation stop and append-only population ledger, Notebook 55's historical mid-cap FinBERT baseline reconciliation, Notebook 56's aggregate lineage/coverage control, Notebook 57's role-separated candidate-base frontier, and Notebook 58's uncertainty-aware capacity null. Historical alpha and allocation tuning are closed; preserve the Notebook 36 Gemma-timing/FinBERT-ranking hybrid unchanged and continue immutable new-date collection until the frozen prospective population permits its one replay. | Stage S2 exit / Gate F1; Notebooks 40–58 |
 | Exploratory W3/W4 chain | Repaired and rerun; not promoted because it ran before Gate F1 | `03`–`07`, `INVALIDATED_RUNS.md` |
 | Scorer selection | Closed: FinBERT primary | Benchmark and prior reports |
 | VaR/ES | Closed | FNSPID factorial report |
@@ -238,7 +238,7 @@ new-date replay. Notebook 42's negative 2010 replay, Notebook 43, and the public
 replication jointly argue against another historical sentiment-ranking search.
 
 Notebook 44 makes that base decision auditable without reopening row-level
-outcomes. Refreshed through Notebook 57, it assigns an ordinal evidence tier to
+outcomes. Refreshed through Notebook 58, it assigns an ordinal evidence tier to
 20 representative strategy rows, keeps cross-regime Sharpes explicitly
 non-comparable, and applies one promotion policy to eleven paired sentiment or
 construction comparisons. One favourable interval excludes zero: Notebook 47's retrospective
@@ -282,6 +282,19 @@ retrospective evidence, not validated alpha: its sector-factor interval
 Y=1 impact, net Sharpe is 1.679 at $1m, 0.413 at $10m, and −0.632 at $25m, where
 ten orders exceed 5% ADV. Carry the exact strategy forward once; do not use this
 frontier to reopen historical tuning.
+
+Notebook 58 preserves that candidate, cost model, impact coefficient, and full
+AUM grid, then adds one pre-outcome-frozen sampling-uncertainty gate. Identical
+9,999 five-session circular-block resamples are used at every grid point; a
+point must have a strictly positive 95% mean-net interval, at least 95% positive
+terminal paths, positive observed net Sharpe in both halves, and no order above
+5% lagged ADV. No AUM passes. At $1m, the point Sharpe remains 1.679, but the
+mean-net interval is [−1.29,+11.64] bps/session, only 93.48% of terminal paths
+are positive, and second-half Sharpe is 0.016. At $10m, the interval is
+[−5.20,+8.02], the probability is 62.53%, and second-half Sharpe is −2.011.
+Therefore Notebook 51's $10m result is an optimistic point-estimate scenario
+bound, not uncertainty-qualified capacity. The frozen prospective candidate is
+unchanged and no alpha or deployment claim is promoted.
 
 Notebook 45 separates unusually informative timing from the mechanical effect
 of reducing exposure. Every circular placement of the exact state is evaluated
@@ -638,7 +651,7 @@ fix. Do not search another story-family rule on this window.
 
 Priority order:
 
-1. use Notebooks 44–57 to write the cross-regime conclusion: HAR remains the independent price/risk research benchmark but is not time-stable or deployment-qualified; aggregate sentiment shows one-period downside timing; Gemma/LSEG adds mechanical de-risking, a gross story-revision information effect whose economics fail at 10 bps/side, and one economically decent but retrospective Gemma-timing/FinBERT-ranking strategy candidate whose factor interval crosses zero and whose Y=1 impact Sharpe falls from 1.679 at $1m to 0.413 at $10m and −0.632 at $25m; daily liquidity-aware reweighting is rejected, the prospective append-only population remains stopped at 27/120 before scoring or returns, the historical mid-cap FinBERT comparator is retained at tier 2, and the complete local lineage audit finds no omitted adequately covered positive base;
+1. use Notebooks 44–58 to write the cross-regime conclusion: HAR remains the independent price/risk research benchmark but is not time-stable or deployment-qualified; aggregate sentiment shows one-period downside timing; Gemma/LSEG adds mechanical de-risking, a gross story-revision information effect whose economics fail at 10 bps/side, and one economically decent but retrospective Gemma-timing/FinBERT-ranking strategy candidate whose factor interval crosses zero and whose Y=1 impact Sharpe falls from 1.679 at $1m to 0.413 at $10m and −0.632 at $25m; the $10m result is only a point estimate because no AUM clears Notebook 58's uncertainty/stability/participation gate; daily liquidity-aware reweighting is rejected, the prospective append-only population remains stopped at 27/120 before scoring or returns, the historical mid-cap FinBERT comparator is retained at tier 2, and the complete local lineage audit finds no omitted adequately covered positive base;
 2. treat Notebooks 42–43 as falsifications and Notebooks 47–49 as a bounded mechanism/cost frontier, not permission to reverse sentiment, tune revision persistence, or search another revision filter on opened outcomes;
 3. finish or explicitly waive the human novelty audit and take Gate F1; Notebook 52 has used and closed the single permitted liquidity-aware implementation follow-up, so no historical alpha or allocation arm remains open;
 4. continue immutable LSEG acquisition through at least the earliest possible 120th session (2026-12-16); only after the 120-session, 60-active-session, and 20-per-half gates pass, score the fixed population and replay the frozen hybrid once as prospective evidence against its now-negative prior;
