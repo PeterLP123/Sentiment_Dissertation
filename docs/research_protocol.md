@@ -586,7 +586,7 @@ and selection histories are not pooled or treated as directly comparable.
 A sentiment rule is eligible for promotion only if its paired net-return
 interval is favourable and excludes zero, its effect is temporally stable, its
 local predeclared gate passes, and the evidence tier is at least chronological
-or external-time. After the Notebook 64 refresh, one of thirteen paired sentiment
+or external-time. After the Notebook 65 refresh, one of fifteen paired sentiment
 or construction comparisons
 in Notebook 44 clears the interval condition and six show lower downside loss
 under their source conventions. The sole favourable interval is Notebook 47's
@@ -933,6 +933,28 @@ frozen classifications are `nonviable`. Record the market hedge as descriptive
 risk-efficiency evidence, not superior return evidence; reject the sector
 hedge. Neither result changes the prospective contract, validates alpha, or
 permits another historical hedge, scaling, or cost search.
+
+Notebook 65 is one further user-authorized, pre-outcome-frozen retrospective
+information-specificity test, not independent confirmation. The local LSEG
+corpus has zero populated `subjects` or `entities` rows, so no Reuters topic
+taxonomy is invented. V1 required explicit-target, single-company,
+non-market-price/technical headlines for both scorers; it stopped before return
+construction when this left one FinBERT strongest-event firm-open rank missing.
+No v1 portfolio outcome was opened. V2 was then frozen before outcomes: apply
+the same return-blind filter only to Gemma's timing/count leg and retain
+Notebook 36's complete unfiltered FinBERT ranks exactly. No filter sweep,
+fallback, threshold, hedge, scaling, allocation, or horizon search is allowed.
+
+The filter raises defined Gemma strongest-event firm-opens from 3,841 to 4,826,
+but active both-sign sessions collapse from 70 to 22. At 10 bps/side the
+filtered hybrid has gross/net Sharpe 1.508/0.881, +3.09% net return, 23.01 total
+turnover, and 23.62-bps/side break-even. Its +1.88-bps/session cash comparison
+[−2.64,+7.01] has BH q=0.4449; its −4.93-bps/session difference from the
+incumbent [−10.82,+0.59] has q=0.1754; and its sector-spanning alpha is +1.00
+[−2.46,+4.46], p=0.5723. Both half means are positive, but the cash,
+incumbent-improvement, factor, and 60-active-session gates fail. Record the
+`nonviable` result as a specificity-versus-breadth mechanism null. It changes no
+prospective contract and closes further historical metadata-filter variants.
 
 Notebook 52 performs that single permitted input-first sizing audit. For an
 entry from flat, minimising the square-root objective within an unchanged leg
