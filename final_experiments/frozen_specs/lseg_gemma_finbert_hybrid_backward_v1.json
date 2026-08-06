@@ -1,0 +1,135 @@
+{
+  "schema_version": 1,
+  "status": "frozen_awaiting_lseg_collection",
+  "frozen_at_utc": "2026-08-06T13:03:17Z",
+  "frozen_at_git_commit": "5857f9b6623ae776474d1dbfbea02ee111035f6f",
+  "candidate_rq": "strategy construction and risk allocation; does the unchanged sparse Gemma-timing/FinBERT-ranking rule transfer to an earlier, non-overlapping LSEG period?",
+  "role_and_claim_boundary": {
+    "design": "external-time backward replication",
+    "evaluation_start_inclusive_utc": "2024-01-01T00:00:00Z",
+    "evaluation_end_exclusive_utc": "2025-10-26T00:00:00Z",
+    "available_xnys_sessions_upper_bound": 456,
+    "opened_selection_window_excluded": "2025-10-26 through 2026-06-26",
+    "prospective_claim_permitted": false,
+    "deployment_validation_claim_permitted": false,
+    "correct_interpretation_if_successful": "historical external-time corroboration of a rule selected on a later period",
+    "historical_parameter_retuning_permitted": false,
+    "fnspid_or_other_lseg_population_pooling_permitted": false,
+    "human_gemma_label_audit_still_required_for_promotion": true
+  },
+  "parent_strategy_spec": {
+    "path": "final_experiments/frozen_specs/lseg_gemma_finbert_hybrid_prospective_v1.json",
+    "sha256": "3be373597a8ff20482cd6ce4c647d7c440d934b7a6c8d5cc6e9c198da580b0fc",
+    "inherit_unchanged": [
+      "universe",
+      "news_and_timing",
+      "scorers",
+      "firm_open_aggregation",
+      "primary_strategy",
+      "secondary_risk_diagnostic",
+      "primary_inference_and_gates",
+      "audit_requirements",
+      "known_limitations"
+    ]
+  },
+  "collection": {
+    "config_path": "configs/lseg_us_sector_33_backward_20240101_20251026_headlines.toml",
+    "config_file_sha256": "930cf0161572e9dca8862faa5784f06f34941f8133a0c59400ddfd62485c889b",
+    "parsed_config_sha256": "dec91b53c0d0cf77b5f9038ca47256d23332654a35c2fed664167b30a92c8147",
+    "collection_id": "us_sector_33_backward_20240101_20251026_headlines",
+    "universe_policy": "exact same 33 company, RIC, query, and alias records as the frozen sector-33 source; no substitution",
+    "source": "all entitled English-language LSEG Workspace headlines returned by the frozen RIC queries",
+    "headline_only": true,
+    "window_days": 1,
+    "max_requests_per_run": 9500,
+    "user_daily_request_allowance": 10000,
+    "daily_reserve_for_checks_and_retries": 500,
+    "resumable": true,
+    "immutable_after_first_retrieval": true,
+    "collection_completion_required_before_scoring": true,
+    "partial_batch_use": "coverage and integrity monitoring only; no scoring, prices, returns, or strategy inference",
+    "licensed_text_source_controlled": false
+  },
+  "pre_return_stage_order": [
+    "complete and hash the immutable headline collection",
+    "normalize and deduplicate by the existing normalized-headline hash without prices",
+    "run the frozen Gemma model-drift audit",
+    "score the complete unique population with both frozen scorers",
+    "construct firm-open signals, strategy dates, counts, and names without loading prices",
+    "apply the frozen signal-population gate",
+    "open prices and returns once only if every preceding gate passes"
+  ],
+  "gemma_model_drift_gate": {
+    "purpose": "fail closed if the hosted scorer no longer supports the exact endpoint event definition used by the frozen strategy",
+    "reference_population": "successful rows in the completed 888155-headline DeepInfra FP8 LSEG score file recorded by the parent spec",
+    "sample_key": "normalized_headline_sha256",
+    "endpoint_stratum": "all 774 reference rows whose signed score is exactly +1.0 or -1.0",
+    "nonendpoint_stratum": "1000 non-endpoint hashes with the smallest SHA256 of '20260806:' plus normalized_headline_sha256",
+    "expected_sample_rows": 1774,
+    "sampling_uses_returns": false,
+    "scoring_contract": "exact parent Gemma model, provider, FP8 quantization, prompt, temperature, no-fallback, schema, and privacy contract",
+    "route_contract_mismatch": "hard fail",
+    "continuous_spearman_minimum": 0.95,
+    "continuous_mean_absolute_difference_maximum": 0.10,
+    "direction_agreement_minimum": 0.90,
+    "endpoint_same_direction_retention_minimum": 0.80,
+    "endpoint_opposite_direction_count_maximum": 0,
+    "nonendpoint_to_endpoint_rate_maximum": 0.05,
+    "failure_action": "report scorer non-comparability and stop before scoring the new population or opening returns; do not redefine the trigger"
+  },
+  "minimum_signal_population": {
+    "complete_collection_required": true,
+    "complete_price_calendar_sessions_required": 120,
+    "primary_active_sessions_required": 60,
+    "active_sessions_each_chronological_half_required": 20,
+    "chronological_halves": "split the available complete session sequence into equal ordered halves, assigning the extra session to the second half",
+    "signal_construction_uses_prices_or_returns": false,
+    "rule_if_not_met": "stop without performance inference; preserve the scored historical population as a measurement result"
+  },
+  "one_shot_return_replay": {
+    "primary": "inherit the parent equal-weight Gemma-timing/FinBERT-ranking strategy and every portfolio, cost, inference, factor, half-stability, and leave-out gate unchanged",
+    "reporting": [
+      "gross and net total return",
+      "gross and net annualised Sharpe",
+      "gross and net mean return per complete calendar session",
+      "turnover, maximum drawdown, break-even cost, and exposure",
+      "cash block-bootstrap interval and p-value",
+      "HAC factor intercept and p-value",
+      "chronological halves and rebuilt leave-one-company and leave-one-sector-out results"
+    ],
+    "primary_promotion_rule": "the inherited conjunctive parent gates; no threshold or strategy selection after returns are opened",
+    "secondary_mechanism_family": {
+      "promotion_eligible": false,
+      "multiplicity": "Benjamini-Hochberg over the two mechanism p-values",
+      "tests": [
+        "all non-zero circular shifts of the complete Gemma event/count schedule while FinBERT ranking, cap, horizon, and costs remain unchanged",
+        "same-session matched-count random-name assignments within the eligible frozen universe while Gemma dates/counts, cap, horizon, and costs remain unchanged"
+      ],
+      "interpretation": "diagnose whether any return result is specific to event timing and name ranking; these tests cannot rescue a failed primary gate"
+    }
+  },
+  "authorisation_boundaries": {
+    "lseg_collection_within_existing_research_licence": true,
+    "local_finbert_scoring_after_collection": true,
+    "paid_external_gemma_scoring_authorised_by_this_spec": false,
+    "required_before_paid_scoring": "explicit user approval of the incremental spend and licensed-headline transmission under the existing privacy controls",
+    "prices_or_returns_authorised_before_all_pre_return_gates": false
+  },
+  "audit_requirements": {
+    "collector_manifest_and_completion_timestamp_required": true,
+    "input_and_output_sha256_required": true,
+    "append_only_scoring_and_failed_attempt_retention_required": true,
+    "successful_rows_filter": "status == success",
+    "duplicate_successes_allowed": false,
+    "invalid_successful_probabilities_allowed": false,
+    "aggregate_licence_safe_source_controlled_outputs_only": true,
+    "all_failures_stops_and_sdk_workarounds_reported": true
+  },
+  "known_limitations": [
+    "The backward interval is earlier than the strategy-selection window but was proposed after that window was inspected, so it is stronger than another same-window test and weaker than a true prospective test.",
+    "The OpenRouter model identifier and provider pin do not cryptographically pin hosted model weights; the predeclared drift gate reduces but cannot eliminate this risk.",
+    "Exact +1/-1 endpoints are unusually calibration-sensitive, so drift-gate failure is a substantive measurement result rather than permission to tune a new endpoint.",
+    "LSEG archive coverage and metadata may differ from recent Workspace coverage even under identical queries.",
+    "Raw next-open price returns exclude dividends and do not establish intraday availability beyond the conservative parent timing rule."
+  ]
+}

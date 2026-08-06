@@ -1,6 +1,6 @@
 # Dissertation Execution Plan
 
-Last updated: 2026-08-05
+Last updated: 2026-08-06
 
 This is the delivery plan for the closing phase. The dissertation deadline is **1 September 2026**. Calendar promises from the superseded July 12 plan are retired; progress is controlled by evidence gates and stage exit conditions.
 
@@ -37,6 +37,7 @@ Profitability, a significant p-value, a neural network, and a wider news collect
 | Chronological split | Frozen: development through 2019, evaluation from 2020 | `lib/panel.py`, plan, protocol |
 | Final RQ | Open | Gate F1 after Stage S2 |
 | Current active work | Finish/waive the unlabelled novelty audit and take Gate F1 using the aggregate-only synthesis plus timing-placebo, external-time base, story-revision cost boundaries, inverse-volatility null, Notebook 51's point-estimate implementation-capacity curve, Notebook 52's input-only liquidity-sizing stop, Notebooks 53–54's 27/120 prospective accumulation stop and append-only population ledger, Notebook 55's historical mid-cap FinBERT baseline reconciliation, Notebook 56's aggregate lineage/coverage control, Notebook 57's role-separated candidate-base frontier, Notebook 58's uncertainty-aware capacity null, Notebooks 59–61's closed session/long-leg mechanism controls, Notebook 62's waiting human-construct gate, Notebook 63's positive but retrospective characteristic-adjusted name-selection evidence, Notebook 64's costed hedge-translation null with modest descriptive market-hedge risk efficiency, and Notebook 65's specificity-versus-breadth null. Historical alpha, allocation, session, characteristic-control, hedge, scaling, and metadata-filter expansion are closed; preserve the Notebook 36 Gemma-timing/FinBERT-ranking hybrid unchanged and continue immutable new-date collection until the frozen prospective population permits its one replay. | Stage S2 exit / Gate F1; Notebooks 40–65 |
+| Backward external-time arm | Frozen and collecting, without prices or returns | Same 33 companies, 2024-01-01 to 2025-10-26, 9,500-request resumable batches; `final_experiments/frozen_specs/lseg_gemma_finbert_hybrid_backward_v1.json` |
 | Exploratory W3/W4 chain | Repaired and rerun; not promoted because it ran before Gate F1 | `03`–`07`, `INVALIDATED_RUNS.md` |
 | Scorer selection | Closed: FinBERT primary | Benchmark and prior reports |
 | VaR/ES | Closed | FNSPID factorial report |
@@ -731,8 +732,9 @@ Priority order:
 2. treat Notebooks 42–43 as falsifications and Notebooks 47–49 as a bounded mechanism/cost frontier, not permission to reverse sentiment, tune revision persistence, or search another revision filter on opened outcomes;
 3. finish or explicitly waive the human novelty audit and take Gate F1; Notebook 52 has used and closed the single permitted liquidity-aware implementation follow-up, so no historical alpha or allocation arm remains open;
 4. continue immutable LSEG acquisition through at least the earliest possible 120th session (2026-12-16); only after the 120-session, 60-active-session, and 20-per-half gates pass, score the fixed population and replay the frozen hybrid once as prospective evidence against its now-negative prior;
-5. earnings-window exclusion or one pooled story-type interaction family only if the corresponding calendar/audit validity gate passes;
-6. learned thresholds remain closed unless a separately informative base signal exists.
+5. accumulate the separately frozen 2024-01-01 to 2025-10-26 same-33 LSEG backward arm without opening returns; after complete collection, require the predeclared Gemma drift gate and return-blind signal-population gate before one unchanged external-time replay;
+6. earnings-window exclusion or one pooled story-type interaction family only if the corresponding calendar/audit validity gate passes;
+7. learned thresholds remain closed unless a separately informative base signal exists.
 
 Limits:
 

@@ -683,6 +683,23 @@ class _LsegSdkBackend:
                 date_to=end,
                 count=count,
             )
+            # LSEG Data Library 2.1.1's asynchronous headline provider has a
+            # malformed ``dict.update`` call on its archive branch.  Keep the
+            # SDK's own age decision, but put archive parameters directly into
+            # the query so that the broken branch is not entered.  This can be
+            # removed once the SDK fixes its asynchronous archive routing.
+            provider = getattr(definition, "_provider", None)
+            archive_check = getattr(provider, "is_date_older_than_15months", None)
+            if callable(archive_check) and bool(archive_check(start)):
+                definition = self.news.headlines.Definition(
+                    query=query,
+                    count=count,
+                    extended_params={
+                        "dateFrom": start,
+                        "dateTo": end,
+                        "archive": True,
+                    },
+                )
         request = getattr(definition, "get_data_async", None) or definition.get_data
         response = await _await_if_needed(request())
         raw = _raw_data(response)
