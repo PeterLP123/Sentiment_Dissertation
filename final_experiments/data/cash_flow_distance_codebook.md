@@ -2,6 +2,9 @@
 
 Version: `cash_flow_distance_v1`, frozen 2026-08-05.
 
+Reliability estimand details below were frozen on 2026-08-06, before either
+coder entered a label.
+
 ## Construct
 
 Label how many unresolved economic prerequisites separate the event described
@@ -39,6 +42,15 @@ at least 0.40, and adjacent agreement (absolute coder difference at most one)
 must be at least 0.80. Report exact agreement and the full confusion matrix
 without an additional pass/fail cut. If any gate fails, revise the codebook and
 collect a fresh reliability sample before opening returns.
+
+`NA` is not an ordinal distance. Quadratic-weighted kappa therefore uses only
+double-coded events where both coders selected 0-3, and at least 48 of the 60
+events must be jointly numeric for the gate to pass. Exact and adjacent
+agreement use all 60 events: two `NA` labels agree, while a numeric/`NA` pair
+does not agree. The 95% kappa interval uses 9,999 event-level bootstrap
+resamples of the complete 60-event overlap with seed `20260819`; kappa is
+recomputed on the jointly numeric pairs in each resample and undefined
+replicates are omitted. These rules cannot be changed after labels are opened.
 
 The worksheets are deliberately blinded: they omit sentiment scores, proxy
 strata, source hashes, dates, symbols, and all realised returns. Licensed story

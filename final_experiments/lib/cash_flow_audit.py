@@ -9,12 +9,14 @@ to either coder.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
+from sklearn.metrics import cohen_kappa_score, confusion_matrix
 
 from final_experiments.lib.novelty import headline_norm_sha256
 from final_experiments.lib.sparse_events import classify_proxy_cash_flow_distance
@@ -30,6 +32,12 @@ AUDIT_ALLOCATION: dict[str, int] = {
     "unmatched": 35,
 }
 DOUBLE_CODE_PER_STRATUM = 12
+EXPECTED_DOUBLE_CODE_ROWS = DOUBLE_CODE_PER_STRATUM * len(AUDIT_STRATA)
+DISTANCE_LABELS: tuple[str, ...] = ("0", "1", "2", "3", "NA")
+CONFIDENCE_LABELS: tuple[str, ...] = ("high", "medium", "low")
+RELIABILITY_BOOTSTRAP_REPLICATIONS = 9_999
+RELIABILITY_SEED = 20260819
+MIN_JOINT_NUMERIC = 48
 CODER_COLUMNS: tuple[str, ...] = (
     "audit_id",
     "headline",
@@ -40,6 +48,77 @@ CODER_COLUMNS: tuple[str, ...] = (
     "confidence",
     "notes",
 )
+
+
+def worksheet_identity_sha256(frame: pd.DataFrame) -> str:
+    """Hash immutable worksheet content while allowing coding fields to change."""
+
+    identity_columns = ("audit_id", "headline", "clean_text")
+    missing = set(identity_columns) - set(frame.columns)
+    if missing:
+        raise ValueError(f"worksheet identity columns missing: {sorted(missing)}")
+    canonical = frame.loc[:, identity_columns].fillna("").astype(str).to_csv(index=False, lineterminator="\n")
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def validate_coder_sheet(
+    frame: pd.DataFrame,
+    *,
+    expected_rows: int,
+    expected_ids: set[str] | None = None,
+) -> dict[str, Any]:
+    """Validate one worksheet and report completion without exposing its text."""
+
+    if tuple(frame.columns) != CODER_COLUMNS:
+        raise ValueError("coder worksheet columns do not match the frozen schema")
+    sheet = frame.fillna("").astype(str)
+    ids = sheet["audit_id"].str.strip()
+    if len(sheet) != expected_rows:
+        raise ValueError(f"coder worksheet has {len(sheet)} rows; {expected_rows} required")
+    if ids.eq("").any() or ids.duplicated().any():
+        raise ValueError("coder worksheet audit_id values must be nonblank and unique")
+    if expected_ids is not None and set(ids) != set(expected_ids):
+        raise ValueError("coder worksheet audit_id set does not match the frozen sample")
+
+    distance = sheet["human_distance"].str.strip().str.upper()
+    confidence = sheet["confidence"].str.strip().str.lower()
+    invalid_distance = distance.loc[distance.ne("") & ~distance.isin(DISTANCE_LABELS)]
+    invalid_confidence = confidence.loc[confidence.ne("") & ~confidence.isin(CONFIDENCE_LABELS)]
+    if not invalid_distance.empty:
+        raise ValueError("coder worksheet contains an invalid human_distance value")
+    if not invalid_confidence.empty:
+        raise ValueError("coder worksheet contains an invalid confidence value")
+
+    required = sheet.loc[
+        :,
+        (
+            "human_distance",
+            "unresolved_prerequisites",
+            "evidence_span",
+            "confidence",
+        ),
+    ].apply(lambda column: column.str.strip().ne(""))
+    complete = required.all(axis=1)
+    started = required.any(axis=1) | sheet["notes"].str.strip().ne("")
+    partially_complete = started & ~complete
+
+    prerequisites = sheet["unresolved_prerequisites"].str.strip().str.lower()
+    bad_zero = complete & distance.eq("0") & prerequisites.ne("none")
+    bad_nonzero = complete & distance.isin(("1", "2", "3")) & prerequisites.eq("none")
+    if bad_zero.any():
+        raise ValueError("completed distance-0 rows must record prerequisites as 'none'")
+    if bad_nonzero.any():
+        raise ValueError("completed distance-1/2/3 rows must name a prerequisite")
+
+    return {
+        "rows": int(len(sheet)),
+        "complete_rows": int(complete.sum()),
+        "partial_rows": int(partially_complete.sum()),
+        "unstarted_rows": int((~started).sum()),
+        "is_complete": bool(complete.all()),
+    }
+
+
 FORBIDDEN_CODER_COLUMNS: frozenset[str] = frozenset(
     {
         "headline_sha256",
@@ -58,9 +137,7 @@ FORBIDDEN_CODER_COLUMNS: frozenset[str] = frozenset(
 
 def _proxy_stratum(text: pd.Series) -> pd.Series:
     distance = classify_proxy_cash_flow_distance(text)
-    return distance.map({0: "d0", 1: "d1", 2: "d2", 3: "d3"}).fillna(
-        "unmatched"
-    )
+    return distance.map({0: "d0", 1: "d1", 2: "d2", 3: "d3"}).fillna("unmatched")
 
 
 def load_full_text_candidates(
@@ -125,18 +202,9 @@ def load_full_text_candidates(
         ascending=[True, False, True, True],
         kind="mergesort",
     ).drop_duplicates("headline_sha256", keep="first")
-    candidates["proxy_stratum"] = _proxy_stratum(
-        candidates["headline"] + "\n" + candidates["clean_text"]
-    )
-    candidates = candidates.sort_values("headline_sha256", kind="mergesort").reset_index(
-        drop=True
-    )
-    counts = (
-        candidates["proxy_stratum"]
-        .value_counts()
-        .reindex(AUDIT_STRATA, fill_value=0)
-        .astype(int)
-    )
+    candidates["proxy_stratum"] = _proxy_stratum(candidates["headline"] + "\n" + candidates["clean_text"])
+    candidates = candidates.sort_values("headline_sha256", kind="mergesort").reset_index(drop=True)
+    counts = candidates["proxy_stratum"].value_counts().reindex(AUDIT_STRATA, fill_value=0).astype(int)
     audit = {
         "rows_read": rows_read,
         "rows_with_nonempty_full_text": rows_with_text,
@@ -178,9 +246,7 @@ def build_blinded_audit_sample(
         pool = candidates.loc[candidates["proxy_stratum"].eq(stratum)].copy()
         requested = int(target[stratum])
         if len(pool) < requested:
-            raise ValueError(
-                f"stratum {stratum} has {len(pool)} candidates; {requested} required"
-            )
+            raise ValueError(f"stratum {stratum} has {len(pool)} candidates; {requested} required")
         chosen = rng.choice(pool.index.to_numpy(), size=requested, replace=False)
         sample = pool.loc[chosen].copy()
         sample["inclusion_probability"] = requested / len(pool)
@@ -203,9 +269,7 @@ def build_blinded_audit_sample(
         positions = selected.index[selected["proxy_stratum"].eq(stratum)].to_numpy()
         if len(positions) < DOUBLE_CODE_PER_STRATUM:
             raise ValueError(f"stratum {stratum} cannot supply double-code subset")
-        double_positions = rng.choice(
-            positions, size=DOUBLE_CODE_PER_STRATUM, replace=False
-        )
+        double_positions = rng.choice(positions, size=DOUBLE_CODE_PER_STRATUM, replace=False)
         selected.loc[double_positions, "double_code"] = True
 
     coder_base = selected[["audit_id", "headline", "clean_text"]].copy()
@@ -235,8 +299,7 @@ def build_blinded_audit_sample(
         raise AssertionError("coder B worksheet leaks blinded fields")
     if len(coder_a) != sum(target.values()):
         raise AssertionError("coder A sample size does not match allocation")
-    expected_double = DOUBLE_CODE_PER_STRATUM * len(AUDIT_STRATA)
-    if len(coder_b) != expected_double:
+    if len(coder_b) != EXPECTED_DOUBLE_CODE_ROWS:
         raise AssertionError("coder B subset size does not match frozen design")
     return coder_a, coder_b, private_key, summary
 
@@ -264,8 +327,7 @@ def write_audit_pack(
         "status": "prepared_unlabelled",
         "seed": int(seed),
         "estimand": (
-            "human inter-coder reliability and criterion validity of a 0-3 "
-            "cash-flow-distance construct; no return analysis is opened here"
+            "human inter-coder reliability and criterion validity of a 0-3 cash-flow-distance construct; no return analysis is opened here"
         ),
         "sample_rows": int(len(coder_a)),
         "double_code_rows": int(len(coder_b)),
@@ -286,11 +348,181 @@ def write_audit_pack(
                 "sampling_summary.csv",
             )
         },
+        "worksheet_identity_sha256": {
+            "coder_a_200.csv": worksheet_identity_sha256(coder_a),
+            "coder_b_double_code_60.csv": worksheet_identity_sha256(coder_b),
+        },
     }
-    (output / "manifest.json").write_text(
-        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    (output / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return manifest
+
+
+def load_cash_flow_audit_state(output_dir: str | Path) -> dict[str, Any]:
+    """Load a prepared audit pack and fail closed on sample or text changes."""
+
+    output = Path(output_dir)
+    manifest_path = output / "manifest.json"
+    if not manifest_path.is_file():
+        raise ValueError(f"audit manifest is missing: {manifest_path}")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    required_files = {
+        "coder_a_200.csv",
+        "coder_b_double_code_60.csv",
+        "private_sampling_key.csv",
+        "sampling_summary.csv",
+    }
+    if not required_files.issubset(set(manifest.get("files") or {})):
+        raise ValueError("audit manifest does not contain the frozen file contract")
+    identities = manifest.get("worksheet_identity_sha256") or {}
+    if set(identities) != {
+        "coder_a_200.csv",
+        "coder_b_double_code_60.csv",
+    }:
+        raise ValueError("audit manifest lacks immutable worksheet identities")
+
+    for name in ("private_sampling_key.csv", "sampling_summary.csv"):
+        path = output / name
+        if not path.is_file() or sha256_file(path) != manifest["files"][name]:
+            raise ValueError(f"frozen audit artifact hash mismatch: {name}")
+
+    coder_a = pd.read_csv(output / "coder_a_200.csv", dtype=str, keep_default_na=False)
+    coder_b = pd.read_csv(output / "coder_b_double_code_60.csv", dtype=str, keep_default_na=False)
+    private_key = pd.read_csv(output / "private_sampling_key.csv")
+    if "audit_id" not in private_key or "double_code" not in private_key:
+        raise ValueError("private sampling key lacks audit_id or double_code")
+    key_ids = set(private_key["audit_id"].astype(str))
+    double_code = private_key["double_code"]
+    if double_code.dtype != bool:
+        double_code = double_code.astype(str).str.strip().str.lower().map({"true": True, "false": False})
+        if double_code.isna().any():
+            raise ValueError("private sampling key contains invalid double_code values")
+    double_ids = set(private_key.loc[double_code, "audit_id"].astype(str))
+
+    for name, sheet in (
+        ("coder_a_200.csv", coder_a),
+        ("coder_b_double_code_60.csv", coder_b),
+    ):
+        if worksheet_identity_sha256(sheet) != identities[name]:
+            raise ValueError(f"immutable coder worksheet content changed: {name}")
+
+    coder_a_status = validate_coder_sheet(
+        coder_a,
+        expected_rows=int(manifest["sample_rows"]),
+        expected_ids=key_ids,
+    )
+    coder_b_status = validate_coder_sheet(
+        coder_b,
+        expected_rows=int(manifest["double_code_rows"]),
+        expected_ids=double_ids,
+    )
+    return {
+        "manifest": manifest,
+        "coder_a": coder_a,
+        "coder_b": coder_b,
+        "private_key": private_key,
+        "coder_a_status": coder_a_status,
+        "coder_b_status": coder_b_status,
+        "ready_for_reliability": bool(coder_a_status["is_complete"] and coder_b_status["is_complete"]),
+    }
+
+
+def evaluate_cash_flow_reliability(
+    coder_a: pd.DataFrame,
+    coder_b: pd.DataFrame,
+    *,
+    replications: int = RELIABILITY_BOOTSTRAP_REPLICATIONS,
+    seed: int = RELIABILITY_SEED,
+) -> tuple[dict[str, Any], pd.DataFrame, np.ndarray]:
+    """Evaluate the frozen double-code gate after both sheets are complete.
+
+    Ordinal kappa excludes pairs containing ``NA``. Exact and adjacent
+    agreement use every event: two ``NA`` labels agree and a mixed ``NA`` pair
+    disagrees. Bootstrap resampling is by event across the complete overlap.
+    """
+
+    if replications <= 0:
+        raise ValueError("replications must be positive")
+    if len(coder_b) != EXPECTED_DOUBLE_CODE_ROWS:
+        raise ValueError(f"reliability requires exactly {EXPECTED_DOUBLE_CODE_ROWS} double-coded rows")
+    a_status = validate_coder_sheet(coder_a, expected_rows=len(coder_a))
+    b_status = validate_coder_sheet(coder_b, expected_rows=len(coder_b))
+    if not a_status["is_complete"] or not b_status["is_complete"]:
+        raise ValueError("both coder worksheets must be complete before reliability")
+
+    overlap = coder_b[["audit_id", "human_distance"]].merge(
+        coder_a[["audit_id", "human_distance"]],
+        on="audit_id",
+        how="left",
+        validate="one_to_one",
+        suffixes=("_b", "_a"),
+    )
+    if overlap["human_distance_a"].isna().any():
+        raise ValueError("coder B contains audit IDs absent from coder A")
+    a = overlap["human_distance_a"].astype(str).str.strip().str.upper()
+    b = overlap["human_distance_b"].astype(str).str.strip().str.upper()
+    numeric = a.isin(("0", "1", "2", "3")) & b.isin(("0", "1", "2", "3"))
+    joint_numeric = int(numeric.sum())
+
+    def _weighted_kappa(left: pd.Series, right: pd.Series) -> float:
+        if len(left) == 0:
+            return float("nan")
+        return float(
+            cohen_kappa_score(
+                left.astype(int),
+                right.astype(int),
+                labels=[0, 1, 2, 3],
+                weights="quadratic",
+            )
+        )
+
+    kappa = _weighted_kappa(a.loc[numeric], b.loc[numeric])
+    exact = a.eq(b)
+    adjacent = pd.Series(False, index=overlap.index)
+    adjacent.loc[a.eq("NA") & b.eq("NA")] = True
+    adjacent.loc[numeric] = a.loc[numeric].astype(int).sub(b.loc[numeric].astype(int)).abs().le(1)
+
+    rng = np.random.default_rng(seed)
+    bootstrap_values: list[float] = []
+    for _ in range(replications):
+        positions = rng.integers(0, len(overlap), size=len(overlap))
+        sampled_a = a.iloc[positions].reset_index(drop=True)
+        sampled_b = b.iloc[positions].reset_index(drop=True)
+        sampled_numeric = sampled_a.isin(("0", "1", "2", "3")) & sampled_b.isin(("0", "1", "2", "3"))
+        sampled_kappa = _weighted_kappa(sampled_a.loc[sampled_numeric], sampled_b.loc[sampled_numeric])
+        if np.isfinite(sampled_kappa):
+            bootstrap_values.append(sampled_kappa)
+    bootstrap = np.asarray(bootstrap_values, dtype=float)
+    lower = float(np.quantile(bootstrap, 0.025)) if len(bootstrap) else float("nan")
+    upper = float(np.quantile(bootstrap, 0.975)) if len(bootstrap) else float("nan")
+    adjacent_rate = float(adjacent.mean())
+    gate_pass = bool(
+        joint_numeric >= MIN_JOINT_NUMERIC
+        and np.isfinite(kappa)
+        and kappa >= 0.60
+        and np.isfinite(lower)
+        and lower >= 0.40
+        and adjacent_rate >= 0.80
+    )
+    metrics = {
+        "overlap_rows": int(len(overlap)),
+        "joint_numeric_rows": joint_numeric,
+        "minimum_joint_numeric_rows": MIN_JOINT_NUMERIC,
+        "quadratic_weighted_kappa": kappa,
+        "bootstrap_replications_requested": int(replications),
+        "bootstrap_replications_valid": int(len(bootstrap)),
+        "bootstrap_seed": int(seed),
+        "kappa_ci_lower_95": lower,
+        "kappa_ci_upper_95": upper,
+        "exact_agreement": float(exact.mean()),
+        "adjacent_agreement": adjacent_rate,
+        "gate_pass": gate_pass,
+    }
+    matrix = pd.DataFrame(
+        confusion_matrix(a, b, labels=list(DISTANCE_LABELS)),
+        index=pd.Index(DISTANCE_LABELS, name="coder_a"),
+        columns=pd.Index(DISTANCE_LABELS, name="coder_b"),
+    )
+    return metrics, matrix, bootstrap
 
 
 __all__ = [
@@ -298,8 +530,18 @@ __all__ = [
     "AUDIT_SEED",
     "AUDIT_STRATA",
     "CODER_COLUMNS",
+    "CONFIDENCE_LABELS",
+    "DISTANCE_LABELS",
     "DOUBLE_CODE_PER_STRATUM",
+    "EXPECTED_DOUBLE_CODE_ROWS",
+    "MIN_JOINT_NUMERIC",
+    "RELIABILITY_BOOTSTRAP_REPLICATIONS",
+    "RELIABILITY_SEED",
     "build_blinded_audit_sample",
+    "evaluate_cash_flow_reliability",
+    "load_cash_flow_audit_state",
     "load_full_text_candidates",
+    "validate_coder_sheet",
+    "worksheet_identity_sha256",
     "write_audit_pack",
 ]
