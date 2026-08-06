@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "status": "authorised_before_next_resume",
+  "recorded_at_utc": "2026-08-06T14:41:06Z",
+  "recorded_at_git_commit": "aecb9ee4a45ef3f372f21369ca80fded200733d7",
+  "parent_backward_spec": {
+    "path": "final_experiments/frozen_specs/lseg_gemma_finbert_hybrid_backward_v1.json",
+    "sha256": "5b4744c78026ae8294b8c492d59b02a0ddcef5efb9598f7fd70dc56c1fcbca98"
+  },
+  "collection_config": {
+    "path": "configs/lseg_us_sector_33_backward_20240101_20251026_headlines.toml",
+    "sha256": "930cf0161572e9dca8862faa5784f06f34941f8133a0c59400ddfd62485c889b",
+    "changed": false
+  },
+  "researcher_instruction": "Future quota batches should collect each date across the full frozen company universe before advancing to the next date.",
+  "transition_checkpoint": {
+    "completed_windows": 1469,
+    "headline_page_checkpoints": 4841,
+    "company_major_coverage": {
+      "AAPL": "664/664 windows",
+      "MSFT": "664/664 windows",
+      "NVDA": "141/664 windows",
+      "remaining_30_companies": "0/664 windows"
+    },
+    "pagination_anomalies": 0,
+    "daily_quota_remaining": 0
+  },
+  "change": {
+    "before": "company-major traversal: complete every date for one company before moving to the next company",
+    "after": "date-major traversal: for each date, complete every company before moving to the next date",
+    "existing_checkpoint_policy": "reuse every existing symbol-window-page checkpoint without refetching",
+    "final_population_changed": false,
+    "checkpoint_names_or_contents_changed": false,
+    "dates_queries_universe_or_source_changed": false,
+    "strategy_scoring_or_inference_changed": false
+  },
+  "purpose": [
+    "make future partial checkpoints converge toward a complete cross-sectional date prefix",
+    "retain a coherent bounded subpanel if quota, storage, or deadline constraints stop the full collection",
+    "support return-blind coverage and population-feasibility audits before full completion"
+  ],
+  "still_prohibited_before_full_collection": [
+    "Gemma or FinBERT scoring of the backward population",
+    "loading prices or returns",
+    "strategy construction, performance inference, or parameter selection"
+  ]
+}
