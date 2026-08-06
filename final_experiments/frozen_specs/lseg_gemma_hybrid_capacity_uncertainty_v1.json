@@ -1,0 +1,51 @@
+{
+  "status": "frozen_before_bootstrap_outcomes",
+  "frozen_on": "2026-08-06",
+  "notebook": "58_lseg_gemma_hybrid_capacity_uncertainty.ipynb",
+  "candidate": {
+    "precedent": "Notebook 36 equal-weight Gemma-event-timing and FinBERT-ranking hybrid",
+    "universe": "immutable original LSEG sector-33",
+    "holding_period": "one complete open-to-open session",
+    "single_name_cap": 0.25,
+    "fixed_cost_bps_per_side": 10.0,
+    "impact_model_precedent": "Notebook 51 primary square-root model",
+    "impact_coefficient_Y": 1.0,
+    "hard_participation_ceiling": 0.05
+  },
+  "initial_aum_usd_grid": [
+    1000000,
+    2000000,
+    5000000,
+    10000000,
+    25000000,
+    50000000,
+    100000000,
+    250000000,
+    500000000,
+    1000000000
+  ],
+  "bootstrap": {
+    "method": "paired circular moving-block bootstrap of the full daily net-return path",
+    "block_length_sessions": 5,
+    "replications": 9999,
+    "seed": 20260815,
+    "confidence_level": 0.95,
+    "same_resample_indices_across_aum": true
+  },
+  "uncertainty_aware_capacity_gate": {
+    "mean_daily_net_return_ci_low_strictly_positive": true,
+    "probability_bootstrap_terminal_net_return_positive_at_least": 0.95,
+    "first_half_net_sharpe_strictly_positive": true,
+    "second_half_net_sharpe_strictly_positive": true,
+    "all_orders_within_hard_participation_ceiling": true,
+    "reported_capacity": "largest passing predeclared grid point; no interpolation"
+  },
+  "claim_boundary": {
+    "historical_strategy_retuning_permitted": false,
+    "prospective_contract_changed": false,
+    "alpha_promotion_permitted": false,
+    "source_regimes_pooled": false,
+    "licensed_headline_text_permitted": false,
+    "row_level_returns_may_be_persisted": false
+  }
+}

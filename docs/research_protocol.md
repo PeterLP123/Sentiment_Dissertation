@@ -575,7 +575,7 @@ and selection histories are not pooled or treated as directly comparable.
 A sentiment rule is eligible for promotion only if its paired net-return
 interval is favourable and excludes zero, its effect is temporally stable, its
 local predeclared gate passes, and the evidence tier is at least chronological
-or external-time. After the Notebook 57 refresh, one of eleven paired sentiment
+or external-time. After the Notebook 58 refresh, one of eleven paired sentiment
 or construction comparisons
 in Notebook 44 clears the interval condition and six show lower downside loss
 under their source conventions. The sole favourable interval is Notebook 47's
@@ -638,7 +638,8 @@ the sector-factor interval [−0.44,+10.08] crosses zero and the candidate was
 selected through an iterative opened-window chain. Under the frozen Y=1 impact
 scenario, net Sharpe falls to 1.679 at $1m, 0.413 at $10m, and −0.632 at $25m;
 ten $25m orders exceed 5% ADV. Preserve the unchanged candidate and capacity
-scenarios until genuinely new dates satisfy the frozen population gates.
+scenarios until genuinely new dates satisfy the frozen population gates;
+Notebook 58's sampling-uncertainty result governs any capacity claim.
 
 Notebook 45 is the single permitted post-result diagnostic of the repeated
 downside result. It enumerates every circular placement of the complete frozen
@@ -812,6 +813,28 @@ This is an implementation upper bound and failure anatomy, not deployment
 qualification, independent confirmation, or a promotion effect. A separately
 frozen liquidity-aware sizing audit may diagnose the concentrated bottleneck,
 but cannot revise the alpha conclusion or replace the prospective new-date gate.
+
+Notebook 58 is the pre-outcome-frozen sampling-uncertainty audit of Notebook
+51's unchanged primary `Y=1` capacity curve. It uses the identical full AUM grid,
+10-bps fixed cost, impact model, and 5%-ADV ceiling. The circular moving-block
+bootstrap is fixed at five sessions, 9,999 replications, and seed `20260815`,
+with identical resample indices across AUM. A grid point is uncertainty-qualified
+only when the 95% interval for mean daily net return is strictly positive, at
+least 95% of bootstrapped terminal returns are positive, observed net Sharpe is
+strictly positive in both chronological halves, and every order remains within
+5% lagged full-day ADV. The reported capacity is the largest passing predeclared
+grid point; interpolation is forbidden.
+
+The replay reproduces Notebook 51's metrics within `1.78e-15` and the shared
+bootstrap helper exactly. No AUM passes. At $1m, point net Sharpe is 1.679 but
+its bootstrap Sharpe interval is [−0.534,+3.431], mean-net interval is
+[−1.29,+11.64] bps/session, positive-terminal probability is 93.48%, and half
+Sharpes are 3.052/0.016. At $10m, point Sharpe is 0.413, mean-net interval is
+[−5.20,+8.02], positive-terminal probability is 62.53%, and half Sharpes are
+2.408/−2.011. Thus $10m remains only an optimistic point-estimate scenario
+bound. This does not invalidate Notebook 51's arithmetic, alter the candidate,
+or license historical retuning; it prevents an uncertainty-qualified capacity
+or deployment claim before the genuinely new-date replay.
 
 Notebook 52 performs that single permitted input-first sizing audit. For an
 entry from flat, minimising the square-root objective within an unchanged leg
