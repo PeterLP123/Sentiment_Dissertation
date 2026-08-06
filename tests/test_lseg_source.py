@@ -2,6 +2,7 @@ import asyncio
 import json
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -119,6 +120,44 @@ aliases = ["Apple"]
     assert config.companies[0].news_query == "R:AAPL.O and Language:LEN"
     assert config.session == "desktop"
     assert config.start.endswith("Z")
+
+
+def test_sdk_backend_routes_old_headline_dates_through_archive_params() -> None:
+    definitions: list[dict[str, object]] = []
+
+    class Definition:
+        def __init__(self, **kwargs: object) -> None:
+            definitions.append(kwargs)
+            self._kwargs = kwargs
+            self._provider = SimpleNamespace(
+                is_date_older_than_15months=lambda value: value == "2024-01-01T00:00:00Z"
+            )
+
+        async def get_data_async(self) -> SimpleNamespace:
+            assert self._kwargs.get("date_from") is None
+            assert self._kwargs["extended_params"] == {
+                "dateFrom": "2024-01-01T00:00:00Z",
+                "dateTo": "2024-01-02T00:00:00Z",
+                "archive": True,
+            }
+            return SimpleNamespace(data=SimpleNamespace(raw={"meta": {}}, df=None))
+
+    backend = lseg_source._LsegSdkBackend()
+    backend.news = SimpleNamespace(headlines=SimpleNamespace(Definition=Definition))
+
+    result = asyncio.run(
+        backend.headline_page(
+            query="R:AAPL.O",
+            start="2024-01-01T00:00:00Z",
+            end="2024-01-02T00:00:00Z",
+            count=100,
+            cursor=None,
+        )
+    )
+
+    assert len(definitions) == 2
+    assert definitions[0]["date_from"] == "2024-01-01T00:00:00Z"
+    assert result.rows == []
 
 
 def test_load_lseg_config_accepts_window_days(tmp_path: Path) -> None:
