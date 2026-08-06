@@ -1,0 +1,57 @@
+{
+  "status": "frozen_before_control_outcomes",
+  "frozen_on": "2026-08-06",
+  "notebook": "60_lseg_gemma_hybrid_long_leg_exposure_control.ipynb",
+  "motivation": {
+    "precedent": "Notebook 59 found that the unchanged Notebook 36 long leg supplied 97.4% of total arithmetic gross contribution",
+    "timing": "post-result mechanism diagnostic on an opened historical window",
+    "question": "Does the selected long leg beat same-date market and same-sector exposure controls, or is its gross result explained by broad or sector exposure?"
+  },
+  "candidate": {
+    "precedent": "Notebook 36 equal-weight Gemma-event-timing and FinBERT-ranking hybrid",
+    "universe": "immutable original LSEG sector-33, three companies in each of 11 sectors",
+    "selected_long_weights": "positive Notebook 36 target weights only; dates, counts, names, and weights unchanged",
+    "return_horizon": "same one-session open-to-open price return as Notebook 36",
+    "price_convention": "split-adjusted price returns; dividends not back-adjusted"
+  },
+  "controls": {
+    "equal_weight_market": "on each session, distribute the selected long leg's total positive target weight equally across all 33 original companies",
+    "same_sector_equal_weight": "on each session and within each sector, distribute the selected long leg's sector-level positive target weight equally across all three original sector members",
+    "matching": [
+      "same signal session",
+      "same total long gross exposure",
+      "same open-to-open return interval",
+      "same sector exposures for the same-sector control"
+    ],
+    "cost_treatment": "gross contributions only; no control turnover, trading cost, or net strategy is constructed"
+  },
+  "inference": {
+    "estimands": [
+      "mean selected-long minus equal-weight-market gross contribution per complete session",
+      "mean selected-long minus same-sector-equal-weight gross contribution per complete session"
+    ],
+    "method": "two-sided paired circular moving-block bootstrap",
+    "block_length_sessions": 5,
+    "replications": 9999,
+    "seed": 20260817,
+    "multiplicity_family": "two exposure-control differences",
+    "bh_q": 0.05,
+    "positive_gate": "difference mean is positive and BH-adjusted null is rejected"
+  },
+  "mechanism_classification": {
+    "both": "selected long passes both the market and same-sector positive gates",
+    "market_only": "selected long passes only the market positive gate",
+    "sector_only": "selected long passes only the same-sector positive gate",
+    "neither": "selected long passes neither positive gate"
+  },
+  "claim_boundary": {
+    "historical_strategy_retuning_permitted": false,
+    "new_traded_strategy_constructed": false,
+    "short_leg_rule_changed": false,
+    "cost_or_turnover_comparison_permitted": false,
+    "prospective_contract_changed": false,
+    "alpha_promotion_permitted": false,
+    "source_regimes_pooled": false,
+    "licensed_headline_text_permitted": false
+  }
+}
