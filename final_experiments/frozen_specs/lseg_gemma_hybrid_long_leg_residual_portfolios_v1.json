@@ -1,0 +1,78 @@
+{
+  "experiment_id": "N64_lseg_gemma_hybrid_long_leg_residual_portfolios_v1",
+  "status": "frozen_before_costed_residual_portfolio_outcomes",
+  "frozen_on": "2026-08-06",
+  "notebook": "final_experiments/64_lseg_gemma_hybrid_long_leg_residual_portfolios.ipynb",
+  "purpose": "Test whether Notebook 60's two positive gross long-selection differences remain economically useful when implemented as fully costed dollar-neutral residual portfolios.",
+  "authorization_and_provenance": {
+    "user_authorized_iterative_strategy_search": true,
+    "candidate_selected_on_opened_window": true,
+    "precedent": "Notebooks 59-60 found that 97.43% of the unchanged Notebook 36 hybrid's gross contribution came from the long leg and that its selected names beat equal-weight market and same-sector controls.",
+    "classification": "user-authorized iterative retrospective strategy translation, not independent confirmation",
+    "prior_no_strategy_boundary_superseded_only_for_this_test": "Notebook 60 prohibited costing its controls; the continuing user instruction to improve the strategy authorizes exactly this frozen two-arm economic translation. All other historical strategy searches remain closed."
+  },
+  "unchanged_signal": {
+    "source": "Notebook 36 Gemma exact-event timing and counts with FinBERT ranking",
+    "universe": "immutable original LSEG sector-33, three companies in each of 11 sectors",
+    "selected_long_weights": "positive Notebook 36 target weights only; dates, eligibility, counts, names, weights, 25% cap, and one-session horizon unchanged",
+    "return_horizon": "one-session split-adjusted open-to-open price return; dividends not back-adjusted",
+    "signal_reproduction": "selected-long gross contribution must reproduce Notebook 60 within 1e-12"
+  },
+  "candidate_portfolios": {
+    "market_residual": "selected-long target minus an equal-weight target over all 33 names with identical total long notional",
+    "sector_residual": "selected-long target minus equal-weight three-name sector targets with identical selected-long notional inside every sector",
+    "netting": "combine signal and hedge weights by name before orders, turnover, costs, and returns",
+    "scaling": "no scaling up, leverage normalization, volatility targeting, or use of unused gross capacity",
+    "inactive_sessions": "cash when the unchanged selected-long target is inactive",
+    "reference_only": "Notebook 36 capped hybrid at 10 bps per side; its signal, weights, and prospective role remain unchanged"
+  },
+  "accounting": {
+    "engine": "validated drift-aware open-to-open ledger",
+    "primary_cost_bps_per_side": 10.0,
+    "cost_curve_bps_per_side": [
+      0.0,
+      5.0,
+      10.0,
+      25.0,
+      50.0
+    ],
+    "final_liquidation": true,
+    "initial_nav_usd": 1000000.0,
+    "financing_borrow_spread_impact": "not available; state as limitations rather than impute"
+  },
+  "inference": {
+    "block_length_sessions": 5,
+    "replications": 9999,
+    "seed": 20260821,
+    "bh_q": 0.05,
+    "primary_family": [
+      "market_residual net return minus cash",
+      "sector_residual net return minus cash",
+      "market_residual net return minus unchanged Notebook 36 capped hybrid net return",
+      "sector_residual net return minus unchanged Notebook 36 capped hybrid net return"
+    ],
+    "primary_method": "two-sided paired circular moving-block bootstrap with BH over all four comparisons",
+    "factor_family": [
+      "market_residual after-cost sector-spanning HAC(5) intercept",
+      "sector_residual after-cost sector-spanning HAC(5) intercept"
+    ],
+    "factor_method": "OLS on equal-weight market plus ten sector-minus-market factors, HAC(5), with BH over the two intercept p-values",
+    "temporal_stability": "first-half and second-half net Sharpe and mean are descriptive predeclared gates; halves are not additional hypothesis tests"
+  },
+  "classification": {
+    "retrospective_improvement": "cash comparison and incumbent comparison both have positive means and BH q below 0.05, sector-spanning alpha is positive with BH q below 0.05, both half means are positive, break-even exceeds 10 bps per side, at least 60 sessions are active, and maximum absolute name weight is at most 25%",
+    "costed_positive_not_improved": "cash comparison passes and both half means are positive, but at least one retrospective-improvement condition fails",
+    "nonviable": "cash comparison fails or either half mean is nonpositive"
+  },
+  "claim_boundary": {
+    "new_signal_constructed": false,
+    "new_traded_strategy_constructed": true,
+    "historical_strategy_iteration_performed": true,
+    "result_may_replace_prospective_contract": false,
+    "alpha_validation_permitted": false,
+    "deployment_claim_permitted": false,
+    "further_historical_hedge_or_scaling_search_permitted": false,
+    "source_regimes_pooled": false,
+    "licensed_headline_text_permitted": false
+  }
+}
