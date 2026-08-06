@@ -586,7 +586,7 @@ and selection histories are not pooled or treated as directly comparable.
 A sentiment rule is eligible for promotion only if its paired net-return
 interval is favourable and excludes zero, its effect is temporally stable, its
 local predeclared gate passes, and the evidence tier is at least chronological
-or external-time. After the Notebook 62 refresh, one of eleven paired sentiment
+or external-time. After the Notebook 63 refresh, one of eleven paired sentiment
 or construction comparisons
 in Notebook 44 clears the interval condition and six show lower downside loss
 under their source conventions. The sole favourable interval is Notebook 47's
@@ -893,6 +893,20 @@ evidence, but it has no statistically isolated or temporally stable session
 component. Close historical intraday/overnight, direction, threshold, and
 allocation decomposition; carry only the unchanged open-to-open prospective
 candidate forward.
+
+Notebook 63 is one final frozen characteristic-confound audit of Notebook 60's
+unchanged selected-long path, not another control portfolio. It jointly uses
+strictly lagged 1/5-session returns, 20-session volatility, and log ADV; the
+pooled no-intercept coefficients are fitted on nonselected names after
+sector-date demeaning and refitted inside each of 9,999 five-session circular-
+block resamples. The raw +3.662-bps/session sector difference is reproduced
+within `1.74e-18`. The four controls explain −0.073 bps/session, leaving a
++3.735-bps residual [+0.867,+6.746], p=0.0086, positive in both descriptive
+halves (+5.335/+2.116). Record this as evidence that the opened-window
+name-selection result is not a simple proxy for those characteristics. Do not
+construct or cost a residual strategy, add controls, alter the prospective
+contract, or describe the result as independent confirmation or validated
+alpha.
 
 Notebook 52 performs that single permitted input-first sizing audit. For an
 entry from flat, minimising the square-root objective within an unchanged leg

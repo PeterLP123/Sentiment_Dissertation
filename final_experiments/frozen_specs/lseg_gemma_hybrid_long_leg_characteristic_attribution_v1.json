@@ -1,0 +1,60 @@
+{
+  "experiment_id": "N63_lseg_gemma_hybrid_long_leg_characteristic_attribution_v1",
+  "status": "frozen_before_characteristic_adjusted_outcome",
+  "frozen_on": "2026-08-06",
+  "notebook": "final_experiments/63_lseg_gemma_hybrid_long_leg_characteristic_attribution.ipynb",
+  "purpose": "Test whether Notebook 60's unchanged within-sector selected-long gross advantage is explained by conventional strictly lagged price and liquidity characteristics.",
+  "provenance": {
+    "candidate_selected_on_opened_window": true,
+    "precedent": "Notebook 60 found selected-long minus same-sector equal-weight gross contribution of +3.662 bps per session with a positive block-bootstrap interval.",
+    "classification": "post-result explanatory confound audit, not independent confirmation or a new strategy"
+  },
+  "candidate": {
+    "source": "Notebook 36 equal-weight Gemma-event-timing and FinBERT-ranking hybrid",
+    "universe": "immutable original LSEG sector-33, three companies in each of 11 sectors",
+    "weights": "positive Notebook 36 target weights only; every date, name, count, and weight unchanged",
+    "outcome": "same one-session split-adjusted open-to-open return used by Notebooks 36 and 60",
+    "reference_identity": "the selected-weighted sector-date-demeaned outcome must exactly reproduce Notebook 60 selected-long minus same-sector equal-weight daily contribution within 1e-12"
+  },
+  "characteristics": {
+    "lagged_return_1": "open[t-1] / open[t-2] - 1",
+    "lagged_return_5": "open[t-1] / open[t-6] - 1",
+    "sigma20": "rolling sample standard deviation of open-to-open returns over at most 20 sessions with at least 5 observations, shifted one complete session",
+    "log_adv20": "natural log of rolling mean close times volume over at most 20 sessions with at least 5 observations, shifted one complete session",
+    "point_in_time_boundary": "no current-session price, volume, sentiment, or forward return enters any characteristic",
+    "standardization": "mean and sample standard deviation fitted on complete nonselected firm-session rows only; zero variance fails closed"
+  },
+  "attribution": {
+    "fixed_effect": "demean outcome and standardized characteristics within each session-sector cell",
+    "coefficient_sample": "complete firm-session rows with zero selected-long weight only",
+    "coefficient_model": "pooled no-intercept OLS of sector-date-demeaned next-open return on the four sector-date-demeaned characteristics",
+    "raw_path": "selected weights times sector-date-demeaned return",
+    "explained_path": "selected weights times fitted characteristic component",
+    "residual_path": "raw path minus explained path",
+    "identity_tolerance": 1e-12
+  },
+  "inference": {
+    "primary_estimand": "mean characteristic-adjusted selected-long residual gross contribution across all 167 complete sessions",
+    "method": "two-sided circular moving-block bootstrap over sessions with the characteristic coefficients refitted inside every replicate",
+    "block_length_sessions": 5,
+    "replications": 9999,
+    "seed": 20260820,
+    "multiplicity_family": "one new primary residual test; the Notebook 60 raw reference and feature contributions are descriptive",
+    "interpretation": {
+      "robust_residual": "mean positive, 95% interval lower bound above zero, and both descriptive chronological-half means positive",
+      "positive_uncertain": "mean positive but interval crosses zero or one half is nonpositive",
+      "explained_or_nonpositive": "mean residual is nonpositive"
+    }
+  },
+  "claim_boundary": {
+    "new_signal_constructed": false,
+    "new_weights_constructed": false,
+    "new_traded_strategy_constructed": false,
+    "cost_or_turnover_comparison_permitted": false,
+    "historical_retuning_permitted": false,
+    "prospective_contract_changed": false,
+    "alpha_promotion_permitted": false,
+    "source_regimes_pooled": false,
+    "licensed_headline_text_permitted": false
+  }
+}

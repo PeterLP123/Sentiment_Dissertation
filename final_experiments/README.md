@@ -247,7 +247,7 @@ The split is a **chronological evaluation block**, not a pristine holdout. The s
    Notebook 39's portable measurement construction is not historical alpha.
    Notebook 44 consolidates the aggregate-only strategy evidence without
    loading any price, return, position, or text rows and is now refreshed
-   through Notebook 62. The sentiment-free HAR target remains the research
+   through Notebook 63. The sentiment-free HAR target remains the research
    benchmark from Notebook 21 (net Sharpe 0.673, +29.85% net return, −15.73%
    drawdown), but the later transfer failure means it is not a time-stable or
    deployment-qualified strategy. Across eleven paired sentiment/construction comparisons,
@@ -307,7 +307,15 @@ The split is a **chronological evaluation block**, not a pristine holdout. The s
    overnight is +2.21 [−0.006,+4.85]; neither passes the two-test correction
    (both BH q=0.1264), and overnight reverses to −0.36 bps/session in the second
    half. The positive total therefore does not license an intraday or overnight
-   variant. Historical session decomposition is closed. Carry the equal-weight
+   variant. Notebook 63 then performs one frozen joint characteristic audit of
+   the unchanged selected-long path. Strictly lagged 1/5-session returns,
+   volatility, and log ADV explain −0.073 bps/session of the +3.662-bps raw
+   same-sector difference, leaving +3.735 bps/session with a coefficient-refit
+   block-bootstrap interval [+0.867,+6.746] (p=0.0086) and positive halves
+   (+5.335/+2.116). This strengthens the opened-window name-selection mechanism
+   claim, but it is not a residual strategy, independent confirmation, or
+   validated alpha. Historical session and characteristic-control expansion is
+   closed. Carry the equal-weight
    hybrid unchanged to the one prospective replay; do not retune it historically.
    Notebook 45 then asks whether the lower downside loss is unusually well
    timed or merely mechanical de-risking. It enumerates every circular placement
@@ -517,6 +525,9 @@ The split is a **chronological evaluation block**, not a pristine holdout. The s
 | `61_lseg_gemma_hybrid_long_leg_sector_component.ipynb` | Exact intraday/overnight decomposition of Notebook 60's selected-long minus same-sector gross difference, with a frozen two-component BH family and unchanged weights/horizon. | Executed; intraday +1.45 bps/session [−0.32,+3.40] and overnight +2.21 [−0.006,+4.85] both have BH q=0.1264; overnight reverses in the second half, neither gate passes, and no exit or component strategy is promoted |
 | `frozen_specs/lseg_gemma_hybrid_long_leg_sector_component_v1.json` | Pre-outcome contract for Notebook 61's exact additive identity, two component estimands, multiplicity family, and permanent no-exit/no-promotion boundary. | Frozen at `80f8912`; complete |
 | `62_lseg_cash_flow_distance_reliability_gate.ipynb` | Aggregate-output reliability/readiness notebook for the frozen local human audit. It verifies immutable worksheet identity, reports coding progress, and evaluates weighted kappa, its 9,999-event-bootstrap interval, exact/adjacent agreement, and the full confusion matrix only after both sheets are complete. | Executed; waiting for human labels at A 0/200 and B 0/60; no reliability metric or return opened |
+| `63_lseg_gemma_hybrid_long_leg_characteristic_attribution.ipynb` | Frozen post-result attribution of Notebook 60's unchanged within-sector selected-long difference to lagged 1/5-session returns, 20-session volatility, and log ADV. Coefficients are fitted on nonselected names and refitted inside each block-bootstrap replicate. | Executed; characteristics explain −0.073 bps/session, leaving +3.735 [+0.867,+6.746], p=0.0086, positive in both halves; useful retrospective mechanism evidence, not a residual strategy or alpha validation |
+| `lib/characteristic_attribution.py` | Tested strictly lagged characteristic construction, exact sector-demeaned path decomposition, and coefficient-refitting circular-block bootstrap for a fixed selected path. | Active; no signal or weights constructed |
+| `frozen_specs/lseg_gemma_hybrid_long_leg_characteristic_attribution_v1.json` | Pre-outcome contract for Notebook 63's four-control joint attribution, single primary residual estimand, inference, and permanent no-strategy/no-promotion boundary. | Frozen at `9102d3a`; complete |
 | `lib/prospective.py` | Tested fail-closed multi-batch registry auditor: verifies parent/acquisition/config/source hashes, contiguous intervals, the frozen 33, headline-only retrieval, timestamps, cross-batch deduplication, and aggregate-only outputs. | Active; synthetic contiguous/dedup and gap-rejection tests pass |
 | `lib/lseg_story_families.py` | Hash-only reconstruction of terminal-suffix LSEG story families, earliest releases, and first-to-current revision transitions with source-manifest verification; licensed headline text and raw story IDs are never returned. | Active; used by Notebooks 43 and 47 |
 | `lib/sparse_spread.py` | Tested exact-extrema equal-leg targets, symmetric capacity capping, within-sector demeaning, equal-weight sector projection, fail-closed exposure audits, and compact conversion of the validated drift-aware ledger. | Active |

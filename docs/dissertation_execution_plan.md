@@ -36,7 +36,7 @@ Profitability, a significant p-value, a neural network, and a wider news collect
 | Firm-day panel | Built: 715,546 rows, 570 priced symbols, 3,262 sessions | `01_panel` outputs/manifest |
 | Chronological split | Frozen: development through 2019, evaluation from 2020 | `lib/panel.py`, plan, protocol |
 | Final RQ | Open | Gate F1 after Stage S2 |
-| Current active work | Finish/waive the unlabelled novelty audit and take Gate F1 using the aggregate-only synthesis plus timing-placebo, external-time base, story-revision cost boundaries, inverse-volatility null, Notebook 51's point-estimate implementation-capacity curve, Notebook 52's input-only liquidity-sizing stop, Notebooks 53–54's 27/120 prospective accumulation stop and append-only population ledger, Notebook 55's historical mid-cap FinBERT baseline reconciliation, Notebook 56's aggregate lineage/coverage control, Notebook 57's role-separated candidate-base frontier, Notebook 58's uncertainty-aware capacity null, and Notebooks 59–61's closed session/long-leg mechanism controls. Historical alpha and allocation tuning are closed; preserve the Notebook 36 Gemma-timing/FinBERT-ranking hybrid unchanged and continue immutable new-date collection until the frozen prospective population permits its one replay. | Stage S2 exit / Gate F1; Notebooks 40–61 |
+| Current active work | Finish/waive the unlabelled novelty audit and take Gate F1 using the aggregate-only synthesis plus timing-placebo, external-time base, story-revision cost boundaries, inverse-volatility null, Notebook 51's point-estimate implementation-capacity curve, Notebook 52's input-only liquidity-sizing stop, Notebooks 53–54's 27/120 prospective accumulation stop and append-only population ledger, Notebook 55's historical mid-cap FinBERT baseline reconciliation, Notebook 56's aggregate lineage/coverage control, Notebook 57's role-separated candidate-base frontier, Notebook 58's uncertainty-aware capacity null, Notebooks 59–61's closed session/long-leg mechanism controls, Notebook 62's waiting human-construct gate, and Notebook 63's positive but retrospective characteristic-adjusted name-selection evidence. Historical alpha, allocation, session, and characteristic-control expansion are closed; preserve the Notebook 36 Gemma-timing/FinBERT-ranking hybrid unchanged and continue immutable new-date collection until the frozen prospective population permits its one replay. | Stage S2 exit / Gate F1; Notebooks 40–63 |
 | Exploratory W3/W4 chain | Repaired and rerun; not promoted because it ran before Gate F1 | `03`–`07`, `INVALIDATED_RUNS.md` |
 | Scorer selection | Closed: FinBERT primary | Benchmark and prior reports |
 | VaR/ES | Closed | FNSPID factorial report |
@@ -240,7 +240,7 @@ new-date replay. Notebook 42's negative 2010 replay, Notebook 43, and the public
 replication jointly argue against another historical sentiment-ranking search.
 
 Notebook 44 makes that base decision auditable without reopening row-level
-outcomes. Refreshed through Notebook 62, it assigns an ordinal evidence tier to
+outcomes. Refreshed through Notebook 63, it assigns an ordinal evidence tier to
 20 representative strategy rows, keeps cross-regime Sharpes explicitly
 non-comparable, and applies one promotion policy to eleven paired sentiment or
 construction comparisons. One favourable interval excludes zero: Notebook 47's retrospective
@@ -326,6 +326,16 @@ sector-matched result remains useful gross name-selection evidence, but there is
 no stable or statistically isolated intraday/overnight mechanism. Do not create
 a component exit or continue historical session, direction, threshold, or
 allocation decomposition.
+
+Notebook 63 makes one final joint characteristic attribution without changing
+the selected-long path. Strictly lagged 1/5-session returns, 20-session
+volatility, and log ADV explain −0.073 bps/session of Notebook 60's +3.662-bps
+same-sector difference. The coefficient-refitting block-bootstrap residual is
++3.735 bps/session [+0.867,+6.746], p=0.0086, with positive halves
+(+5.335/+2.116) and gross diagnostic Sharpe 3.144. This is useful retrospective
+evidence that the name-selection result is not a simple proxy for those four
+characteristics. It is not a residual strategy, independent confirmation, or
+alpha promotion. Do not add controls or alter the frozen prospective hybrid.
 
 Notebook 62 is the executable human cash-flow-distance reliability gate, not a
 strategy experiment. It verifies Notebook 16's frozen worksheet identities,
