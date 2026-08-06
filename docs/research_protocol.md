@@ -575,7 +575,7 @@ and selection histories are not pooled or treated as directly comparable.
 A sentiment rule is eligible for promotion only if its paired net-return
 interval is favourable and excludes zero, its effect is temporally stable, its
 local predeclared gate passes, and the evidence tier is at least chronological
-or external-time. After the Notebook 52 refresh, one of eleven paired sentiment
+or external-time. After the Notebook 53 refresh, one of eleven paired sentiment
 or construction comparisons
 in Notebook 44 clears the interval condition and six show lower downside loss
 under their source conventions. The sole favourable interval is Notebook 47's
@@ -605,10 +605,11 @@ q=0.0301). The 2013–2019 schedule is in the 95.5th percentile but misses BH
 (p=0.0455, q=0.0682), and the LSEG/Gemma brake does not beat generic placements
 (p=q=0.3653). All return-timing gates fail. Therefore the cross-regime timing
 gate fails: describe the evidence as one-period aggregate market-risk timing,
-not a general semantic timing mechanism or Gemma alpha. Later price rows are
-not a prospective sample because the local LSEG news boundary remains
-2026-06-26. Do not open them without matching new news and a frozen prospective
-population.
+not a general semantic timing mechanism or Gemma alpha. The first new-news batch
+now extends strictly beyond 2026-06-26, but Notebook 53 proves that its closed
+interval can contain only 27 post-cutoff XNYS sessions. This is below the frozen
+120-session minimum, so it must not be joined to later cached prices or opened
+for scorer, return, or performance analysis.
 
 Notebook 46 is the external-time transfer of the independent base, not a new
 fit. It applies Notebook 21's unchanged 2011–2019 HAR coefficients and QLIKE
@@ -779,6 +780,24 @@ remain empty, and no modified next-open return is inspected. Record an input-
 only NO-GO. Do not tune smoothing, shrinkage, refresh frequency, or another
 liquidity objective on the opened window. The equal-weight hybrid remains the
 only prospective candidate under its existing new-date contract.
+
+Notebook 53 applies that contract's population gate before any scorer or return.
+The first prospective acquisition interval (2026-06-26 inclusive to 2026-08-06
+exclusive) was frozen and committed before retrieval for the exact original 33,
+all entitled English-language headline sources, and no story bodies. Its
+completed manifest records 162,123 unique headlines, 3,772 pages, 3,776 requests,
+four recovered retries, zero failures, and zero pagination anomalies. A
+metadata-only audit finds 162,049 headlines strictly after the cutoff, 74
+exactly at it, none before it, and all 33 symbols. No licensed text is emitted.
+
+The closed interval has an upper bound of 27 eligible XNYS sessions versus 120
+required. Therefore active-session gates are not evaluated, local FinBERT and
+paid Gemma scoring are not launched, no price or return is loaded, and no
+performance inference is run. The earliest possible 120th post-cutoff XNYS
+session is 2026-12-16. Continue immutable accumulation through at least that
+date, then apply the remaining 60-active-session and 20-per-half gates before
+authorising the one-shot replay. This stop is prospective protocol compliance,
+not strategy evidence for or against alpha.
 
 ### W4: Sentiment surprise
 
