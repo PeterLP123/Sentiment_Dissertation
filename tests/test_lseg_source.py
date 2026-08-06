@@ -738,6 +738,27 @@ def test_request_pacer_enforces_hard_safety_budget() -> None:
     assert pacer.snapshot().requests_started == 2
 
 
+def test_fetch_request_budget_override_does_not_change_collection_identity(tmp_path: Path) -> None:
+    config = replace(
+        _config(tmp_path),
+        max_requests_per_run=1,
+        fetch_story_bodies=False,
+    )
+
+    result = asyncio.run(
+        fetch_lseg_news(
+            config,
+            LsegNewsClient(FakeBackend()),
+            request_budget_override=3,
+        )
+    )
+
+    manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+    assert result.request_count == 3
+    assert manifest["config_sha256"] == config.config_sha256
+    assert manifest["config"]["collection"]["max_requests_per_run"] == 1
+
+
 def test_retry_uses_exponential_backoff(monkeypatch) -> None:
     attempts = 0
     delays: list[float] = []

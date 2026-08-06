@@ -22,6 +22,15 @@ The licensed headline files and all scorer outputs remain local and ignored.
 - Daily retrieval budget: 9,500 of the user's 10,000 LSEG requests, retaining
   500 for entitlement checks and retries.
 
+The researcher subsequently authorised use of the full 10,000-request daily
+allowance. The frozen config retains its conservative 9,500 default so the
+collection identity does not change. `--max-requests` is an operational-only
+per-invocation override. On 2026-08-06, the 33-company entitlement check used
+33 requests, so a 467-request top-up follows the original 9,500-request batch.
+On later days with no new check, use `--max-requests 10000`. This amendment is
+recorded in
+`final_experiments/frozen_specs/lseg_gemma_finbert_hybrid_backward_operational_amendment_20260806.json`.
+
 The acquisition config is
 `configs/lseg_us_sector_33_backward_20240101_20251026_headlines.toml`.
 Each invocation resumes from its checkpoint and stops at 9,500 requests. Do not

@@ -837,6 +837,14 @@ def fetch_lseg_news_command(
         Path,
         typer.Option("--config", help="TOML LSEG collection definition."),
     ] = Path("configs/lseg_workspace_example.toml"),
+    max_requests: Annotated[
+        int | None,
+        typer.Option(
+            "--max-requests",
+            min=1,
+            help="Operational request cap for this invocation; does not change collection identity.",
+        ),
+    ] = None,
 ) -> None:
     """Fetch an immutable, resumable LSEG Workspace headline/story collection."""
     try:
@@ -852,6 +860,7 @@ def fetch_lseg_news_command(
                         f"[bold]{config.collection_id}[/bold]",
                         f"[cyan]{len(config.companies)} companies[/cyan]  •  {config.start[:10]} → {config.end[:10]}",
                         f"[cyan]API pace: {config.requests_per_second:g} requests/second[/cyan]",
+                        f"[cyan]Request budget: {max_requests or config.max_requests_per_run or 'unbounded'}[/cyan]",
                         f"[dim]Output: {config.raw_dir}[/dim]",
                         "[dim]Saved checkpoints are reused. ETA stabilizes after a few live requests.[/dim]",
                     ]
@@ -925,7 +934,12 @@ def fetch_lseg_news_command(
             transient=False,
         ):
             async with _make_lseg_news_client() as client:
-                result = await fetch_lseg_news(config, client, progress_callback=update_progress)
+                result = await fetch_lseg_news(
+                    config,
+                    client,
+                    progress_callback=update_progress,
+                    request_budget_override=max_requests,
+                )
             if not initialized_phases:
                 progress.update(headline_task, visible=False)
                 progress.update(story_task, visible=False)

@@ -1229,8 +1229,12 @@ async def fetch_lseg_news(
     client: LsegNewsClient,
     *,
     progress_callback: LsegProgressCallback | None = None,
+    request_budget_override: int | None = None,
 ) -> LsegFetchResult:
-    client.configure_request_pacing(config.requests_per_second, config.max_requests_per_run)
+    if request_budget_override is not None and request_budget_override < 1:
+        raise LsegConfigurationError("request budget override must be positive")
+    request_budget = config.max_requests_per_run if request_budget_override is None else request_budget_override
+    client.configure_request_pacing(config.requests_per_second, request_budget)
     retry_count = 0
     retry_backoff_seconds = 0.0
     pagination_anomalies: list[dict[str, Any]] = []

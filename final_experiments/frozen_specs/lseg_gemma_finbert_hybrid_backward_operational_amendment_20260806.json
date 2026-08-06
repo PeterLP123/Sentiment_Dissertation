@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "status": "authorised_after_retrieval_started",
+  "recorded_at_utc": "2026-08-06T13:44:00Z",
+  "parent_backward_spec": {
+    "path": "final_experiments/frozen_specs/lseg_gemma_finbert_hybrid_backward_v1.json",
+    "sha256": "5b4744c78026ae8294b8c492d59b02a0ddcef5efb9598f7fd70dc56c1fcbca98"
+  },
+  "researcher_instruction": "The daily LSEG allowance may be used up to 10000 requests rather than retaining the original 500-request reserve.",
+  "scope": {
+    "operational_only": true,
+    "collection_identity_changed": false,
+    "dates_queries_universe_or_headlines_changed": false,
+    "strategy_scoring_or_inference_changed": false
+  },
+  "execution": {
+    "first_day_entitlement_requests": 33,
+    "first_day_primary_batch_requests": 9500,
+    "first_day_top_up_requests": 467,
+    "later_day_maximum_requests_without_a_new_check": 10000,
+    "mechanism": "fetch-lseg-news --max-requests supplies a per-invocation pacer cap while the frozen config and manifest identity remain unchanged"
+  }
+}
