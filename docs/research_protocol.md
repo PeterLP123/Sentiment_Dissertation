@@ -575,7 +575,7 @@ and selection histories are not pooled or treated as directly comparable.
 A sentiment rule is eligible for promotion only if its paired net-return
 interval is favourable and excludes zero, its effect is temporally stable, its
 local predeclared gate passes, and the evidence tier is at least chronological
-or external-time. After the Notebook 55 refresh, one of eleven paired sentiment
+or external-time. After the Notebook 56 refresh, one of eleven paired sentiment
 or construction comparisons
 in Notebook 44 clears the interval condition and six show lower downside loss
 under their source conventions. The sole favourable interval is Notebook 47's
@@ -604,6 +604,22 @@ not eligible temporal confirmation. Maximum observed name weight is 50%. Add
 the result to Notebook 44 only as a historical LSEG/FinBERT strategy-shaped
 comparator. It is not the current base, a Gemma comparison, or permission to
 retune the rule. LSEG/FNSPID and the distinct LSEG regimes remain non-pooled.
+
+Notebook 56 is the aggregate-only lineage and coverage audit for every frozen
+local LSEG/FinBERT strategy-research run. It reads only run manifests and
+aggregate metrics, validates every declared metrics hash, and groups exact
+payload duplicates before comparing declared strategy families. It must not
+load corpus, scores, prices, daily returns, positions, or text, and it constructs
+no signal or return. The inventory contains ten run directories, five exact
+metrics payloads, and four declared families; three repeated payload groups are
+artifacts, not replications. A family clears the descriptive floor only when its
+primary arm has positive development and evaluation net return and Sharpe with
+at least 20 active sessions in each period. Only `midcap_event_v1` clears that
+floor, and Notebook 55 already captures its canonical run. The only other
+positive evaluation arm has net Sharpe 0.545 on five active sessions after
+development Sharpe −1.456. Therefore no distinct adequately covered positive
+local base is omitted. This is a coverage control, not new evidence or
+permission to promote or retune a strategy; the non-pooling rule remains binding.
 
 Notebook 45 is the single permitted post-result diagnostic of the repeated
 downside result. It enumerates every circular placement of the complete frozen
