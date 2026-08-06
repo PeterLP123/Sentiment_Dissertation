@@ -575,7 +575,7 @@ and selection histories are not pooled or treated as directly comparable.
 A sentiment rule is eligible for promotion only if its paired net-return
 interval is favourable and excludes zero, its effect is temporally stable, its
 local predeclared gate passes, and the evidence tier is at least chronological
-or external-time. After the Notebook 54 refresh, one of eleven paired sentiment
+or external-time. After the Notebook 55 refresh, one of eleven paired sentiment
 or construction comparisons
 in Notebook 44 clears the interval condition and six show lower downside loss
 under their source conventions. The sole favourable interval is Notebook 47's
@@ -588,6 +588,22 @@ deployment-qualified strategy. Keep the exact HAR × sentiment product frozen
 only for genuinely new dates and stop historical strategy tuning. This is a
 Gate F1 evidence input, not a selection of the final RQ; the human novelty-audit
 condition remains binding.
+
+Notebook 55 is the aggregate-only reconciliation of the previously frozen
+22-company LSEG mid-cap FinBERT event strategy. It reads only the committed TOML
+plus the local immutable run manifest, period metrics, block-bootstrap summary,
+and per-stock aggregate contributions. It must not read corpus, scores, prices,
+daily P&L, positions, session construction, or headline text; it launches no
+scorer and constructs no return. The canonical parsed-config identity and every
+loaded result hash must match the run manifest. Preserve both decisions: the
+legacy local gate passes because development/evaluation net return and Sharpe
+are positive with at least 20 active sessions and break-even above 10 bps/side;
+the final promotion gate fails because the run is previously explored tier-2
+evidence, its evaluation cash interval is [−8.86,+19.34] bps/session, and it is
+not eligible temporal confirmation. Maximum observed name weight is 50%. Add
+the result to Notebook 44 only as a historical LSEG/FinBERT strategy-shaped
+comparator. It is not the current base, a Gemma comparison, or permission to
+retune the rule. LSEG/FNSPID and the distinct LSEG regimes remain non-pooled.
 
 Notebook 45 is the single permitted post-result diagnostic of the repeated
 downside result. It enumerates every circular placement of the complete frozen

@@ -147,10 +147,13 @@ Key SHA-256 identities:
 
 ## Conclusion and next gate
 
-Keep the 22-stock mid-cap rule as the current exploratory positive-Sharpe
-baseline, but do not describe it as universe-general alpha. The unchanged rule
-failed on more stocks, and the failure is too large to justify a cosmetic
-portfolio adjustment on this already examined sample.
+Keep the 22-stock mid-cap rule as a historical exploratory positive-Sharpe
+comparator, not the current strategy base or universe-general alpha. Notebook
+55 later reconciles it with the final evidence hierarchy: its local gate passes,
+but the previously explored selection history, zero-crossing cash interval, and
+50% maximum name weight prevent promotion. The unchanged rule failed on more
+stocks, and the failure is too large to justify a cosmetic portfolio adjustment
+on this already examined sample.
 
 The next honest test should use a genuinely unseen future Reuters period. If a
 broader production-oriented design is attempted, freeze a concentration cap,

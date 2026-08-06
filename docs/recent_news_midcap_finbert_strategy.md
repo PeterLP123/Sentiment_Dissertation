@@ -16,8 +16,13 @@ rules, evidence, and limitations walkthrough, keep using the original
 This is an **exploratory research strategy**, not confirmed deployable alpha.
 The sample was previously examined, only 37 evaluation sessions traded, the
 95% block-bootstrap interval crosses zero, and a single stock can hold 50% of
-NAV when a side has only one eligible name. Those constraints make it sensible
-as a transparent positive-Sharpe baseline, but not ready for live capital.
+NAV when a side has only one eligible name. Those constraints make it a
+transparent positive-Sharpe **historical comparator**, but not a current
+strategy base or a live-capital candidate. Notebook 55 reconciled it with the
+final evidence hierarchy on 6 August 2026: the original local gate still
+passes, while its previously explored selection history, zero-crossing cash
+interval, and 50% maximum name weight place it at tier 2 and prevent promotion.
+This reclassification does not change any frozen return.
 
 ## Results
 
@@ -228,8 +233,9 @@ tests; the local manifest binds those sources to every generated file.
 
 ## Bottom line and next gate
 
-Use this rule as the current recent-news positive-Sharpe research baseline. Do
-not call it validated alpha and do not deploy it unchanged. The next legitimate
-test is to collect a truly unseen future Reuters period, freeze a lower
-single-name cap or minimum breadth rule before opening returns, add realistic
-borrow/spread assumptions, and evaluate once without further tuning.
+Retain this exact rule as the historical recent-news LSEG/FinBERT
+strategy-shaped comparator. Do not call it the current base, validated alpha,
+or evidence that FinBERT beats Gemma, and do not deploy or retune it. Any future
+test must use genuinely unseen Reuters dates and a separately frozen contract;
+the active prospective LSEG/Gemma programme remains non-pooled and subject to
+its own 120/60/20 population gate.
