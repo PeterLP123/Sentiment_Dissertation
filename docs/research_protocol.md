@@ -575,7 +575,7 @@ and selection histories are not pooled or treated as directly comparable.
 A sentiment rule is eligible for promotion only if its paired net-return
 interval is favourable and excludes zero, its effect is temporally stable, its
 local predeclared gate passes, and the evidence tier is at least chronological
-or external-time. After the Notebook 56 refresh, one of eleven paired sentiment
+or external-time. After the Notebook 57 refresh, one of eleven paired sentiment
 or construction comparisons
 in Notebook 44 clears the interval condition and six show lower downside loss
 under their source conventions. The sole favourable interval is Notebook 47's
@@ -620,6 +620,25 @@ positive evaluation arm has net Sharpe 0.545 on five active sessions after
 development Sharpe −1.456. Therefore no distinct adequately covered positive
 local base is omitted. This is a coverage control, not new evidence or
 permission to promote or retune a strategy; the non-pooling rule remains binding.
+
+Notebook 57 is the aggregate-only candidate-base and implementation-frontier
+audit. It may read only existing aggregate result/gate/capacity tables, manifests,
+and the already-frozen prospective contract. It must not load a price, return
+path, position, score, headline, or licensed-text row; construct a signal or
+return; pool regimes; rank candidates solely by Sharpe; reselect the prospective
+primary; or alter the contract. Four roles are fixed: Notebook 21 HAR is the
+research benchmark, Notebook 36's equal-weight Gemma-event-timing/FinBERT-name
+ranking hybrid is the prospective primary, Notebook 50 inverse-volatility is a
+non-promoting secondary risk diagnostic, and Notebook 55 is a historical
+comparator. The primary's opened-window gross/net Sharpe is 3.700/2.271 at 10
+bps/side, its 5-bps scenario net Sharpe is 2.995, break-even is 25.24 bps/side,
+both half Sharpes are positive, and its cash interval is [+0.41,+13.37]
+bps/session. These are reasons to spend one prospective test, not validation:
+the sector-factor interval [−0.44,+10.08] crosses zero and the candidate was
+selected through an iterative opened-window chain. Under the frozen Y=1 impact
+scenario, net Sharpe falls to 1.679 at $1m, 0.413 at $10m, and −0.632 at $25m;
+ten $25m orders exceed 5% ADV. Preserve the unchanged candidate and capacity
+scenarios until genuinely new dates satisfy the frozen population gates.
 
 Notebook 45 is the single permitted post-result diagnostic of the repeated
 downside result. It enumerates every circular placement of the complete frozen
