@@ -36,7 +36,7 @@ Profitability, a significant p-value, a neural network, and a wider news collect
 | Firm-day panel | Built: 715,546 rows, 570 priced symbols, 3,262 sessions | `01_panel` outputs/manifest |
 | Chronological split | Frozen: development through 2019, evaluation from 2020 | `lib/panel.py`, plan, protocol |
 | Final RQ | Open | Gate F1 after Stage S2 |
-| Current active work | Finish/waive the unlabelled novelty audit and take Gate F1 using the aggregate-only synthesis plus timing-placebo, external-time base, story-revision cost boundaries, inverse-volatility null, Notebook 51's point-estimate implementation-capacity curve, Notebook 52's input-only liquidity-sizing stop, Notebooks 53–54's 27/120 prospective accumulation stop and append-only population ledger, Notebook 55's historical mid-cap FinBERT baseline reconciliation, Notebook 56's aggregate lineage/coverage control, Notebook 57's role-separated candidate-base frontier, Notebook 58's uncertainty-aware capacity null, and Notebooks 59–60's session/long-leg mechanism controls. Historical alpha and allocation tuning are closed; preserve the Notebook 36 Gemma-timing/FinBERT-ranking hybrid unchanged and continue immutable new-date collection until the frozen prospective population permits its one replay. | Stage S2 exit / Gate F1; Notebooks 40–60 |
+| Current active work | Finish/waive the unlabelled novelty audit and take Gate F1 using the aggregate-only synthesis plus timing-placebo, external-time base, story-revision cost boundaries, inverse-volatility null, Notebook 51's point-estimate implementation-capacity curve, Notebook 52's input-only liquidity-sizing stop, Notebooks 53–54's 27/120 prospective accumulation stop and append-only population ledger, Notebook 55's historical mid-cap FinBERT baseline reconciliation, Notebook 56's aggregate lineage/coverage control, Notebook 57's role-separated candidate-base frontier, Notebook 58's uncertainty-aware capacity null, and Notebooks 59–61's closed session/long-leg mechanism controls. Historical alpha and allocation tuning are closed; preserve the Notebook 36 Gemma-timing/FinBERT-ranking hybrid unchanged and continue immutable new-date collection until the frozen prospective population permits its one replay. | Stage S2 exit / Gate F1; Notebooks 40–61 |
 | Exploratory W3/W4 chain | Repaired and rerun; not promoted because it ran before Gate F1 | `03`–`07`, `INVALIDATED_RUNS.md` |
 | Scorer selection | Closed: FinBERT primary | Benchmark and prior reports |
 | VaR/ES | Closed | FNSPID factorial report |
@@ -238,7 +238,7 @@ new-date replay. Notebook 42's negative 2010 replay, Notebook 43, and the public
 replication jointly argue against another historical sentiment-ranking search.
 
 Notebook 44 makes that base decision auditable without reopening row-level
-outcomes. Refreshed through Notebook 60, it assigns an ordinal evidence tier to
+outcomes. Refreshed through Notebook 61, it assigns an ordinal evidence tier to
 20 representative strategy rows, keeps cross-regime Sharpes explicitly
 non-comparable, and applies one promotion policy to eleven paired sentiment or
 construction comparisons. One favourable interval excludes zero: Notebook 47's retrospective
@@ -314,6 +314,16 @@ broad-market or between-sector exposure and contains within-sector name-selectio
 value. But the diagnostic creates no control strategy, cost, turnover, or net
 return and cannot repair the Notebook 36 factor-alpha interval or serve as
 independent confirmation. Preserve the original long/short prospective rule.
+
+Notebook 61 closes the session-component branch. It exactly decomposes the
+Notebook 60 selected-long minus same-sector difference into intraday +1.454
+bps/session [−0.324,+3.399] and overnight +2.208 [−0.006,+4.845]. Neither
+passes the frozen two-test correction (both BH q=0.1264), and overnight changes
+from +4.747 bps/session in the first half to −0.362 in the second. The total
+sector-matched result remains useful gross name-selection evidence, but there is
+no stable or statistically isolated intraday/overnight mechanism. Do not create
+a component exit or continue historical session, direction, threshold, or
+allocation decomposition.
 
 Notebook 45 separates unusually informative timing from the mechanical effect
 of reducing exposure. Every circular placement of the exact state is evaluated
@@ -670,7 +680,7 @@ fix. Do not search another story-family rule on this window.
 
 Priority order:
 
-1. use Notebooks 44–60 to write the cross-regime conclusion: HAR remains the independent price/risk research benchmark but is not time-stable or deployment-qualified; aggregate sentiment shows one-period downside timing; Gemma/LSEG adds mechanical de-risking, a gross story-revision information effect whose economics fail at 10 bps/side, and one economically decent but retrospective Gemma-timing/FinBERT-ranking strategy candidate whose factor interval crosses zero and whose Y=1 impact Sharpe falls from 1.679 at $1m to 0.413 at $10m and −0.632 at $25m; the $10m result is only a point estimate because no AUM clears Notebook 58's uncertainty/stability/participation gate; the historical gross edge is 97.43% long-leg and partly intraday, while the selected longs beat matched market and same-sector gross controls on the same opened window; daily liquidity-aware reweighting is rejected, the prospective append-only population remains stopped at 27/120 before scoring or returns, the historical mid-cap FinBERT comparator is retained at tier 2, and the complete local lineage audit finds no omitted adequately covered positive base;
+1. use Notebooks 44–61 to write the cross-regime conclusion: HAR remains the independent price/risk research benchmark but is not time-stable or deployment-qualified; aggregate sentiment shows one-period downside timing; Gemma/LSEG adds mechanical de-risking, a gross story-revision information effect whose economics fail at 10 bps/side, and one economically decent but retrospective Gemma-timing/FinBERT-ranking strategy candidate whose factor interval crosses zero and whose Y=1 impact Sharpe falls from 1.679 at $1m to 0.413 at $10m and −0.632 at $25m; the $10m result is only a point estimate because no AUM clears Notebook 58's uncertainty/stability/participation gate; the historical gross edge is 97.43% long-leg and partly intraday, while the selected longs beat matched market and same-sector gross controls on the same opened window, but neither sector-matched session component passes or supports an alternative exit; daily liquidity-aware reweighting is rejected, the prospective append-only population remains stopped at 27/120 before scoring or returns, the historical mid-cap FinBERT comparator is retained at tier 2, and the complete local lineage audit finds no omitted adequately covered positive base;
 2. treat Notebooks 42–43 as falsifications and Notebooks 47–49 as a bounded mechanism/cost frontier, not permission to reverse sentiment, tune revision persistence, or search another revision filter on opened outcomes;
 3. finish or explicitly waive the human novelty audit and take Gate F1; Notebook 52 has used and closed the single permitted liquidity-aware implementation follow-up, so no historical alpha or allocation arm remains open;
 4. continue immutable LSEG acquisition through at least the earliest possible 120th session (2026-12-16); only after the 120-session, 60-active-session, and 20-per-half gates pass, score the fixed population and replay the frozen hybrid once as prospective evidence against its now-negative prior;

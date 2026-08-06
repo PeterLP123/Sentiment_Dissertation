@@ -1,0 +1,54 @@
+{
+  "status": "frozen_before_component_outcomes",
+  "frozen_on": "2026-08-06",
+  "notebook": "61_lseg_gemma_hybrid_long_leg_sector_component.ipynb",
+  "motivation": {
+    "precedent": "Notebook 60 found that the unchanged Notebook 36 selected long leg beat same-sector equal weight by 3.662 bps per session after the frozen two-test correction",
+    "timing": "post-result mechanism diagnostic on an opened historical window",
+    "question": "Does the selected-long advantage over its matched sector basket accrue intraday or overnight inside the unchanged open-to-open interval?"
+  },
+  "candidate_and_control": {
+    "selected_long": "positive Notebook 36 Gemma-timed and FinBERT-ranked target weights, unchanged",
+    "same_sector_control": "Notebook 60 control preserving each session's selected long exposure in every sector and distributing it equally across that sector's three original members",
+    "universe": "immutable original LSEG sector-33",
+    "return_horizon": "same one-session open-to-open interval as Notebooks 36 and 60",
+    "price_convention": "split-adjusted price returns; dividends not back-adjusted"
+  },
+  "decomposition": {
+    "intraday_component": "selected-long minus same-sector-control target weights times entry-session close divided by entry open minus one",
+    "overnight_component": "selected-long minus same-sector-control target weights times following open minus entry-session close divided by entry open",
+    "identity": "intraday difference plus overnight difference equals Notebook 60 selected-long minus same-sector open-to-open gross difference",
+    "identity_tolerance": 1e-12,
+    "cost_treatment": "gross accounting contributions only; no cost is assigned and no control ledger is constructed",
+    "alternative_exit_return_constructed": false
+  },
+  "inference": {
+    "estimands": [
+      "mean intraday selected-long minus same-sector-control gross contribution per complete session",
+      "mean overnight selected-long minus same-sector-control gross contribution per complete session"
+    ],
+    "method": "two-sided paired circular moving-block bootstrap versus zero",
+    "block_length_sessions": 5,
+    "replications": 9999,
+    "seed": 20260818,
+    "multiplicity_family": "two selected-minus-sector component means",
+    "bh_q": 0.05,
+    "positive_gate": "component difference mean is positive and BH-adjusted null is rejected"
+  },
+  "mechanism_classification": {
+    "both": "both component positive gates pass",
+    "intraday_only": "only the intraday positive gate passes",
+    "overnight_only": "only the overnight positive gate passes",
+    "neither": "neither positive gate passes"
+  },
+  "claim_boundary": {
+    "historical_strategy_retuning_permitted": false,
+    "new_traded_strategy_constructed": false,
+    "intraday_or_overnight_exit_selection_permitted": false,
+    "cost_or_turnover_comparison_permitted": false,
+    "prospective_contract_changed": false,
+    "alpha_promotion_permitted": false,
+    "source_regimes_pooled": false,
+    "licensed_headline_text_permitted": false
+  }
+}
