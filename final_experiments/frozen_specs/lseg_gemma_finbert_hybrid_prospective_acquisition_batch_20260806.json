@@ -9,8 +9,14 @@
   },
   "collection_config": {
     "path": "configs/lseg_us_sector_33_prospective_20260626_20260806_headlines.toml",
-    "sha256": "e13b376502dbcc1b5db285e9b6d60269b0c05b59c638e25a86b0875efb360600",
+    "file_sha256": "89969d84986d7ac11a576c8879396a4f64e69c0b25a2d313ab4783f61ecdd7cf",
+    "parsed_config_sha256": "e0cfc6f3954094151f29b31dc49ee5bd099daec8cccc154a4dac79a615356b1c",
     "collection_id": "us_sector_33_prospective_20260626_20260806_headlines"
+  },
+  "audit_correction": {
+    "corrected_at_utc": "2026-08-06T00:07:00Z",
+    "reason": "The original audit record captured the file hash before its trailing blank line was removed. The committed config itself was unchanged after the pre-retrieval commit; this correction records its committed file hash and the collector's parsed-config hash.",
+    "strategy_or_collection_change": false
   },
   "closed_interval": {
     "start_inclusive_utc": "2026-06-26T00:00:00Z",
