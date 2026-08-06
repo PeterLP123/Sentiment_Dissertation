@@ -575,7 +575,7 @@ and selection histories are not pooled or treated as directly comparable.
 A sentiment rule is eligible for promotion only if its paired net-return
 interval is favourable and excludes zero, its effect is temporally stable, its
 local predeclared gate passes, and the evidence tier is at least chronological
-or external-time. After the Notebook 53 refresh, one of eleven paired sentiment
+or external-time. After the Notebook 54 refresh, one of eleven paired sentiment
 or construction comparisons
 in Notebook 44 clears the interval condition and six show lower downside loss
 under their source conventions. The sole favourable interval is Notebook 47's
@@ -606,7 +606,7 @@ q=0.0301). The 2013–2019 schedule is in the 95.5th percentile but misses BH
 (p=q=0.3653). All return-timing gates fail. Therefore the cross-regime timing
 gate fails: describe the evidence as one-period aggregate market-risk timing,
 not a general semantic timing mechanism or Gemma alpha. The first new-news batch
-now extends strictly beyond 2026-06-26, but Notebook 53 proves that its closed
+now extends strictly beyond 2026-06-26, but Notebooks 53–54 prove that its closed
 interval can contain only 27 post-cutoff XNYS sessions. This is below the frozen
 120-session minimum, so it must not be joined to later cached prices or opened
 for scorer, return, or performance analysis.
@@ -785,7 +785,7 @@ Notebook 53 applies that contract's population gate before any scorer or return.
 The first prospective acquisition interval (2026-06-26 inclusive to 2026-08-06
 exclusive) was frozen and committed before retrieval for the exact original 33,
 all entitled English-language headline sources, and no story bodies. Its
-completed manifest records 162,123 unique headlines, 3,772 pages, 3,776 requests,
+completed manifest records 162,123 source story/headline rows, 3,772 pages, 3,776 requests,
 four recovered retries, zero failures, and zero pagination anomalies. A
 metadata-only audit finds 162,049 headlines strictly after the cutoff, 74
 exactly at it, none before it, and all 33 symbols. No licensed text is emitted.
@@ -798,6 +798,21 @@ session is 2026-12-16. Continue immutable accumulation through at least that
 date, then apply the remaining 60-active-session and 20-per-half gates before
 authorising the one-shot replay. This stop is prospective protocol compliance,
 not strategy evidence for or against alpha.
+
+Notebook 54 makes the prospective population append-only without
+opening the scoring or return stages. Its source-controlled registry records each
+ordered acquisition-spec path and hash; the reusable auditor rejects parent,
+config, source, interval, universe, story-body, timestamp, or pagination drift and
+requires batch intervals to be contiguous. Licensed JSONL is streamed locally;
+only counts and population hashes are emitted. The first batch has 162,123 source
+story rows, 130,742 unique normalized headlines in the retrieved file, and
+130,692 strictly post-cutoff eligible normalized hashes from 162,049 eligible
+rows. Eleven rows normalize empty. Thus the eventual scoring population is
+19.35% smaller than scoring every eligible source story. At the prior realised
+Gemma average this would be about $4.95, but that is a planning estimate rather
+than a quote or authorisation. The calendar gate remains 27/120; FinBERT, paid
+Gemma, prices, returns, active-session gates, and performance inference remain
+sealed.
 
 ### W4: Sentiment surprise
 
