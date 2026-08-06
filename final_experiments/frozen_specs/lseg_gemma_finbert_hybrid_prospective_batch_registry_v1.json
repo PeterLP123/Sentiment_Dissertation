@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "status": "append_only",
+  "purpose": "Licence-safe population ledger for the one frozen prospective LSEG/Gemma plus FinBERT replay; appending a batch cannot alter any earlier entry.",
+  "parent_strategy_spec": {
+    "path": "final_experiments/frozen_specs/lseg_gemma_finbert_hybrid_prospective_v1.json",
+    "sha256": "3be373597a8ff20482cd6ce4c647d7c440d934b7a6c8d5cc6e9c198da580b0fc"
+  },
+  "batches": [
+    {
+      "order": 1,
+      "acquisition_spec_path": "final_experiments/frozen_specs/lseg_gemma_finbert_hybrid_prospective_acquisition_batch_20260806.json",
+      "acquisition_spec_sha256": "53f33a12c401d79c11d885e0e294f40a7ea1f35d78ff04825866ae63a0f5ffca"
+    }
+  ],
+  "controls": {
+    "contiguous_intervals_required": true,
+    "source_regime_pooling_permitted": false,
+    "licensed_headline_text_source_controlled": false,
+    "metadata_population_gate_precedes_scoring": true,
+    "paid_external_gemma_scoring_authorised": false,
+    "prices_or_returns_opened_by_registry_audit": false
+  }
+}

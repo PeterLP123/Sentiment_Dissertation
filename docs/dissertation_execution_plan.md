@@ -36,7 +36,7 @@ Profitability, a significant p-value, a neural network, and a wider news collect
 | Firm-day panel | Built: 715,546 rows, 570 priced symbols, 3,262 sessions | `01_panel` outputs/manifest |
 | Chronological split | Frozen: development through 2019, evaluation from 2020 | `lib/panel.py`, plan, protocol |
 | Final RQ | Open | Gate F1 after Stage S2 |
-| Current active work | Finish/waive the unlabelled novelty audit and take Gate F1 using the aggregate-only synthesis plus timing-placebo, external-time base, story-revision cost boundaries, inverse-volatility null, Notebook 51's optimistic $10m capacity bound, Notebook 52's input-only liquidity-sizing stop, and Notebook 53's 27/120 prospective accumulation stop. Historical alpha and allocation tuning are closed; continue immutable new-date collection until the frozen prospective population permits one replay. | Stage S2 exit / Gate F1; Notebooks 40–53 |
+| Current active work | Finish/waive the unlabelled novelty audit and take Gate F1 using the aggregate-only synthesis plus timing-placebo, external-time base, story-revision cost boundaries, inverse-volatility null, Notebook 51's optimistic $10m capacity bound, Notebook 52's input-only liquidity-sizing stop, and Notebooks 53–54's 27/120 prospective accumulation stop and append-only population ledger. Historical alpha and allocation tuning are closed; continue immutable new-date collection until the frozen prospective population permits one replay. | Stage S2 exit / Gate F1; Notebooks 40–54 |
 | Exploratory W3/W4 chain | Repaired and rerun; not promoted because it ran before Gate F1 | `03`–`07`, `INVALIDATED_RUNS.md` |
 | Scorer selection | Closed: FinBERT primary | Benchmark and prior reports |
 | VaR/ES | Closed | FNSPID factorial report |
@@ -238,7 +238,7 @@ new-date replay. Notebook 42's negative 2010 replay, Notebook 43, and the public
 replication jointly argue against another historical sentiment-ranking search.
 
 Notebook 44 makes that base decision auditable without reopening row-level
-outcomes. Refreshed through Notebook 53, it assigns an ordinal evidence tier to
+outcomes. Refreshed through Notebook 54, it assigns an ordinal evidence tier to
 19 representative strategy rows, keeps cross-regime Sharpes explicitly
 non-comparable, and applies one promotion policy to eleven paired sentiment or
 construction comparisons. One favourable interval excludes zero: Notebook 47's retrospective
@@ -249,8 +249,8 @@ net-negative at 10 bps/side in every one of five reported regime/split rows.
 HAR is therefore the independent research benchmark, but no strategy is now a
 deployment-qualified base. LSEG/Gemma remains central measurement and
 non-pooled risk-mechanism evidence, not a selected alpha strategy. This
-synthesis informs but does not take Gate F1. Notebook 53 changes only the
-prospective readiness status; it does not add a strategy row or performance
+synthesis informs but does not take Gate F1. Notebooks 53–54 change only the
+prospective readiness status; they do not add a strategy row or performance
 comparison.
 
 Notebook 45 separates unusually informative timing from the mechanical effect
@@ -263,7 +263,7 @@ unusually timed (p=q=0.3653). No return-timing test passes, so both cross-regime
 gates fail. This narrows the useful claim to one-period aggregate market-risk
 timing and rejects a general Gemma/downside mechanism. A prospective replay still
 does not run: the first local news batch after 2026-06-26 now exists, but
-Notebook 53 shows that its interval has only a 27-session XNYS upper bound versus
+Notebooks 53–54 show that its interval has only a 27-session XNYS upper bound versus
 the frozen 120-session minimum.
 
 Notebook 46 transfers Notebook 21's unchanged 2011–2019 HAR coefficients and
@@ -361,7 +361,7 @@ Notebook 53 starts the prospective evidence stream without opening outcomes.
 Its source-controlled acquisition contract freezes the exact original 33,
 2026-06-26 inclusive to 2026-08-06 exclusive, all entitled English-language
 headlines, no story bodies, no pooling, and an explicit paid-scoring boundary
-before retrieval. The completed local collection has 162,123 unique headlines,
+before retrieval. The completed local collection has 162,123 source story/headline rows,
 162,049 strictly post-cutoff, 74 exactly at the shared boundary, zero before it,
 all 33 symbols, zero failed stories, and zero pagination anomalies. The
 metadata-only gate loads no price or return and launches neither FinBERT nor
@@ -369,6 +369,19 @@ paid Gemma. Because the closed interval can contain only 27 eligible XNYS
 sessions, it stops before the 120-session minimum; 2026-12-16 is the earliest
 possible 120th session. Continue immutable accumulation, then apply the 60
 active-session and 20-per-half gates before the one-shot replay.
+
+Notebook 54 adds the cumulative batch ledger required to repeat that process
+without mutating an earlier population. The append-only registry contains the
+parent and acquisition-spec hashes; `lib/prospective.py` verifies all spec,
+config, manifest and headline-file hashes, contiguous intervals, the frozen 33,
+headline-only retrieval, timestamps, pagination status, and cross-batch
+deduplication. For batch one it resolves 130,742 source-file unique normalized
+headlines and 130,692 strictly post-cutoff eligible hashes from 162,049 eligible
+story rows, excluding 11 empty-normalized rows. That is 19.35% fewer possible
+scoring requests, or about $4.95 at the previous realised Gemma average. The
+amount is a planning estimate only; paid Gemma is not authorised. The ledger
+loads no price or return, adds no strategy row, and leaves the 27/120 stop
+unchanged.
 
 The expanded LSEG/Gemma panel now contributes a separate mechanism check rather
 than only scorer and cross-sectional nulls. Notebook 26's semantic sparse brake
@@ -595,7 +608,7 @@ fix. Do not search another story-family rule on this window.
 
 Priority order:
 
-1. use Notebooks 44–53 to write the cross-regime conclusion: HAR remains the independent price/risk research benchmark but is not time-stable or deployment-qualified; aggregate sentiment shows one-period downside timing; Gemma/LSEG adds mechanical de-risking, a gross story-revision information effect whose economics fail at 10 bps/side, an optimistic $10m capacity bound for the leading hybrid, an input-only rejection of daily liquidity-aware reweighting, and a prospective 27/120 population stop before scoring or returns;
+1. use Notebooks 44–54 to write the cross-regime conclusion: HAR remains the independent price/risk research benchmark but is not time-stable or deployment-qualified; aggregate sentiment shows one-period downside timing; Gemma/LSEG adds mechanical de-risking, a gross story-revision information effect whose economics fail at 10 bps/side, an optimistic $10m capacity bound for the leading hybrid, an input-only rejection of daily liquidity-aware reweighting, and a prospective append-only population ledger stopped at 27/120 before scoring or returns;
 2. treat Notebooks 42–43 as falsifications and Notebooks 47–49 as a bounded mechanism/cost frontier, not permission to reverse sentiment, tune revision persistence, or search another revision filter on opened outcomes;
 3. finish or explicitly waive the human novelty audit and take Gate F1; Notebook 52 has used and closed the single permitted liquidity-aware implementation follow-up, so no historical alpha or allocation arm remains open;
 4. continue immutable LSEG acquisition through at least the earliest possible 120th session (2026-12-16); only after the 120-session, 60-active-session, and 20-per-half gates pass, score the fixed population and replay the frozen hybrid once as prospective evidence against its now-negative prior;
