@@ -9,6 +9,8 @@ from __future__ import annotations
 import csv
 import heapq
 import json
+import math
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -31,6 +33,8 @@ class BackwardCollectionAudit:
     """Licence-safe progress and gate evidence for the headline collection."""
 
     summary: pd.DataFrame
+    date_progress: pd.DataFrame
+    projection: pd.DataFrame
     gate_table: pd.DataFrame
     collection_gate_pass: bool
 
@@ -66,29 +70,52 @@ def _resolve(root: Path, value: object, *, label: str) -> Path:
     return path if path.is_absolute() else root / path
 
 
-def _completed_windows(pages_dir: Path, *, symbols: frozenset[str], maximum: int) -> set[tuple[str, int]]:
+def _checkpoint_progress(
+    pages_dir: Path,
+    *,
+    symbols: frozenset[str],
+    maximum: int,
+) -> tuple[set[tuple[str, int]], dict[int, int], dict[int, int], int, int]:
     completed: set[tuple[str, int]] = set()
+    page_requests_by_window: dict[int, int] = {}
+    page_bytes_by_window: dict[int, int] = {}
+    page_count = 0
+    page_bytes = 0
     for page_path in pages_dir.glob("*.json"):
+        page_count += 1
+        checkpoint_bytes = page_path.stat().st_size
+        page_bytes += checkpoint_bytes
         payload = read_json(page_path)
         symbol = str(payload.get("symbol") or "").strip().upper()
         try:
             window_index = int(payload.get("window_index"))
         except (TypeError, ValueError):
             continue
-        terminal = not str(payload.get("cursor_out") or "").strip() or bool(
-            str(payload.get("pagination_terminal_reason") or "").strip()
-        )
-        if symbol in symbols and 1 <= window_index <= maximum and terminal:
+        if symbol not in symbols or not 1 <= window_index <= maximum:
+            continue
+        page_requests_by_window[window_index] = page_requests_by_window.get(window_index, 0) + 1
+        page_bytes_by_window[window_index] = page_bytes_by_window.get(window_index, 0) + checkpoint_bytes
+        terminal = not str(payload.get("cursor_out") or "").strip() or bool(str(payload.get("pagination_terminal_reason") or "").strip())
+        if terminal:
             completed.add((symbol, window_index))
-    return completed
+    return completed, page_requests_by_window, page_bytes_by_window, page_count, page_bytes
+
+
+def _directory_bytes(path: Path) -> int:
+    if not path.is_dir():
+        return 0
+    return sum(item.stat().st_size for item in path.rglob("*") if item.is_file())
 
 
 def audit_backward_collection(
     repo_root: str | Path,
     spec_path: str | Path,
+    *,
+    daily_request_budget: int = 10_000,
 ) -> BackwardCollectionAudit:
     """Audit frozen identities and collection progress without reading returns."""
 
+    _require(daily_request_budget > 0, "daily request budget must be positive")
     root = Path(repo_root).resolve()
     spec_file = _resolve(root, spec_path, label="backward specification")
     spec = _read_object(spec_file, label="backward specification")
@@ -112,7 +139,8 @@ def audit_backward_collection(
 
     expected_symbols = frozenset(company.symbol for company in config.companies)
     _require(len(expected_symbols) == 33, "backward collection must contain exactly 33 unique symbols")
-    window_count = len(collection_windows(config))
+    windows = collection_windows(config)
+    window_count = len(windows)
     expected_windows = len(expected_symbols) * window_count
     raw_dir = root / config.raw_dir
     pages_dir = raw_dir / "headline_pages"
@@ -127,16 +155,96 @@ def audit_backward_collection(
             "collection manifest config payload mismatch",
         )
 
-    completed = _completed_windows(pages_dir, symbols=expected_symbols, maximum=window_count) if pages_dir.is_dir() else set()
-    page_count = sum(1 for _ in pages_dir.glob("*.json")) if pages_dir.is_dir() else 0
+    if pages_dir.is_dir():
+        completed, page_requests_by_window, page_bytes_by_window, page_count, page_bytes = _checkpoint_progress(
+            pages_dir,
+            symbols=expected_symbols,
+            maximum=window_count,
+        )
+    else:
+        completed = set()
+        page_requests_by_window = {}
+        page_bytes_by_window = {}
+        page_count = 0
+        page_bytes = 0
+
+    completed_companies_by_window: dict[int, int] = {}
+    for _, window_index in completed:
+        completed_companies_by_window[window_index] = completed_companies_by_window.get(window_index, 0) + 1
+    date_progress = pd.DataFrame(
+        [
+            {
+                "window_index": window.index,
+                "window_start": window.start,
+                "window_end": window.end,
+                "completed_companies": completed_companies_by_window.get(window.index, 0),
+                "expected_companies": len(expected_symbols),
+                "company_completion_pct": (100.0 * completed_companies_by_window.get(window.index, 0) / len(expected_symbols)),
+                "complete_date": completed_companies_by_window.get(window.index, 0) == len(expected_symbols),
+                "page_requests": page_requests_by_window.get(window.index, 0),
+                "checkpoint_mib": page_bytes_by_window.get(window.index, 0) / 2**20,
+            }
+            for window in windows
+        ]
+    )
+    complete_dates = int(date_progress["complete_date"].sum())
+    complete_prefix_dates = 0
+    for is_complete in date_progress["complete_date"]:
+        if not bool(is_complete):
+            break
+        complete_prefix_dates += 1
+    frontier = date_progress.iloc[complete_prefix_dates] if complete_prefix_dates < window_count else None
+    partial_dates = int(((date_progress["completed_companies"] > 0) & ~date_progress["complete_date"]).sum())
+    untouched_dates = int((date_progress["completed_companies"] == 0).sum())
+
+    observed_requests_per_completed_window = page_count / len(completed) if completed else float("nan")
+    if complete_dates:
+        observed_requests_per_complete_date = float(date_progress.loc[date_progress["complete_date"], "page_requests"].mean())
+        estimated_total_requests = observed_requests_per_complete_date * window_count
+        projection_basis = "mean page requests across completed 33-company dates"
+    elif completed:
+        observed_requests_per_complete_date = float("nan")
+        estimated_total_requests = observed_requests_per_completed_window * expected_windows
+        projection_basis = "mean page requests per completed company-window; company-biased until the first complete date"
+    else:
+        observed_requests_per_complete_date = float("nan")
+        estimated_total_requests = float(expected_windows)
+        projection_basis = "one-request-per-company-window minimum; no completed checkpoints yet"
+    minimum_remaining_requests = max(expected_windows - len(completed), 0)
+    estimated_remaining_requests = max(math.ceil(estimated_total_requests - page_count), minimum_remaining_requests)
+    raw_storage_bytes = _directory_bytes(raw_dir)
+    storage_probe = raw_dir if raw_dir.exists() else root
+    free_disk_bytes = shutil.disk_usage(storage_probe).free
+    observed_bytes_per_page = page_bytes / page_count if page_count else float("nan")
+    projected_additional_storage_bytes = (
+        estimated_remaining_requests * observed_bytes_per_page if np.isfinite(observed_bytes_per_page) else float("nan")
+    )
+    projected_free_after_completion_bytes = (
+        free_disk_bytes - projected_additional_storage_bytes if np.isfinite(projected_additional_storage_bytes) else float("nan")
+    )
+    projection = pd.DataFrame(
+        [
+            {
+                "projection_basis": projection_basis,
+                "daily_request_budget": daily_request_budget,
+                "observed_requests_per_completed_company_window": observed_requests_per_completed_window,
+                "observed_requests_per_complete_date": observed_requests_per_complete_date,
+                "minimum_remaining_requests": minimum_remaining_requests,
+                "estimated_remaining_requests": estimated_remaining_requests,
+                "minimum_remaining_quota_days": math.ceil(minimum_remaining_requests / daily_request_budget),
+                "estimated_remaining_quota_days": math.ceil(estimated_remaining_requests / daily_request_budget),
+                "current_raw_storage_gib": raw_storage_bytes / 2**30,
+                "observed_checkpoint_mib_per_page": observed_bytes_per_page / 2**20,
+                "projected_additional_storage_gib": projected_additional_storage_bytes / 2**30,
+                "free_disk_gib": free_disk_bytes / 2**30,
+                "projected_free_after_completion_gib": projected_free_after_completion_bytes / 2**30,
+            }
+        ]
+    )
     manifest_status = str(manifest.get("status") or "not_started")
     counts = manifest.get("counts") if isinstance(manifest.get("counts"), dict) else {}
     anomalies = manifest.get("pagination_anomalies") if isinstance(manifest.get("pagination_anomalies"), list) else []
-    anomaly_reasons = {
-        str(item.get("reason") or "")
-        for item in anomalies
-        if isinstance(item, dict) and str(item.get("reason") or "")
-    }
+    anomaly_reasons = {str(item.get("reason") or "") for item in anomalies if isinstance(item, dict) and str(item.get("reason") or "")}
     unsafe_anomalies = anomaly_reasons - SAFE_PAGINATION_ANOMALY_REASONS
     headlines_path = raw_dir / "headlines.jsonl"
     stories_path = raw_dir / "stories.jsonl"
@@ -175,6 +283,12 @@ def audit_backward_collection(
                 "expected_windows": expected_windows,
                 "window_completion_pct": 100.0 * len(completed) / expected_windows,
                 "headline_pages": page_count,
+                "complete_dates": complete_dates,
+                "complete_date_prefix": complete_prefix_dates,
+                "partial_dates": partial_dates,
+                "untouched_dates": untouched_dates,
+                "frontier_date": frontier["window_start"] if frontier is not None else None,
+                "frontier_companies_completed": int(frontier["completed_companies"]) if frontier is not None else None,
                 "unique_headlines": counts.get("headlines"),
                 "raw_headline_rows": counts.get("raw_headline_rows"),
                 "pagination_anomalies": len(anomalies),
@@ -195,7 +309,13 @@ def audit_backward_collection(
             {"gate": "collection_ready_for_drift_audit", "passed": collection_gate_pass},
         ]
     )
-    return BackwardCollectionAudit(summary=summary, gate_table=gate_table, collection_gate_pass=collection_gate_pass)
+    return BackwardCollectionAudit(
+        summary=summary,
+        date_progress=date_progress,
+        projection=projection,
+        gate_table=gate_table,
+        collection_gate_pass=collection_gate_pass,
+    )
 
 
 def select_gemma_drift_sample(
@@ -295,12 +415,8 @@ def evaluate_gemma_drift(
     spearman = float(merged["reference_score"].corr(merged["score"], method="spearman"))
     mean_absolute_difference = float((merged["reference_score"] - merged["score"]).abs().mean())
     direction_agreement = float((reference_direction == repeated_direction).mean())
-    endpoint_same_direction_retention = float(
-        (merged.loc[endpoints, "reference_score"] == merged.loc[endpoints, "score"]).mean()
-    )
-    endpoint_opposite_direction_count = int(
-        (reference_direction.loc[endpoints] == -repeated_direction.loc[endpoints]).sum()
-    )
+    endpoint_same_direction_retention = float((merged.loc[endpoints, "reference_score"] == merged.loc[endpoints, "score"]).mean())
+    endpoint_opposite_direction_count = int((reference_direction.loc[endpoints] == -repeated_direction.loc[endpoints]).sum())
     nonendpoint_to_endpoint_rate = float(merged.loc[controls, "score"].isin([-1.0, 1.0]).mean())
 
     gate_rows = [
