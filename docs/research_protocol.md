@@ -575,7 +575,7 @@ and selection histories are not pooled or treated as directly comparable.
 A sentiment rule is eligible for promotion only if its paired net-return
 interval is favourable and excludes zero, its effect is temporally stable, its
 local predeclared gate passes, and the evidence tier is at least chronological
-or external-time. After the Notebook 58 refresh, one of eleven paired sentiment
+or external-time. After the Notebook 60 refresh, one of eleven paired sentiment
 or construction comparisons
 in Notebook 44 clears the interval condition and six show lower downside loss
 under their source conventions. The sole favourable interval is Notebook 47's
@@ -835,6 +835,37 @@ Sharpes are 3.052/0.016. At $10m, point Sharpe is 0.413, mean-net interval is
 bound. This does not invalidate Notebook 51's arithmetic, alter the candidate,
 or license historical retuning; it prevents an uncertainty-qualified capacity
 or deployment claim before the genuinely new-date replay.
+
+Notebook 59 is a pre-outcome-frozen accounting decomposition of Notebook 36's
+unchanged open-to-open gross path, not a change in holding period. For each
+stock and entry session it uses start-open-normalized entry-open-to-close and
+close-to-next-open contributions whose sum must reproduce the open-to-open
+return within `1e-12`. The two component means form one 9,999-replication,
+five-session circular-block family with BH correction. Costs stay separate and
+long/short pieces are descriptive. The identity error is `7.46e-17`. Intraday
+contributes +6.465 bps/session [+1.420,+11.555] with BH q=0.0242 and 57.38% of
+total gross sum; overnight contributes +4.802 [+0.113,+10.141] with q=0.0611.
+The long leg supplies 97.43% of total arithmetic gross contribution with
+all-session/half gross Sharpes 4.344/4.254/4.856; the short leg supplies 2.57%
+with 0.163/0.387/0.040. Do not turn either component or leg into a new exit,
+direction, or strategy rule on this opened window.
+
+Notebook 60 is the single frozen follow-up to that long-leg concentration. It
+keeps every Gemma date/count, FinBERT-selected long name, positive target weight,
+original-33 membership, and open-to-open interval fixed. The broad control
+spreads each session's total long exposure equally across all 33 companies; the
+sector control preserves each session's sector-level long exposure and spreads
+it equally across the sector's three original members. Only the two paired gross
+mean differences are tested, using 9,999 five-session circular-block resamples
+and BH correction. No control ledger, cost, turnover, net return, or new traded
+strategy is constructed. The selected long leg beats matched market exposure by
++8.362 bps/session [+3.407,+13.780] (BH q=0.0038) and matched sector exposure by
++3.662 [+0.952,+6.623] (q=0.0121); both differences are positive in both
+descriptive chronological halves. Record this as useful post-result evidence
+that the opened-window long result contains within-sector name-selection value.
+It does not identify causal sentiment information, override Notebook 36's
+zero-crossing sector-factor alpha interval, alter the prospective contract, or
+permit historical retuning or promotion.
 
 Notebook 52 performs that single permitted input-first sizing audit. For an
 entry from flat, minimising the square-root objective within an unchanged leg
