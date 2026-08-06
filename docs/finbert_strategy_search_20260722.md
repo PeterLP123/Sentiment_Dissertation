@@ -15,6 +15,10 @@ crosses zero, so it is retained as an exploratory positive-Sharpe baseline, not
 as newly discovered or deployable alpha. The complete rules and audit are in
 [`recent_news_midcap_finbert_strategy.md`](recent_news_midcap_finbert_strategy.md).
 
+**Later evidence-hierarchy note (2026-08-06):** Notebook 55 preserves these
+numbers but reclassifies the rule as a tier-2 historical LSEG/FinBERT comparator,
+not the current base. The original wording above records the 22 July decision.
+
 The completed FNSPID study still supports a narrower claim: FinBERT contains
 information about next-session absolute abnormal returns and negative-tail
 risk. That finding does not, by itself, establish an implementable directional
@@ -113,8 +117,9 @@ three-session version was positive in two subperiods but traded on only 11 days.
 
 ## Research implication
 
-Use the one-session mid-cap event rule only as the current exploratory baseline;
-do not present FinBERT as confirmed standalone deployable alpha from these
+At the time, use the one-session mid-cap event rule only as the exploratory
+baseline; Notebook 55 later narrows that role to a historical comparator. Do
+not present FinBERT as confirmed standalone deployable alpha from these
 samples. A defensible next test is either a predeclared concentration cap on a
 genuinely unseen future Reuters period, or an incremental risk overlay on an
 already justified return signal. The current 2011–2023 FNSPID and 2025–2026

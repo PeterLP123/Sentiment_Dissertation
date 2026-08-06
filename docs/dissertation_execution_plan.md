@@ -36,7 +36,7 @@ Profitability, a significant p-value, a neural network, and a wider news collect
 | Firm-day panel | Built: 715,546 rows, 570 priced symbols, 3,262 sessions | `01_panel` outputs/manifest |
 | Chronological split | Frozen: development through 2019, evaluation from 2020 | `lib/panel.py`, plan, protocol |
 | Final RQ | Open | Gate F1 after Stage S2 |
-| Current active work | Finish/waive the unlabelled novelty audit and take Gate F1 using the aggregate-only synthesis plus timing-placebo, external-time base, story-revision cost boundaries, inverse-volatility null, Notebook 51's optimistic $10m capacity bound, Notebook 52's input-only liquidity-sizing stop, and Notebooks 53–54's 27/120 prospective accumulation stop and append-only population ledger. Historical alpha and allocation tuning are closed; continue immutable new-date collection until the frozen prospective population permits one replay. | Stage S2 exit / Gate F1; Notebooks 40–54 |
+| Current active work | Finish/waive the unlabelled novelty audit and take Gate F1 using the aggregate-only synthesis plus timing-placebo, external-time base, story-revision cost boundaries, inverse-volatility null, Notebook 51's optimistic $10m capacity bound, Notebook 52's input-only liquidity-sizing stop, Notebooks 53–54's 27/120 prospective accumulation stop and append-only population ledger, and Notebook 55's historical mid-cap FinBERT baseline reconciliation. Historical alpha and allocation tuning are closed; continue immutable new-date collection until the frozen prospective population permits one replay. | Stage S2 exit / Gate F1; Notebooks 40–55 |
 | Exploratory W3/W4 chain | Repaired and rerun; not promoted because it ran before Gate F1 | `03`–`07`, `INVALIDATED_RUNS.md` |
 | Scorer selection | Closed: FinBERT primary | Benchmark and prior reports |
 | VaR/ES | Closed | FNSPID factorial report |
@@ -238,8 +238,8 @@ new-date replay. Notebook 42's negative 2010 replay, Notebook 43, and the public
 replication jointly argue against another historical sentiment-ranking search.
 
 Notebook 44 makes that base decision auditable without reopening row-level
-outcomes. Refreshed through Notebook 54, it assigns an ordinal evidence tier to
-19 representative strategy rows, keeps cross-regime Sharpes explicitly
+outcomes. Refreshed through Notebook 55, it assigns an ordinal evidence tier to
+20 representative strategy rows, keeps cross-regime Sharpes explicitly
 non-comparable, and applies one promotion policy to eleven paired sentiment or
 construction comparisons. One favourable interval excludes zero: Notebook 47's retrospective
 revision-delta comparison with a matched latest-score-level construction. It is
@@ -250,8 +250,14 @@ HAR is therefore the independent research benchmark, but no strategy is now a
 deployment-qualified base. LSEG/Gemma remains central measurement and
 non-pooled risk-mechanism evidence, not a selected alpha strategy. This
 synthesis informs but does not take Gate F1. Notebooks 53–54 change only the
-prospective readiness status; they do not add a strategy row or performance
-comparison.
+prospective readiness status. Notebook 55 adds one aggregate historical
+strategy row without constructing a new return: the frozen mid-cap FinBERT
+event rule has +4.00% evaluation net return, 0.593 net Sharpe, and 16.52
+bps/side break-even, but its [−8.86,+19.34] bps/session cash interval crosses
+zero, only 37 evaluation sessions are active, and maximum name weight is 50%.
+The original local gate passes, so preserve it as a tier-2 historical
+LSEG/FinBERT comparator; it is not the current base, a Gemma head-to-head result,
+or promoted alpha.
 
 Notebook 45 separates unusually informative timing from the mechanical effect
 of reducing exposure. Every circular placement of the exact state is evaluated

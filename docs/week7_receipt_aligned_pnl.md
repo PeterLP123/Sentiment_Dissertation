@@ -3,8 +3,10 @@
 ## Scope
 
 This Week 7 export applies the supervisor's receipt-date convention to the
-current exploratory strategy, `recent-news-midcap-finbert-event-v1-dfdd88113a5f`.
-The frozen strategy result is not overwritten.
+then-current exploratory strategy,
+`recent-news-midcap-finbert-event-v1-dfdd88113a5f`. Notebook 55 later retains
+it only as a historical LSEG/FinBERT comparator under the final evidence
+hierarchy. The frozen strategy result is not overwritten.
 
 For an interval entered at `session` and exited at `next_session`, gross P/L is
 reported on `next_session`. This is the portfolio equivalent of
