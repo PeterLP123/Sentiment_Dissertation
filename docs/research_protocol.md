@@ -575,7 +575,7 @@ and selection histories are not pooled or treated as directly comparable.
 A sentiment rule is eligible for promotion only if its paired net-return
 interval is favourable and excludes zero, its effect is temporally stable, its
 local predeclared gate passes, and the evidence tier is at least chronological
-or external-time. After the Notebook 60 refresh, one of eleven paired sentiment
+or external-time. After the Notebook 61 refresh, one of eleven paired sentiment
 or construction comparisons
 in Notebook 44 clears the interval condition and six show lower downside loss
 under their source conventions. The sole favourable interval is Notebook 47's
@@ -866,6 +866,22 @@ that the opened-window long result contains within-sector name-selection value.
 It does not identify causal sentiment information, override Notebook 36's
 zero-crossing sector-factor alpha interval, alter the prospective contract, or
 permit historical retuning or promotion.
+
+Notebook 61 is the final permitted historical session-component follow-up. Its
+pre-outcome contract preserves Notebook 60's exact selected long and same-sector
+control weights and decomposes their gross difference into start-open-normalized
+intraday and overnight pieces. The two component means form one 9,999-replication,
+five-session circular-block family with BH correction. Their sum must reproduce
+Notebook 60 within `1e-12`; no component cost, net return, alternative exit, or
+traded strategy may be constructed. The identity error is `5.79e-17`. Intraday
+selected-minus-sector is +1.454 bps/session [−0.324,+3.399], BH q=0.1264;
+overnight is +2.208 [−0.006,+4.845], q=0.1264. Neither gate passes. Intraday is
+positive in both descriptive halves, but overnight changes from +4.747 to
+−0.362 bps/session. The Notebook 60 total remains useful gross name-selection
+evidence, but it has no statistically isolated or temporally stable session
+component. Close historical intraday/overnight, direction, threshold, and
+allocation decomposition; carry only the unchanged open-to-open prospective
+candidate forward.
 
 Notebook 52 performs that single permitted input-first sizing audit. For an
 entry from flat, minimising the square-root objective within an unchanged leg
