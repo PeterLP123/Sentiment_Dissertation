@@ -586,7 +586,7 @@ and selection histories are not pooled or treated as directly comparable.
 A sentiment rule is eligible for promotion only if its paired net-return
 interval is favourable and excludes zero, its effect is temporally stable, its
 local predeclared gate passes, and the evidence tier is at least chronological
-or external-time. After the Notebook 63 refresh, one of eleven paired sentiment
+or external-time. After the Notebook 64 refresh, one of thirteen paired sentiment
 or construction comparisons
 in Notebook 44 clears the interval condition and six show lower downside loss
 under their source conventions. The sole favourable interval is Notebook 47's
@@ -906,7 +906,33 @@ halves (+5.335/+2.116). Record this as evidence that the opened-window
 name-selection result is not a simple proxy for those characteristics. Do not
 construct or cost a residual strategy, add controls, alter the prospective
 contract, or describe the result as independent confirmation or validated
-alpha.
+alpha. That no-strategy boundary governed Notebook 63 itself; the researcher's
+subsequent instruction to continue strategy iteration authorized exactly the
+two pre-outcome-frozen Notebook 64 translations below, without reopening a
+wider hedge or scaling search.
+
+Notebook 64 is a user-authorized iterative retrospective economic translation
+of Notebook 60's two gross controls. It changes no signal date, eligibility,
+Gemma count, FinBERT-selected long name, selected-long weight, cap, horizon, or
+price convention. The market residual subtracts the equal-weight 33-name
+control; the sector residual subtracts equal-weight three-name controls inside
+each sector. Signal and hedge weights are netted by name before the validated
+drift-aware ledger charges 10 bps/side and final liquidation. The four primary
+comparisons (two versus cash and two versus the unchanged Notebook 36
+incumbent) share one BH family; the two sector-spanning HAC(5) intercepts share
+a second family. No scaling up is permitted.
+
+The market residual has net Sharpe 2.332, +8.70% net return, −1.85% maximum
+drawdown, 55.20 total turnover, and 25.30-bps/side break-even, compared with
+2.271, +11.82%, −2.90%, 74.56, and 25.24 for the incumbent. It remains positive
+in both halves, but its +5.06-bps/session cash comparison [+0.29,+10.40] has BH
+q=0.0966, its +4.23-bps sector-factor intercept has q=0.0970, and its mean net
+return is −1.75 bps/session below the incumbent [−5.65,+1.99]. The sector
+residual has net Sharpe 0.818 and a −1.74-bps/session second-half mean. Both
+frozen classifications are `nonviable`. Record the market hedge as descriptive
+risk-efficiency evidence, not superior return evidence; reject the sector
+hedge. Neither result changes the prospective contract, validates alpha, or
+permits another historical hedge, scaling, or cost search.
 
 Notebook 52 performs that single permitted input-first sizing audit. For an
 entry from flat, minimising the square-root objective within an unchanged leg
