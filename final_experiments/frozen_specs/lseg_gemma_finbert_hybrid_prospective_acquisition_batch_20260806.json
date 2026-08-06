@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "status": "frozen_before_retrieval",
+  "frozen_at_utc": "2026-08-06T00:03:29Z",
+  "frozen_at_git_commit": "ba9a771490f790e83efc7efcd681ff9b4252d5ad",
+  "parent_strategy_spec": {
+    "path": "final_experiments/frozen_specs/lseg_gemma_finbert_hybrid_prospective_v1.json",
+    "sha256": "3be373597a8ff20482cd6ce4c647d7c440d934b7a6c8d5cc6e9c198da580b0fc"
+  },
+  "collection_config": {
+    "path": "configs/lseg_us_sector_33_prospective_20260626_20260806_headlines.toml",
+    "sha256": "e13b376502dbcc1b5db285e9b6d60269b0c05b59c638e25a86b0875efb360600",
+    "collection_id": "us_sector_33_prospective_20260626_20260806_headlines"
+  },
+  "closed_interval": {
+    "start_inclusive_utc": "2026-06-26T00:00:00Z",
+    "end_exclusive_utc": "2026-08-06T00:00:00Z",
+    "first_eligible_news_timestamp": "strictly after 2026-06-26T00:00:00Z",
+    "shared_boundary_reason": "preserve retrieval completeness; the downstream strict timestamp filter removes the opened boundary",
+    "dates_selected_without_inspecting_post_cutoff_returns": true
+  },
+  "universe": {
+    "companies": 33,
+    "policy": "exact frozen sector-33 universe in the parent strategy spec",
+    "all_entitled_english_headline_sources": true,
+    "story_bodies_requested": false
+  },
+  "data_separation": {
+    "source_regime": "LSEG prospective",
+    "pool_with_fnspid": false,
+    "pool_with_opened_lseg_window": false,
+    "licensed_text_gitignored": true
+  },
+  "population_stop": {
+    "complete_price_calendar_sessions_required": 120,
+    "primary_active_sessions_required": 60,
+    "active_sessions_each_chronological_half_required": 20,
+    "expected_first_batch_outcome": "insufficient population; accumulate without performance inference",
+    "returns_must_not_be_inspected_before_gate": true
+  },
+  "scoring_authorisation": {
+    "local_finbert_permitted_after_collection": true,
+    "paid_external_gemma_scoring_permitted_by_this_spec": false,
+    "required_before_paid_scoring": "explicit user approval of incremental spend and licensed headline transmission under the existing privacy controls"
+  },
+  "audit_requirements": {
+    "immutable_resumable_collection": true,
+    "completed_manifest_required": true,
+    "consolidated_headlines_jsonl_required": true,
+    "unresolved_pagination_anomalies_allowed": false,
+    "source_file_sha256_required": true,
+    "no_performance_outputs_for_an_underpowered_batch": true
+  }
+}
