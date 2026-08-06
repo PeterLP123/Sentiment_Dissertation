@@ -568,6 +568,120 @@ def test_fetch_windowed_collection_checkpoint_names_and_counts(tmp_path: Path) -
     assert story_updates[-1].requests_per_second == 1_000_000
 
 
+def test_windowed_collection_fetches_date_major_across_companies(tmp_path: Path) -> None:
+    class WindowOrderBackend:
+        def __init__(self) -> None:
+            self.page_calls: list[tuple[str, str]] = []
+
+        async def headline_page(self, *, query, start, **_kwargs):
+            self.page_calls.append((query, start))
+            return LsegHeadlinePage(
+                [
+                    {
+                        "storyId": f"urn:test:{query}:{start}",
+                        "headline": f"{query} headline {start}",
+                        "versionCreated": start,
+                        "language": "en",
+                    }
+                ],
+                None,
+            )
+
+        async def story(self, story_id):
+            raise AssertionError(story_id)
+
+    config = replace(_config(tmp_path), window_days=1, fetch_story_bodies=False)
+    backend = WindowOrderBackend()
+
+    asyncio.run(fetch_lseg_news(config, LsegNewsClient(backend)))
+
+    assert backend.page_calls == [
+        ("R:AAPL.O", "2026-06-01T00:00:00Z"),
+        ("R:MSFT.O", "2026-06-01T00:00:00Z"),
+        ("R:AAPL.O", "2026-06-02T00:00:00Z"),
+        ("R:MSFT.O", "2026-06-02T00:00:00Z"),
+    ]
+
+
+def test_date_major_resume_reuses_complete_company_major_checkpoints(tmp_path: Path) -> None:
+    config = replace(_config(tmp_path), window_days=1, fetch_story_bodies=False)
+    pages_dir = config.raw_dir / "headline_pages"
+    pages_dir.mkdir(parents=True)
+    (config.raw_dir / "stories").mkdir()
+    (config.raw_dir / "manifest.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "status": "in_progress",
+                "config_sha256": config.config_sha256,
+                "config": config.to_payload(),
+                "started_at": "2026-08-06T00:00:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+    for window in collection_windows(config):
+        page_path = pages_dir / f"001-AAPL-{window.checkpoint_label}-page-0001.json"
+        page_path.write_text(
+            json.dumps(
+                {
+                    "query": config.companies[0].news_query,
+                    "symbol": "AAPL",
+                    "ric": "AAPL.O",
+                    "window_index": window.index,
+                    "window_start": window.start,
+                    "window_end": window.end,
+                    "page_number": 1,
+                    "cursor_in": None,
+                    "cursor_out": None,
+                    "fetched_at": "2026-08-06T00:00:00Z",
+                    "rows": [
+                        {
+                            "storyId": f"urn:test:AAPL:{window.index}",
+                            "headline": f"AAPL headline {window.index}",
+                            "versionCreated": window.start,
+                            "language": "en",
+                        }
+                    ],
+                    "raw_response": {},
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    class MissingCompanyBackend:
+        def __init__(self) -> None:
+            self.page_calls: list[tuple[str, str]] = []
+
+        async def headline_page(self, *, query, start, **_kwargs):
+            assert query == "R:MSFT.O"
+            self.page_calls.append((query, start))
+            return LsegHeadlinePage(
+                [
+                    {
+                        "storyId": f"urn:test:MSFT:{start}",
+                        "headline": f"MSFT headline {start}",
+                        "versionCreated": start,
+                        "language": "en",
+                    }
+                ],
+                None,
+            )
+
+        async def story(self, story_id):
+            raise AssertionError(story_id)
+
+    backend = MissingCompanyBackend()
+
+    result = asyncio.run(fetch_lseg_news(config, LsegNewsClient(backend)))
+
+    assert backend.page_calls == [
+        ("R:MSFT.O", "2026-06-01T00:00:00Z"),
+        ("R:MSFT.O", "2026-06-02T00:00:00Z"),
+    ]
+    assert result.headline_count == 4
+
+
 def test_progress_starts_from_completed_window_checkpoints(tmp_path: Path) -> None:
     config = LsegCollectionConfig(
         **{
@@ -736,6 +850,27 @@ def test_request_pacer_enforces_hard_safety_budget() -> None:
     with pytest.raises(LsegNewsError, match="safety budget exhausted at 2 requests"):
         asyncio.run(run_requests())
     assert pacer.snapshot().requests_started == 2
+
+
+def test_fetch_request_budget_override_does_not_change_collection_identity(tmp_path: Path) -> None:
+    config = replace(
+        _config(tmp_path),
+        max_requests_per_run=1,
+        fetch_story_bodies=False,
+    )
+
+    result = asyncio.run(
+        fetch_lseg_news(
+            config,
+            LsegNewsClient(FakeBackend()),
+            request_budget_override=3,
+        )
+    )
+
+    manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+    assert result.request_count == 3
+    assert manifest["config_sha256"] == config.config_sha256
+    assert manifest["config"]["collection"]["max_requests_per_run"] == 1
 
 
 def test_retry_uses_exponential_backoff(monkeypatch) -> None:

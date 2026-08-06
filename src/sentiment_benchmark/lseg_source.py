@@ -1229,8 +1229,12 @@ async def fetch_lseg_news(
     client: LsegNewsClient,
     *,
     progress_callback: LsegProgressCallback | None = None,
+    request_budget_override: int | None = None,
 ) -> LsegFetchResult:
-    client.configure_request_pacing(config.requests_per_second, config.max_requests_per_run)
+    if request_budget_override is not None and request_budget_override < 1:
+        raise LsegConfigurationError("request budget override must be positive")
+    request_budget = config.max_requests_per_run if request_budget_override is None else request_budget_override
+    client.configure_request_pacing(config.requests_per_second, request_budget)
     retry_count = 0
     retry_backoff_seconds = 0.0
     pagination_anomalies: list[dict[str, Any]] = []
@@ -1297,9 +1301,21 @@ async def fetch_lseg_news(
             **request_progress(),
         ),
     )
-    for company_index, company in enumerate(config.companies, start=1):
-        query_stats[company.symbol] = {"query": company.news_query, "ric": company.ric, "pages": 0, "rows": 0, "windows": len(windows)}
-        for window in windows:
+    indexed_companies = tuple(enumerate(config.companies, start=1))
+    for _, company in indexed_companies:
+        query_stats[company.symbol] = {
+            "query": company.news_query,
+            "ric": company.ric,
+            "pages": 0,
+            "rows": 0,
+            "windows": len(windows),
+        }
+    # Date-major traversal makes every partial quota batch converge toward a
+    # complete cross-section. Existing company-major checkpoints are reused by
+    # their unchanged symbol/window/page identity, so this changes scheduling
+    # only—not the final collection population or manifest contract.
+    for window in windows:
+        for company_index, company in indexed_companies:
             cursor: str | None = None
             seen_cursors: set[str] = set()
             window_story_ids: set[str] = set()
