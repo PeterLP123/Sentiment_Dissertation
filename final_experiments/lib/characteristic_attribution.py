@@ -132,10 +132,6 @@ def fit_characteristic_attribution(
     complete_features = frame.loc[:, feature_columns].notna().all(axis=1)
     if (~complete_features & frame["selected_weight"].gt(0)).any():
         raise ValueError("every selected firm-session must have complete characteristics")
-    partial_groups = frame.assign(_complete=complete_features).groupby(["session_date", "sector"], sort=False)["_complete"].nunique()
-    if partial_groups.gt(1).any():
-        raise ValueError("characteristic coverage must be all-or-none within sector-session")
-
     training = complete_features & frame["selected_weight"].eq(0)
     if not training.any():
         raise ValueError("no complete nonselected observations are available")

@@ -105,3 +105,14 @@ def test_attribution_fails_when_selected_characteristics_are_missing() -> None:
     panel.loc[selected.idxmax(), "sigma20"] = np.nan
     with pytest.raises(ValueError, match="every selected firm-session"):
         fit_characteristic_attribution(panel)
+
+
+def test_attribution_drops_incomplete_nonselected_characteristics() -> None:
+    panel = _attribution_panel()
+    nonselected = panel["selected_weight"].eq(0)
+    panel.loc[nonselected.idxmax(), "sigma20"] = np.nan
+
+    attribution = fit_characteristic_attribution(panel)
+
+    assert len(attribution.daily) == panel["session_date"].nunique()
+    assert np.isfinite(attribution.daily["residual_characteristic_adjusted"]).all()
