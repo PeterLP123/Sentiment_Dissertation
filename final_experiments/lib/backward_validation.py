@@ -34,6 +34,7 @@ class BackwardCollectionAudit:
 
     summary: pd.DataFrame
     date_progress: pd.DataFrame
+    company_date_completion: pd.DataFrame
     projection: pd.DataFrame
     gate_table: pd.DataFrame
     collection_gate_pass: bool
@@ -137,8 +138,12 @@ def audit_backward_collection(
     _require(config.window_days == 1, "backward collection must retain one-day windows")
     _require(config.max_requests_per_run == 9500, "backward collection must retain the 9500-request cap")
 
-    expected_symbols = frozenset(company.symbol for company in config.companies)
-    _require(len(expected_symbols) == 33, "backward collection must contain exactly 33 unique symbols")
+    symbol_order = tuple(company.symbol for company in config.companies)
+    expected_symbols = frozenset(symbol_order)
+    _require(
+        len(symbol_order) == len(expected_symbols) == 33,
+        "backward collection must contain exactly 33 unique symbols",
+    )
     windows = collection_windows(config)
     window_count = len(windows)
     expected_windows = len(expected_symbols) * window_count
@@ -167,6 +172,24 @@ def audit_backward_collection(
         page_bytes_by_window = {}
         page_count = 0
         page_bytes = 0
+
+    company_date_completion = pd.DataFrame(
+        [
+            {
+                "symbol": symbol,
+                "window_index": window.index,
+                "window_start": window.start,
+                "window_end": window.end,
+                "complete": (symbol, window.index) in completed,
+            }
+            for symbol in symbol_order
+            for window in windows
+        ]
+    )
+    _require(
+        int(company_date_completion["complete"].sum()) == len(completed),
+        "company-date completion ledger does not match terminal checkpoints",
+    )
 
     completed_companies_by_window: dict[int, int] = {}
     for _, window_index in completed:
@@ -312,6 +335,7 @@ def audit_backward_collection(
     return BackwardCollectionAudit(
         summary=summary,
         date_progress=date_progress,
+        company_date_completion=company_date_completion,
         projection=projection,
         gate_table=gate_table,
         collection_gate_pass=collection_gate_pass,

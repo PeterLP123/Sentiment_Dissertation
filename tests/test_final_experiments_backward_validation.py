@@ -84,6 +84,10 @@ derived_output_root = "derived"
         json.dumps({"symbol": "S00", "window_index": 1, "cursor_out": None}),
         encoding="utf-8",
     )
+    (pages / "002-S01-window-0001-page-0001.json").write_text(
+        json.dumps({"symbol": "S01", "window_index": 1, "cursor_out": "next-page"}),
+        encoding="utf-8",
+    )
     (raw_dir / "manifest.json").write_text(
         json.dumps(
             {
@@ -106,9 +110,14 @@ derived_output_root = "derived"
     assert row["frontier_date"] == "2024-01-01T00:00:00Z"
     assert row["frontier_companies_completed"] == 1
     assert audit.date_progress["completed_companies"].tolist() == [1]
-    assert audit.date_progress["page_requests"].tolist() == [1]
+    assert audit.date_progress["page_requests"].tolist() == [2]
+    completion = audit.company_date_completion.set_index(["symbol", "window_index"])["complete"]
+    assert audit.company_date_completion.shape == (33, 5)
+    assert int(completion.sum()) == 1
+    assert bool(completion.loc[("S00", 1)])
+    assert not bool(completion.loc[("S01", 1)])
     projection = audit.projection.iloc[0]
-    assert projection["estimated_remaining_requests"] == 32
+    assert projection["estimated_remaining_requests"] == 64
     assert projection["estimated_remaining_quota_days"] == 1
     assert "company-biased" in projection["projection_basis"]
     assert not audit.collection_gate_pass
@@ -195,6 +204,14 @@ derived_output_root = "derived"
     assert summary["frontier_companies_completed"] == 5
     assert audit.date_progress["completed_companies"].tolist() == [33, 5, 1]
     assert audit.date_progress["page_requests"].tolist() == [33, 5, 1]
+    completion_matrix = audit.company_date_completion.pivot(
+        index="symbol",
+        columns="window_index",
+        values="complete",
+    )
+    assert completion_matrix.shape == (33, 3)
+    assert completion_matrix.sum(axis=0).astype(int).to_dict() == completed_by_window
+    assert int(completion_matrix.to_numpy().sum()) == int(summary["completed_windows"])
     projection = audit.projection.iloc[0]
     assert projection["projection_basis"] == "mean page requests across completed 33-company dates"
     assert projection["observed_requests_per_complete_date"] == 33
