@@ -77,9 +77,13 @@ headline retrieval is unchanged.
 One full-quota batch is expected to take roughly two to three hours at the
 frozen three-request-per-second pace. Day one shared its account-level quota
 with an earlier 3,776-request prospective collection and therefore completed
-only 1,469 backward windows. At the observed archive density, allow roughly
-eight further fresh-quota days, with later lower-volume companies potentially
-improving that estimate. These are planning estimates, not completion claims.
+only 1,469 backward windows. On 2026-08-07 the collector made 7,705 API
+requests, including 12 retries, before the account-wide daily balance reached
+zero; the quota window therefore already contained about 2,295 requests. The
+resulting checkpoint has 4,829/21,912 complete company-day windows, 12,535
+saved pages, and 112 complete 33-company dates through 2024-04-21. At the
+observed complete-date density, allow roughly four further full-quota days.
+These are planning estimates, not completion claims.
 
 ## Methodological stage gates
 
