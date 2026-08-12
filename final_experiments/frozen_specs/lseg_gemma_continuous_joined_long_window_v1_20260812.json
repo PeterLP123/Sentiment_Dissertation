@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "status": "frozen_before_notebook_70_result",
+  "frozen_at_utc": "2026-08-12T13:56:46Z",
+  "git_commit_at_freeze": "4896f49faa6b6115e36597e7d0df7a7a24a666f9",
+  "experiment": {
+    "notebook": "final_experiments/70_lseg_gemma_continuous_joined_long_window.ipynb",
+    "title": "LSEG Gemma continuous joined long-window replay",
+    "candidate_rq": "measurement_portability_to_economic_portability",
+    "objective": "Test whether Notebook 39's portable continuous Gemma construction retains after-cost value through the earlier and opened same-source, same-universe LSEG blocks.",
+    "evidence_role": "bounded retrospective temporal stress test",
+    "confirmation_claim_allowed": false,
+    "deployment_claim_allowed": false,
+    "retuning_allowed": false
+  },
+  "inputs": {
+    "notebook_39_manifest": {
+      "path": "final_experiments/outputs/39_gemma_continuous_portability/manifest.json",
+      "sha256": "f24bff1a8ef71c1f7296c0bee3eba5a3ec4c2adde1bf7b8135deb05b80cd73e1"
+    },
+    "notebook_67_manifest": {
+      "path": "final_experiments/outputs/67_lseg_gemma_finbert_joined_long_window/manifest.json",
+      "sha256": "bee73f9e6f0a0de290dca3197590080480520e03d74cb8acc7356fecca8dccbd"
+    },
+    "price_panel": {
+      "path": "Data/derived/prices/lseg_us_sector_33_2024_2026.csv",
+      "sha256": "ecdd3c67d9b61183c6beebba6330918eace8a165764dba695ed87b86b6cec24a",
+      "return_definition": "split-adjusted open to next common open; dividends excluded"
+    },
+    "joined_population_sha256": "4e301e1aa4f7cbdc986042c62d41ebab3f72aa2c31c4b8ef2f7aed554194b4dc",
+    "joined_unique_headlines": 1967554,
+    "cross_block_overlap_hashes": 16444,
+    "universe": "immutable original LSEG sector 33",
+    "source_regime": "Reuters LSEG only; never pooled with FNSPID"
+  },
+  "return_free_checks": {
+    "duplicate_score_audit": "On cross-block duplicate hashes, report Spearman, sign agreement, exact equality, and absolute score differences for Gemma and FinBERT before any return is loaded.",
+    "firm_open_reducer": "mean_continuous Gemma signed probability score",
+    "event_intensity": "cross-sectional firm-open q90 minus q10",
+    "event_gate": "current complete-session spread at or above the strictly-prior trailing-60 complete-observation 75th percentile after 40 complete observations",
+    "incomplete_sessions": "Any session lacking all 33 firm-open rows is retained on the price clock, forced to cash, and excluded from the trailing spread history.",
+    "minimum_active_sessions_per_source_block": 15
+  },
+  "portfolio": {
+    "long_names": 2,
+    "short_names": 2,
+    "long_selection": "highest mean_continuous scores",
+    "short_selection": "lowest mean_continuous scores",
+    "weight_per_selected_name": 0.25,
+    "gross_exposure": 1.0,
+    "net_exposure": 0.0,
+    "holding_intervals": 1,
+    "cost_bps_per_traded_side_primary": 10.0,
+    "cost_grid_bps_per_traded_side": [
+      0.0,
+      1.0,
+      2.0,
+      5.0,
+      10.0
+    ],
+    "force_final_liquidation": true,
+    "accounting_validation": "Matrix replay must reproduce the drift-aware open-to-open ledger to 1e-12."
+  },
+  "windows": {
+    "backward_2024_2025": {
+      "start_inclusive": "2024-01-01",
+      "end_exclusive": "2025-10-26"
+    },
+    "opened_2025_2026": {
+      "start_inclusive": "2025-10-26",
+      "end_inclusive": "2026-06-26"
+    },
+    "joined_2024_2026": "descriptive full path only"
+  },
+  "inference": {
+    "primary_comparisons": [
+      "backward net return minus cash",
+      "opened net return minus cash"
+    ],
+    "bootstrap": {
+      "method": "paired circular moving-block bootstrap",
+      "block_length_sessions": 5,
+      "replications": 9999,
+      "seed": 20260821
+    },
+    "multiplicity": "Benjamini-Hochberg across the two primary cash comparisons at q=0.05",
+    "factor_control": "HAC-5 market plus ten sector-spread intercept, reported separately by source block",
+    "temporal_check": "independently accounted chronological halves within each source block",
+    "no_cross_regime_pooling": true
+  },
+  "economic_stability_gate": {
+    "per_block_requirements": [
+      "positive total net return at 10 bps per side",
+      "break-even cost strictly above 10 bps per side",
+      "cash-comparison 95% lower interval above zero with BH q below 0.05",
+      "positive net Sharpe in both chronological halves"
+    ],
+    "cross_time_stability": "Both source blocks must pass every per-block requirement.",
+    "interpretation_if_failed": "The frozen continuous construction does not retain stable after-cost value across the tested same-source periods.",
+    "interpretation_if_passed": "The temporal-fragility claim is not supported for this construction; report the positive retrospective result without promotion."
+  },
+  "claim_boundaries": [
+    "The LSEG returns and related strategy outcomes were already opened before this specification.",
+    "This design can strengthen or weaken a bounded retrospective claim but cannot create independent confirmation.",
+    "No threshold, breadth, horizon, score reducer, company subset, source filter, or cost assumption may change after this freeze.",
+    "The materiality-specific 2026 confirmation remains sealed and is not an input to this experiment."
+  ]
+}

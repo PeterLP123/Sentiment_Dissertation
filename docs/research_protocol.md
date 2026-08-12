@@ -1051,6 +1051,36 @@ valid role is an adverse earlier-time robustness result that materially weakens
 the historical strategy case while leaving the post-2026-06-26 prospective
 contract unchanged.
 
+### Frozen continuous-rule same-source temporal replay
+
+Notebook 70 is a bounded retrospective test of the separate Notebook 39
+continuous construction. It does not reselect an aggregator or tune a trading
+rule. The frozen rule uses mean continuous Gemma sentiment per company-open,
+current cross-sectional q90−q10 dispersion at or above the strictly prior
+trailing-60 75th percentile after 40 complete observations, top-two/bottom-two
+selection, a 25% cap, gross-one dollar neutrality, one open-to-next-open hold,
+drift-aware turnover, final liquidation and 10 bps per side. Eleven incomplete
+backward sessions remain in the calendar as cash and do not enter threshold
+history. The backward and already-opened blocks are separate estimands; the
+joined path is descriptive only.
+
+The backward block has gross/net Sharpe 0.308/−1.159, −15.20% net return and a
+2.09-bps/side break-even. Its five-session block-bootstrap cash interval is
+[−7.71,+0.90] bps/session. The opened block has gross/net Sharpe
+−1.409/−2.391, −17.45% net return and −14.02-bps/side break-even. Its cash
+interval is [−20.79,−2.48] bps/session and remains negative after BH correction
+across the two source-block cash tests (q=0.033); its sector-spanning HAC-5
+interval [−19.29,−1.32] is also wholly negative. Every half in both blocks is
+net-negative, and the joined 623-session path loses 30.00% net.
+
+Across 16,444 duplicate normalized headlines, Gemma scores remain highly rank
+repeatable (Spearman 0.989) but are exactly equal only 88.46% of the time. This
+supports a narrow dissertation distinction: measurement repeatability does not
+imply temporal or economic portability. It is not independent confirmation,
+validated alpha, a reversal signal, or permission to tune the threshold,
+breadth, costs or holding period. The distinct materiality 2026 confirmation is
+not opened by this replay.
+
 ### W4: Sentiment surprise
 
 A valid retry must differ materially from the failed July pilot:
