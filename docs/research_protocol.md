@@ -1008,6 +1008,49 @@ than a quote or authorisation. The calendar gate remains 27/120; FinBERT, paid
 Gemma, prices, returns, active-session gates, and performance inference remain
 sealed.
 
+### Post-drift-stop same-33 long-window sensitivity
+
+Notebook 67 is a separately frozen researcher-authorised sensitivity, not the
+original backward replication. The 2024-01-01 to 2025-10-26 same-33 scorer
+population is joined to only the original-33 associations in the 2025-10-26 to
+2026-06-26 corpus. Normalized-headline hashes are deduplicated across blocks by
+retaining the earliest timestamp and its attached scores and unioning same-33
+company associations. This produces 1,967,554 unique headlines from 1,983,998
+block rows, with 16,444 cross-block overlaps. The recent aggregate panels must
+reproduce Notebook 13's firm-open keys, strongest-event scores, and returns to
+`1e-12` before any long-window result is accepted.
+
+The Notebook 36 strategy is unchanged: exact Gemma +1/−1 strongest-event
+values determine whether and how many names trade, continuous FinBERT
+strongest-event scores rank the long and short names, both legs are equal,
+single-name weights are capped at 25%, the hold is one open-to-next-open
+interval, and the drift-aware ledger charges 10 bps per traded side plus final
+liquidation. A return-blind completeness audit found 11 backward firm-open
+sessions with fewer than all 33 companies. Under the amendment frozen before
+any strategy result was observed, those dates remain in the common price
+calendar but are forced to cash; they are never dropped, imputed, carried
+forward, or used in circular schedule shifts.
+
+Report the backward block, already-opened recent block, and full joined path
+separately. Primary backward diagnostics are cash with a 9,999-replication
+five-session block bootstrap, market and sector-spanning HAC-5 intercepts,
+chronological halves, the fixed cost grid, every non-zero circular shift of the
+complete Gemma schedule, 4,999 conditional random-name assignments, and
+rebuilt leave-one-company and leave-one-sector-out replays. The backward result
+is gross/net Sharpe 0.691/−0.354, −3.43% net return, and 6.60-bps/side
+break-even over 456 sessions, of which 445 are complete and 94 active. Cash and
+factor intervals cross zero, both mechanism tests fail BH, and only 1/33
+company and 3/11 sector exclusions remain profitable. The 623-session joined
+path has gross/net Sharpe 1.639/0.467 and +6.51% net return, but this is
+descriptive because it includes the already-opened strong recent block.
+
+The frozen hosted-Gemma endpoint-retention gate remains failed at 0.7881 versus
+0.80. Therefore Notebook 67 cannot qualify as the preregistered replication,
+independent confirmation, prospective evidence, or permission to retune. Its
+valid role is an adverse earlier-time robustness result that materially weakens
+the historical strategy case while leaving the post-2026-06-26 prospective
+contract unchanged.
+
 ### W4: Sentiment surprise
 
 A valid retry must differ materially from the failed July pilot:
@@ -1086,6 +1129,53 @@ Do not hand-type final result values into the dissertation.
 - Selection on news and price availability can distort relationships.
 - The evaluation block is previously explored.
 - A backtest is not deployable alpha or investment advice.
+
+## Bounded LSEG Firm-Specific Materiality Pilot — 2026-08-12
+
+This is a candidate Gate-F1 measurement path, not a selected RQ. Notebook 68
+freezes 2,000 unique first-release Reuters company-sessions from the joined
+same-33 history without opening prices or returns. The supported window is
+2024-01-02 to 2026-06-25. Selective story retrieval fixes a body-available
+population of 1,445 events (72.25%); the remaining 555 have terminal archival
+shell, short-body, unavailable-story, or not-found outcomes and are not
+replaced. Generalisation is therefore conditional on substantive LSEG body
+availability, whose company, block, polarity and time attrition must be shown.
+
+The frozen joint construct is target-company direction/severity, firm-specific
+economic materiality, novelty, valuation horizon, target specificity and
+evidence sufficiency. A 200-event blinded primary audit and 60-event second-code
+subset precede returns. Primary gates are inter-coder quadratic-weighted kappa
+at least 0.60, model-human kappa at least 0.40, severe ordinal disagreement at
+most 0.10, high-materiality precision at least 0.70, non-neutral direction-sign
+precision at least 0.70, and target-specific F1 at least 0.80. A failure stops
+the return stage rather than licensing prompt tuning or resampling.
+
+Hosted scoring received the exact payload/destination confirmation and is
+complete: 1,445/1,445 valid DeepInfra/Gemma annotations from 1,450 append-only
+attempts, with four invalid outputs and one API error preserved before cleanup,
+for reported cost $0.18523289. No price or return file was opened during that
+measurement stage. The blinded coder-A 200 and coder-B 60 sheets now exist with
+labels empty, so the human reliability gate remains unpassed.
+
+On 2026-08-12 the researcher explicitly waived that human gate for one bounded
+**model-only exploratory development analysis only**. This deviation does not
+pass or replace the measurement gate. Notebook 69 therefore admits the 1,200
+body-available model-scored events with entry sessions through 2025-12-31,
+hash-checks the complete LSEG price export while parsing numeric price fields
+only before 2026-01-01, and rejects any return whose end session reaches 2026.
+It opens zero confirmation returns. The frozen eight-test family covers h1/h5
+incremental clustered coefficients, expanding chronological OOS loss and IC,
+and fixed sparse h1/h5 10-bps strategies. Zero tests survive BH. The h5
+direction×materiality×novelty translation is descriptively positive (gross/net
+Sharpe 0.741/0.230, +1.86% net return, 14.48-bps/side break-even) and positive
+in both calendar years, but it does not distinguish cash. Its favourable paired
+FinBERT comparison (4.55 bps/session; BH q=0.031) was frozen only after the h5
+summary was visible and is recorded as outcome-selected post-primary evidence.
+The separate post-primary reaction-magnitude family also has zero BH survivors.
+These findings may support a dissertation about the distinction between richer
+semantic representation, implementation economics and predictive alpha; they
+cannot be presented as human-validated measurement, confirmation or alpha.
+The 2026 return period remains sealed.
 
 ## Superseded July 12 Design
 

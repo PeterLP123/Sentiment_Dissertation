@@ -79,6 +79,12 @@ def test_prepare_reuses_only_complete_target_pairs(tmp_path: Path, monkeypatch: 
         ("keep", "finbert"),
         ("keep", "vader"),
     }
+    assert {row["headline"] for row in rows} == {"Headline"}
+    seed_manifest = json.loads(output.with_suffix(output.suffix + ".seed.json").read_text(encoding="utf-8"))
+    assert seed_manifest["metadata_reconciliation"] == {
+        "changed_headlines": 1,
+        "changed_headlines_by_field": {"first_timestamp": 1, "headline": 1},
+    }
     assert lseg_labelling.prepare_reusable_baseline_seed(tmp_path, prior, output) == summary
 
 

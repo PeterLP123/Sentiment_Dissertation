@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import csv
 import json
+import math
 import os
 import time
 from collections import Counter
@@ -27,7 +28,7 @@ from .openrouter_validation import (
     request_contract,
 )
 
-LICENCE_CONFIRMATION_DATE = "2026-08-04"
+LICENCE_CONFIRMATION_DATE = "2026-08-10"
 DEFAULT_CONCURRENCY = 10
 DEFAULT_MAX_POPULATION = 888_155
 FLUSH_SIZE = 50
@@ -72,7 +73,7 @@ def _headlines_path(collection_root: Path) -> Path:
     return matches[0]
 
 
-def _existing_successes(output: Path, config_hash: str) -> set[str]:
+def _existing_successes(output: Path, config_hash: str, population: set[str] | None = None) -> set[str]:
     if not output.exists():
         return set()
     successes: set[str] = set()
@@ -85,10 +86,65 @@ def _existing_successes(output: Path, config_hash: str) -> set[str]:
                 raise ValueError(f"checkpoint configuration mismatch at row {line_number}")
             headline_hash = str(row.get("headline_sha256") or "")
             if row.get("status") == "success":
+                if population is not None and headline_hash not in population:
+                    raise ValueError(f"checkpoint success is outside the frozen population at row {line_number}")
                 if headline_hash in successes:
                     raise ValueError(f"duplicate successful headline at row {line_number}: {headline_hash}")
                 successes.add(headline_hash)
     return successes
+
+
+def _seed_successes(paths: tuple[Path, ...], population: set[str]) -> tuple[set[str], list[dict[str, Any]]]:
+    """Validate reusable successes from immutable earlier-population artifacts."""
+
+    successes: set[str] = set()
+    metadata: list[dict[str, Any]] = []
+    for path in paths:
+        if not path.is_file():
+            raise ValueError(f"seed success artifact is missing: {path}")
+        artifact_successes: set[str] = set()
+        with path.open(encoding="utf-8", newline="") as handle:
+            reader = csv.DictReader(handle)
+            if tuple(reader.fieldnames or ()) != LSEG_COLUMNS:
+                raise ValueError(f"seed success artifact has an incompatible schema: {path}")
+            for line_number, row in enumerate(reader, start=2):
+                if row.get("status") != "success":
+                    continue
+                headline_hash = str(row.get("headline_sha256") or "")
+                if headline_hash not in population:
+                    raise ValueError(f"seed success is outside the frozen population at {path}:{line_number}")
+                if row.get("model_id") != MODEL_ID:
+                    raise ValueError(f"seed model mismatch at {path}:{line_number}")
+                if str(row.get("provider") or "").casefold() != PROVIDER_NAME.casefold():
+                    raise ValueError(f"seed provider mismatch at {path}:{line_number}")
+                if row.get("quantization") != "fp8":
+                    raise ValueError(f"seed quantization mismatch at {path}:{line_number}")
+                if row.get("prompt_hash") != PROMPT_HASH:
+                    raise ValueError(f"seed prompt mismatch at {path}:{line_number}")
+                try:
+                    probabilities = [float(row[name]) for name in ("p_positive", "p_negative", "p_neutral")]
+                except (TypeError, ValueError) as exc:
+                    raise ValueError(f"invalid seed probabilities at {path}:{line_number}") from exc
+                if (
+                    not all(math.isfinite(value) and 0.0 <= value <= 1.0 for value in probabilities)
+                    or not math.isclose(sum(probabilities), 1.0, rel_tol=0.0, abs_tol=1e-6)
+                ):
+                    raise ValueError(f"invalid seed probabilities at {path}:{line_number}")
+                if headline_hash in artifact_successes:
+                    raise ValueError(f"duplicate seed success at {path}:{line_number}: {headline_hash}")
+                artifact_successes.add(headline_hash)
+        overlap = successes & artifact_successes
+        if overlap:
+            raise ValueError(f"seed success artifacts overlap on {len(overlap):,} headline hashes")
+        successes.update(artifact_successes)
+        metadata.append(
+            {
+                "path": str(path),
+                "sha256": sha256_file(path),
+                "successful_headlines": len(artifact_successes),
+            }
+        )
+    return successes, metadata
 
 
 def _contract(
@@ -98,6 +154,7 @@ def _contract(
     output: Path,
     concurrency: int,
     retries: int,
+    seed_artifacts: list[dict[str, Any]],
 ) -> dict[str, Any]:
     prompt = load_prompts()[PROMPT_ID]
     if prompt.prompt_hash != PROMPT_HASH:
@@ -116,6 +173,10 @@ def _contract(
         "prompt_id": PROMPT_ID,
         "prompt_hash": PROMPT_HASH,
         "request": request_contract(require_fp8=True),
+        "seed_success_artifacts": [
+            {"sha256": item["sha256"], "successful_headlines": item["successful_headlines"]}
+            for item in seed_artifacts
+        ],
     }
     config_hash = sha256_text(json.dumps(identity, sort_keys=True, separators=(",", ":")))
     return {
@@ -124,6 +185,7 @@ def _contract(
         "collection_root": str(collection_root),
         "output": str(output),
         "execution": {"concurrency": concurrency, "retries": retries, "bounded_queue": True},
+        "reuse": {"seed_success_artifacts": seed_artifacts},
         "licence": {
             "external_processing_permitted": True,
             "confirmed_by": "researcher",
@@ -154,6 +216,7 @@ async def score_lseg_openrouter(
     retries: int = DEFAULT_RETRIES,
     max_population: int = DEFAULT_MAX_POPULATION,
     limit: int | None = None,
+    seed_success_paths: tuple[str | Path, ...] = (),
     client: Any | None = None,
     callback: Any = None,
 ) -> dict[str, Any]:
@@ -168,9 +231,15 @@ async def score_lseg_openrouter(
     records = collect_scorable_headline_records(root)
     if len(records) != max_population:
         raise ValueError(f"frozen population changed: expected {max_population:,}, found {len(records):,}")
-    contract = _contract(root, headlines, records, output, concurrency, retries)
+    population = {record.headline_sha256 for record in records}
+    seeds, seed_artifacts = _seed_successes(tuple(Path(path) for path in seed_success_paths), population)
+    contract = _contract(root, headlines, records, output, concurrency, retries, seed_artifacts)
     config_hash = str(contract["config_hash"])
-    completed = _existing_successes(output, config_hash)
+    output_completed = _existing_successes(output, config_hash, population)
+    overlap = seeds & output_completed
+    if overlap:
+        raise ValueError(f"seed and current output overlap on {len(overlap):,} successful headline hashes")
+    completed = seeds | output_completed
     pending_count = sum(record.headline_sha256 not in completed for record in records)
     attempt_limit = pending_count if limit is None else min(limit, pending_count)
     started_at = datetime.now(UTC)
@@ -181,6 +250,8 @@ async def score_lseg_openrouter(
         "counts": {
             "population": len(records),
             "already_successful": len(completed),
+            "seeded_successful": len(seeds),
+            "output_successful_before_run": len(output_completed),
             "pending_before_run": pending_count,
             "attempt_limit": attempt_limit,
         },
@@ -295,7 +366,8 @@ async def score_lseg_openrouter(
         if owned_client:
             await api_client.close()
 
-    completed_after = _existing_successes(output, config_hash)
+    output_completed_after = _existing_successes(output, config_hash, population)
+    completed_after = seeds | output_completed_after
     completed_at = datetime.now(UTC)
     manifest.update(
         {
@@ -307,6 +379,7 @@ async def score_lseg_openrouter(
                 "attempted_this_run": sum(counters.values()),
                 "statuses_this_run": dict(counters),
                 "successful_after_run": len(completed_after),
+                "output_successful_after_run": len(output_completed_after),
                 "remaining_after_run": len(records) - len(completed_after),
             },
             "usage_this_run": {
@@ -314,7 +387,7 @@ async def score_lseg_openrouter(
                 "completion_tokens": completion_tokens,
                 "reported_cost_usd": reported_cost,
             },
-            "output_sha256": sha256_file(output),
+            "output_sha256": sha256_file(output) if output.is_file() else None,
         }
     )
     atomic_write_json(manifest_path, manifest)

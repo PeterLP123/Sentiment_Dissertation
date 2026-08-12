@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "status": "frozen_after_strategy_summaries_before_paired_comparator_inference",
+  "frozen_at_utc": "2026-08-12T13:13:00+00:00",
+  "experiment_id": "lseg_target_materiality_h5_post_primary_comparators_v1",
+  "parent_spec": "final_experiments/frozen_specs/lseg_target_materiality_model_only_development_waiver_20260812.json",
+  "timing_and_honesty": {
+    "observed_before_freeze": "The fixed h1/h5 summary paths for the full signal, its two ablations and the three existing polarity comparators were computed. h5 signed-materiality-times-novelty was the only 10-bps arm with positive net Sharpe and return.",
+    "not_observed_before_freeze": "No paired daily difference bootstrap, confidence interval, p-value or multiplicity-adjusted result between h5 strategies had been computed.",
+    "status": "Outcome-selected post-primary diagnostic. It can describe relative translation performance but cannot count as a prospective primary test or validated alpha."
+  },
+  "selected_candidate": "signed_materiality_novelty h5 fixed sparse top-positive/bottom-negative strategy",
+  "comparators": [
+    "direction_only",
+    "signed_materiality",
+    "score_gemma",
+    "score_finbert",
+    "combined_polarity"
+  ],
+  "estimand": "Mean daily net-return difference at 10 bps per side on the identical 501-session cash-inclusive pre-2026 calendar.",
+  "inference": "Paired circular five-session block bootstrap with 9999 replications; one-sided candidate-minus-comparator greater than zero; BH-FDR q=0.05 across five comparisons.",
+  "confirmation_boundary": "All paths use the fail-closed pre-2026 price loader. confirmation_rows_opened=0 remains mandatory.",
+  "claim_boundary": "A favourable paired result would show that the selected h5 translation compared better with polarity-only and ablated translations in this development sample. It would not show positive alpha versus cash and would require untouched-date confirmation."
+}

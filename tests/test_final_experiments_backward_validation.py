@@ -8,6 +8,7 @@ import pandas as pd
 
 from final_experiments.lib.backward_validation import (
     audit_backward_collection,
+    audit_lseg_collection_coverage,
     evaluate_gemma_drift,
     select_gemma_drift_sample,
 )
@@ -236,6 +237,83 @@ derived_output_root = "derived"
     assert complete_summary["frontier_companies_completed"] is None
     assert complete_audit.projection.iloc[0]["estimated_remaining_requests"] == 0
     assert complete_audit.projection.iloc[0]["estimated_remaining_quota_days"] == 0
+
+
+def test_lseg_collection_coverage_combines_contiguous_same_universe_collections(tmp_path: Path) -> None:
+    companies = "\n".join(
+        f"""[[companies]]
+symbol = "S{index:02d}"
+name = "Company {index:02d}"
+ric = "S{index:02d}.N"
+news_query = "R:S{index:02d}.N and Language:LEN"
+aliases = ["S{index:02d}"]"""
+        for index in range(2)
+    )
+    definitions = [
+        ("earlier", "2024-01-01T00:00:00Z", "2024-01-02T00:00:00Z", "in_progress", 1),
+        ("recent", "2024-01-02T00:00:00Z", "2024-01-03T00:00:00Z", "completed", 2),
+    ]
+    config_entries: list[tuple[str, Path]] = []
+    for label, start, end, status, terminal_companies in definitions:
+        config_path = tmp_path / f"{label}.toml"
+        config_path.write_text(
+            f"""[collection]
+id = "{label}"
+start = "{start}"
+end = "{end}"
+window_days = 1
+fetch_story_bodies = false
+
+[outputs]
+raw_output_root = "raw_{label}"
+derived_output_root = "derived_{label}"
+
+{companies}
+""",
+            encoding="utf-8",
+        )
+        config = load_lseg_collection_config(config_path)
+        raw_dir = tmp_path / config.raw_dir
+        pages = raw_dir / "headline_pages"
+        pages.mkdir(parents=True)
+        for company_index in range(2):
+            (pages / f"{company_index + 1:03d}-S{company_index:02d}-window-0001-page-0001.json").write_text(
+                json.dumps(
+                    {
+                        "symbol": f"S{company_index:02d}",
+                        "window_index": 1,
+                        "cursor_out": None if company_index < terminal_companies else "next-page",
+                    }
+                ),
+                encoding="utf-8",
+            )
+        (raw_dir / "manifest.json").write_text(
+            json.dumps(
+                {
+                    "status": status,
+                    "config_sha256": config.config_sha256,
+                    "config": config.to_payload(),
+                    "counts": {"headline_pages": 2} if status == "completed" else None,
+                    "pagination_anomalies": [],
+                }
+            ),
+            encoding="utf-8",
+        )
+        config_entries.append((label, config_path))
+
+    audit = audit_lseg_collection_coverage(
+        tmp_path,
+        config_entries,
+        expected_symbols=["S00", "S01"],
+    )
+
+    assert audit.summary["completed_windows"].tolist() == [1, 2]
+    assert audit.summary["expected_windows"].tolist() == [2, 2]
+    assert audit.summary["all_windows_completed"].tolist() == [False, True]
+    assert audit.company_date_completion.shape == (4, 8)
+    assert int(audit.company_date_completion["complete"].sum()) == 3
+    assert audit.company_date_completion["window_start"].nunique() == 2
+    assert not audit.company_date_completion.duplicated(["symbol", "window_start"]).any()
 
 
 def test_drift_sample_keeps_all_endpoints_and_deterministic_controls(tmp_path: Path) -> None:

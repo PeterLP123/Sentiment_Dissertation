@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "status": "frozen_before_hosted_scoring_and_return_access",
+  "amends": [
+    "lseg_target_materiality_pilot_v1_20260812.json",
+    "lseg_target_materiality_pilot_support_amendment_20260812.json"
+  ],
+  "frozen_at_utc": "2026-08-12T00:00:00+00:00",
+  "trigger": "A complete return-blind, one-request-per-selected-story retrieval pass found that LSEG returns archival boilerplate, too-short content, or story-not-found for some frozen sample events.",
+  "prices_or_returns_accessed": false,
+  "parent_sample_events": 2000,
+  "usable_clean_bodies": 1445,
+  "usable_body_share": 0.7225,
+  "terminal_unavailable": 555,
+  "amended_primary_measurement_population": "Score all and only the 1,445 events with a deterministic cleaned body of at least 100 characters. Keep the parent sample and every availability result for attrition reporting.",
+  "prohibited_shortcuts": [
+    "Do not treat a headline-only row as equivalent full-text evidence.",
+    "Do not replace an unavailable selected event after observing model annotations or returns.",
+    "Do not weaken the Reuters, first-release, explicit-target, single-company, or nontechnical filters."
+  ],
+  "audit": "The 200-event human audit and 60-event second-code subset are sampled only after scoring from the 1,445 body-available events. The audit key records design weights; the dissertation must also report body availability by company, source block, date, and frozen FinBERT stratum.",
+  "scientific_interpretation": "The estimand becomes economic-materiality measurement among selected Reuters events with LSEG-retrievable substantive full text. Generalisation to all headlines is not assumed.",
+  "unchanged": "Model route, prompt, label schema, human reliability thresholds, return seal, and downstream stop rules remain unchanged."
+}

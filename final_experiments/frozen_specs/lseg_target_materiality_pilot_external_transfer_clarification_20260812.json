@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "status": "awaiting_exact_external_transfer_approval",
+  "amends": "lseg_target_materiality_pilot_v1_20260812.json",
+  "recorded_at_utc": "2026-08-12T00:00:00+00:00",
+  "research_plan_authorised": true,
+  "hosted_calls_completed": 0,
+  "clarification": "The user's 'Go do this' authorised the bounded experiment plan. Before licensed full text is transferred, the execution safety layer additionally requires an explicit confirmation naming the payload and destination.",
+  "required_exact_confirmation": "I approve sending the selected Reuters headline and article-body text to OpenRouter, routed only to DeepInfra, for Gemma 4 26B FP8 materiality scoring under the stated no-retention/privacy controls.",
+  "implementation_guard": "scripts/run_openrouter_lseg_materiality.py refuses every hosted call unless --confirm-authorized-transfer is supplied after that confirmation.",
+  "unchanged": "Sampling, model, prompt, privacy controls, cost cap, human gate, and return seal are unchanged."
+}

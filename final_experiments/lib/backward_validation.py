@@ -11,6 +11,7 @@ import heapq
 import json
 import math
 import shutil
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -38,6 +39,14 @@ class BackwardCollectionAudit:
     projection: pd.DataFrame
     gate_table: pd.DataFrame
     collection_gate_pass: bool
+
+
+@dataclass(frozen=True)
+class LsegCollectionCoverageAudit:
+    """Terminal company-date coverage across contiguous same-universe collections."""
+
+    summary: pd.DataFrame
+    company_date_completion: pd.DataFrame
 
 
 @dataclass(frozen=True)
@@ -339,6 +348,129 @@ def audit_backward_collection(
         projection=projection,
         gate_table=gate_table,
         collection_gate_pass=collection_gate_pass,
+    )
+
+
+def audit_lseg_collection_coverage(
+    repo_root: str | Path,
+    collections: Sequence[tuple[str, str | Path]],
+    *,
+    expected_symbols: Sequence[str] | None = None,
+) -> LsegCollectionCoverageAudit:
+    """Build a terminal company-date ledger across contiguous LSEG collections.
+
+    This is an acquisition-only view. It validates collection identities and
+    terminal pagination checkpoints without reading headline text, scores,
+    prices, or returns.
+    """
+
+    _require(bool(collections), "at least one LSEG collection is required")
+    root = Path(repo_root).resolve()
+    required_symbol_order = tuple(expected_symbols or ())
+    previous_end: str | None = None
+    ledger_rows: list[dict[str, Any]] = []
+    summary_rows: list[dict[str, Any]] = []
+
+    for label, config_value in collections:
+        collection_label = str(label).strip()
+        _require(bool(collection_label), "collection labels must be non-empty")
+        config_path = _resolve(root, config_value, label=f"{collection_label} config")
+        config = load_lseg_collection_config(config_path)
+        symbol_order = tuple(company.symbol for company in config.companies)
+        _require(len(symbol_order) == len(set(symbol_order)), f"{collection_label} contains duplicate symbols")
+        if not required_symbol_order:
+            required_symbol_order = symbol_order
+        _require(
+            symbol_order == required_symbol_order,
+            f"{collection_label} company universe/order differs from the required universe",
+        )
+        if previous_end is not None:
+            _require(
+                config.start == previous_end,
+                f"{collection_label} starts at {config.start}, expected contiguous boundary {previous_end}",
+            )
+        previous_end = config.end
+
+        raw_dir = root / config.raw_dir
+        manifest_path = raw_dir / "manifest.json"
+        _require(manifest_path.is_file(), f"collection manifest is missing: {manifest_path}")
+        manifest = _read_object(manifest_path, label=f"{collection_label} manifest")
+        _require(
+            manifest.get("config_sha256") == config.config_sha256,
+            f"{collection_label} manifest config hash mismatch",
+        )
+        _require(
+            canonical_json(manifest.get("config")) == canonical_json(config.to_payload()),
+            f"{collection_label} manifest config payload mismatch",
+        )
+
+        windows = collection_windows(config)
+        pages_dir = raw_dir / "headline_pages"
+        if pages_dir.is_dir():
+            completed, _requests, _bytes, page_count, _page_bytes = _checkpoint_progress(
+                pages_dir,
+                symbols=frozenset(symbol_order),
+                maximum=len(windows),
+            )
+        else:
+            completed, page_count = set(), 0
+        expected_windows = len(symbol_order) * len(windows)
+        manifest_status = str(manifest.get("status") or "not_started")
+        counts = manifest.get("counts") if isinstance(manifest.get("counts"), dict) else {}
+        if manifest_status == "completed":
+            _require(
+                int(counts.get("headline_pages", -1)) == page_count,
+                f"{collection_label} completed manifest page count does not match checkpoints",
+            )
+
+        anomalies = manifest.get("pagination_anomalies") if isinstance(manifest.get("pagination_anomalies"), list) else []
+        anomaly_reasons = {
+            str(item.get("reason") or "")
+            for item in anomalies
+            if isinstance(item, dict) and str(item.get("reason") or "")
+        }
+        unsafe_anomalies = anomaly_reasons - SAFE_PAGINATION_ANOMALY_REASONS
+        for symbol in symbol_order:
+            for window in windows:
+                ledger_rows.append(
+                    {
+                        "collection_label": collection_label,
+                        "collection_id": config.collection_id,
+                        "manifest_status": manifest_status,
+                        "symbol": symbol,
+                        "window_index": window.index,
+                        "window_start": window.start,
+                        "window_end": window.end,
+                        "complete": (symbol, window.index) in completed,
+                    }
+                )
+        summary_rows.append(
+            {
+                "collection_label": collection_label,
+                "collection_id": config.collection_id,
+                "manifest_status": manifest_status,
+                "start": config.start,
+                "end": config.end,
+                "companies": len(symbol_order),
+                "dates": len(windows),
+                "completed_windows": len(completed),
+                "expected_windows": expected_windows,
+                "window_completion_pct": 100.0 * len(completed) / expected_windows,
+                "headline_pages": page_count,
+                "pagination_anomalies": len(anomalies),
+                "unsafe_pagination_reasons": ",".join(sorted(unsafe_anomalies)),
+                "all_windows_completed": len(completed) == expected_windows,
+            }
+        )
+
+    ledger = pd.DataFrame(ledger_rows)
+    _require(
+        not ledger.duplicated(["symbol", "window_start"]).any(),
+        "contiguous collection coverage contains duplicate company-date rows",
+    )
+    return LsegCollectionCoverageAudit(
+        summary=pd.DataFrame(summary_rows),
+        company_date_completion=ledger,
     )
 
 

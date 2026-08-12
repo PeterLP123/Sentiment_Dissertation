@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "status": "frozen_before_model_only_development_return_access",
+  "frozen_at_utc": "2026-08-12T12:58:29+00:00",
+  "experiment_id": "lseg_target_materiality_model_only_development_v1",
+  "parent_experiment_id": "lseg_target_materiality_pilot_v1",
+  "parent_spec": {
+    "path": "final_experiments/frozen_specs/lseg_target_materiality_pilot_v1_20260812.json",
+    "sha256": "92ab3ed788c4f6df727a97aa054da3be1bb77a15177b8593796938d5e6c61fee"
+  },
+  "researcher_authorisation": {
+    "quoted_instruction": "I authorize a model-only exploratory development-period return analysis, waiving the human-reliability gate for this analysis only. Keep the 2026 confirmation period sealed and do not present the findings as validated alpha.",
+    "scope": "One bounded model-only exploratory analysis of entry sessions before 2026-01-01. This does not pass, replace or weaken the human reliability gate and does not authorise confirmation-period return access.",
+    "human_measurement_status": "not validated; coder A and coder B remain incomplete",
+    "claim_boundary": "Development evidence only. Any favourable result is a candidate dissertation finding and not validated alpha."
+  },
+  "immutable_inputs": {
+    "sample_events": {
+      "path": "final_experiments/outputs/68_lseg_materiality_measurement_pilot/sample_events.jsonl",
+      "sha256": "14576f82ae0fdf02aca698cde500c2cdc554d1637fc5bf59dd29e55f7c421f56",
+      "parent_rows": 2000
+    },
+    "model_scores": {
+      "path": "final_experiments/outputs/68_lseg_materiality_measurement_pilot/model_scores.jsonl",
+      "sha256": "c702a092ead572233b5854ab34d920eb2d1f8f7c82d72c98e25fe791d3fa04f1",
+      "valid_rows": 1445,
+      "measurement_status": "model_only_unvalidated"
+    },
+    "price_export": {
+      "path": "Data/derived/prices/lseg_us_sector_33_2024_2026.csv",
+      "sha256": "ecdd3c67d9b61183c6beebba6330918eace8a165764dba695ed87b86b6cec24a",
+      "return_convention": "LSEG split-adjusted open-to-open price returns; dividends not back-adjusted",
+      "loader_rule": "Validate the complete file hash, but parse numeric prices only for session_date before 2026-01-01. No 2026 price value or return may be materialised."
+    }
+  },
+  "sealed_confirmation": {
+    "start": "2026-01-01",
+    "rules": [
+      "Filter model/sample rows to entry_session before 2026-01-01 before any return join.",
+      "Do not parse numeric price fields on or after 2026-01-01.",
+      "Require every return_end_session to be before 2026-01-01.",
+      "Do not report counts, correlations, returns, plots or strategy metrics for the 2026 confirmation subset.",
+      "Notebook outputs and manifests must assert confirmation_rows_opened=0."
+    ]
+  },
+  "development_population": {
+    "entry_session_start": "2024-01-02",
+    "entry_session_end_inclusive": "2025-12-31",
+    "body_available_model_scored_rows": 1200,
+    "companies": 33,
+    "event_sessions": 455,
+    "selection": "Frozen 2,000-event return-blind parent restricted only by body availability, valid model score and pre-2026 entry session."
+  },
+  "signal": {
+    "direction_ordinal": {
+      "very_negative": -2,
+      "negative": -1,
+      "neutral": 0,
+      "positive": 1,
+      "very_positive": 2
+    },
+    "level_ordinal": {
+      "none": 0,
+      "low": 1,
+      "moderate": 2,
+      "high": 3,
+      "very_high": 4
+    },
+    "primary": "signed_materiality_novelty = (direction_ordinal / 2) * (materiality_ordinal / 4) * (novelty_ordinal / 4)",
+    "comparators": {
+      "gemma_polarity": "existing continuous Gemma score",
+      "finbert_polarity": "existing continuous FinBERT score",
+      "combined_polarity": "equal-weight mean of development-standardised Gemma and FinBERT scores"
+    },
+    "threshold_fitting": "none"
+  },
+  "outcomes": {
+    "primary_horizons_sessions": [1, 5],
+    "secondary_horizon_sessions": [20],
+    "construction": "Exact forward XNYS-session split-adjusted open-to-open return from entry open to horizon end open.",
+    "availability": "An outcome is missing unless both exact opens exist and the end session is before 2026-01-01."
+  },
+  "primary_family": {
+    "tests": [
+      "h1 date-clustered incremental coefficient of signed_materiality_novelty beyond both polarity scores and company fixed effects",
+      "h5 date-clustered incremental coefficient of signed_materiality_novelty beyond both polarity scores and company fixed effects",
+      "h1 expanding-window OOS squared-loss improvement of expanded versus polarity-only regression",
+      "h5 expanding-window OOS squared-loss improvement of expanded versus polarity-only regression",
+      "h1 expanding-window OOS daily rank-IC improvement of expanded versus polarity-only regression",
+      "h5 expanding-window OOS daily rank-IC improvement of expanded versus polarity-only regression",
+      "h1 fixed sparse materiality strategy mean net return versus cash at 10 bps per side",
+      "h5 fixed sparse materiality strategy mean net return versus cash at 10 bps per side"
+    ],
+    "regression": "OLS with development-standardised continuous predictors, company fixed effects and entry-session-clustered covariance; coefficient p-values are two-sided and promotion additionally requires a positive coefficient.",
+    "oos_folds": [
+      {"train_end_exclusive": "2024-07-01", "test_start": "2024-07-01", "test_end_exclusive": "2025-01-01"},
+      {"train_end_exclusive": "2025-01-01", "test_start": "2025-01-01", "test_end_exclusive": "2025-07-01"},
+      {"train_end_exclusive": "2025-07-01", "test_start": "2025-07-01", "test_end_exclusive": "2026-01-01"}
+    ],
+    "oos_model": "Unregularised linear regression with intercept, the two continuous polarity scores and company fixed effects; expanded adds signed_materiality_novelty. Scaling and categorical levels are fitted inside each training fold.",
+    "oos_inference": "Circular five-session block bootstrap with 9999 replications over date-level paired loss or IC differences; one-sided in the predeclared improvement direction.",
+    "strategy": "On each event session, select the single largest strictly positive signal and single smallest strictly negative signal, weight +0.5/-0.5, otherwise cash. h5 is five equal overlapping 1/5 tranches. Use the full pre-2026 calendar, charge drift-aware half-L1 turnover, and do not initiate a tranche without a complete pre-2026 holding interval.",
+    "strategy_costs_bps_per_side": [0, 10, 25, 50],
+    "strategy_primary_cost_bps_per_side": 10,
+    "strategy_inference": "Circular five-session block bootstrap with 9999 replications over the full cash-inclusive daily net path; one-sided versus zero.",
+    "multiplicity": "Benjamini-Hochberg FDR q=0.05 across the eight tests."
+  },
+  "secondary_return_diagnostics": {
+    "purpose": "Mechanism and stability description only; cannot promote the signal or unlock confirmation.",
+    "tests": [
+      "Direction-only and direction-times-materiality ablations beside the frozen full signal.",
+      "Prompt-horizon-matched direction-aligned returns: immediate at h1, short at h5 and medium at h20; longer-term and unclear are not forced into a finite horizon.",
+      "Calendar-year 2024 versus 2025 coefficients and strategy summaries.",
+      "Leave-one-company-out incremental coefficients and company concentration.",
+      "Signal bucket plots, cost curves, activity, turnover, break-even and temporal cumulative paths."
+    ],
+    "secondary_multiplicity": "BH-FDR q=0.05 within the three horizon-matched tests; all other items are explicitly descriptive robustness diagnostics."
+  },
+  "decision_rule": {
+    "development_candidate": "At minimum, the positive h1 or h5 incremental coefficient must survive the eight-test BH family, the same horizon must improve OOS loss or IC in the declared direction, and the 10-bps strategy must have positive break-even without threshold changes.",
+    "confirmation": "Remains sealed regardless of this notebook result. A separate explicit later decision is required after the dissertation design and human-validation limitation are reviewed.",
+    "no_alpha_claim": true
+  }
+}

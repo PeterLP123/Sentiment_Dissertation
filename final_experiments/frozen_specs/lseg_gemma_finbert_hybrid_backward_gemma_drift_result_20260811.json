@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "status": "failed_stop_before_full_scoring",
+  "evaluated_at_utc_date": "2026-08-11",
+  "parent_spec": "final_experiments/frozen_specs/lseg_gemma_finbert_hybrid_backward_v1.json",
+  "population": {
+    "final_unique_scorable_headlines": 1219608,
+    "population_sha256": "68b987095715fc3ecca8d80056487f82b3e250094e2a6c3e986afa812cd449c7",
+    "completed_company_dates": 21912,
+    "partial_collection": false,
+    "prices_or_returns_loaded": false
+  },
+  "drift_sample": {
+    "rows": 1774,
+    "endpoint_rows": 774,
+    "nonendpoint_control_rows": 1000,
+    "population_sha256": "4a58eca15617b565af4f991d802e1a5b291a3ba867ec0606d596a048cd18a989"
+  },
+  "scoring_contract": {
+    "model": "google/gemma-4-26b-a4b-it",
+    "provider": "DeepInfra",
+    "quantization": "fp8",
+    "prompt_hash": "81596538d99b29b8",
+    "config_hash": "a6dc9c54cbb8c9c52e1186deeb425f144d64282eaa041a7aae3c8384ab153dd2",
+    "allow_fallbacks": false,
+    "zero_data_retention": true,
+    "provider_data_collection": "deny",
+    "temperature": 0.0
+  },
+  "execution": {
+    "attempted": 1774,
+    "successful": 1774,
+    "failed": 0,
+    "reported_cost_usd": 0.06719615000000002,
+    "output_sha256": "14ca8833f4d977ea5c58856665281f37063f8f5c3c97bbe034e1a665346486e9"
+  },
+  "metrics": {
+    "continuous_spearman": 0.989211547248641,
+    "continuous_mean_absolute_difference": 0.016538895152198422,
+    "direction_agreement": 0.9898534385569335,
+    "endpoint_same_direction_retention": 0.7881136950904393,
+    "endpoint_opposite_direction_count": 0,
+    "nonendpoint_to_endpoint_rate": 0.002
+  },
+  "gates": {
+    "continuous_spearman_minimum_0_95": true,
+    "continuous_mean_absolute_difference_maximum_0_10": true,
+    "direction_agreement_minimum_0_90": true,
+    "endpoint_same_direction_retention_minimum_0_80": false,
+    "endpoint_opposite_direction_count_maximum_0": true,
+    "nonendpoint_to_endpoint_rate_maximum_0_05": true,
+    "all_pass": false
+  },
+  "required_action": "Stop before scoring the final population or opening returns. Do not weaken or redefine the exact-endpoint trigger after observing this gate result.",
+  "full_scoring_started": false
+}

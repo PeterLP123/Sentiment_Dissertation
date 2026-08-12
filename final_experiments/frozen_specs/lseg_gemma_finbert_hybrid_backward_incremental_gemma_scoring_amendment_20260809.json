@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "status": "authorised_after_retrieval_started",
+  "recorded_at_utc": "2026-08-09T14:53:13Z",
+  "parent_backward_spec": {
+    "path": "final_experiments/frozen_specs/lseg_gemma_finbert_hybrid_backward_v1.json",
+    "sha256": "5b4744c78026ae8294b8c492d59b02a0ddcef5efb9598f7fd70dc56c1fcbca98"
+  },
+  "parent_incremental_finbert_amendment": {
+    "path": "final_experiments/frozen_specs/lseg_gemma_finbert_hybrid_backward_incremental_scoring_amendment_20260808.json",
+    "sha256": "d12403c1987838eebec25a8cd92719d9d799cf140de800959a16992c1cabf588"
+  },
+  "researcher_instruction": "I put $20 on my OpenRouter. Start scoring some of our new entries. Ensure we are keeping careful track of LSEG downloads, FinBERT and Gemma scoring statuses.",
+  "authorisation": {
+    "confirmed_by": "researcher",
+    "confirmed_at": "2026-08-09",
+    "licensed_external_processing_permitted": true,
+    "user_reported_openrouter_top_up_usd": 20.0
+  },
+  "snapshot": {
+    "id": "snapshot_20260809_quota_stop",
+    "manifest_path": "Data/collections/lseg_us_sector_33_backward_20240101_20251026_headlines/derived/incremental_finbert/snapshot_20260809_quota_stop/manifest.json",
+    "manifest_sha256": "649a61fc329edd7dba25dc00edb4d8161c6da426312ffb7135226cf2504cd878",
+    "population_sha256": "9b314356592f766a69003b6c61b1bf16543a5dcde929d4c972a36c1075de860d",
+    "completed_company_dates": 11543,
+    "included_terminal_pages": 27651,
+    "unique_scorable_headlines": 607097,
+    "partial_collection": true
+  },
+  "incremental_gemma_contract": {
+    "headline_identity": "existing normalized-headline SHA-256",
+    "model_id": "google/gemma-4-26b-a4b-it",
+    "provider": "DeepInfra",
+    "provider_slug": "deepinfra",
+    "quantization": "fp8",
+    "prompt_id": "investor_headline_soft_label_v1",
+    "prompt_hash": "81596538d99b29b8",
+    "temperature": 0.0,
+    "reasoning_effort": "none",
+    "strict_probability_json": true,
+    "zero_data_retention_required": true,
+    "provider_data_collection": "deny",
+    "provider_fallbacks": false,
+    "append_only": true,
+    "resumable": true,
+    "successful_row_filter": "status == 'success'",
+    "licensed_text_source_controlled": false,
+    "final_reconciliation": "select successful unique hashes belonging to the eventual completed frozen population; reject duplicate successes, invalid successful probabilities, or route drift"
+  },
+  "first_paid_chunk": {
+    "attempt_limit": 300000,
+    "concurrency": 25,
+    "retries": 3,
+    "prior_realised_cost_usd": 33.6153447500085,
+    "prior_realised_attempts": 888155,
+    "prior_mean_cost_per_attempt_usd": 0.000037848512,
+    "estimated_chunk_cost_usd": 11.354553,
+    "estimated_top_up_remaining_usd": 8.645447,
+    "cost_note": "planning estimate only; authoritative spend is the sum of reported_cost_usd across all append-only attempt rows"
+  },
+  "unchanged_boundaries": {
+    "collection_identity_or_schedule_changed": false,
+    "finbert_model_or_revision_changed": false,
+    "gemma_model_provider_fp8_prompt_or_privacy_contract_changed": false,
+    "prices_or_returns_may_be_opened_early": false,
+    "partial_strategy_inference_permitted": false,
+    "historical_parameter_retuning_permitted": false
+  },
+  "required_status_tracking": {
+    "lseg": [
+      "terminal company-date windows",
+      "saved terminal pages",
+      "complete dates",
+      "frontier date and companies",
+      "pagination anomalies"
+    ],
+    "finbert": [
+      "snapshot population hash",
+      "successful unique headline count",
+      "duplicate and invalid-probability audit",
+      "model revision",
+      "output checksum"
+    ],
+    "gemma": [
+      "snapshot and configuration hashes",
+      "append-only attempt and unique-success counts",
+      "status counts",
+      "provider, model, FP8, prompt, and probability validation",
+      "reported API cost",
+      "remaining population",
+      "output checksum after each completed pass"
+    ]
+  },
+  "still_prohibited_until_original_gates_pass": [
+    "load or inspect matching prices or returns",
+    "construct or inspect partial strategy performance",
+    "change the frozen strategy from partial scorer outputs",
+    "describe an interim scoring snapshot as the final backward population"
+  ]
+}

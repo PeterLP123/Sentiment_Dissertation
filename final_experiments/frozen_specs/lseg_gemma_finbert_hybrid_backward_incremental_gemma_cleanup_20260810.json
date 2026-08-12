@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "status": "completed_partial",
+  "recorded_at_utc": "2026-08-10T14:45:16Z",
+  "researcher_instruction": "do the cleanup over 1968",
+  "authorisation_interpretation": "Stop the stalled tail of the concurrency-25 pass, preserve every append-only attempt, and retry every unresolved hash on the unchanged Gemma to DeepInfra FP8/ZDR contract at lower concurrency.",
+  "input_checkpoint": {
+    "snapshot_id": "snapshot_20260809_quota_stop",
+    "population": 607097,
+    "population_sha256": "9b314356592f766a69003b6c61b1bf16543a5dcde929d4c972a36c1075de860d",
+    "attempt_rows": 607100,
+    "unique_successes": 605129,
+    "unresolved_hashes": 1968,
+    "status_counts": {
+      "success": 605129,
+      "api_error": 1918,
+      "invalid_output": 49,
+      "malformed_response": 4
+    },
+    "reported_cost_usd": 22.80902699000539
+  },
+  "unchanged_contract": {
+    "model_id": "google/gemma-4-26b-a4b-it",
+    "provider": "DeepInfra",
+    "quantization": "fp8",
+    "prompt_id": "investor_headline_soft_label_v1",
+    "prompt_hash": "81596538d99b29b8",
+    "zero_data_retention_required": true,
+    "provider_data_collection": "deny",
+    "provider_fallbacks": false,
+    "append_only": true,
+    "successful_row_filter": "status == 'success'"
+  },
+  "cleanup": {
+    "status": "completed_partial",
+    "started_at_utc": "2026-08-10T14:47:35.944374+00:00",
+    "attempt_limit": 1968,
+    "concurrency": 5,
+    "retries": 5,
+    "estimated_cost_usd": 0.07393867,
+    "tmux_session": "lseg33-backward-gemma-cleanup-20260810",
+    "log": "Data/collections/lseg_us_sector_33_backward_20240101_20251026_headlines/derived/incremental_gemma/snapshot_20260809_quota_stop/openrouter_gemma4_cleanup_1968_c5.log",
+    "first_verified_checkpoint": {
+      "total_attempt_rows": 607150,
+      "total_unique_successes": 605179,
+      "new_unique_successes": 50,
+      "remaining_unique": 1918,
+      "new_failures": 0,
+      "total_reported_cost_usd": 22.810913850005385
+    },
+    "completed_at_utc": "2026-08-10T15:18:03.956816+00:00",
+    "completion": {
+      "attempted_this_run": 1968,
+      "new_successes": 1944,
+      "new_api_errors": 18,
+      "new_invalid_outputs": 6,
+      "cumulative_attempt_rows": 609068,
+      "cumulative_unique_successes": 607073,
+      "cumulative_unresolved_hashes": 24,
+      "cumulative_coverage_pct": 99.99604676023766,
+      "cumulative_reported_cost_usd": 22.882303430005493,
+      "output_sha256": "589ddbe857277fb46e3a81bc82a8b850b5192abebd7458777f0a3abb9078f596",
+      "duplicate_successes": 0,
+      "invalid_success_probabilities": 0,
+      "route_mismatches": 0,
+      "output_sha256_verified": true
+    }
+  },
+  "required_completion_audit": [
+    "all 607097 snapshot hashes have one unique successful row",
+    "all historical failure attempts remain present",
+    "zero duplicate successes",
+    "zero invalid successful probability vectors",
+    "zero route or configuration mismatches",
+    "final cumulative cost and output checksum recorded"
+  ],
+  "still_prohibited": [
+    "load or inspect prices or returns",
+    "construct or inspect strategy performance before scoring completion"
+  ]
+}

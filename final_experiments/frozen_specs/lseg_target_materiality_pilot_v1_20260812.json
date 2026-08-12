@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "status": "frozen_before_return_access",
+  "frozen_at_utc": "2026-08-12T00:00:00+00:00",
+  "experiment_id": "lseg_target_materiality_pilot_v1",
+  "candidate_question": "Does LLM-scored firm-specific economic materiality add return information beyond sentiment polarity?",
+  "research_question_status": "candidate only; this experiment does not select or hard-code the dissertation RQ",
+  "purpose": "One bounded measurement-first attempt at a new firm-specific financial signal. Stop before return analysis unless the annotation construct is reliable against human coding.",
+  "authorisation": {
+    "source": "User approved the explicitly described bounded plan by saying 'Go do this' on 2026-08-12.",
+    "hosted_processing_scope": "At most 2,000 selected Reuters headlines, up to 6,000 cleaned body characters per event, and at most five strictly earlier same-company Reuters headlines.",
+    "provider_chain": "OpenRouter routed only to DeepInfra; Gemma 4 26B A4B IT; FP8; no fallback.",
+    "privacy": {
+      "data_collection": "deny",
+      "zero_data_retention": true,
+      "reasoning": "disabled and excluded",
+      "licensed_text_local_except_selected_api_payloads": true
+    }
+  },
+  "inputs": {
+    "universe": "the immutable original 33 US sector companies",
+    "joined_score_population": "the same-33, separately retained backward_2024_2025 and opened_2025_2026 score blocks joined by normalized-headline SHA-256",
+    "backward_headlines": {
+      "path": "Data/collections/lseg_us_sector_33_backward_20240101_20251026_headlines/derived/incremental_finbert/snapshot_20260811_collection_complete/headlines.jsonl",
+      "sha256": "dd16de7e8dcd0f4c6e862f8be5ce69f938cc688450c05fccd9b614ce5e4b3e3c"
+    },
+    "recent_headlines": {
+      "path": "Data/collections/lseg_us_sector_44_8m_headlines/derived/merged/headlines.jsonl",
+      "sha256": "7f48c46690f3293cbfe846ddecc701852daf3c35643f2747dcbc39f829927878"
+    },
+    "existing_recent_articles": {
+      "path": "Data/collections/lseg_us_sector_33_6m/derived/us_sector_33_6m/articles.jsonl",
+      "sha256": "f290a2d59fd195dd10b25a8a871213db5b93de8c8394262d9c753c54a420a5b8"
+    },
+    "prices_or_returns_opened_during_measurement_stage": false
+  },
+  "sample": {
+    "size": 2000,
+    "seed": 20260812,
+    "source": "NS:RTRS Reuters only",
+    "filters": [
+      "explicit target",
+      "not market-price or technical-only",
+      "exactly one original-33 target",
+      "earliest retained release of an LSEG story family"
+    ],
+    "timing": "first XNYS open at least 15 minutes after the source availability timestamp; exchange calendar only, with no price file",
+    "spacing": "one stable-hash-selected event per symbol and entry session",
+    "allocation": "60 or 61 events per company; target 70/30 backward/recent and 40/20/40 FinBERT negative/neutral/positive within company, with deterministic shortage fallback",
+    "prior_context": "up to five strictly earlier same-company first-release Reuters headlines in the prior 30 days; context may affect novelty only"
+  },
+  "body_retrieval": {
+    "reuse": "Reuse hash-verified cleaned recent bodies when the selected story ID matches.",
+    "new_requests": "Fetch only missing selected story IDs through the logged-in LSEG Workspace session.",
+    "request_cap": 2000,
+    "concurrency": 4,
+    "requests_per_second": 3.0,
+    "automatic_retries_per_invocation": 0,
+    "scoring_body_coverage_required": 1.0
+  },
+  "model": {
+    "id": "google/gemma-4-26b-a4b-it",
+    "provider": "DeepInfra",
+    "quantization": "fp8",
+    "prompt_id": "lseg_target_materiality_novelty_horizon_v1",
+    "prompt_hash": "bba4153d786dfa3c",
+    "temperature": 0.0,
+    "max_completion_tokens": 160,
+    "concurrency": 25,
+    "retries": 3,
+    "output": [
+      "direction_severity",
+      "materiality",
+      "novelty",
+      "valuation_horizon",
+      "target_specific",
+      "evidence_sufficient"
+    ],
+    "estimated_cost_usd_upper_bound": 1.0
+  },
+  "human_measurement_gate": {
+    "primary_coder_rows": 200,
+    "representative_rows_target": 150,
+    "high_materiality_tail_rows_target": 50,
+    "second_coder_rows": 60,
+    "model_labels_and_returns_hidden": true,
+    "inter_coder_quadratic_weighted_kappa_minimum": 0.6,
+    "model_human_quadratic_weighted_kappa_minimum": 0.4,
+    "severe_disagreement_rate_maximum": 0.1,
+    "high_materiality_precision_minimum": 0.7,
+    "nonneutral_direction_sign_precision_minimum": 0.7,
+    "target_specific_f1_minimum": 0.8,
+    "stop_rule": "Do not load price or return data unless the human labels are complete and the predeclared reliability report passes every primary gate."
+  },
+  "return_stage_if_unlocked": {
+    "development": "entry sessions through 2025-12-31",
+    "untouched_confirmation": "entry sessions from 2026-01-01",
+    "primary_signal": "signed direction severity multiplied by firm-specific materiality and novelty, with no return-fitted thresholds",
+    "comparators": [
+      "existing continuous Gemma polarity",
+      "existing continuous FinBERT polarity",
+      "Gemma plus FinBERT polarity"
+    ],
+    "primary_incremental_test": "date-clustered regression and block-bootstrap out-of-sample loss/IC difference for materiality signal beyond both existing polarity scores",
+    "strategy_translation": "fixed sparse top/bottom event selection, sector/dollar neutral where feasible, first eligible open, 1- and 5-session horizons",
+    "costs_bps_per_side": [0, 10, 25, 50],
+    "multiplicity": "one declared family across incremental regression, IC, and fixed strategy horizons; BH-FDR q=0.05",
+    "development_go": "open the untouched 2026 confirmation only if the primary incremental coefficient has the predeclared sign, uncertainty excludes zero after multiplicity control, and 10-bps break-even is positive without retuning",
+    "claim_boundary": "A measurement null is useful dissertation evidence. A development return result is not confirmatory alpha."
+  }
+}

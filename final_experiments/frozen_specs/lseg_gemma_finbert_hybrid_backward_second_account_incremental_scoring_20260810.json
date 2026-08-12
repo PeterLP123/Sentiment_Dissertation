@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "status": "explicitly_authorised_before_scoring",
+  "recorded_at_utc": "2026-08-10T19:23:56Z",
+  "researcher_instruction": "Do the required gemini and finbert scoring on all outstanding that are downloaded",
+  "terminology_interpretation": "Gemini means the established Gemma 4 26B scorer used throughout this experiment; changing to a Google Gemini model would break scorer consistency.",
+  "authorisation": {
+    "local_finbert_scoring_authorised": true,
+    "licensed_external_gemma_processing_authorised": true,
+    "scope": "all unique scorable headlines in terminal company-date checkpoints downloaded through the 2026-08-10 second-account quota stop",
+    "prices_returns_and_strategy_inference_authorised": false
+  },
+  "snapshot": {
+    "id": "snapshot_20260810_second_account_quota_stop",
+    "company_dates": 17967,
+    "source_pages": 42899,
+    "population": 884863,
+    "population_sha256": "a9349fdda44f3a9fc848554df08bb1de7e8830d5eb79a331201235ff342420b6",
+    "headlines_sha256": "9b6a1165f856afd667fd16a49344dc8d391410a7428516c01ed141bec6fdd845",
+    "manifest_sha256": "a9fb68c4328b6ccb1f4a349974030cb3a13bbb195b1e43560c212eeb8c1cd581",
+    "reconciliation_sha256": "360992f9588eaaf3f40ba48059a29f5de5d48bba2b2a04206efeb70d336f133a",
+    "prices_or_returns_loaded": false
+  },
+  "hash_reconciliation": {
+    "prior_population": 607097,
+    "prior_hashes_retained": 607097,
+    "prior_hashes_dropped": 0,
+    "new_hashes": 277766,
+    "finbert_prior_successes": 607097,
+    "finbert_pending": 277766,
+    "gemma_prior_successes": 607073,
+    "gemma_historical_unresolved_retained": 24,
+    "gemma_pending": 277790
+  },
+  "finbert_contract": {
+    "model_id": "ProsusAI/finbert",
+    "revision": "4556d13015211d73dccd3fdd39d39232506f3e43",
+    "local_files_only": true,
+    "device": "UCL shared GPU workstation",
+    "prior_source_output_sha256": "7e4e53d2d0eca685b3bbd80a8aeff060b6bb1520175ffdfbeefe73ac0ae4e510",
+    "resume_seed_output_sha256": "c51494ae00eef2000ae6d4672062c2e11e0cd7863c3f54986efb896120eccb0f",
+    "resume_seed_score_rows": 1214194,
+    "metadata_canonicalisation": {
+      "rule": "inherit probabilities by exact normalized-headline hash but rewrite metadata from the current snapshot",
+      "changed_headlines": 3193,
+      "changed_headlines_by_field": {
+        "contextual": 335,
+        "explicit_target": 335,
+        "first_timestamp": 32,
+        "headline": 3,
+        "matched_symbols": 3192
+      }
+    },
+    "score": "P(positive)-P(negative)"
+  },
+  "gemma_contract": {
+    "model_id": "google/gemma-4-26b-a4b-it",
+    "provider": "DeepInfra",
+    "quantization": "fp8",
+    "prompt_id": "investor_headline_soft_label_v1",
+    "prompt_hash": "81596538d99b29b8",
+    "zero_data_retention_required": true,
+    "provider_data_collection": "deny",
+    "provider_fallbacks": false,
+    "append_only_delta_output": true,
+    "successful_row_filter": "status == 'success'",
+    "seed_artifact_sha256": "589ddbe857277fb46e3a81bc82a8b850b5192abebd7458777f0a3abb9078f596",
+    "seed_successes": 607073,
+    "concurrency": 25,
+    "retries": 3
+  },
+  "spend_gate": {
+    "openrouter_balance_checked_at_utc": "2026-08-10T19:09:00Z",
+    "available_credit_usd": 20.02999974,
+    "observed_prior_cost_per_attempt_usd": 0.00003756937391228154,
+    "estimated_pending_cost_usd": 10.43639637909269,
+    "authoritative_cost": "sum of reported_cost_usd across append-only attempt rows"
+  },
+  "completion_requirements": [
+    "all 884863 snapshot hashes have one valid FinBERT success",
+    "all 884863 snapshot hashes have one valid Gemma success across the seed and delta artifacts",
+    "zero duplicate successes within each scorer reconciliation",
+    "zero invalid successful probability vectors or route mismatches",
+    "all historical failures remain preserved",
+    "final artifacts and manifests have recorded SHA-256 digests"
+  ]
+}

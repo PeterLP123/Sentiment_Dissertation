@@ -29,6 +29,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-population", type=int, default=DEFAULT_MAX_POPULATION)
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument(
+        "--seed-successes",
+        type=Path,
+        action="append",
+        default=[],
+        help="Immutable prior OpenRouter CSV whose validated successes should be reused by headline hash.",
+    )
+    parser.add_argument(
         "--confirm-licensed-external-processing",
         action="store_true",
         help="Required acknowledgement that the researcher confirmed hosted processing is permitted.",
@@ -48,6 +55,7 @@ def main() -> None:
             retries=args.retries,
             max_population=args.max_population,
             limit=args.limit,
+            seed_success_paths=tuple(args.seed_successes),
             callback=print,
         )
     )

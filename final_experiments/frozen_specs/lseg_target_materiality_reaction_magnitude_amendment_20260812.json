@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "status": "frozen_after_directional_primary_before_reaction_magnitude_tests",
+  "frozen_at_utc": "2026-08-12T13:07:00+00:00",
+  "experiment_id": "lseg_target_materiality_reaction_magnitude_exploratory_v1",
+  "parent_spec": "final_experiments/frozen_specs/lseg_target_materiality_model_only_development_waiver_20260812.json",
+  "timing_and_honesty": {
+    "observed_before_freeze": "The eight-test directional primary family had been computed and was null after multiplicity control. The fixed h5 sparse strategy was descriptively positive but uncertain.",
+    "not_observed_before_freeze": "No absolute-return, squared-return, volatility or reaction-magnitude regression, OOS comparison, p-value, bucket result or plot had been computed.",
+    "status": "Post-primary exploratory family. It cannot rescue the directional alpha hypothesis and cannot unlock 2026 confirmation returns."
+  },
+  "question": "Does model-scored firm-specific economic materiality identify the magnitude of post-news price reactions beyond the absolute strength of existing Gemma and FinBERT polarity?",
+  "motivation": "The annotation prompt measures valuation relevance and horizon rather than forecasting returns. Economic materiality may therefore be useful for attention or risk triage even when signed direction is not tradable.",
+  "confirmation_boundary": "Identical fail-closed pre-2026 loader and exact forward-return boundary from the parent waiver; confirmation_rows_opened must remain zero.",
+  "primary_family": {
+    "outcomes": [
+      "absolute h1 split-adjusted open-to-open return",
+      "absolute h5 split-adjusted open-to-open return",
+      "absolute h20 split-adjusted open-to-open return"
+    ],
+    "predictor": "materiality_ordinal / 4",
+    "controls": [
+      "absolute existing continuous Gemma polarity",
+      "absolute existing continuous FinBERT polarity",
+      "novelty_ordinal / 4",
+      "company fixed effects"
+    ],
+    "regression": "OLS with development-standardised continuous predictors and entry-session-clustered covariance. Primary coefficient is materiality; expected direction is positive.",
+    "tests": 3,
+    "multiplicity": "BH-FDR q=0.05 across h1, h5 and h20 materiality coefficients."
+  },
+  "secondary_validation": {
+    "chronological_oos": "Reuse the three expanding folds. Compare polarity-magnitude-plus-novelty base against the same model plus materiality using squared-error loss. Report one-sided five-session block-bootstrap p-values and BH q-values across h1/h5/h20.",
+    "buckets": "Plot raw absolute return by none/low/moderate/high-or-very-high model materiality. Buckets are descriptive; no threshold is promoted.",
+    "stability": "Report 2024 and 2025 coefficients, leave-one-company-out coefficient ranges and high-bucket company concentration. These are descriptive robustness diagnostics.",
+    "strategy_boundary": "No trade rule is created from reaction magnitude. The potential application is news triage, risk sizing or volatility forecasting, not directional alpha."
+  },
+  "decision_rule": {
+    "usable_development_finding": "A positive materiality coefficient survives the three-test BH family at one or more horizons, the same horizon has non-negative OOS loss improvement, and the sign is positive in both calendar years. Otherwise report a clean reaction-magnitude null.",
+    "validated_claim": false,
+    "human_reliability_gate_waived_for_this_family_only": true,
+    "confirmation_remains_sealed": true
+  }
+}

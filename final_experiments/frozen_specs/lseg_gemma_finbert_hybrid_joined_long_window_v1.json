@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "status": "frozen_before_backward_return_access",
+  "frozen_at_utc": "2026-08-12T08:42:01Z",
+  "frozen_at_git_commit": "ac1b90fb1c2c1b9760b6da3258d8e9dc39d481e4",
+  "authorisation_source": "researcher instruction: Can we join the 33 and then run the tests on the chosen strategy across the longer time frame",
+  "candidate_rq": "strategy construction and risk allocation; how does the unchanged sparse Gemma-timing/FinBERT-ranking rule behave across the continuous same-33 LSEG history from 2024-01-01 to 2026-06-26?",
+  "methodological_role": "separate post-drift-stop long-window measurement and historical sensitivity analysis",
+  "parent_specs": {
+    "prospective_strategy": {
+      "path": "final_experiments/frozen_specs/lseg_gemma_finbert_hybrid_prospective_v1.json",
+      "sha256": "3be373597a8ff20482cd6ce4c647d7c440d934b7a6c8d5cc6e9c198da580b0fc"
+    },
+    "backward_replication": {
+      "path": "final_experiments/frozen_specs/lseg_gemma_finbert_hybrid_backward_v1.json",
+      "sha256": "5b4744c78026ae8294b8c492d59b02a0ddcef5efb9598f7fd70dc56c1fcbca98"
+    },
+    "failed_drift_result": "final_experiments/frozen_specs/lseg_gemma_finbert_hybrid_backward_gemma_drift_result_20260811.json",
+    "full_scoring_override": "final_experiments/frozen_specs/lseg_gemma_finbert_hybrid_backward_full_scoring_override_20260811.json"
+  },
+  "claim_boundary": {
+    "rescinds_failed_drift_gate": false,
+    "qualifies_as_original_predeclared_replication": false,
+    "prospective_or_deployment_claim_permitted": false,
+    "historical_corroboration_claim_permitted": false,
+    "measurement_sensitivity_claim_permitted": true,
+    "full_joined_path_is_descriptive": true,
+    "reason": "The exact-endpoint retention gate was observed to fail at 0.7881 versus 0.80 before this override, and the joined interval includes the already-opened 2025-10-26 to 2026-06-26 selection window."
+  },
+  "joined_population": {
+    "universe": "the immutable first three companies in each of the same 11 sectors; 33 companies total",
+    "earlier_block": {
+      "start_inclusive_utc": "2024-01-01T00:00:00Z",
+      "end_exclusive_utc": "2025-10-26T00:00:00Z",
+      "collection": "Data/collections/lseg_us_sector_33_backward_20240101_20251026_headlines",
+      "unique_scorable_headlines_before_cross_block_deduplication": 1219608,
+      "population_sha256": "68b987095715fc3ecca8d80056487f82b3e250094e2a6c3e986afa812cd449c7"
+    },
+    "later_block": {
+      "start_inclusive_utc": "2025-10-26T00:00:00Z",
+      "end_exclusive_utc": "2026-06-26T00:00:00Z",
+      "collection": "Data/collections/lseg_us_sector_44_8m_headlines",
+      "policy": "retain only associations to the immutable original 33 companies before joining"
+    },
+    "cross_block_rule": "deduplicate by normalized-headline SHA-256 across both blocks; retain the earliest observed timestamp and union only same-33 company associations",
+    "score_collision_rule": "the score attached to the retained earliest occurrence is authoritative; do not average, choose by return, or rescore after outcomes",
+    "prospective_2026_06_26_to_2026_08_06_block_included": false,
+    "fnspid_or_midcap_pooling_permitted": false,
+    "licensed_headline_text_source_controlled": false
+  },
+  "scorers_and_signal": {
+    "inherit_unchanged": [
+      "Gemma exact +1/-1 strongest-event schedule and positive/negative counts",
+      "FinBERT continuous strongest-event within-session name ranking",
+      "symbol-ascending score-tie break",
+      "25% maximum name weight",
+      "equal weight within each leg",
+      "one open-to-next-open holding interval",
+      "10 bps per traded side",
+      "drift-aware turnover and final liquidation"
+    ],
+    "gemma_contract": "google/gemma-4-26b-a4b-it via DeepInfra FP8; prompt hash 81596538d99b29b8; temperature zero; no fallback; ZDR; data collection denied",
+    "finbert_contract": "ProsusAI/finbert revision 4556d13015211d73dccd3fdd39d39232506f3e43 with enforced local cache",
+    "parameter_sweep_permitted": false,
+    "threshold_redefinition_permitted": false
+  },
+  "return_access": {
+    "authorised_by_this_spec": true,
+    "source": "new hash-manifested LSEG Workspace adjusted-open export",
+    "requested_start": "2023-12-29",
+    "requested_end": "2026-07-03",
+    "return": "split-adjusted, non-dividend-adjusted open to immediately following common XNYS open",
+    "missing_immediate_next_open": "drop; do not jump to a later stock date"
+  },
+  "analysis_plan": {
+    "primary_new_information_window": "2024-01-01 through 2025-10-25 news mapped to eligible sessions strictly before the 2025-10-26 boundary",
+    "joined_descriptive_window": "2024-01-01 through 2026-06-25 news",
+    "minimum_population": {
+      "complete_price_calendar_sessions": 120,
+      "active_sessions": 60,
+      "active_sessions_each_chronological_half": 20
+    },
+    "report_for_each_window": [
+      "gross and net mean return per complete calendar session",
+      "gross and net annualised Sharpe",
+      "gross and net total return",
+      "turnover, maximum drawdown, break-even cost, exposure, and active sessions",
+      "chronological-half net Sharpe and return"
+    ],
+    "backward_window_inference": {
+      "cash": "9999 five-session circular-block replications; seed 20260820; two-sided 5% interval and p-value",
+      "factor": "HAC(5) intercept for equal-weight same-33 market plus ten independent sector-minus-market returns",
+      "timing": "all non-zero circular shifts of the Gemma event/count schedule with FinBERT ranks and accounting fixed",
+      "name_selection": "4999 same-session matched-count random-name assignments; seed 20260820",
+      "dependence": "rebuild strategy for all 33 leave-one-company and 11 leave-one-sector exclusions"
+    },
+    "joined_window_inference_role": "descriptive only; intervals may be shown but cannot be used for confirmation because the later component was already opened",
+    "calendar_diagnostics": [
+      "2024",
+      "2025 through the 2025-10-26 boundary",
+      "opened 2025-10-26 to 2026-06-26 window",
+      "full joined interval"
+    ],
+    "cost_grid_bps_per_side": [
+      0.0,
+      1.0,
+      2.0,
+      5.0,
+      10.0
+    ]
+  },
+  "decision_policy": {
+    "no_strategy_promotion_from_this_analysis": true,
+    "no_parameter_changes_after_return_access": true,
+    "report_null_or adverse results unchanged": true,
+    "future_confirmation": "the untouched post-2026-06-26 prospective block remains the only route to a prospective claim once its frozen population gate is met"
+  }
+}

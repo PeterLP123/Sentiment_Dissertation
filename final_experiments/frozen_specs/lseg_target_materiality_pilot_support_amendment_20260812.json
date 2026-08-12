@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "status": "frozen_before_return_access",
+  "amends": "lseg_target_materiality_pilot_v1_20260812.json",
+  "frozen_at_utc": "2026-08-12T00:00:00+00:00",
+  "trigger": "The return-blind candidate scan found that SO has 47 eligible Reuters symbol-sessions, fewer than the planned 60/61 per-company quota.",
+  "prices_or_returns_accessed": false,
+  "unchanged": [
+    "2,000 total events",
+    "all 33 companies represented",
+    "Reuters NS:RTRS only",
+    "explicit-target, nontechnical, single-target, first-release filters",
+    "one event per company and entry session",
+    "within-company source-block and FinBERT-polarity stratification",
+    "all model, human-audit, privacy, cost, and stopping gates"
+  ],
+  "amended_allocation": "Begin from the stable 60/61 company targets. Keep every available event when a company is undersupported, then redistribute the exact shortfall one event at a time to the currently least-represented companies with remaining support, breaking ties by the frozen seed hash. This maximises company balance without weakening event-quality filters.",
+  "seed": 20260812,
+  "scientific_reason": "Dropping SO would change the frozen universe; admitting non-Reuters or repeated/technical events would change the construct. Deterministic quota redistribution is the narrowest return-blind correction."
+}

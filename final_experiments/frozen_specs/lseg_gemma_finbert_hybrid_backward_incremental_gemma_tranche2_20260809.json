@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "status": "explicitly_authorised_before_paid_requests",
+  "recorded_at_utc": "2026-08-09T22:07:19Z",
+  "parent_amendment": {
+    "path": "final_experiments/frozen_specs/lseg_gemma_finbert_hybrid_backward_incremental_gemma_scoring_amendment_20260809.json",
+    "sha256": "b1cbc5306414400cb3b3b186267bcaf42ea7ede100d78b20026c1ca9b5c10ee1"
+  },
+  "researcher_instruction": "Can we do some more?",
+  "authorisation_interpretation": "The researcher explicitly approved the 200,000-attempt tranche and estimated $7.54 spend. Continue the existing licensed LSEG headline processing through the unchanged OpenRouter to DeepInfra FP8/ZDR route; do not open prices, returns, or partial strategy inference.",
+  "explicit_approval_text": "Approve the 200,000-attempt tranche and estimated $7.54 spend.",
+  "explicitly_approved_at_utc": "2026-08-09T22:19:48Z",
+  "external_processing_authorised_for_this_tranche": true,
+  "input_checkpoint": {
+    "snapshot_id": "snapshot_20260809_quota_stop",
+    "population_sha256": "9b314356592f766a69003b6c61b1bf16543a5dcde929d4c972a36c1075de860d",
+    "population": 607097,
+    "prior_attempt_rows": 300000,
+    "prior_unique_successes": 299987,
+    "prior_api_errors": 13,
+    "prior_output_sha256": "b85879da58716193243cd180a023e91dfabf142fb0f672f49a10ba206eb16e39",
+    "unresolved_hashes": 307110
+  },
+  "unchanged_contract": {
+    "model_id": "google/gemma-4-26b-a4b-it",
+    "provider": "DeepInfra",
+    "provider_slug": "deepinfra",
+    "quantization": "fp8",
+    "prompt_id": "investor_headline_soft_label_v1",
+    "prompt_hash": "81596538d99b29b8",
+    "temperature": 0.0,
+    "reasoning_effort": "none",
+    "strict_probability_json": true,
+    "zero_data_retention_required": true,
+    "provider_data_collection": "deny",
+    "provider_fallbacks": false,
+    "append_only": true,
+    "resumable": true,
+    "successful_row_filter": "status == 'success'"
+  },
+  "second_paid_tranche": {
+    "status": "running",
+    "started_at_utc": "2026-08-09T22:21:06.692847+00:00",
+    "tmux_session": "lseg33-backward-gemma-t2-20260809",
+    "attempt_limit": 200000,
+    "concurrency": 25,
+    "retries": 3,
+    "prior_realised_cost_per_attempt_usd": 0.000037691549,
+    "estimated_cost_usd": 7.53830984,
+    "first_tranche_reported_cost_usd": 11.307464760002967,
+    "user_reported_initial_top_up_usd": 20.0,
+    "projected_top_up_remaining_after_tranche_usd": 1.15422540,
+    "cost_note": "planning estimate only; authoritative spend is the sum of reported_cost_usd across all append-only attempt rows",
+    "first_verified_checkpoint": {
+      "total_attempt_rows": 300750,
+      "total_unique_successes": 300737,
+      "new_unique_successes": 750,
+      "historical_api_errors": 13,
+      "duplicate_successes": 0,
+      "invalid_success_probabilities": 0,
+      "route_mismatches": 0,
+      "total_reported_cost_usd": 11.335732260002972
+    }
+  },
+  "required_completion_audit": [
+    "append-only attempt and unique-success counts",
+    "status counts including preserved historical failures",
+    "zero duplicate successes",
+    "valid successful probability vectors",
+    "unchanged model, provider, FP8, prompt, privacy, and configuration hash",
+    "reported total cost and output checksum",
+    "remaining unresolved snapshot hashes"
+  ],
+  "still_prohibited": [
+    "load or inspect matching prices or returns",
+    "construct or inspect partial strategy performance",
+    "change the frozen strategy from partial scorer outputs",
+    "describe an interim scoring checkpoint as the completed backward population"
+  ]
+}

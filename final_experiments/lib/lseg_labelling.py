@@ -6,13 +6,14 @@ import csv
 import json
 import os
 import tempfile
+from collections import Counter
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
 from sentiment_benchmark.artifact_io import sha256_file, sha256_text
 from sentiment_benchmark.headline_return_study import BASELINE_COLUMNS
-from sentiment_benchmark.headline_value import collect_scorable_headline_records
+from sentiment_benchmark.headline_value import ScorableHeadline, collect_scorable_headline_records
 
 FINBERT_MODEL_ID = "ProsusAI/finbert"
 FINBERT_REVISION = "4556d13015211d73dccd3fdd39d39232506f3e43"
@@ -36,9 +37,10 @@ class FinbertExportSummary:
     manifest_path: Path
 
 
-def _population(collection_root: Path) -> tuple[set[str], str]:
-    hashes = {record.headline_sha256 for record in collect_scorable_headline_records(collection_root)}
-    return hashes, sha256_text("\n".join(sorted(hashes)))
+def _population(collection_root: Path) -> tuple[dict[str, ScorableHeadline], str]:
+    records = {record.headline_sha256: record for record in collect_scorable_headline_records(collection_root)}
+    hashes = set(records)
+    return records, sha256_text("\n".join(sorted(hashes)))
 
 
 def _validate_prior_manifest(scores_path: Path) -> dict:
@@ -100,11 +102,13 @@ def prepare_reusable_baseline_seed(
         raise ValueError(f"prior score artifact is missing: {prior}")
     _validate_prior_manifest(prior)
     prior_manifest_path = prior.with_suffix(prior.suffix + ".manifest.json")
-    target_hashes, population_sha256 = _population(root)
+    target_records, population_sha256 = _population(root)
+    target_hashes = set(target_records)
     output.parent.mkdir(parents=True, exist_ok=True)
 
     pairs: set[tuple[str, str]] = set()
     reusable_hashes: set[str] = set()
+    metadata_changes: dict[str, set[str]] = {}
     temporary_handle = tempfile.NamedTemporaryFile(
         mode="w",
         encoding="utf-8",
@@ -132,6 +136,19 @@ def prepare_reusable_baseline_seed(
                     raise ValueError(f"prior score artifact duplicates {headline_hash}/{scorer}")
                 pairs.add(pair)
                 reusable_hashes.add(headline_hash)
+                record = target_records[headline_hash]
+                canonical_metadata = {
+                    "headline": record.headline,
+                    "matched_symbols": "|".join(record.matched_symbols),
+                    "first_timestamp": record.first_timestamp,
+                    "explicit_target": str(record.explicit_target),
+                    "contextual": str(record.contextual),
+                    "market_price_technical": str(record.market_price_technical),
+                }
+                for field, value in canonical_metadata.items():
+                    if row.get(field) != value:
+                        metadata_changes.setdefault(headline_hash, set()).add(field)
+                    row[field] = value
                 writer.writerow(row)
         temporary_handle.flush()
         os.fsync(temporary_handle.fileno())
@@ -159,6 +176,11 @@ def prepare_reusable_baseline_seed(
         output_path=output,
         manifest_path=seed_manifest,
     )
+    metadata_change_counts = Counter(
+        field
+        for fields in metadata_changes.values()
+        for field in fields
+    )
     payload = {
         "schema_version": 1,
         "status": "completed",
@@ -171,6 +193,7 @@ def prepare_reusable_baseline_seed(
             "finbert_model_id": FINBERT_MODEL_ID,
             "finbert_revision": FINBERT_REVISION,
             "reuse_rule": "inherit only successful exact normalized-headline hashes with both frozen scorers",
+            "metadata_rule": "rewrite inherited headline metadata from the target snapshot; inherit probabilities only",
         },
         "input": {
             "collection_root": str(root),
@@ -183,6 +206,10 @@ def prepare_reusable_baseline_seed(
             key: value
             for key, value in asdict(summary).items()
             if key not in {"output_path", "manifest_path"}
+        },
+        "metadata_reconciliation": {
+            "changed_headlines": len(metadata_changes),
+            "changed_headlines_by_field": dict(sorted(metadata_change_counts.items())),
         },
         "output": {"path": str(output), "sha256": sha256_file(output)},
         "sharing": {"contains_licensed_headline_text": True, "source_control": False, "redistribute": False},

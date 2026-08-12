@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "status": "completed_measurement_scoring_awaiting_human_labels",
+  "experiment_id": "lseg_target_materiality_pilot_v1",
+  "completed_at_utc_date": "2026-08-12",
+  "explicit_transfer_approval": "I approve sending the selected Reuters headline and article-body text to OpenRouter, routed only to DeepInfra, for Gemma 4 26B FP8 materiality scoring under the stated no-retention/privacy controls.",
+  "contract": {
+    "model": "google/gemma-4-26b-a4b-it",
+    "provider": "DeepInfra",
+    "quantization": "fp8",
+    "prompt_id": "lseg_target_materiality_novelty_horizon_v1",
+    "prompt_hash": "bba4153d786dfa3c",
+    "prompt_file_sha256": "10c813bb6d8807da4446fdfe702f0d967160ab691fa610948ef854fd313b5649",
+    "temperature": 0.0,
+    "fallbacks": false,
+    "data_collection": "deny",
+    "zero_data_retention_requested": true,
+    "reasoning": "disabled and excluded"
+  },
+  "population": {
+    "parent_sample": 2000,
+    "body_available_selected": 1445,
+    "body_available_share": 0.7225,
+    "successful_unique_scores": 1445,
+    "coverage_of_body_available_population": 1.0,
+    "first_entry_session": "2024-01-02",
+    "last_entry_session": "2026-06-25",
+    "companies": 33
+  },
+  "attempts": {
+    "records": 1450,
+    "success": 1445,
+    "invalid_output_preserved": 4,
+    "api_error_preserved": 1,
+    "duplicate_successes": 0,
+    "invalid_successful_schema_rows": 0,
+    "route_mismatches": 0
+  },
+  "usage": {
+    "prompt_tokens": 2300341,
+    "completion_tokens": 71203,
+    "reported_cost_usd": 0.18523289,
+    "listed_price_estimate_usd": 0.18523289
+  },
+  "model_label_counts": {
+    "direction_severity": {
+      "very_negative": 5,
+      "negative": 387,
+      "neutral": 540,
+      "positive": 505,
+      "very_positive": 8
+    },
+    "materiality": {
+      "none": 198,
+      "low": 589,
+      "moderate": 537,
+      "high": 119,
+      "very_high": 2
+    },
+    "novelty": {
+      "none": 331,
+      "low": 120,
+      "moderate": 171,
+      "high": 706,
+      "very_high": 117
+    },
+    "valuation_horizon": {
+      "immediate_1_session": 383,
+      "short_2_5_sessions": 29,
+      "medium_6_20_sessions": 483,
+      "longer_term": 277,
+      "unclear": 273
+    },
+    "target_specific_true": 1296,
+    "evidence_sufficient_true": 1445
+  },
+  "private_artifacts": {
+    "sample_manifest_sha256": "2a63eb8311a2874deb65d654c19f116ff5c1b4e1da27812203db7aa3fd0b56c6",
+    "body_manifest_sha256": "2418036e1716b9a2346c3708383f3003c018f7d8c6625dc0a7c8fb7930dc0ad4",
+    "attempts_sha256": "38647fa4613734d7172ab2690ad208e08504e827c0b4c17f0a3651426853eeb8",
+    "scores_sha256": "c702a092ead572233b5854ab34d920eb2d1f8f7c82d72c98e25fe791d3fa04f1",
+    "score_manifest_sha256": "d17e67f220c0ecff48142fb26f9bd5c90c596827efdfe6982fd5021afdeef112",
+    "audit_manifest_sha256": "0237d1f6c577102a72afe1a243abd4cb6e8c7de9a9efec293d1df8995b583e4c",
+    "gitignored": true
+  },
+  "human_audit": {
+    "primary_coder_rows": 200,
+    "second_coder_rows": 60,
+    "model_labels_hidden_from_coders": true,
+    "status": "awaiting_human_labels",
+    "warning": "The model marked evidence_sufficient=true on every row; the human audit must test this possible overconfidence rather than treating it as validation."
+  },
+  "return_gate": {
+    "prices_or_returns_loaded": false,
+    "return_access_allowed": false,
+    "notebook_69_status": "SEALED",
+    "next_condition": "Both human sheets must be complete and the frozen reliability report must pass every primary gate."
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "authorised_at_utc": "2026-08-11T22:40:31Z",
+  "authorisation_source": "researcher instruction: Do the remaining finbert and gemma scoring",
+  "parent_spec": "final_experiments/frozen_specs/lseg_gemma_finbert_hybrid_backward_v1.json",
+  "drift_result": "final_experiments/frozen_specs/lseg_gemma_finbert_hybrid_backward_gemma_drift_result_20260811.json",
+  "methodological_role": "separate measurement-only full-population completion after the predeclared exact-endpoint drift gate failed",
+  "claim_boundary": {
+    "rescinds_drift_failure": false,
+    "qualifies_as_predeclared_replication": false,
+    "permits_price_or_return_access": false,
+    "permits_strategy_replay_or_retuning": false,
+    "permits_full_finbert_scoring": true,
+    "permits_paid_full_gemma_scoring": true
+  },
+  "population": {
+    "snapshot_id": "snapshot_20260811_collection_complete",
+    "unique_scorable_headlines": 1219608,
+    "population_sha256": "68b987095715fc3ecca8d80056487f82b3e250094e2a6c3e986afa812cd449c7",
+    "prior_finbert_successes_retained": 884859,
+    "pending_finbert_hashes": 334749,
+    "prior_gemma_successes_retained": 884842,
+    "pending_gemma_hashes": 334766,
+    "superseded_prior_hashes_outside_final_population": 4
+  },
+  "finbert_contract": {
+    "model": "ProsusAI/finbert",
+    "revision": "4556d13015211d73dccd3fdd39d39232506f3e43",
+    "local_files_only": true,
+    "device": "UCL CUDA worker",
+    "resumable": true
+  },
+  "gemma_contract": {
+    "model": "google/gemma-4-26b-a4b-it",
+    "provider": "DeepInfra",
+    "quantization": "fp8",
+    "prompt_hash": "81596538d99b29b8",
+    "allow_fallbacks": false,
+    "zero_data_retention": true,
+    "provider_data_collection": "deny",
+    "temperature": 0.0,
+    "append_only": true,
+    "estimated_incremental_cost_usd_at_prior_mean": 12.614043,
+    "reported_api_cost_is_authoritative": true
+  },
+  "data_handling": {
+    "licensed_text_source_controlled": false,
+    "row_level_scores_source_controlled": false,
+    "aggregate_status_only": true
+  },
+  "launch": {
+    "finbert": {
+      "status": "completed",
+      "host": "barbel-l.cs.ucl.ac.uk",
+      "tmux_session": "lseg33-backward-finbert-complete-20260811",
+      "successes": 1219608,
+      "remaining": 0,
+      "output_sha256": "3800f4f7cdc0ef931dad6a0f70a595f51923f481ebc634b95bcdf7d35b285d3f",
+      "completed_at_utc": "2026-08-11T23:33:28.167846+00:00"
+    },
+    "gemma": {
+      "status": "completed",
+      "tmux_session": "lseg33-backward-gemma-complete-20260811-r1",
+      "seed_population_sha256": "68b987095715fc3ecca8d80056487f82b3e250094e2a6c3e986afa812cd449c7",
+      "retained_seed_successes": 884842,
+      "excluded_prior_successes": 4,
+      "new_successes": 334766,
+      "successes": 1219608,
+      "remaining": 0,
+      "first_pass_api_errors": 21,
+      "cleanup_successes": 21,
+      "incremental_reported_cost_usd": 12.706834470002665,
+      "output_sha256": "09ea9ed43ca501128e79f6b7277e85888aaf4d37a368f74ac23f76cbcd93fe35",
+      "completed_at_utc": "2026-08-12T08:23:32.901525+00:00"
+    }
+  }
+}

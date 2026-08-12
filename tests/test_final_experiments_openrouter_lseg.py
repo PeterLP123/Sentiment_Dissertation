@@ -2,7 +2,8 @@ import csv
 import json
 from pathlib import Path
 
-from final_experiments.lib.openrouter_lseg import score_lseg_openrouter
+from final_experiments.lib.openrouter_lseg import LSEG_COLUMNS, score_lseg_openrouter
+from final_experiments.lib.openrouter_validation import MODEL_ID, PROMPT_HASH
 from sentiment_benchmark.headline_value import ScorableHeadline
 
 
@@ -64,3 +65,69 @@ def test_lseg_scoring_is_append_only_and_retries_failures(monkeypatch, tmp_path:
     assert second["counts"]["already_successful"] == 1
     assert second["counts"]["attempted_this_run"] == 1
     assert client.calls == ["First headline", "Second headline", "Second headline"]
+
+
+def test_lseg_scoring_reuses_validated_prior_population_successes(monkeypatch, tmp_path: Path) -> None:
+    collection = tmp_path / "collection"
+    collection.mkdir()
+    (collection / "headlines.jsonl").write_text('{"headline":"source"}\n', encoding="utf-8")
+    (collection / "manifest.json").write_text(json.dumps({"source": "test"}), encoding="utf-8")
+    monkeypatch.setattr(
+        "final_experiments.lib.openrouter_lseg.collect_scorable_headline_records",
+        lambda root: _records(),
+    )
+    seed = tmp_path / "prior.csv"
+    seed_row = {name: "" for name in LSEG_COLUMNS}
+    seed_row.update(
+        {
+            "headline_sha256": "a" * 64,
+            "headline": "First headline",
+            "model_id": MODEL_ID,
+            "provider": "DeepInfra",
+            "quantization": "fp8",
+            "prompt_hash": PROMPT_HASH,
+            "p_positive": "0.8",
+            "p_negative": "0.1",
+            "p_neutral": "0.1",
+            "status": "success",
+        }
+    )
+    with seed.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=LSEG_COLUMNS)
+        writer.writeheader()
+        writer.writerow(seed_row)
+
+    output = tmp_path / "scores.csv"
+    client = FakeClient()
+    import asyncio
+
+    first = asyncio.run(
+        score_lseg_openrouter(
+            collection,
+            output,
+            concurrency=1,
+            max_population=2,
+            seed_success_paths=(seed,),
+            client=client,
+        )
+    )
+    second = asyncio.run(
+        score_lseg_openrouter(
+            collection,
+            output,
+            concurrency=1,
+            max_population=2,
+            seed_success_paths=(seed,),
+            client=client,
+        )
+    )
+
+    with output.open(encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    assert [row["headline_sha256"] for row in rows] == ["b" * 64, "b" * 64]
+    assert first["counts"]["seeded_successful"] == 1
+    assert first["counts"]["remaining_after_run"] == 1
+    assert second["status"] == "completed"
+    assert second["counts"]["successful_after_run"] == 2
+    assert second["counts"]["output_successful_after_run"] == 1
+    assert client.calls == ["Second headline", "Second headline"]

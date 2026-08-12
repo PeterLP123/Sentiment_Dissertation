@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "status": "explicitly_authorised_before_paid_requests",
+  "recorded_at_utc": "2026-08-10T10:10:43Z",
+  "parent_tranche": {
+    "path": "final_experiments/frozen_specs/lseg_gemma_finbert_hybrid_backward_incremental_gemma_tranche2_20260809.json",
+    "completion_manifest": "Data/collections/lseg_us_sector_33_backward_20240101_20251026_headlines/derived/incremental_gemma/snapshot_20260809_quota_stop/run_manifests/20260809_tranche2_200000.manifest.json"
+  },
+  "researcher_instruction": "You can do Gemma on the remaining 107,112",
+  "authorisation_interpretation": "The researcher explicitly authorised an attempt on every unresolved headline in the immutable 2026-08-09 snapshot using the unchanged OpenRouter to DeepInfra FP8/ZDR scoring contract. Prices, returns, and partial strategy inference remain sealed.",
+  "explicitly_approved_at_utc": "2026-08-10T10:10:43Z",
+  "external_processing_authorised_for_this_tranche": true,
+  "input_checkpoint": {
+    "snapshot_id": "snapshot_20260809_quota_stop",
+    "population_sha256": "9b314356592f766a69003b6c61b1bf16543a5dcde929d4c972a36c1075de860d",
+    "population": 607097,
+    "prior_attempt_rows": 500000,
+    "prior_unique_successes": 499985,
+    "prior_api_errors": 15,
+    "prior_output_sha256": "2bd88cef837bd4e94372a6e7f9d4bcc519524e7b51968d317a439c09c2c149a6",
+    "unresolved_hashes": 107112,
+    "prior_reported_cost_usd": 18.84570700000454
+  },
+  "unchanged_contract": {
+    "model_id": "google/gemma-4-26b-a4b-it",
+    "provider": "DeepInfra",
+    "provider_slug": "deepinfra",
+    "quantization": "fp8",
+    "prompt_id": "investor_headline_soft_label_v1",
+    "prompt_hash": "81596538d99b29b8",
+    "temperature": 0.0,
+    "reasoning_effort": "none",
+    "strict_probability_json": true,
+    "zero_data_retention_required": true,
+    "provider_data_collection": "deny",
+    "provider_fallbacks": false,
+    "append_only": true,
+    "resumable": true,
+    "successful_row_filter": "status == 'success'"
+  },
+  "final_paid_tranche": {
+    "status": "stopped_with_tail_preserved_for_cleanup",
+    "started_at_utc": "2026-08-10T10:12:27.929165+00:00",
+    "tmux_session": "lseg33-backward-gemma-final-20260810",
+    "attempt_limit": 107112,
+    "concurrency": 25,
+    "retries": 3,
+    "prior_realised_cost_per_attempt_usd": 0.000037691414,
+    "estimated_cost_usd": 4.03720274,
+    "projected_cumulative_cost_usd": 22.88290974,
+    "credit_preflight": "aggregate OpenRouter credit check confirmed the estimated spend is covered",
+    "cost_note": "planning estimate only; authoritative spend is the sum of reported_cost_usd across all append-only attempt rows",
+    "first_verified_checkpoint": {
+      "verified_at_utc": "2026-08-10T10:14:08.923580+00:00",
+      "total_attempt_rows": 501350,
+      "total_unique_successes": 501335,
+      "new_unique_successes": 1350,
+      "historical_api_errors": 15,
+      "new_api_errors": 0,
+      "duplicate_successes": 0,
+      "invalid_success_probabilities": 0,
+      "route_mismatches": 0,
+      "total_reported_cost_usd": 18.89663637000455
+    },
+    "final_checkpoint_before_cleanup": {
+      "attempt_rows": 607100,
+      "unique_successes": 605129,
+      "unresolved_hashes": 1968,
+      "status_counts": {
+        "success": 605129,
+        "api_error": 1918,
+        "invalid_output": 49,
+        "malformed_response": 4
+      },
+      "reported_cost_usd": 22.80902699000539,
+      "tail_resolution_spec": "final_experiments/frozen_specs/lseg_gemma_finbert_hybrid_backward_incremental_gemma_cleanup_20260810.json"
+    }
+  },
+  "required_completion_audit": [
+    "append-only attempt and unique-success counts",
+    "status counts including preserved historical failures",
+    "zero duplicate successes",
+    "valid successful probability vectors",
+    "unchanged model, provider, FP8, prompt, privacy, and configuration hash",
+    "reported total cost and output checksum",
+    "remaining unresolved snapshot hashes"
+  ],
+  "still_prohibited": [
+    "load or inspect matching prices or returns",
+    "construct or inspect partial strategy performance",
+    "change the frozen strategy from partial scorer outputs",
+    "describe an interim scoring checkpoint as the completed backward population"
+  ]
+}

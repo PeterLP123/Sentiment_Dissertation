@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "status": "frozen_after_input_completeness_stop_before_strategy_result",
+  "frozen_at_utc": "2026-08-12T09:49:00Z",
+  "parent_spec": "final_experiments/frozen_specs/lseg_gemma_finbert_hybrid_joined_long_window_v1.json",
+  "trigger": "The first notebook execution stopped before target construction because 11 backward calendar sessions lacked at least one of the 33 firm-open headline aggregates.",
+  "return_blind_diagnostic": {
+    "method": "Count distinct company symbols per mapped firm-open session in the validated paired-scorer aggregate cache; do not inspect strategy returns or outcome summaries.",
+    "backward_sessions_observed": 457,
+    "complete_33_company_sessions": 446,
+    "incomplete_sessions": {
+      "2024-07-15": 32,
+      "2024-07-16": 32,
+      "2024-07-22": 23,
+      "2024-07-23": 18,
+      "2024-07-24": 21,
+      "2024-07-25": 20,
+      "2024-07-26": 14,
+      "2024-07-29": 18,
+      "2024-07-30": 24,
+      "2024-07-31": 16,
+      "2024-12-26": 32
+    },
+    "recent_block_complete_sessions": 167,
+    "recent_block_incomplete_sessions": 0
+  },
+  "frozen_resolution": {
+    "calendar": "Retain every common 33-company LSEG price session between the first and last mapped session.",
+    "complete_session": "A session is complete only when both scorer panels contain all companies in the current replay universe; a Gemma strongest-event tie-abstention is a valid observed score, not missing coverage.",
+    "incomplete_session_action": "Force the portfolio target to cash for that session and close any prior position through the unchanged drift-aware ledger. Do not rank the incomplete FinBERT cross-section, impute a score, carry a stale rank, or skip across the session.",
+    "signal_population_gate": "Count only complete sessions toward the frozen 120-session minimum. Active-session and per-half minima are evaluated on the complete-session schedule.",
+    "circular_shift": "Shift the Gemma activity/count schedule only among complete sessions; incomplete sessions remain fixed cash. FinBERT ranks remain on their original complete sessions.",
+    "random_name_null": "Use only active complete sessions and preserve their counts, cap, and leg exposure.",
+    "leave_out_replays": "Recompute completeness for the reduced universe from the original observed firm-open flags, then rebuild activity and ranks; never treat a synthetically completed grid row as observed.",
+    "parameter_or_threshold_change": false
+  },
+  "claim_boundary": {
+    "rescinds_failed_drift_gate": false,
+    "qualifies_as_predeclared_replication": false,
+    "prospective_or_deployment_claim_permitted": false,
+    "joined_window_remains_descriptive": true
+  }
+}
