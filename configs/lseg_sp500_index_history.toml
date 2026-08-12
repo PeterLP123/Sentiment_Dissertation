@@ -1,0 +1,30 @@
+# Price-only LSEG index definition for the frozen backward negative-pressure
+# HAR transfer. The collection fields satisfy the shared LSEG config contract;
+# this file is not authorization to collect index news.
+
+[collection]
+id = "sp500_index_history_20230101_20251027"
+start = "2023-01-01T00:00:00Z"
+end = "2025-10-28T00:00:00Z"
+language = "en"
+session = "desktop"
+page_size = 100
+max_pages = 1
+retries = 3
+requests_per_second = 1.0
+fetch_story_bodies = false
+
+[cleaning]
+min_text_chars = 0
+max_scoring_chars = 1000
+
+[outputs]
+raw_output_root = "Data/collections/lseg_sp500_index_history/raw"
+derived_output_root = "Data/collections/lseg_sp500_index_history/derived"
+
+[[companies]]
+symbol = "^GSPC"
+name = "S&P 500 Index"
+ric = ".SP500"
+news_query = "R:.SP500 and Language:LEN"
+aliases = ["S&P 500", "SP500", "^GSPC"]

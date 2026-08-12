@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "status": "frozen_before_historical_index_return_acquisition",
+  "frozen_at_utc": "2026-08-12T17:35:00Z",
+  "git_commit_at_freeze": "d37174c",
+  "experiment": {
+    "notebook": "final_experiments/73_lseg_negative_pressure_har_backward_transfer.ipynb",
+    "title": "Exact FNSPID negative-pressure HAR transfer to the backward LSEG window",
+    "candidate_rq": "negative_tail_as_market_risk_state",
+    "objective": "Test the unchanged FNSPID aggregate negative-pressure hysteresis rule on the earlier, non-pooled Reuters LSEG block after extending the local LSEG S&P 500 open-price history.",
+    "evidence_role": "bounded historical cross-source and external-time robustness",
+    "confirmation_claim_allowed": false,
+    "deployment_claim_allowed": false,
+    "retuning_allowed": false
+  },
+  "inputs_known_at_freeze": {
+    "backward_finbert_firm_open": {
+      "path": "final_experiments/outputs/67_lseg_gemma_finbert_joined_long_window/backward_finbert_firm_open.parquet",
+      "sha256": "745e6cba49c6dc6e256f9a6495b39eee66679231d162b5e22d9087c45e7680f4",
+      "role": "decision-period pinned-FinBERT negative pressure; use sessions strictly before 2025-10-27"
+    },
+    "frozen_har_coefficients": {
+      "path": "final_experiments/outputs/21_fnspid_sentiment_volatility_target/model_coefficients.csv",
+      "sha256": "ea005d6f440ab04814945e17aff902e6200ff3efa2994ee2d6f17eee75dc9530",
+      "fit_period": "FNSPID development through 2019-12-31"
+    },
+    "frozen_har_manifest": {
+      "path": "final_experiments/outputs/21_fnspid_sentiment_volatility_target/manifest.json",
+      "sha256": "33bd7ec5a7e9caac6dff56a72b15459889853ca897ff6e4aaa8cc39d3c1a2c13"
+    },
+    "notebook_72_spec": {
+      "path": "final_experiments/frozen_specs/lseg_negative_pressure_har_transfer_v1_20260812.json",
+      "sha256": "45cc68cfd70a836c22eb4ed586235335326cc7914d7f4e1d3f045c3d6a5e6522",
+      "role": "unchanged sentiment, portfolio, inference and gate contract"
+    },
+    "source_regime": "Reuters LSEG only; no FNSPID observations are pooled"
+  },
+  "price_acquisition": {
+    "config": "configs/lseg_sp500_index_history.toml",
+    "provider": "LSEG Workspace historical pricing",
+    "symbol": "^GSPC",
+    "ric": ".SP500",
+    "requested_start": "2023-01-01",
+    "requested_end": "2025-10-27",
+    "output": "Data/derived/prices/lseg_sp500_20230101_20251027.csv",
+    "return_convention": "split-adjusted open-to-open price returns; dividends not back-adjusted",
+    "outcome_columns_opened_before_freeze": false,
+    "identity_and_date_range_may_not_change_after_freeze": true
+  },
+  "decision_window": {
+    "rule": "all backward FinBERT firm-open sessions strictly before 2025-10-27",
+    "expected_first_session": "2024-01-02",
+    "expected_last_session": "2025-10-24",
+    "expected_sessions": 456,
+    "expected_complete_33_firm_sessions": 445,
+    "incomplete_sessions": "retain as decision sessions; pressure is missing and hysteresis retains its prior state",
+    "return": "current session open to next S&P 500 open"
+  },
+  "input_only_feasibility_observed_before_returns": {
+    "risk_off_sessions": 53,
+    "risk_off_entries": 18,
+    "risk_off_share": 0.1162280702,
+    "interpretation": "sufficient state variation to run the frozen economic and timing tests"
+  },
+  "sentiment_rule": {
+    "scorer": "pinned FinBERT primary only",
+    "daily_pressure": "headline-count-weighted negative-story share across complete 33-company sessions",
+    "normalisation": "current pressure minus strictly prior rolling mean, divided by strictly prior rolling standard deviation",
+    "trailing_window_sessions": 252,
+    "minimum_prior_observations": 126,
+    "entry_z": 1.5,
+    "exit_z": 0.5,
+    "risk_off_multiplier": 0.25,
+    "state_rule": "hysteresis",
+    "missing_z": "retain previous state; before the first valid z-score remain risk-on"
+  },
+  "portfolio": {
+    "base": "Notebook 21 control HAR fit on FNSPID 2011-2019, transferred unchanged",
+    "composition": "base HAR exposure multiplied by 1.0 or 0.25",
+    "cost_bps_per_side": 2.0,
+    "final_liquidation": true,
+    "cash_return": 0.0,
+    "matched_control": "constant multiplier chosen only to equal the overlay's mean exposure",
+    "no_leverage": true
+  },
+  "inference": {
+    "primary_family": [
+      "overlay minus HAR mean net return",
+      "HAR minus overlay downside-squared return"
+    ],
+    "bootstrap": {
+      "method": "paired circular moving-block bootstrap",
+      "block_length_sessions": 20,
+      "replications": 4999,
+      "seed": 20260812
+    },
+    "multiplicity": "Benjamini-Hochberg across the two two-sided primary tests at q=0.05",
+    "matched_exposure_attribution": "overlay minus constant-multiplier net return and downside reduction",
+    "temporal_check": "two chronological halves",
+    "timing_placebo": "all circular placements of the unchanged binary multiplier; one-sided exact return and downside p-values corrected as a two-test family"
+  },
+  "gates": {
+    "return_gate": "return interval lower bound above zero, BH q below 0.05, Sharpe improvement at least 0.10, and non-negative overlay-minus-HAR mean in both halves",
+    "useful_risk_gate": "downside interval lower bound above zero, BH q below 0.05, relative drawdown improvement at least 10 percent, return interval lower bound no worse than -1 bp per session, and non-negative overlay Sharpe in both halves",
+    "timing_gate": "observed downside reduction exceeds the mean shifted reduction and its one-sided BH q is below 0.05",
+    "cross_source_support": "at least the useful-risk gate and timing gate must pass"
+  },
+  "claim_boundaries": [
+    "The LSEG news inputs and input-only state activation were examined before price acquisition; the historical S&P 500 outcomes were not locally available when this specification was frozen.",
+    "This is a bounded historical robustness test, not a prospective or preregistered confirmation.",
+    "No scorer, threshold, state rule, rolling window, exposure multiplier, cost, comparison, inference family or gate may change after price acquisition.",
+    "The backward and recent Reuters regimes remain reported separately and are never pooled to create a success claim.",
+    "A failed result is preserved and is not permission to reverse, lower or otherwise tune the threshold.",
+    "The separate materiality 2026 confirmation remains sealed."
+  ]
+}
