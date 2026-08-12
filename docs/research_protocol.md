@@ -1130,6 +1130,27 @@ fail. This is a clean mechanical non-transfer. It is not evidence about the
 counterfactual performance of a lower threshold, and the opened LSEG window
 cannot be used to choose one.
 
+Notebook 73 adds one separately frozen historical extension without changing
+that rule. Commit `12086d5` fixes the `.SP500` LSEG instrument, 2023-01-01 to
+2025-10-27 acquisition range, backward decision window, sentiment rule, HAR
+coefficients, accounting, inference and gates before the older index returns
+are retrieved. The hash-manifested export contains 707 opens and covers every
+one of the 456 backward decision sessions through its next open. The input-only
+audit reproduces 53 risk-off sessions across 18 entries.
+
+At 2 bps per side, frozen HAR / pressure overlay / matched-constant net Sharpes
+are 1.291 / 1.520 / 1.291. The overlay-minus-HAR mean is +0.144 bps/session with
+a 95% circular-block interval [−1.295,+1.688] (p=0.8486); the first and second
+half effects are +0.858 and −0.571 bps/session. HAR-minus-overlay downside-
+squared loss is positive after the two-test BH correction (q=0.0336), and the
+actual downside schedule beats all circular placements after its separate
+two-test correction (q=0.0482). However, the matched-constant downside interval
+crosses zero, maximum drawdown improves only 3.63% against the frozen 10% gate,
+and the return lower bound is worse than the frozen −1-bp/session tolerance.
+The timing gate therefore passes while the return, useful-risk and full cross-
+source gates fail. Report partial historical downside-timing portability, not
+alpha, universal transfer or permission to alter the 1.5/0.5 thresholds.
+
 ### W4: Sentiment surprise
 
 A valid retry must differ materially from the failed July pilot:
