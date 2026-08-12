@@ -114,7 +114,7 @@
 
 TBC
 
-\draftnote{Three short parts per the programme guidance: what the study is about and why it is hard; what was done (panel, nine rules, chronological split, cost accounting, risk translation); the main results (negative-story share as the only corrected survivor, the cost no-go, the downside-timing evidence and its boundary). No unintroduced acronyms.}
+\draftnote{Three short parts per the programme guidance: what the study is about and why it is hard; what was done (panel, nine rules, direct conditional test, chronological split, cost accounting, risk translation); the main results (negative-story share as the only corrected survivor and a conditional coefficient of $-0.00831$ with 95\% interval $[-0.01410,-0.00252]$, the cost no-go, the downside-timing evidence and the failed LSEG portability/zero-activation transfer). No unintroduced acronyms.}
 
 \newpage
 
@@ -155,7 +155,7 @@ A secondary question asks whether a learned trade/no-trade threshold can outperf
 \section{Contributions}
 \label{sec:contributions}
 
-\draftnote{Three bounded contributions: (1) a like-for-like comparison of nine aggregation rules under one inference regime on 715{,}546 firm-days; (2) the separation of statistical detectability from economic usability, with a cost frontier; (3) evidence that the surviving negative-tail signal works as a downside-risk state rather than a return signal, with a placebo test that draws the boundary of the claim.}
+\draftnote{Three bounded contributions: (1) a like-for-like comparison of nine aggregation rules under one inference regime on 715{,}546 firm-days plus a direct conditional test showing what negative share contributes beyond mean sentiment and story count; (2) the separation of statistical detectability from economic usability, with a cost frontier; (3) evidence that the surviving negative-tail signal can act as a downside-risk state in one FNSPID period, paired with an exact LSEG transfer that never activates and therefore draws a hard portability boundary.}
 
 \section{Scope}
 \label{sec:scope}
@@ -264,7 +264,7 @@ Where families of inferential tests are reported, false-discovery control follow
 \section{Statistical Inference}
 \label{sec:method-inference}
 
-\draftnote{Daily cross-sectional Spearman rank correlation against next-open abnormal returns, HAC-adjusted $t$-statistics on the daily series, Benjamini--Hochberg correction across the nine-rule family, and five-session block bootstraps for all strategy comparisons.}
+\draftnote{Daily cross-sectional Spearman rank correlation against next-open abnormal returns, HAC-adjusted $t$-statistics on the daily series, Benjamini--Hochberg correction across the nine-rule family, and five-session block bootstraps for all strategy comparisons. Add Notebook 71's direct estimand: on each date regress centred percentile-ranked next-open return on centred percentile ranks of mean continuous sentiment, negative-story share and $\log(1+n)$, exclude dates with fewer than ten complete firms or a rank-deficient design, then estimate the mean daily negative-share coefficient with HAC(5). FNSPID development is primary; the two pinned-FinBERT LSEG blocks remain separate and are corrected as one two-test portability family.}
 
 \section{Costs and Portfolio Accounting}
 \label{sec:method-costs}
@@ -291,6 +291,11 @@ Where families of inferential tests are reported, false-discovery control follow
   \label{fig:aggregation-ic}
 \end{figure}
 
+\section{Information Beyond the Mean}
+\label{sec:results-conditional}
+
+\draftnote{Report Notebook 71 as the direct primary estimand, not as another aggregator tournament. Across 2{,}264 FNSPID development sessions and 512{,}149 complete firm-days, the mean daily coefficient on negative-story-share rank is $-0.008310$ after controlling for mean continuous sentiment rank and log news-count rank. The HAC(5) 95\% interval is $[-0.014100,-0.002520]$ and $p=0.004907$. This is the clean evidence for ``beyond the mean''. Keep the interpretation in rank units and avoid implying a causal return effect.}
+
 \section{Costs and Learned Thresholds}
 \label{sec:results-costs}
 
@@ -306,7 +311,7 @@ Where families of inferential tests are reported, false-discovery control follow
 \section{The Signal as a Risk State}
 \label{sec:results-risk}
 
-\draftnote{HAR base: evaluation net Sharpe 0.673, maximum drawdown $-15.73\%$, against 0.568 and $-32.05\%$ for buy-and-hold SPY. The hysteresis overlay lifts net Sharpe to 0.835 and total return from $+29.85\%$ to $+35.20\%$ at 2 bps per side, stays ahead at 10 bps, and reduces downside-squared loss ($p=0.0148$); the paired return interval spans zero. Walk-forward 2013--2019: drawdown $-12.53\%$ to $-8.57\%$ ($p=0.0052$), mean return slightly worse. Sentiment times risk, not return.}
+\draftnote{HAR base: evaluation net Sharpe 0.673, maximum drawdown $-15.73\%$, against 0.568 and $-32.05\%$ for buy-and-hold SPY. The hysteresis overlay lifts net Sharpe to 0.835 and total return from $+29.85\%$ to $+35.20\%$ at 2 bps per side, stays ahead at 10 bps, and reduces downside-squared loss ($p=0.0148$); the paired return interval spans zero. Walk-forward 2013--2019: drawdown $-12.53\%$ to $-8.57\%$ ($p=0.0052$), mean return slightly worse. The exact LSEG transfer in Notebook 72 never crosses the frozen 1.5 entry threshold (maximum z-score 1.349; 0/167 risk-off sessions), so overlay and HAR are identical at net Sharpe 0.240. Sentiment times risk is a one-regime result, not a portable rule.}
 
 \begin{figure}[htbp]
   \centering
@@ -330,7 +335,7 @@ Where families of inferential tests are reported, false-discovery control follow
 \section{Robustness from a Second Source}
 \label{sec:results-robustness}
 
-\draftnote{One compact section on the non-pooled LSEG regimes: the five-arm sector-33 and midcap-22 nulls, and the temporal-fragility result. The hybrid selected on the opened 2025--2026 window earned net Sharpe 2.271 there and $-0.354$ on an earlier block of the same 33 names; the portable continuous rule was net-negative in both blocks while headline-level scores stayed highly rank-repeatable (Spearman 0.989). Stable measurement does not by itself produce a stable, cost-covering signal. Sources: Notebooks 11, 13, 36, 67, 70.}
+\draftnote{One compact section on the non-pooled LSEG regimes: the five-arm sector-33 and midcap-22 nulls, and the temporal-fragility result. The hybrid selected on the opened 2025--2026 window earned net Sharpe 2.271 there and $-0.354$ on an earlier block of the same 33 names; the portable continuous rule was net-negative in both blocks while headline-level scores stayed highly rank-repeatable (Spearman 0.989). Then report the more relevant RQ-A transfer: pinned-FinBERT negative-share conditional coefficients are negative in both LSEG blocks ($-0.02861$ backward; $-0.01573$ recent), but 95\% intervals $[-0.07283,+0.01560]$ and $[-0.09453,+0.06308]$ cross zero after the two-block family. Their 10-bps books lose. Stable or directionally similar measurement does not by itself produce precise portability or a cost-covering signal. Sources: Notebooks 11, 13, 36, 67, 70--72.}
 
 \chapter{Conclusions and Future Directions}
 \label{ch:conclusion}
@@ -338,7 +343,7 @@ Where families of inferential tests are reported, false-discovery control follow
 \section{Answers to the Research Questions}
 \label{sec:conclusion-answers}
 
-\draftnote{Answer the primary and secondary questions directly with the main estimates and their uncertainty, then state the composite conclusion: the distribution beyond the mean carries detectable negative-tail information; it is not economically usable as a directional signal; it has bounded value as a downside-risk state.}
+\draftnote{Answer the primary and secondary questions directly with the main estimates and their uncertainty, then state the composite conclusion: in FNSPID development, the distribution beyond the mean carries detectable negative-tail information even after mean sentiment and news count are controlled; the result is not economically usable as a directional signal at realistic costs; the downside-risk evidence is bounded to one FNSPID period; and neither the conditional coefficient nor the exact risk-state rule is established as portable to LSEG.}
 
 \section{Strengths, Weaknesses and Future Work}
 \label{sec:conclusion-future}

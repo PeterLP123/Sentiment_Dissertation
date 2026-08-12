@@ -1,6 +1,6 @@
 # Research Protocol
 
-Last updated: 2026-08-05
+Last updated: 2026-08-12
 
 > **Current status.** This protocol governs the closing `final_experiments/` phase. The final research question has **not** been selected. The live [final experiments plan](../final_experiments/plan.html) records operational decisions and checklist status; this document records the scientific constraints that remain binding across every candidate RQ.
 
@@ -39,7 +39,7 @@ Gate F1 will choose one primary RQ and at most one secondary after the data pane
 
 | Candidate | Question | Current standing |
 | --- | --- | --- |
-| **RQ-A: Aggregation** | How should multiple same-day stories be aggregated into one firm-day sentiment signal, and does a distribution-aware rule add information about post-news abnormal returns beyond the mean? | Leading candidate: strongest fit to the observed instability of company-day means. |
+| **RQ-A: Aggregation** | How should multiple same-day stories be aggregated into one firm-day sentiment signal, and does a distribution-aware rule add information about post-news abnormal returns beyond the mean? | Strongest current candidate. Notebook 71 directly supports the bounded FNSPID clause after controlling for mean sentiment and news count, but its two primary LSEG portability intervals cross zero. Gate F1 is still not silently taken. |
 | **RQ-B: Filtering** | Does conditioning on story novelty and publisher identity improve the return relevance of news sentiment? | FNSPID publisher/story-family fields remain unavailable. Expanded-LSEG/Gemma publisher conditioning is a four-arm retrospective null. A separate exact-family first-release screen removes 0.936% of hashes but does not rescue the frozen continuous rule; its +0.935-bps/session change is uncertain and the filtered strategy is significantly below cash. |
 | **RQ-C: Surprise** | Is firm-level sentiment surprise, net of market return and general sentiment level, informative beyond sentiment level itself? | Prior NO-GO; only viable with the wider panel and materially different demeaning design. |
 | **RQ-D: Agreement** | Does cross-model agreement add out-of-sample information beyond mean sentiment and the initial price reaction? | Standing fallback/default; enabling PhraseBank/LSEG artifacts from the July 12 design were not completed. |
@@ -1080,6 +1080,55 @@ imply temporal or economic portability. It is not independent confirmation,
 validated alpha, a reversal signal, or permission to tune the threshold,
 breadth, costs or holding period. The distinct materiality 2026 confirmation is
 not opened by this replay.
+
+### Conditional negative-share information beyond mean sentiment
+
+Notebook 71 closes a specific gap in the original Workstream-3 evidence. The
+earlier nine-rule screen showed that negative-story share was the sole corrected
+development survivor, but it did not directly estimate whether that summary
+added information after controlling for the mean. Before execution, Notebook 71
+froze a daily cross-sectional regression of centred percentile-ranked next-open
+return on centred ranks of mean continuous sentiment, negative-story share and
+log one plus story count. Dates with fewer than ten complete firms or a rank-
+deficient design are excluded and counted. The coefficient of interest is the
+negative-share rank; inference is an intercept-only HAC(5) regression over the
+daily coefficient series.
+
+On 2,264 FNSPID development sessions and 512,149 complete firm-days, the mean
+negative-share coefficient is −0.008310 with 95% HAC interval
+[−0.014100,−0.002520] and p=0.004907. The frozen expected direction and interval
+gate pass. This supports the bounded statement that, within the FNSPID
+development sample, the distribution of same-day story tone contains
+incremental return-ranking information that the average tone and story volume
+do not capture.
+
+The LSEG arm remains separate and uses raw next-open return because a compatible
+abnormal-return model is unavailable. Pinned-FinBERT estimates are negative in
+both the backward and recent blocks (−0.028611 and −0.015727), but their 95%
+intervals [−0.072826,+0.015603] and [−0.094534,+0.063080] cross zero; neither
+passes the declared two-block BH family. Gemma estimates are sensitivity only
+and cannot rescue the primary scorer. All LSEG negative-share rank books are
+net-negative after 10 bps per side. Therefore the result is not universal
+portability, validated alpha, or permission to pool source regimes.
+
+### Exact negative-pressure HAR transfer to LSEG
+
+Notebook 72 tests whether the FNSPID aggregate risk mechanism transfers without
+changing its design. It uses pinned-FinBERT headline-count-weighted negative
+share across complete 33-company LSEG sessions, a current observation minus
+strictly prior 252-session mean divided by strictly prior standard deviation,
+at least 126 prior observations, 1.5/0.5 hysteresis entry/exit thresholds, and a
+0.25 risk-off multiplier. This state multiplies Notebook 46's unchanged frozen
+HAR exposure; the ledger charges 2 bps per side and compares both HAR and a
+matched constant exposure.
+
+The recent-window z-score never reaches the frozen entry threshold: its maximum
+is 1.348955 and risk-off occurs on 0/167 sessions. HAR, overlay and matched
+control are therefore identical (net Sharpe 0.239561; total net return 1.241%;
+maximum drawdown −7.770%). All return, downside, timing and cross-source gates
+fail. This is a clean mechanical non-transfer. It is not evidence about the
+counterfactual performance of a lower threshold, and the opened LSEG window
+cannot be used to choose one.
 
 ### W4: Sentiment surprise
 
