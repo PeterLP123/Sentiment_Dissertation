@@ -4,6 +4,8 @@
 \usepackage[T1]{fontenc}
 \usepackage{graphicx}
 \usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{float}
 \usepackage{setspace}
 \usepackage[hidelinks]{hyperref}
 \setstretch{1.15}
@@ -14,7 +16,7 @@
 
 {\LARGE News sentiment beyond the mean}
 
-{\large What I plan to write up, and the results it will use}
+{\large A proposed dissertation angle, in plain English}
 
 Peter Prendergast \quad \textperiodcentered \quad 12 August 2026
 
@@ -22,59 +24,149 @@ Peter Prendergast \quad \textperiodcentered \quad 12 August 2026
 \hrule
 \vspace{1em}
 
-\section*{The question}
+\section*{The short answer}
 
-Most trading days a company turns up in more than one news story, and the standard approach is to score each story and take the average. My question is whether the average is the right summary: how should many same-day stories be rolled up into one firm-day sentiment signal, and does the shape of the day's scores tell you anything about the next day's return that the mean does not? My hypothesis is that it does, and that the useful part sits in the negative tail. There is a secondary question too: can a learned trade/no-trade threshold beat a fixed band on the same signal? Everything runs on one panel with one design --- nine aggregation rules against next-open returns, a chronological split, date-clustered inference, a multiple-testing correction fixed in advance, and explicit trading costs --- and the one rule that survives then gets translated into a portfolio.
+The finding is useful, but not as a stand-alone trading rule. At firm level, a high share of negative stories contains a small amount of next-day information that is not captured by average sentiment or by the firm's recent price path. The effect is too small and costly to trade directly.
 
-I am choosing this question because it runs on the biggest and cleanest sample I have, because every experiment it needs is already done so I can start writing now, and because the answer has a proper shape to it: the mean fails, one distribution feature survives, trading it directly dies on costs, and using it to manage risk partly works. The other candidate questions are stuck waiting on publisher metadata or human labels that will not arrive before the deadline.
+On the 33-company LSEG sample, the most defensible economic interpretation is narrower: the unchanged market-level warning rule avoids a meaningful amount of loss in the earlier window, but gives up almost as much upside. It ends about \pounds10{,}900 ahead per \pounds1 million and lowers downside risk, yet the return improvement is imprecise and reverses across halves. It never activates in the recent window. Broad retuning of both market-wide and company-level rules does not repair that portability problem.
 
-\section*{The data and the setup}
+A separate LSEG hybrid---Gemma event timing plus FinBERT name selection---has a much larger recent result, but it is not the negative-share rule and its unchanged earlier replay loses money. The honest conclusion is therefore \emph{economically material LSEG evidence with a serious time-stability limit}, not \emph{validated trading strategy}.
 
-The panel comes from FNSPID news for 2011--2023: 715{,}546 firm-days with news across 570 priced US symbols and 3{,}262 trading sessions, scored with a pinned FinBERT checkpoint. Development ends in December 2019 and evaluation runs from January 2020. The nine rules are the natural ways to summarise a day's scores: mean hard label, mean and median continuous score, trimmed mean, negative-story share, score dispersion, strongest event, log-count weighted mean, and a decayed sentiment state. Each one is tested with daily cross-sectional rank correlations, HAC-adjusted $t$-statistics, and a Benjamini--Hochberg correction across the family. Portfolio results charge fixed costs with final liquidation --- 10 bps a side for the stock arms and 2 bps for the index-level volatility arms --- and strategy comparisons use five-session block bootstraps so clustered days do not flatter the precision.
+\begin{table}[H]
+\centering
+\begin{tabularx}{\textwidth}{p{0.33\textwidth} X}
+\toprule
+Question & Simple answer \\
+\midrule
+Does negative-story share add information? & Yes, in FNSPID development data, after controlling for mean sentiment, news volume, and the firm's recent returns and volatility. \\
+Can it be traded directly? & No. The edge is small and turnover costs dominate it. \\
+Can it help manage risk? & Possibly. LSEG-33 shows earlier loss avoidance and downside timing, but not reliable recent transfer. \\
+Is it ready to claim as portable? & No. The untouched FNSPID replication and a longer prospective LSEG replay remain the important confirmations. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section*{The leading question}
+
+Most days a firm appears in several news stories. The usual method scores each story and takes the average. That may hide useful information in the shape of the day's news.
+
+The current leading question for discussion is: \emph{does the negative tail of a firm's daily news distribution contain information beyond the average tone and the recent price path, and is that information more useful for prediction or for risk control?} A smaller secondary test asks whether a learned trade/no-trade threshold beats a fixed band. This is a proposed framing, not a final locked research question.
+
+\section*{Data and test design}
+
+\begin{itemize}
+\item \textbf{Main panel:} FNSPID news from 2011--2023: 715{,}546 news-bearing firm-days, 570 priced US symbols, and 3{,}262 sessions. Stories are scored with a pinned FinBERT checkpoint.
+\item \textbf{Time split:} development ends on 31 December 2019. The 2020--2023 evaluation block is reserved for the frozen one-shot replication.
+\item \textbf{Main comparison:} nine sensible ways to combine a day's stories, including the mean, median, trimmed mean, negative-story share, dispersion, strongest event, weighting, and decay.
+\item \textbf{Inference:} daily cross-sectional ranks, HAC uncertainty, and Benjamini--Hochberg correction across each declared family.
+\item \textbf{Trading tests:} 10 bps per side for stock strategies and 2 bps per side for index-level risk overlays, with block-bootstrap comparisons.
+\item \textbf{External check:} Reuters/LSEG is kept separate from FNSPID. The plots below use only the 33-company LSEG arm; the 22 mid-cap arm is not pooled into it.
+\end{itemize}
 
 \section*{The results I will use}
 
-\textbf{Only one summary survives, and it is not the mean.} Across the nine rules, negative-story share is the only one that survives the correction (mean daily IC $-0.005433$, HAC $t = -3.119$); the mean-based rules cannot be told apart from zero (Figure~1). It still holds after dropping every firm-day within five sessions of an earnings event. Story type, publisher, and earnings-window conditioning all fail their corrections, and I report those nulls as results.
+\textbf{Finding 1: the negative share carries information; the mean does not.} Of the nine summaries, negative-story share is the only one that survives the correction (mean daily IC $-0.005433$, HAC $t=-3.119$). In plain terms, firms with a larger fraction of negative stories tend to have slightly lower next-open abnormal returns. The mean-based rules cannot be distinguished from zero (Figure~1). The result remains after removing firm-days close to earnings. Story type, publisher, and earnings-window conditioning do not survive their corrections.
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\textwidth]{../../dissertation/figures/fig_aggregation_ic.png}
+\includegraphics[width=0.82\textwidth]{../../dissertation/figures/fig_aggregation_ic.png}
 \caption{Daily rank correlation between each aggregation rule and the next-open abnormal return, development period, with 95\% HAC intervals. Negative-story share (circled) is the only rule that survives the correction.}
 \end{figure}
 
-\textbf{You cannot trade it directly.} Trading the signal daily turns the book over about 200 times a year, and the best break-even cost across the nine rules is 0.625 bps a side against the 10 bps I charge (Figure~2). Learned thresholds do not rescue it either: logistic, gradient-boosted, and MLP gates all sit at evaluation AUC around 0.50, and cash beats every learned policy. So the secondary question closes cleanly, and the gap between being able to detect the signal and being able to use it becomes a main theme of the write-up.
+\textbf{Finding 2: it adds something beyond the mean and the recent price path.} The direct test controls for average sentiment and story count. Across 2{,}264 development sessions, the negative-share coefficient is $-0.0083$, with a 95\% HAC interval of $[-0.0141,-0.0025]$ ($p=0.0049$). A model-free double sort estimates the raw scale at only $-0.62$ bps per session, and its interval crosses zero. The regression is therefore the statistical evidence; the sort shows that the economic effect is small.
+
+A sceptic could argue that bad-news days simply follow price falls. The frozen robustness test therefore adds the firm's lagged one-session return, five-session return, and trailing 20-session volatility. The coefficient does not disappear: it becomes $-0.00914$, with interval $[-0.01466,-0.00362]$ ($p=0.0012$) (Figure~2). Mean sentiment falls to nearly zero once these controls enter. This rules out the simple reversal explanation in development data, but it does not prove causality and still needs the sealed evaluation replication.
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\textwidth]{../../dissertation/figures/fig_turnover_breakeven.png}
-\caption{Annualised turnover and break-even trading cost for each rule on the development block. The best break-even is 0.625 bps a side; the charged cost is 10 bps.}
+\includegraphics[width=0.82\textwidth]{../../dissertation/figures/fig_reversal_confound.png}
+\caption{Development-period negative-share coefficient as price-path controls enter, with 95\% Newey--West HAC intervals. The final point is the frozen primary specification with lagged one- and five-session returns and 20-session volatility.}
 \end{figure}
 
-\textbf{It works as a risk dial.} The strongest standalone benchmark in the project is a sentiment-free HAR volatility target on SPY (evaluation net Sharpe 0.673, maximum drawdown $-15.73\%$, against 0.568 and $-32.05\%$ for buy-and-hold). Cutting that exposure when aggregate negative-story pressure is high lifts the net Sharpe to 0.835 and the total return from $+29.85\%$ to $+35.20\%$ at 2 bps a side (Figure~3), stays ahead at 10 bps, and the drop in downside-squared loss is statistically detectable ($p = 0.0148$). A walk-forward check on 2013--2019, fitted only on earlier data, finds the same thing: drawdown improves from $-12.53\%$ to $-8.57\%$ ($p = 0.0052$). The sentiment is timing risk, not return.
+\textbf{Finding 3: it is not a direct trading rule.} Daily stock trading turns the book over about 200 times a year. The best break-even cost is only 0.625 bps per side, compared with the declared 10 bps cost. Learned thresholds do not rescue it: their evaluation AUCs are around 0.50, cash beats every learned policy, and the learned rules are 7.71 to 16.88 net bps per session worse than the fixed band. A statistically detectable feature is not automatically a profitable strategy.
+
+\textbf{Finding 4: the better use is as a risk warning.} Here the firm-level scores are aggregated across the market. A sentiment-free HAR model first sets normal SPY exposure. Exposure is then reduced only when negative-news pressure rises above a fixed entry threshold, and restored after it falls below the exit threshold. Sentiment is therefore a brake on an existing risk model, not the engine of the portfolio.
+
+In FNSPID evaluation data, the HAR benchmark has net Sharpe 0.673 and drawdown $-15.73\%$. Adding the warning light raises net Sharpe to 0.835 and total return from $+29.85\%$ to $+35.20\%$ at 2 bps per side (Figure~3). It also reduces downside-squared loss ($p=0.0148$). When the same risk-off schedule is shifted through every other possible date, the real timing beats 99.1\% of placements (exact $p=0.0100$, BH $q=0.0301$). The interpretation is about timing downside risk, not forecasting higher returns.
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\textwidth]{../../dissertation/figures/fig_har_sentiment_equity.png}
+\includegraphics[width=0.78\textwidth]{../../dissertation/figures/fig_har_sentiment_equity.png}
 \caption{The HAR volatility target and the same target scaled down when aggregate negative-story pressure is high, evaluation period 2020--2023. The overlay changes exposure on a minority of days (top) and improves the net path (bottom).}
 \end{figure}
 
-\textbf{A placebo test backs the timing up.} I re-run the exact risk-off schedule at every possible circular shift of its dates. The observed timing beats 99.1\% of placements in 2020--2023 (exact $p = 0.0100$, BH $q = 0.0301$) and is suggestive but uncorrected in 2013--2019 (Figure~4). The claim is downside timing, strongest over 2020--2023.
+\subsection*{What the 33-company LSEG test actually shows}
 
-\begin{figure}[htbp]
+The FNSPID risk rule is transferred without changing its thresholds. In the earlier LSEG-33 block it enters the reduced-exposure state on 53 of 456 sessions, across 18 episodes. In the recent block it never enters: the pressure z-score reaches only 1.349, below the fixed 1.5 entry threshold (Figure~4). This recent result is an inactive-rule result. It is not evidence that the rule fired and failed.
+
+\begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth]{../../dissertation/figures/fig_downside_placebo.png}
-\caption{Downside reduction of the observed sentiment schedule (vertical line) against every non-zero circular shift of the same schedule, in three separate regimes.}
+\includegraphics[width=0.98\textwidth]{../../dissertation/figures/fig_lseg33_risk_activation.png}
+\caption{The unchanged risk rule on the 33-company LSEG sample. It activates in the earlier window but not in the recent window. The earlier pressure z-score starts after the fixed 126-session warm-up.}
 \end{figure}
 
-\textbf{A second data source keeps it honest.} A separate LSEG corpus (33 large caps plus a 22-name mid-cap arm, never pooled with FNSPID) gives the out-of-regime checks. The strongest strategy there earned a net Sharpe of 2.271 on the window it was picked on and $-0.354$ on an earlier block of the same names, even though headline-level scores were almost perfectly repeatable across model versions (rank correlation 0.989). Measuring sentiment consistently is not the same as having a signal that pays for its costs, and that contrast makes the main chapters stronger.
+The earlier window gives a narrower positive result. The actual risk-off dates reduce downside-squared loss more than almost all 455 circular shifts of the same schedule (BH $q=0.048$), while the return-timing result is not significant (BH $q=0.167$) (Figure~5). The primary downside comparison also survives correction ($q=0.034$), and the result survives dropping any single episode and changing the bootstrap block length. However, the return interval crosses zero, drawdown improves by only 3.63\%, and the full portability gate fails.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth]{../../dissertation/figures/fig_lseg33_timing_placebo.png}
+\caption{Earlier LSEG-33 window. The real risk-off schedule is compared with every non-zero circular shift. Its return improvement is ordinary, but its downside-loss reduction lies unusually far into the favourable tail. This supports downside timing, not a profit claim.}
+\end{figure}
+
+\textbf{The economic amount is visible, but it is a close trade-off.} On a fixed \pounds1 million notional, reduced exposure avoids about \pounds138{,}800 on days when the HAR portfolio loses. It gives up about \pounds129{,}600 on positive days and incurs about \pounds2{,}700 of extra trading cost. The net arithmetic difference is therefore only \pounds6{,}600; compounding raises the ending-wealth difference to \pounds10{,}900 (Figure~6). The gain is about \pounds19{,}600 in the first half and minus \pounds13{,}000 in the second. This is why the result supports loss control but not a reliable return claim.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth]{../../dissertation/figures/fig_lseg33_economic_waterfall.png}
+\caption{Economic decomposition of the unchanged LSEG-33 warning rule in the earlier 456-session window. Loss avoidance is large in gross terms, but forgone upside offsets most of it. The return interval still crosses zero.}
+\end{figure}
+
+The overlay's annualised downside deviation falls from 7.19\% to 6.22\%, below both HAR and the fixed lower-exposure control. Its maximum drawdown improves from 11.24\% to 10.83\%, although the constant control is slightly better at 10.43\%. Thus the news dates add something to downside variability, but are not best on every risk measure.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth]{../../dissertation/figures/fig_lseg33_economic_risk_metrics.png}
+\caption{Risk measures in the earlier LSEG-33 window. The news-timed rule has the lowest downside deviation; simply holding less exposure has the smallest maximum drawdown.}
+\end{figure}
+
+\textbf{Allowing the rule to change does not create a recent success.} I searched two large, development-only families before applying one selected rule to the later 167 sessions. The market-wide family changes the pressure measure, normalisation, thresholds, hysteresis and exposure cut. The company-level family reduces only the weights of affected stocks and uses a stock-by-stock fixed-exposure control. Both forward tests fail (Table~1). The result is useful because it rules out the easy claim that the original LSEG threshold was merely badly chosen.
+
+\begin{table}[H]
+\centering
+\begin{tabularx}{\textwidth}{p{0.28\textwidth} r X}
+\toprule
+Exploratory LSEG search & Rules & Later 167-session result \\
+\midrule
+Market-wide warning rule & 6{,}672 & Selected rule ends about \pounds729 per \pounds1m behind HAR; no corrected utility or tail-risk result. \\
+Company-level weight reduction & 4{,}608 & Selected rule ends about \pounds30{,}870 per \pounds1m behind fixed stock-by-stock matched exposure; every economic gate fails. \\
+\bottomrule
+\end{tabularx}
+\caption{Broad retuning is preserved as a null rather than used to manufacture a recent LSEG result. Both searches select on the earlier block and open the later block only after selection.}
+\end{table}
+
+\subsection*{The strongest separate LSEG economic result}
+
+If the dissertation needs a larger LSEG economic illustration, the best existing result is a different construction: Gemma identifies event dates and FinBERT ranks the names. In the recent 167-session window the fixed hybrid earns 11.82\% net after 10 bps per side, equal to about \pounds118{,}200 per \pounds1 million, with a 2.90\% maximum drawdown. A lower-risk market-residual version earns 8.70\% (about \pounds87{,}000) with a 1.85\% drawdown and net Sharpe 2.33. The selected long names beat the same-day market by 8.36 gross bps per session (BH $q=0.0038$) and same-sector stocks by 3.66 bps (BH $q=0.0121$), both positive in both halves.
+
+This is economically material, but it cannot be used as proof of the negative-share finding. It is a different signal and the unchanged earlier replay earns $-3.43\%$ after costs. Figure~8 therefore shows both the attractive recent economics and the binding historical failure. The right dissertation wording is \emph{retrospective economic materiality and a plausible name-selection mechanism}, not \emph{stable alpha}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth]{../../dissertation/figures/fig_lseg33_economic_case_and_limit.png}
+\caption{The strongest economic result on the LSEG-33 set. Recent returns and matched-control name selection are economically large, but the unchanged earlier replay is negative. This is a candidate mechanism with a time-stability limitation.}
+\end{figure}
+
+The other LSEG checks are also cautious. The conditional negative-share coefficients have the FNSPID sign in both Reuters blocks ($-0.0286$ and $-0.0157$), but their intervals cross zero and the samples are underpowered. Every direct trading translation loses after costs. The simple conclusion is: \textbf{some downside timing transfers, but precision, profits, and full portability do not.}
+
+\textbf{The nulls are quantified rather than hidden.} The LSEG conditional tests had nominal 80\% power only for effects 7.6 and 13.6 times the FNSPID estimate. Their failure is therefore low precision, not good evidence of zero. The consolidated ledger records 56 correction families and 264 decisions: 27 individual tests survive, while 36 whole families have no survivor. An appendix table maps each core number to its notebook, frozen specification, hashes, and seed.
 
 \section*{The shape of the write-up}
 
-The write-up follows the UCL structure at about 10{,}000 words, with tables carrying the frozen numbers and the words carrying the interpretation. The registered replay on new LSEG dates (finishing December 2026 at the earliest) and the sealed materiality confirmation go in future directions as the specified confirmatory tests.
+The write-up follows the UCL structure at about 10{,}000 words. The tables carry the frozen numbers; the prose explains what they do and do not mean. The registered prospective LSEG replay and the sealed FNSPID evaluation replication appear as the specified confirmation steps, not as results that already exist.
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
-\begin{tabular}{lrl}
+\begin{tabularx}{\textwidth}{l r X}
 \toprule
 Chapter & Words & Main sources \\
 \midrule
@@ -84,10 +176,10 @@ Chapter & Words & Main sources \\
 4. Results & 3{,}500 & Aggregation family, thresholds, risk translation, robustness \\
 5. Conclusions and future directions & 1{,}000 & Findings, limits, registered prospective test \\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \caption{Planned chapter budget. Figures, tables, and equations sit outside the word count.}
 \end{table}
 
-The usual caveats --- a chronological rather than pristine split, machine labels still waiting on the human audit --- go in the limitations section, not the headline claims. Every number above is frozen in the repository with a manifest, and I am starting with the methodology and results chapters this week.
+The usual caveats --- a chronological rather than pristine split, machine labels awaiting the human audit --- go in the limitations section, not the headline claims. Every number above is frozen in the repository with a manifest, and I am starting the methodology and results chapters this week.
 
 \end{document}

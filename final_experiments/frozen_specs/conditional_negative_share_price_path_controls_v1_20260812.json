@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "status": "frozen_before_notebook_79_result",
+  "frozen_at_utc": "2026-08-12T20:24:59Z",
+  "git_commit_at_freeze": "7d8c2f6d76c361854689617430a52a401ec0a12b",
+  "experiment": {
+    "notebook": "final_experiments/79_fnspid_development_reversal_confound.ipynb",
+    "title": "FNSPID development reversal-confound test",
+    "candidate_rq": "distribution_shape_beyond_the_mean",
+    "objective": "Test whether the development-period negative-story-share coefficient survives controls for the firm's own recent price path.",
+    "evidence_role": "retrospective development-only specification robustness",
+    "confirmation_claim_allowed": false,
+    "deployment_claim_allowed": false,
+    "retuning_allowed": false,
+    "evaluation_notebook_75_must_remain_sealed": true
+  },
+  "inputs": {
+    "fnspid_firm_day_aggregators": {
+      "path": "final_experiments/outputs/03_aggregation/firm_day_aggregators.parquet",
+      "sha256": "1ca1c38109bc06af232119adeff17de66a567174d457038bc923a930a2da61f1",
+      "population": "split equals development; through 2019-12-31",
+      "outcome": "ar_open_h1"
+    },
+    "fnspid_price_archive": {
+      "path": "/Users/peterprendergast/Documents/Sentiment_Dissertation_data/FNSPID/bf9189c41527198897d1af3e17b1a0095279fc45/raw/Stock_price/full_history.zip",
+      "sha256": "03da4fce7ebea90d5715ba3501773d410ae663b617027b338ef000a9955dab91",
+      "price_field": "adjusted_open = open * adjusted_close / close",
+      "load_window": "2010-01-01 through 2019-12-31 to provide pre-sample history"
+    }
+  },
+  "timing_and_controls": {
+    "formation_session": "t",
+    "outcome": "stock-minus-SPY adjusted-open return from t to t+1",
+    "lagged_return_1": "stock adjusted-open return from t-1 to t",
+    "lagged_return_5": "stock cumulative adjusted-open return from t-5 to t",
+    "sigma20": "sample standard deviation of the 20 stock adjusted-open returns ending at t, requiring all 20 observations",
+    "no_outcome_overlap": "Every price control ends at the formation open t; the outcome starts at that open.",
+    "cross_sectional_transform": "Each price control is converted to an average-tie centred percentile rank within formation session, matching all other regressors."
+  },
+  "estimand": {
+    "unit": "daily cross-sectional coefficient followed by a time-series mean",
+    "outcome": "within-session average-tie percentile rank of ar_open_h1, centred at zero",
+    "base_regressors": [
+      "within-session centred percentile rank of mean_continuous",
+      "within-session centred percentile rank of negative_share",
+      "within-session centred percentile rank of log(1 + n)"
+    ],
+    "full_price_controls": [
+      "within-session centred percentile rank of lagged_return_1",
+      "within-session centred percentile rank of lagged_return_5",
+      "within-session centred percentile rank of sigma20"
+    ],
+    "coefficient_of_interest": "negative_share rank",
+    "minimum_names_per_session": 10,
+    "rank_deficient_sessions": "excluded and counted",
+    "inference": "OLS intercept on daily coefficients with Newey-West HAC lag 5",
+    "interval": "two-sided 95 percent",
+    "expected_direction": "negative"
+  },
+  "specifications": [
+    {
+      "name": "published_baseline_full_sample",
+      "sample": "all complete development rows for the published base regressors",
+      "regressors": ["mean_continuous", "negative_share", "log1p_n"],
+      "role": "audit reproduction of Notebook 71"
+    },
+    {
+      "name": "baseline_price_complete_sample",
+      "sample": "rows complete for the base regressors, outcome, and all three price controls",
+      "regressors": ["mean_continuous", "negative_share", "log1p_n"],
+      "role": "same-sample benchmark for the primary comparison"
+    },
+    {
+      "name": "plus_lagged_return_1",
+      "sample": "price-complete sample",
+      "regressors": ["mean_continuous", "negative_share", "log1p_n", "lagged_return_1"],
+      "role": "descriptive nested diagnostic"
+    },
+    {
+      "name": "plus_lagged_returns_1_and_5",
+      "sample": "price-complete sample",
+      "regressors": ["mean_continuous", "negative_share", "log1p_n", "lagged_return_1", "lagged_return_5"],
+      "role": "descriptive nested diagnostic"
+    },
+    {
+      "name": "full_price_path_controls",
+      "sample": "price-complete sample",
+      "regressors": ["mean_continuous", "negative_share", "log1p_n", "lagged_return_1", "lagged_return_5", "sigma20"],
+      "role": "single primary reversal-confound test"
+    }
+  ],
+  "families_and_gate": {
+    "primary_family": "one two-sided development-period coefficient: beta_negative_share in full_price_path_controls",
+    "multiplicity": "none beyond the single primary test; nested rows are descriptive diagnostics",
+    "survives_reversal_confound_if": "The full-control coefficient is negative and its two-sided HAC p-value is below 0.05.",
+    "same_sample_requirement": "Interpret coefficient attenuation against baseline_price_complete_sample, not only against the larger published baseline sample.",
+    "failure_interpretation": "A negative coefficient whose interval includes zero preserves direction but does not rule out the price-path confound; a sign reversal or material collapse weakens the headline claim. No threshold, sample, transform, lag, or volatility window may be retuned after seeing the result."
+  },
+  "required_outputs": [
+    "price-control coverage and timing audit",
+    "full-sample baseline reproduction",
+    "same-sample baseline and primary full-control coefficient with HAC interval",
+    "descriptive nested coefficient path",
+    "daily coefficient files and exclusion audit",
+    "aggregate coefficient-path figure and dissertation-safe table",
+    "machine-readable result and provenance manifest"
+  ],
+  "claim_boundaries": [
+    "This test was motivated after the original development result was opened and is not independent confirmation.",
+    "Passing supports the bounded statement that negative-story share adds development-sample information beyond mean sentiment, story count, and these three observed price-path controls; it does not prove causality or eliminate every omitted variable.",
+    "Failure must be reported and cannot be repaired by retuning price lags, volatility windows, samples, horizons, or signs.",
+    "The FNSPID 2020-2023 evaluation outcome remains sealed in Notebook 75."
+  ]
+}

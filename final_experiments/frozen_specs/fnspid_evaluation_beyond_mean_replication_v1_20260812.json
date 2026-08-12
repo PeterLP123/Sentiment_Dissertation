@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "status": "frozen_before_evaluation_outcome_opening; not yet executed",
+  "frozen_at_utc": "2026-08-12T18:05:00Z",
+  "git_commit_at_freeze": "7d8c2f6",
+  "experiment": {
+    "notebook": "final_experiments/75_fnspid_evaluation_beyond_mean_replication.ipynb",
+    "title": "FNSPID evaluation-block replication of the beyond-the-mean estimands",
+    "candidate_rq": "distribution_shape_beyond_the_mean",
+    "objective": "Open the 2020-2023 FNSPID evaluation block exactly once for the RQ-A statistical estimands: the nine-rule daily IC family and the conditional negative-share coefficient, with the multi-story stratum declared in advance.",
+    "evidence_role": "chronological evaluation-block replication of development findings",
+    "confirmation_claim_allowed": false,
+    "deployment_claim_allowed": false,
+    "retuning_allowed": false,
+    "execution_condition": "Run only after Peter confirms the Gate F1 RQ-A framing and explicitly decides to open the evaluation block for these estimands. The evaluation slice of the panel is opened once, for everything declared here together, and never again for estimand selection."
+  },
+  "inputs": {
+    "fnspid_firm_day_aggregators": {
+      "path": "final_experiments/outputs/03_aggregation/firm_day_aggregators.parquet",
+      "sha256": "1ca1c38109bc06af232119adeff17de66a567174d457038bc923a930a2da61f1",
+      "outcome": "ar_open_h1",
+      "window": "split == 'evaluation' (2020-01-01 through 2023-12-18)",
+      "note": "Identical artifact and hash as the Notebook 03 and Notebook 71 development runs."
+    }
+  },
+  "family_a_nine_rule_ic": {
+    "estimand": "mean daily cross-sectional Spearman IC of each aggregator against ar_open_h1 over evaluation sessions",
+    "aggregators": [
+      "mean_hard_label",
+      "mean_continuous",
+      "median_continuous",
+      "trimmed_mean",
+      "negative_share",
+      "dispersion",
+      "strongest_event",
+      "attention_log_n",
+      "decayed_state"
+    ],
+    "parameters": "min_names 3, HAC lag 5, exactly as the Notebook 03 development tournament",
+    "multiplicity": "Benjamini-Hochberg across the nine two-sided p-values at q=0.05",
+    "expectation": "negative_share IC negative and surviving the correction; no directional expectation is registered for the other eight rules",
+    "no_selection": "The family replicates the frozen development tournament; no rule may be added, dropped, reoriented, or re-ranked on evaluation results."
+  },
+  "family_b_conditional_coefficient": {
+    "estimand": "mean daily negative-share rank coefficient from the Notebook 71 conditional rank regression (controls: mean continuous sentiment rank, log story-count rank), evaluation sessions",
+    "parameters": "min_names 10, HAC lag 5, lib.conditional_aggregation.conditional_negative_share_test unchanged",
+    "members": [
+      {
+        "name": "all_firm_days",
+        "role": "primary; exact Notebook 71 estimand on the evaluation block",
+        "expected_direction": "negative"
+      },
+      {
+        "name": "multi_story_n_ge_2",
+        "role": "secondary; declared after the Notebook 74 development diagnostic showed the development coefficient weakens to -0.0053 with interval [-0.0127, +0.0021] on multi-story firm-days",
+        "expected_direction": "negative"
+      }
+    ],
+    "multiplicity": "Benjamini-Hochberg across the two two-sided p-values at q=0.05",
+    "interpretation_recorded_in_advance": "If the primary passes and the multi-story stratum fails, the beyond-the-mean claim narrows to firm-days with few stories, where negative share approximates a hard negative label; it is not evidence about distribution shape on busy news days. If both pass, the distributional reading extends to multi-story days. If the primary fails, the development coefficient did not replicate across eras and the write-up reports that as the finding."
+  },
+  "excluded_from_this_opening": [
+    "No trading arm, portfolio translation, threshold, cost sweep, or turnover analysis is computed on evaluation rows under this specification; economic translation remains a development-block result.",
+    "No LSEG, Gemma, publisher, story-type, or earnings conditioning enters this notebook.",
+    "No additional stratum, horizon, outcome, or control may be examined on evaluation rows beyond the eleven declared tests."
+  ],
+  "claim_boundaries": [
+    "The 2020-2023 block is a chronological evaluation block including the COVID regime, previously opened for other experiments' portfolio outcomes; it is never described as a pristine holdout or a confirmatory sample.",
+    "These estimands and this stratification were frozen before any evaluation-row statistic for them was computed; that is the entire content of the out-of-sample claim.",
+    "A null or opposite-signed result is preserved as a result and licenses no retuning, re-stratification, or re-ranking.",
+    "The separate registered LSEG prospective replay and sealed materiality confirmation are unaffected."
+  ]
+}
