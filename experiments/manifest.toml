@@ -467,3 +467,239 @@ preregistered = false
 causal_claim = false
 specified_after_week6_results = true
 interpretation_notes = "Null result, retained. Net of the 10.0 bps per side charged on turnover the development Sharpe is negative for every one of the seven scorers individually (from -0.583 for headline/sentiment_all down to -3.402 for headline/sentiment_reuters) and therefore for all 127 candidate subsets, the global best being -0.583. The breakeven cost for the winning subset is 6.86 bps per side, below the charged 10.0 bps, so the gross edge does not survive execution. Because mean returns are negative, averaging signals lowers volatility without adding return and the Sharpe-maximising subset degenerates to the least-bad single signal, headline/sentiment_all, rather than a diversified combination; the best pair and triple are likewise dominated by it. 89.6 percent of demeaned no-edge null replications reach or exceed the observed -0.583."
+
+[[experiments]]
+id = "lseg33_prompt_economic_value_20260813"
+title = "LSEG-33 Target-Specific Prompt Economic Value"
+status = "completed_null"
+date = "2026-08-13"
+dissertation_relevance = "User-authorised retrospective test of whether five target-specific DeepInfra/Gemma prompts improve costed LSEG-33 company-session portfolios relative to existing scorers."
+commit_sha = "6488d02d99311573c83dd233fc9538402fded46c"
+export_path = "final_experiments/outputs/83_lseg_prompt_economic_value/analysis"
+completed_at = "2026-08-13T01:16:06Z"
+command = "JUPYTER_DATA_DIR=/private/tmp/sentiment_jupyter_data .venv/bin/jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=1800 final_experiments/83_lseg_prompt_economic_value.ipynb"
+
+[experiments.inputs.prompt_config]
+path = "configs/strategy_research/lseg_prompt_value_variants_v1.toml"
+sha256 = "36c16773be99110484deb1db0691aba9e9564a1f65ef974b302839fb720c9d7a"
+
+[experiments.inputs.frozen_spec]
+path = "final_experiments/frozen_specs/lseg_prompt_economic_value_v1_20260813.json"
+sha256 = "e25f180fce8567c5e3a63800ea105525d3f95511ec7abb088dc0d9c1439f1cca"
+
+[experiments.inputs.postflight_credit_audit]
+path = "final_experiments/frozen_specs/lseg_prompt_economic_value_postflight_credit_audit_20260813.json"
+sha256 = "466cc67bd851983f42e7bcf9953226979f3a12d5e6a8135a8e4ac40e7236f3b2"
+
+[experiments.inputs.candidate_events]
+path = "final_experiments/outputs/83_lseg_prompt_economic_value/candidate_events.jsonl"
+sha256 = "e44cdcaea000ae426efcc9eb5a2734f791dcf340050875677feca9ecd8aa7fd4"
+licensed = true
+gitignored = true
+
+[experiments.inputs.prices]
+path = "Data/derived/prices/lseg_us_sector_33_2024_2026.csv"
+sha256 = "ecdd3c67d9b61183c6beebba6330918eace8a165764dba695ed87b86b6cec24a"
+
+[experiments.models]
+ids = ["google/gemma-4-26b-a4b-it"]
+provider = "DeepInfra via OpenRouter"
+quantization = "fp8"
+prompt_ids = [
+  "reaction_h1_direct_v1",
+  "reaction_h5_delayed_v1",
+  "cashflow_revision_h5_v1",
+  "surprise_catalyst_h5_v1",
+  "redteam_consensus_h5_v1",
+]
+
+[experiments.settings]
+selection_start = "2024-01-01"
+selection_end_exclusive = "2025-01-01"
+conditional_test_start = "2025-01-01"
+conditional_test_end_exclusive = "2026-01-01"
+confirmation_start = "2026-01-01"
+transaction_cost_bps_per_side = 10.0
+random_seed = 20260813
+candidate_events = 9317
+strict_complete_case_events = 9195
+reported_api_cost_usd = 2.97091685
+
+[experiments.analysis]
+exploratory = true
+preregistered = false
+causal_claim = false
+selected_prompt = "none"
+analysis_manifest_sha256 = "74658b1796c77891bdd754fe5c967081700437282bedbd784ddf428fc1d2803f"
+interpretation_notes = "All five 2024 prompt portfolios have negative gross and net means. The least negative delayed-reaction h5 prompt earns -0.99 gross and -4.01 net bps/session, net Sharpe -1.10 and -9.96 percent ending return. Zero prompts pass the fixed gate, so no 2025 prompt portfolio is computed. The original 99 percent five-way quality NO-GO, the post-score/pre-return v2 strict-intersection amendment, and the first-execution 2025 event-return boundary incident are retained and disclosed. The corrected final run materialises zero 2025 event returns and parses no numeric 2026 price."
+
+[[experiments]]
+id = "lseg33_structured_reaction_score_20260813"
+title = "LSEG-33 Structured Anticipated-Reaction Sentiment Score"
+status = "completed_null"
+date = "2026-08-13"
+dissertation_relevance = "User-requested post-Notebook-83 sensitivity testing a direct structured sentiment score for the anticipated first tradable stock reaction without novelty assessment or earlier headlines."
+commit_sha = "6488d02d99311573c83dd233fc9538402fded46c"
+export_path = "final_experiments/outputs/84_lseg_structured_reaction_score/analysis"
+completed_at = "2026-08-13T10:02:17Z"
+command = "JUPYTER_DATA_DIR=/private/tmp/sentiment_jupyter_data .venv/bin/jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=1800 final_experiments/84_lseg_structured_reaction_score.ipynb"
+
+[experiments.inputs.prompt_config]
+path = "configs/strategy_research/lseg_structured_reaction_score_v1.toml"
+sha256 = "93c8a3661aae6976de121bdf025a3d70ef61d6958daa7ece1d9dcb240375ae21"
+
+[experiments.inputs.frozen_spec]
+path = "final_experiments/frozen_specs/lseg_structured_reaction_score_v1_20260813.json"
+sha256 = "6c00f2840ec22f7cd9b66017ee95032fd1568f3ae56ce6b50b6b2069be1bb929"
+
+[experiments.inputs.chronological_scoring_amendment]
+path = "final_experiments/frozen_specs/lseg_structured_reaction_score_chronological_scoring_amendment_20260813.json"
+sha256 = "8beeb897e9030b823f99b2c5445b38bd3b31b46403ac55ef62021393bf9735d9"
+
+[experiments.inputs.postflight]
+path = "final_experiments/frozen_specs/lseg_structured_reaction_score_postflight_20260813.json"
+sha256 = "4ac8869c6468d3824526a207b905dd00fa10d9ea1e3d66e19ca2d45cc7692b89"
+
+[experiments.inputs.candidate_events]
+path = "final_experiments/outputs/83_lseg_prompt_economic_value/candidate_events.jsonl"
+sha256 = "e44cdcaea000ae426efcc9eb5a2734f791dcf340050875677feca9ecd8aa7fd4"
+licensed = true
+gitignored = true
+
+[experiments.inputs.prices]
+path = "Data/derived/prices/lseg_us_sector_33_2024_2026.csv"
+sha256 = "ecdd3c67d9b61183c6beebba6330918eace8a165764dba695ed87b86b6cec24a"
+
+[experiments.models]
+ids = ["google/gemma-4-26b-a4b-it"]
+provider = "DeepInfra via OpenRouter"
+quantization = "fp8"
+prompt_id = "structured_first_reaction_v1"
+prompt_hash = "bc92cd43827a2be1"
+
+[experiments.settings]
+scoring_end_exclusive = "2025-01-01"
+selection_start = "2024-01-01"
+selection_end_exclusive = "2025-01-01"
+conditional_test_start = "2025-01-01"
+confirmation_start = "2026-01-01"
+horizon_sessions = 1
+transaction_cost_bps_per_side = 10.0
+random_seed = 20260813
+scoring_scope_events = 3242
+strict_scored_events = 3241
+reported_api_cost_usd = 0.18951202
+earlier_headlines_sent = false
+newness_assessed = false
+
+[experiments.analysis]
+exploratory = true
+preregistered = false
+causal_claim = false
+selection_passed = false
+evaluation_2025_computed = false
+analysis_manifest_sha256 = "c51caf0967cf942142c31efdd6d275432cd7f3a5a2fc9cfeabf41e6be5281096"
+interpretation_notes = "The requested structured reaction-sentiment score forms on 234/251 2024 sessions and is negative before costs: -2.59 gross bps/session. At 10 bps per side it earns -19.67 net bps/session, net Sharpe -2.18, -40.53 percent ending return and -45.08 percent drawdown. It is positive and beats same-date Gemma and FinBERT only in Q4. The gate fails; chronological scoring stops before 2025, no 2025 event return is materialised and 2026 remains sealed. Explicit reaction wording raises directional activity and turnover but does not create correct, cost-covering direction."
+
+[[experiments]]
+id = "fnspid_evaluation_beyond_mean_replication_20260814"
+title = "FNSPID Evaluation Replication of Negative Share Beyond the Mean"
+status = "completed_temporal_nonreplication"
+date = "2026-08-14"
+dissertation_relevance = "Selected primary-RQ evaluation opening testing whether the development-era negative-share increment beyond mean continuous sentiment and news volume is stable in 2020-2023."
+commit_sha = "6488d02d99311573c83dd233fc9538402fded46c"
+export_path = "final_experiments/outputs/75_fnspid_evaluation_beyond_mean_replication"
+completed_at = "2026-08-14T10:28:12.329223+00:00"
+command = "jupyter nbconvert --to notebook --execute --inplace final_experiments/75_fnspid_evaluation_beyond_mean_replication.ipynb --ExecutePreprocessor.timeout=1800"
+
+[experiments.inputs.panel]
+path = "final_experiments/outputs/03_aggregation/firm_day_aggregators.parquet"
+sha256 = "1ca1c38109bc06af232119adeff17de66a567174d457038bc923a930a2da61f1"
+gitignored = true
+
+[experiments.inputs.parent_spec]
+path = "final_experiments/frozen_specs/fnspid_evaluation_beyond_mean_replication_v1_20260812.json"
+sha256 = "db8ccd7d7a659d7348e2ba39d43c3e6842100490ee04b2d5d9aa2248b1726283"
+
+[experiments.inputs.preexecution_amendment]
+path = "final_experiments/frozen_specs/fnspid_evaluation_beyond_mean_preexecution_amendment_v1_20260814.json"
+sha256 = "0e0e57da88b680a2ddd23e516aa5e33aa806195a74dfed948cef391ea4edd801"
+
+[experiments.inputs.source]
+path = "final_experiments/75_fnspid_evaluation_beyond_mean_replication.py"
+sha256 = "23c9f3738ce27843d85a1c772b856deeca768f23f7c4bffa6c7239cae39623ca"
+
+[experiments.inputs.helper]
+path = "final_experiments/lib/conditional_aggregation.py"
+sha256 = "4336e2da2fff31d2a2c54ca5c38a7f615b6f31c611993a0bc60741b8102a2589"
+
+[experiments.outputs.executed_notebook]
+path = "final_experiments/75_fnspid_evaluation_beyond_mean_replication.ipynb"
+sha256 = "c58a9008263c86eee4f5937e6f8e726edce17f5844b4c8f6bf8712d2acdbd699"
+
+[experiments.outputs.run_manifest]
+path = "final_experiments/outputs/75_fnspid_evaluation_beyond_mean_replication/manifest.json"
+sha256 = "c9159a8d7266daa60fbab2727eaea4827a90cef55261fd6ba67063a2a2bd052b"
+gitignored = true
+
+[experiments.outputs.result_summary]
+path = "final_experiments/outputs/75_fnspid_evaluation_beyond_mean_replication/result_summary.json"
+sha256 = "c2f98edefc9ad921a809a3abb5ed7f441250f6cea7c6182b8461a150c265888e"
+gitignored = true
+
+[experiments.outputs.family_a]
+path = "final_experiments/outputs/75_fnspid_evaluation_beyond_mean_replication/evaluation_nine_rule_ic.csv"
+sha256 = "ea8b4e15614df923b315e11719249a66e6e313e350e7471b305dc1e04ba482a6"
+gitignored = true
+
+[experiments.outputs.family_b]
+path = "final_experiments/outputs/75_fnspid_evaluation_beyond_mean_replication/evaluation_conditional_coefficients.csv"
+sha256 = "4bdf90ce939e2fb24fdfc51c2c7e863377e6ebf7915b00065733e6c107921fd1"
+gitignored = true
+
+[experiments.outputs.stability_contrast]
+path = "final_experiments/outputs/75_fnspid_evaluation_beyond_mean_replication/evaluation_minus_development_stability_contrast.csv"
+sha256 = "f7e01d905a322ec3a182a1ca7615f8d07d6d61988ea042ffb513190cd2ad75e7"
+gitignored = true
+
+[experiments.settings]
+development_end = "2019-12-31"
+evaluation_start = "2020-01-01"
+evaluation_end = "2023-12-18"
+evaluation_firm_days = 203393
+evaluation_sessions = 998
+outcome = "ar_open_h1"
+horizon_sessions = 1
+family_a_tests = 9
+family_b_tests = 2
+family_a_bh_q = 0.05
+family_b_bh_q = 0.05
+hac_lags = 5
+random_seed = 0
+random_seed_note = "No stochastic estimation; complete-sample calculations are deterministic."
+prospective_stable_effect_power = 0.3543324637
+prospective_mde80 = 0.0137174588
+
+[experiments.analysis]
+exploratory = false
+preregistered = false
+prespecified_for_this_evaluation_opening = true
+pristine_holdout = false
+confirmation_claim_allowed = false
+causal_claim = false
+family_a_bh_rejections = 0
+family_a_negative_share_ic = -0.0031199955
+family_a_negative_share_p = 0.3001500635
+family_b_all_day_beta = 0.0058333201
+family_b_all_day_ci_low = -0.0042614600
+family_b_all_day_ci_high = 0.0159281002
+family_b_all_day_q = 0.5147854075
+family_b_n_ge_2_beta = 0.0029523861
+family_b_n_ge_2_ci_low = -0.0099010027
+family_b_n_ge_2_ci_high = 0.0158057748
+family_b_n_ge_2_q = 0.6525676555
+evaluation_minus_development = 0.0141433730
+stability_ci_low = 0.0024990570
+stability_ci_high = 0.0257876891
+stability_p = 0.0172842957
+interpretation_notes = "Neither frozen conditional member nor any of the nine aggregators replicates the development result. The evaluation coefficient changes sign in point estimate, and the separately predeclared evaluation-minus-development HAC contrast is positive with an interval above zero. Report temporal non-replication and sign instability. The approximate 35.4 percent stable-effect power limits exact-zero claims. No reverse-sign trading, retuning, added stratum, horizon, threshold, sector, event type, prompt, scorer, or scientific retry is permitted."

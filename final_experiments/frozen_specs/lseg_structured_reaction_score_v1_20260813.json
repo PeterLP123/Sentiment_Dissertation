@@ -1,0 +1,127 @@
+{
+  "schema_version": 1,
+  "status": "frozen_before_paid_calls_and_new_reaction_scores",
+  "frozen_at_utc": "2026-08-13T08:15:23Z",
+  "experiment": {
+    "notebook": "final_experiments/84_lseg_structured_reaction_score.ipynb",
+    "title": "LSEG-33 structured anticipated-reaction sentiment score",
+    "objective": "Test whether a direct, structured sentiment score representing the anticipated first tradable stock-price reaction creates economic value on the LSEG-33 Reuters company-session set.",
+    "evidence_role": "user-directed post-Notebook-83 retrospective prompt sensitivity",
+    "preregistered": false,
+    "confirmation_claim_allowed": false,
+    "deployment_claim_allowed": false
+  },
+  "researcher_instruction": {
+    "request": "Use every structured assessment except whether the headline is new, because the model cannot know that.",
+    "included_steps": [
+      "target-company specificity",
+      "better, worse, or unclear versus expectations",
+      "temporary, persistent, or unclear implication",
+      "anticipated down, flat or unclear, or up first tradable reaction",
+      "final directional sentiment score from -1 to +1"
+    ],
+    "excluded_step": "whether the information is new",
+    "reason": "The model cannot reliably know novelty from a single headline."
+  },
+  "authorisation_and_privacy": {
+    "parent_authorisation": "final_experiments/frozen_specs/lseg_prompt_economic_value_external_authorisation_20260813.json",
+    "payload": "selected current Reuters headline plus target-company name and symbol only",
+    "earlier_headlines_sent": false,
+    "newness_assessed": false,
+    "route": "OpenRouter to DeepInfra only; Gemma 4 26B FP8; no fallback; ZDR requested; provider data collection denied",
+    "maximum_cumulative_authorised_spend_usd": 20.0,
+    "operational_cumulative_spend_ceiling_usd": 19.0,
+    "reported_notebook83_cost_usd": 2.97091685,
+    "maximum_additional_reported_cost_before_operational_ceiling_usd": 16.02908315,
+    "post_notebook83_account_credit_usd": 18.529134759,
+    "authoritative_cost": "sum of reported_cost_usd over append-only attempt rows"
+  },
+  "population": {
+    "expected_events": 9317,
+    "universe": "same 33 LSEG companies; Reuters NS:RTRS only",
+    "filters": "explicit target, non-market-price/technical, one original-33 company, first story-family release",
+    "spacing": "one deterministic headline per company and first executable XNYS session",
+    "entry_timing": "first XNYS open at least 15 minutes after availability",
+    "prices_or_returns_used_for_population": false,
+    "minimum_strict_success_share": 0.98,
+    "all_33_companies_required": true,
+    "both_2024_and_2025_required": true,
+    "invalid_outputs": "Never coerce or impute; make at most one cleanup pass and use strict successes only."
+  },
+  "model_and_prompt": {
+    "model_id": "google/gemma-4-26b-a4b-it",
+    "provider": "DeepInfra",
+    "quantization": "fp8",
+    "temperature": 0.0,
+    "max_tokens": 100,
+    "prompt_id": "structured_first_reaction_v1",
+    "prompt_hash": "bc92cd43827a2be1",
+    "prompt_config": {
+      "path": "configs/strategy_research/lseg_structured_reaction_score_v1.toml",
+      "sha256": "93c8a3661aae6976de121bdf025a3d70ef61d6958daa7ece1d9dcb240375ae21"
+    },
+    "score_grid": [-1.0, -0.75, -0.5, -0.25, 0.0, 0.25, 0.5, 0.75, 1.0],
+    "score_meaning": "Directional conviction about the first tradable stock reaction; not a percentage return.",
+    "trade_signal": "reaction_score when target_specific is true; otherwise zero"
+  },
+  "chronology_and_economics": {
+    "horizon_sessions": 1,
+    "selection_start": "2024-01-01",
+    "selection_end_exclusive": "2025-01-01",
+    "conditional_test_start": "2025-01-01",
+    "conditional_test_end_exclusive": "2026-01-01",
+    "confirmation_start": "2026-01-01",
+    "portfolio": "one strongest positive and one strongest negative company per formation session, plus 0.5 and minus 0.5, held for one session",
+    "transaction_cost_bps_per_side": 10.0,
+    "comparators": "existing Gemma and FinBERT polarity ranks on the reaction prompt's exact formation dates and exposure",
+    "selection_gate": [
+      "at least 80 formation sessions",
+      "2024 gross and net means are positive",
+      "2024 net Sharpe is positive",
+      "2024 break-even is at least 10 bps per side",
+      "2024 net mean is positive in at least three of four quarters",
+      "2024 net mean beats same-date Gemma in at least three of four quarters",
+      "2024 net mean beats same-date FinBERT in at least three of four quarters"
+    ],
+    "failed_selection_action": "Do not compute a 2025 reaction-score portfolio.",
+    "conditional_test_family": [
+      "reaction score versus cash",
+      "reaction score versus same-date Gemma",
+      "reaction score versus same-date FinBERT"
+    ],
+    "inference": "paired circular moving-block bootstrap, 10-session blocks, 9999 replications; Benjamini-Hochberg across three tests"
+  },
+  "immutable_inputs": {
+    "candidate_events": {
+      "path": "final_experiments/outputs/83_lseg_prompt_economic_value/candidate_events.jsonl",
+      "sha256": "e44cdcaea000ae426efcc9eb5a2734f791dcf340050875677feca9ecd8aa7fd4"
+    },
+    "candidate_manifest": {
+      "path": "final_experiments/outputs/83_lseg_prompt_economic_value/candidate_manifest.json",
+      "sha256": "43a5e0349f3728129f4392b520cca344a8696a2ba3e9a980ac57e632ca89a9ea"
+    },
+    "price_export": {
+      "path": "Data/derived/prices/lseg_us_sector_33_2024_2026.csv",
+      "sha256": "ecdd3c67d9b61183c6beebba6330918eace8a165764dba695ed87b86b6cec24a"
+    },
+    "implementation_at_freeze": {
+      "path": "final_experiments/lib/lseg_structured_reaction.py",
+      "sha256": "fea3c3519a86ad715038042f5aa1d5ba705cbb98879774bb6c691644dfd5a82e"
+    },
+    "git_commit_at_freeze": "6488d02d99311573c83dd233fc9538402fded46c"
+  },
+  "claim_boundaries": [
+    "The prompt was designed after Notebook 83's five prompt outcomes were known.",
+    "The 2024-2025 LSEG dates are retrospectively explored elsewhere in the project.",
+    "A positive result would be iterative evidence, not independent confirmation or validated alpha.",
+    "A null rejects this structured prompt construction, not every possible anticipated-reaction prompt.",
+    "No further wording, schema, score-grid, horizon, cost, universe or portfolio change is allowed after new scores are opened."
+  ],
+  "reproducibility": {
+    "seed": 20260813,
+    "bootstrap_replications": 9999,
+    "block_length_sessions": 10,
+    "aggregate_outputs_only": true,
+    "licensed_text_exported": false
+  }
+}

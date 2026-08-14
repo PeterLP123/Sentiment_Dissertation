@@ -1,6 +1,6 @@
 # Dissertation Execution Plan
 
-Last updated: 2026-08-12
+Last updated: 2026-08-14
 
 This is the delivery plan for the closing phase. The dissertation deadline is **1 September 2026**. Calendar promises from the superseded July 12 plan are retired; progress is controlled by evidence gates and stage exit conditions.
 
@@ -35,10 +35,10 @@ Profitability, a significant p-value, a neural network, and a wider news collect
 | Earnings calendar | Gathered locally; caveats recorded | `final_experiments/data/earnings/` |
 | Firm-day panel | Built: 715,546 rows, 570 priced symbols, 3,262 sessions | `01_panel` outputs/manifest |
 | Chronological split | Frozen: development through 2019, evaluation from 2020 | `lib/panel.py`, plan, protocol |
-| Final RQ | Open | Gate F1 after Stage S2 |
-| Current active work | Decide the Gate-F1 dissertation framing from the completed evidence. Notebook 71 now supplies the missing direct RQ-A test: after controlling for mean sentiment and news count, the FNSPID development negative-share coefficient is −0.00831 [−0.01410,−0.00252] (p=0.0049). Both primary LSEG coefficients point negative but remain imprecise, and their costed books lose. Notebook 72's exact pressure state never enters risk-off on the recent 167-session LSEG window. Notebook 73's pre-return-frozen backward extension activates on 53/456 sessions and passes downside/timing tests, but its return interval crosses zero, the second-half return effect is negative, drawdown improves only 3.63%, and the full cross-source gate fails. This keeps the bounded “distribution beyond the mean in FNSPID, with limited Reuters portability and partial historical downside timing” framing strongest, not a validated strategy or universal claim. The materiality measurement/h5 results remain secondary and the 2026 confirmation remains sealed. | Stage S2 exit / Gate F1; Notebooks 40–73 |
+| Final RQ | Selected 2026-08-14 | Does negative-news share add predictive information for next-session abnormal returns beyond mean continuous sentiment and news volume, and is that increment stable across time? No separate secondary RQ. |
+| Current active work | Promote and write Notebook 75's preserved temporal non-replication. Development beta is −0.00831 [−0.01410,−0.00252], but the one-shot 2020–2023 all-day beta is +0.00583 [−0.00426,+0.01593] (BH q=0.515), n≥2 is +0.00295 [−0.00990,+0.01581] (q=0.653), and zero of nine aggregators survive BH. The predeclared evaluation-minus-development contrast is +0.01414 [+0.00250,+0.02579] (p=0.0173), supporting an era shift. LSEG portability and costed strategy/prompt arms also fail. The dissertation contribution is the separation of development detectability from temporal, source, and economic portability; no further evaluation search is open. | Gate F1 decision; Notebook 75 result/manifest; bounded Notebooks 71–84 context |
 | Backward external-time arm | Post-stop sensitivities complete; hybrid and continuous-rule robustness rejected, original drift failure binding | Same 33 companies, 2024-01-01 to 2025-10-26; 21,912/21,912 terminal company-days and 1,219,608 unique scored hashes. Notebook 67's unchanged hybrid records backward net Sharpe −0.354 and −3.43% net return. Notebook 70's unchanged continuous rule records backward/opened net Sharpes −1.159/−2.391, every half negative, and an opened cash interval that is significantly negative after BH. The continuous joined path loses 30.00% net. The predeclared drift census still fails endpoint retention at 0.7881 versus 0.80, so neither sensitivity is the original replication or prospective evidence; `final_experiments/67_lseg_gemma_finbert_joined_long_window.ipynb`, `final_experiments/70_lseg_gemma_continuous_joined_long_window.ipynb` |
-| Conditional aggregation / cross-source risk transfer | Complete; bounded FNSPID pass, LSEG coefficient portability fails, exact pressure transfer is partial | Notebook 71 estimates the direct negative-share-beyond-mean coefficient on FNSPID development and separate pinned-FinBERT LSEG backward/recent blocks. FNSPID passes; both LSEG intervals cross zero. Notebook 72 uses the unchanged FNSPID pressure state on the recent LSEG block, where zero sessions reach entry. Notebook 73 freezes the same rule before acquiring older index returns: 53/456 sessions are risk-off, downside and circular timing pass BH, but return stability, matched-constant attribution, drawdown magnitude and the full cross-source gate fail. These results permit neither source pooling, threshold tuning nor an alpha claim; `final_experiments/71_conditional_negative_share_transfer.ipynb`, `final_experiments/72_lseg_negative_pressure_har_transfer.ipynb`, `final_experiments/73_lseg_negative_pressure_har_backward_transfer.ipynb` |
+| Conditional aggregation / cross-source risk transfer | Complete; development pass does not replicate in evaluation, LSEG coefficient portability fails, exact pressure transfer is partial | Notebook 71 supplies the development coefficient; Notebook 75 opens the FNSPID evaluation estimands once and records zero BH survivors plus a significant positive evaluation-minus-development contrast. Notebook 72 uses the unchanged FNSPID pressure state on the recent LSEG block, where zero sessions reach entry. Notebook 73's earlier extension supplies partial downside timing but fails return stability, matched-constant attribution, drawdown magnitude and full transfer. These results permit neither source pooling, reverse-sign trading, threshold tuning nor an alpha claim; `final_experiments/71_conditional_negative_share_transfer.ipynb`, `final_experiments/75_fnspid_evaluation_beyond_mean_replication.ipynb` |
 | Exploratory W3/W4 chain | Repaired and rerun; not promoted because it ran before Gate F1 | `03`–`07`, `INVALIDATED_RUNS.md` |
 | Scorer selection | Closed: FinBERT primary | Benchmark and prior reports |
 | VaR/ES | Closed | FNSPID factorial report |
@@ -96,7 +96,8 @@ Exit condition: one auditable `(symbol, session_date)` panel with news, stock/ma
 Open integrity actions before final promotion:
 
 - re-verify the large FNSPID archive checksums;
-- decide or implement explicit sector mapping if RQ-E or sector demeaning survives Gate F1;
+- record the absent point-in-time sector mapping as a limitation; RQ-E was not
+  selected, so it does not block the primary result;
 - preserve the current earnings-calendar coverage/title-filter caveat.
 
 ### S2 — Story filtering and within-day distribution EDA
@@ -142,6 +143,9 @@ Exit condition: the data fields and audit evidence support a documented feasibil
 
 ### Gate F1 — Choose the final RQ and freeze the analysis family
 
+**Status:** complete on 2026-08-14, before Notebook 75 opened its declared
+evaluation statistics.
+
 Record in `final_experiments/outputs/02_filters_and_distribution/decision.md` and update `plan.html`:
 
 - one primary RQ and at most one secondary;
@@ -155,11 +159,15 @@ Record in `final_experiments/outputs/02_filters_and_distribution/decision.md` an
 - fixed random seed(s);
 - dropped candidates and why.
 
-No evaluation-return comparison precedes this gate.
+The chosen primary RQ is the negative-share-beyond-mean temporal-stability
+question, with no separate secondary. The decision record distinguishes evidence
+visible at selection from every Notebook 75 value that remained hidden. Earlier
+evaluation-return work is disclosed as a protocol deviation; no claim is made
+that the 2020–2023 block was pristine.
 
 ### S3 — Primary experiment
 
-**Status:** blocked on Gate F1.
+**Status:** complete with valid adverse evidence.
 
 Use the notebook matching the chosen RQ:
 
@@ -182,6 +190,13 @@ Common evaluation harness requirements:
 - effect size, interval, p/q-value, and independent-date count;
 - nulls and failures preserved.
 
+Notebook 75 satisfies the selected RQ's frozen harness. Its nine-rule family has
+zero BH survivors; the all-day and n≥2 conditional coefficients both fail their
+declared expected-direction BH family. The separately predeclared HAC(5)
+evaluation-minus-development contrast is positive with an interval above zero.
+The Stage S3 output is therefore temporal non-replication/sign instability, not a
+failed project and not permission to retune.
+
 ### Gate F2 — Evidence validity
 
 Pass if:
@@ -197,7 +212,7 @@ Statistical significance is not a pass criterion. A valid null passes. A leaky o
 
 ### S4 — Bounded robustness and secondary analysis
 
-**Status:** blocked on valid S3 evidence.
+**Status:** complete and bounded. The valid S3 null passes Gate F2.
 
 Exploratory work nevertheless ran out of order. The latest FNSPID risk-sizing
 arms are preserved as such: firm-level brakes on monthly momentum are a clean
@@ -732,9 +747,9 @@ fix. Do not search another story-family rule on this window.
 
 Priority order:
 
-1. use Notebooks 44–73 to write the cross-regime conclusion: Notebook 71 directly supports the bounded FNSPID “beyond the mean” claim after controlling for mean sentiment and news count, while the two primary LSEG coefficient intervals cross zero. Notebook 72 records zero recent pressure-state activation; Notebook 73 records partial backward downside timing but fails return stability, useful-risk and full cross-source gates. HAR remains the independent price/risk research benchmark but is not time-stable or deployment-qualified; aggregate sentiment shows period-specific downside timing; Gemma/LSEG adds mechanical de-risking and gross opened-window mechanisms, but the unchanged hybrid fails its earlier same-33 robustness block. Notebook 70 independently closes the continuous alternative as a historical strategy. The original Gemma drift failure separately prevents a preregistered-replication claim. Preserve implementation and measurement diagnostics as secondary evidence, not as a strategy rescue;
+1. use Notebooks 71, 75 and 79 as the primary temporal-non-replication chain: development contains a negative-share increment beyond mean sentiment and news count, the simple lagged-price explanation fails on the same development sample, but the one-shot 2020–2023 coefficients reverse sign and fail both frozen families while the formal era contrast excludes zero. Use the separate LSEG, costed strategy and prompt nulls through Notebook 84 to bound source and economic portability, not to rescue the signal;
 2. treat Notebooks 42–43 as falsifications and Notebooks 47–49 as a bounded mechanism/cost frontier, not permission to reverse sentiment, tune revision persistence, or search another revision filter on opened outcomes;
-3. finish or explicitly waive the human novelty audit and take Gate F1; Notebook 52 has used and closed the single permitted liquidity-aware implementation follow-up, so no historical alpha or allocation arm remains open;
+3. treat Gate F1 and the Notebook 75 opening as complete; the unfinished human novelty audit is a limitation of the unselected materiality/filtering path, not a reason to replace the RQ or delay the primary write-up;
 4. continue immutable LSEG acquisition through at least the earliest possible 120th session (2026-12-16); only after the 120-session, 60-active-session, and 20-per-half gates pass, score the fixed population and replay the frozen hybrid once as prospective evidence against its now-negative prior;
 5. preserve Notebooks 67 and 70 as the two bounded backward same-33 strategy sensitivities: do not revise the failed drift threshold, hide negative blocks inside joined paths, or tune either signal, costs, exclusions, completeness treatment, breadth, dispersion gate, or holding period;
 6. earnings-window exclusion or one pooled story-type interaction family only if the corresponding calendar/audit validity gate passes;
@@ -750,7 +765,8 @@ Limits:
 
 ### S5 — Promotion, registration, and dissertation integration
 
-**Status:** blocked on S3/S4.
+**Status:** active. Notebook 75 is registered; licence-safe dissertation tables,
+figures and chapter prose remain to be promoted.
 
 Outputs:
 
@@ -765,7 +781,8 @@ Exit condition: a clean checkout plus authorised local inputs can regenerate the
 
 ## Candidate-RQ Decision Matrix
 
-Use this at Gate F1; do not score it using evaluation returns.
+This feasibility matrix was used at Gate F1 without scoring candidates from
+Notebook 75 evaluation returns. It is retained as the pre-outcome decision frame.
 
 | Criterion | RQ-A Aggregation | RQ-B Filtering | RQ-C Surprise | RQ-D Agreement | RQ-E Thresholds |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -776,7 +793,8 @@ Use this at Gate F1; do not score it using evaluation returns.
 | New data/model dependency | Low | Medium–high | Low | High | Medium |
 | Risk of post-selection/overfitting | Medium | Medium | Medium | Medium | High |
 
-This is a feasibility frame, not a pre-decided winner.
+This was a feasibility frame, not an outcome-scored tournament. Gate F1 selected
+RQ-A before Notebook 75 ran.
 
 ## Notebook And Artifact Contract
 
@@ -832,11 +850,11 @@ Writing runs alongside analysis only where it does not depend on unknown results
 | Data provenance and source-regime comparison | Yes | Final checksum verification |
 | Benchmark competence and scorer choice | Yes | Nothing; evidence is settled |
 | Firm-day panel construction and timing | Yes | Final panel manifest reconciliation |
-| Filtering/aggregation methods | Skeleton only | Gate F1 and frozen rule family |
-| Primary results | No | Gate F2 |
-| Robustness/heterogeneity | No | S4 |
-| Limitations | Start now | Final selected RQ/result |
-| Conclusion | No | Final promoted evidence |
+| Filtering/aggregation methods | Yes | Gate F1 and the frozen rule family are complete |
+| Primary results | Yes | Notebook 75 passed Gate F2 as valid adverse evidence |
+| Robustness/heterogeneity | Yes | Bounded S4 evidence is complete; no further search |
+| Limitations | Yes | Selected RQ/result and claim boundaries are fixed |
+| Conclusion | Draft now | Final licence-safe artifact promotion and number check |
 
 Every result paragraph should state sample, split, estimand, effect size/interval, correction, and limitation before interpretation.
 
@@ -879,7 +897,8 @@ Do not run the full historical suite after each notebook edit. Focused helper te
 ## Deliberately Out Of Scope
 
 - New VaR/ES or ES backtests.
-- New hosted-LLM or local-model bake-offs.
+- New hosted-LLM or local-model bake-offs beyond the completed, bounded
+  Notebook 83–84 prompt experiments.
 - Multi-scorer signal ensembles.
 - Full production refactors or broad test expansion.
 - Causal language about news sentiment and returns.

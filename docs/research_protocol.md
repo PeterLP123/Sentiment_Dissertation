@@ -1,8 +1,8 @@
 # Research Protocol
 
-Last updated: 2026-08-12
+Last updated: 2026-08-14
 
-> **Current status.** This protocol governs the closing `final_experiments/` phase. The final research question has **not** been selected. The live [final experiments plan](../final_experiments/plan.html) records operational decisions and checklist status; this document records the scientific constraints that remain binding across every candidate RQ.
+> **Current status.** This protocol governs the closing `final_experiments/` phase. Gate F1 selected the aggregation/temporal-stability research question on 2026-08-14, before Notebook 75 opened its declared outcomes. Notebook 75 then recorded temporal non-replication. The live [final experiments plan](../final_experiments/plan.html) records operational decisions and checklist status; this document records the scientific constraints and result boundaries that remain binding.
 
 Operational guides:
 
@@ -33,27 +33,45 @@ A changed primary RQ, data spine, split, event grain, timing rule, scorer identi
 
 ## Research Question Status
 
-The “Beyond the Mean” cross-model-agreement question from the 12 July protocol is now a **standing fallback/default**, not the selected final RQ.
+Gate F1 was taken on 2026-08-14 under the researcher's direct instruction, before
+Notebook 75 opened any of its evaluation statistics. The selected primary RQ is:
 
-Gate F1 will choose one primary RQ and at most one secondary after the data panel and filtering/distribution EDA are complete, but before any evaluation-return comparison is opened.
+> **Does negative-news share add predictive information for next-session
+> abnormal stock returns beyond mean continuous sentiment and news volume, and
+> is that increment stable across time?**
+
+No separate secondary RQ was selected. The “Beyond the Mean” cross-model-
+agreement question from the 12 July protocol is retired as a standing fallback,
+not silently relabelled as the completed question. The Gate F1 evidence boundary
+and dropped candidates are recorded in
+`final_experiments/outputs/02_filters_and_distribution/decision.md`.
 
 | Candidate | Question | Current standing |
 | --- | --- | --- |
-| **RQ-A: Aggregation** | How should multiple same-day stories be aggregated into one firm-day sentiment signal, and does a distribution-aware rule add information about post-news abnormal returns beyond the mean? | Strongest current candidate. Notebook 71 directly supports the bounded FNSPID clause after controlling for mean sentiment and news count, but its two primary LSEG portability intervals cross zero. Gate F1 is still not silently taken. |
-| **RQ-B: Filtering** | Does conditioning on story novelty and publisher identity improve the return relevance of news sentiment? | FNSPID publisher/story-family fields remain unavailable. Expanded-LSEG/Gemma publisher conditioning is a four-arm retrospective null. A separate exact-family first-release screen removes 0.936% of hashes but does not rescue the frozen continuous rule; its +0.935-bps/session change is uncertain and the filtered strategy is significantly below cash. |
-| **RQ-C: Surprise** | Is firm-level sentiment surprise, net of market return and general sentiment level, informative beyond sentiment level itself? | Prior NO-GO; only viable with the wider panel and materially different demeaning design. |
-| **RQ-D: Agreement** | Does cross-model agreement add out-of-sample information beyond mean sentiment and the initial price reaction? | Standing fallback/default; enabling PhraseBank/LSEG artifacts from the July 12 design were not completed. |
-| **RQ-E: Thresholds** | Can a learned firm- or sector-conditioned trade/no-trade threshold outperform a fixed band? | Secondary only. The expanded LSEG map has four firms per sector but too little history for learned sector gates. A fixed, retrospective sector-neutral/hysteresis translation improves gross/cost efficiency but has no BH survivor or viable 10-bps arm; the planned learned arm still needs a point-in-time FNSPID sector table. |
+| **RQ-A: Aggregation** | How should multiple same-day stories be aggregated into one firm-day sentiment signal, and does a distribution-aware rule add information about post-news abnormal returns beyond the mean? | **Selected and completed as a temporal-stability question.** Development supports a negative-share increment, but Notebook 75 records zero evaluation BH survivors and a positive evaluation-minus-development contrast with an interval above zero. The paper result is temporal non-replication, not stable superiority. |
+| **RQ-B: Filtering** | Does conditioning on story novelty and publisher identity improve the return relevance of news sentiment? | Not selected. FNSPID publisher/story-family fields remain unavailable, the human audit is incomplete, and retrospective LSEG filter arms are null. |
+| **RQ-C: Surprise** | Is firm-level sentiment surprise, net of market return and general sentiment level, informative beyond sentiment level itself? | Not selected. Prior NO-GO and later evaluation exposure make it a weaker final design. |
+| **RQ-D: Agreement** | Does cross-model agreement add out-of-sample information beyond mean sentiment and the initial price reaction? | Not selected. Enabling PhraseBank/LSEG model-panel and human-agreement artifacts from the July 12 design were not completed. |
+| **RQ-E: Thresholds** | Can a learned firm- or sector-conditioned trade/no-trade threshold outperform a fixed band? | Not selected. Existing policies fail, a stable base signal is absent, and the planned arm still lacks a point-in-time FNSPID sector table. |
 
-### Gate F1 rules
+### Gate F1 record and rules
 
-Before choosing:
+The following rules governed the 2026-08-14 choice:
 
 - Workstream 1 panel and attrition evidence must be complete.
 - Workstream 2 may inspect news/filter/score distributions, but not evaluation returns.
 - The choice must state what evidence was visible, what remained hidden, and why the chosen RQ is feasible on the available fields.
 - The primary estimand, horizon set, model family, inference unit, and multiplicity family must be frozen at the same gate.
-- No third primary design is invented after evaluation results are opened.
+- No replacement primary design is invented after the adverse evaluation result.
+
+The visible evidence included the development aggregation/conditional results,
+the development-only diagnostics and price-path control, the non-pooled LSEG
+portability arms, the model-free magnitude and precision audits, and the wider
+null strategy/prompt evidence through Notebook 84. Every Notebook 75 statistic
+remained hidden. Its parent design froze the BH-9 and BH-2 families; the
+outcome-blind 2026-08-14 amendment added only a separate HAC(5) temporal contrast,
+prospective power context, provenance clarification and a fail-closed one-shot
+guard. No evaluation trading or additional estimand was added.
 
 ## Evidence Already Settled
 
@@ -1111,6 +1129,26 @@ and cannot rescue the primary scorer. All LSEG negative-share rank books are
 net-negative after 10 bps per side. Therefore the result is not universal
 portability, validated alpha, or permission to pool source regimes.
 
+Gate F1 selected the temporal-stability version of this question before the
+FNSPID evaluation estimands were opened. Notebook 75 then executed its parent
+freeze once, with an outcome-blind amendment adding power context, a separate
+evaluation-minus-development HAC(5) contrast, exact provenance and a fail-closed
+output guard. On 203,393 evaluation firm-days and 998 sessions, the all-firm-day
+conditional coefficient is +0.005833 with 95% interval
+[−0.004261,+0.015928] and BH q=0.5148. The predeclared n≥2 coefficient is
++0.002952 [−0.009901,+0.015806], q=0.6526. The nine-aggregator evaluation
+family has zero BH survivors; negative share has IC −0.003120 (p=0.3002).
+
+The separately predeclared evaluation-minus-development contrast is +0.014143
+with 95% interval [+0.002499,+0.025788] and p=0.01728. This is a temporal
+sign-changing shift in the estimated coefficient, not merely a difference in
+which era crosses a significance threshold. The pre-run normal approximation
+gave only 35.4% power to recover the development effect at the first BH-2 hurdle
+and an approximate 80%-power MDE of 0.01372, so the evaluation null is not proof
+of an exact zero. Together, the frozen families and contrast establish temporal
+non-replication. They do not license reverse-sign trading, a new threshold,
+another horizon, further stratification, or replacement of the selected RQ.
+
 ### Exact negative-pressure HAR transfer to LSEG
 
 Notebook 72 tests whether the FNSPID aggregate risk mechanism transfers without
@@ -1276,6 +1314,82 @@ These findings may support a dissertation about the distinction between richer
 semantic representation, implementation economics and predictive alpha; they
 cannot be presented as human-validated measurement, confirmation or alpha.
 The 2026 return period remains sealed.
+
+## Bounded LSEG Prompt-Engineering Search — 2026-08-13
+
+Notebook 83 is a user-authorised exception to the closed hosted-model scope. It
+tests five fixed target-company prompt formulations on a return-blind population
+of 9,317 first-release Reuters company-session events from the same 33 firms.
+The only external payload is the current headline, target company/name and at
+most five strictly earlier same-company Reuters headlines. Requests are routed
+through OpenRouter to DeepInfra-only Gemma 4 26B FP8 with fallback disabled,
+zero-data-retention requested and provider data collection denied. Append-only
+reported cost is $2.97091685, below the $19 operational and $20 authorised caps.
+The postflight account endpoint shows a $3.00574212 usage delta and
+$18.529134759 remaining. Its $0.03482527 excess over the attempt ledger is left
+unattributed because the account total can include other activity or billing
+reconciliation.
+
+Each prompt has at least 99% strict-success coverage. Their strict intersection
+is 9,195/9,317 events (98.69%) across all 33 firms. The original 99% common-
+sample gate is preserved as a pre-return v1 NO-GO. Before any price or return
+access, a disclosed v2 feasibility amendment fixes a round 98% floor and keeps
+only the unchanged strict five-prompt intersection; no invalid label is coerced,
+imputed or retried further. This deviation is an outcome-blind data-quality
+decision, not preregistration.
+
+Selection uses 2024 only. Each prompt forms the fixed strongest-positive versus
+strongest-negative sparse portfolio at its declared one- or five-session
+horizon, pays 10 bps per side and is compared with existing Gemma and FinBERT on
+the exact same formation dates. All five prompt portfolios have negative gross
+and net means. The least negative, delayed-reaction h5, earns -0.99 gross and
+-4.01 net bps per session, net Sharpe -1.10 and -9.96% ending return. Zero
+prompts pass the economic/stability gate, so no 2025 prompt portfolio or
+comparison is computed and 2026 remains sealed.
+
+The first successful notebook execution nevertheless attached event-level 2025
+returns before selection, although it computed and displayed no 2025 portfolio,
+comparison or statistic. That test-boundary incident is hash-recorded. The
+corrected final execution attaches 2024 events first and materialises zero 2025
+event return when selection is empty. The result is therefore a transparent
+retrospective prompt-engineering null, not a pristine one-shot confirmation and
+not proof that no possible prompt can add value.
+
+## Structured Anticipated-Reaction Score — 2026-08-13
+
+Notebook 84 is the researcher's final requested prompt sensitivity after seeing
+Notebook 83. It removes the novelty question because a model reading one current
+headline cannot establish whether the information is new. The hosted request
+also omits every earlier headline. From the current Reuters headline and named
+target only, Gemma must separately report target specificity, better/worse/
+unclear versus expectations, temporary/persistent/unclear implications, down/
+flat-or-unclear/up first tradable reaction, and a final score on the fixed
+−1, −0.75, ..., +1 grid. The score is directional reaction sentiment, not a
+percentage-return forecast.
+
+The prompt, schema, h1 sparse portfolio, 10-bps cost and 2024 selection gate are
+fixed before prices. DeepInfra shared-pool overload creates 79 API and six
+transport failures in the first pass. A single low-concurrency cleanup leaves
+3,241/3,242 strict 2024 scores (99.97%) and one uncoerced invalid output across
+all 33 companies. Append-only reported cost is $0.18951202. The postflight
+account delta is $0.19209614, leaving $18.337038619; its $0.00258412 excess is
+not attributed. No earlier headline is sent and no fallback provider is used.
+
+Chronological hosted scoring is tightened before returns: score 2024 first,
+request 2025 scores only if selection passes, and never score 2026 for this
+retrospective arm. The 2024 h1 book forms on 234/251 sessions. Its gross mean is
+already negative at −2.59 bps/session; mean net is −19.67 bps/session, gross/net
+Sharpe −0.287/−2.178, net ending return −40.53%, drawdown −45.08%, and
+annualised turnover 215.16. It is positive and beats each same-date scorer only
+in Q4. Selection fails, so 2025 and 2026 remain unscored and no 2025 event
+return is materialised.
+
+The mechanism is useful despite the null: explicit reaction wording produces a
+nonzero score on 52.14% of strict events and many more h1 formation sessions,
+but the additional directional activity is wrong before costs and especially
+damaging after turnover. Do not reverse the sign or tune wording, score grid,
+neutral policy, breadth, horizon, cost or portfolio on the opened year. This
+rejects the specified reaction-score construction, not all possible prompts.
 
 ## Superseded July 12 Design
 

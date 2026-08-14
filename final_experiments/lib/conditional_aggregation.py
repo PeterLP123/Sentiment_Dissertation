@@ -173,6 +173,78 @@ def hac_mean_coefficient(
     }
 
 
+def hac_regime_mean_contrast(
+    daily: pd.DataFrame,
+    *,
+    coefficient_col: str = "beta_negative_share",
+    date_col: str = "session_date",
+    regime_col: str = "regime",
+    reference: str = "development",
+    comparison: str = "evaluation",
+    hac_lags: int = 5,
+) -> dict[str, float | int | str]:
+    """Estimate a predeclared difference in daily-coefficient means.
+
+    The binary-regime slope is ``comparison - reference``. HAC inference is
+    applied after sorting the combined daily coefficient series by session,
+    so the result tests a level shift without treating significance in one
+    regime and non-significance in another as evidence that the regimes differ.
+    """
+
+    import statsmodels.api as sm
+
+    required = {coefficient_col, date_col, regime_col}
+    if missing := required - set(daily.columns):
+        raise ValueError(f"daily coefficients missing columns: {sorted(missing)}")
+    if reference == comparison:
+        raise ValueError("reference and comparison regimes must differ")
+
+    use = daily.loc[:, [date_col, regime_col, coefficient_col]].copy()
+    use[date_col] = pd.to_datetime(use[date_col], errors="coerce").dt.normalize()
+    use[coefficient_col] = pd.to_numeric(use[coefficient_col], errors="coerce")
+    use = use.loc[use[regime_col].isin([reference, comparison])]
+    finite = np.isfinite(use[coefficient_col].to_numpy(dtype=float))
+    use = use.loc[use[date_col].notna() & finite].sort_values(date_col, kind="mergesort")
+    if use[date_col].duplicated().any():
+        raise ValueError("daily coefficient series must contain at most one row per session")
+
+    counts = use[regime_col].value_counts()
+    for regime in (reference, comparison):
+        if int(counts.get(regime, 0)) < 2:
+            raise ValueError(f"regime {regime!r} needs at least two daily coefficients")
+
+    indicator = (use[regime_col] == comparison).astype(float).to_numpy()
+    design = np.column_stack([np.ones(len(use), dtype=float), indicator])
+    model = sm.OLS(use[coefficient_col].to_numpy(dtype=float), design).fit(
+        cov_type="HAC",
+        cov_kwds={"maxlags": min(hac_lags, len(use) - 1)},
+    )
+    estimate = float(model.params[1])
+    se = float(model.bse[1])
+    critical = 1.959963984540054
+    reference_values = use.loc[use[regime_col] == reference, coefficient_col]
+    comparison_values = use.loc[use[regime_col] == comparison, coefficient_col]
+    return {
+        "contrast": f"{comparison}_minus_{reference}",
+        "coefficient": coefficient_col,
+        "reference": reference,
+        "comparison": comparison,
+        "reference_estimate": float(reference_values.mean()),
+        "comparison_estimate": float(comparison_values.mean()),
+        "estimate": estimate,
+        "se": se,
+        "t": float(model.tvalues[1]),
+        "p_two_sided": float(model.pvalues[1]),
+        "ci_low": estimate - critical * se,
+        "ci_high": estimate + critical * se,
+        "n_reference": int(len(reference_values)),
+        "n_comparison": int(len(comparison_values)),
+        "n_clusters": int(len(use)),
+        "hac_lags": int(hac_lags),
+        "inference": "daily_cross_sectional_rank_coefficient_regime_contrast_hac",
+    }
+
+
 def conditional_negative_share_test(
     frame: pd.DataFrame,
     *,
@@ -202,11 +274,7 @@ def conditional_negative_share_test(
     )
     summary.update(
         {
-            "n_rows_complete": int(
-                frame[[date_col, outcome_col, mean_col, negative_share_col, count_col]]
-                .dropna()
-                .shape[0]
-            ),
+            "n_rows_complete": int(frame[[date_col, outcome_col, mean_col, negative_share_col, count_col]].dropna().shape[0]),
             "minimum_names": int(min_names),
             "expected_direction": "negative",
         }
@@ -223,4 +291,5 @@ __all__ = [
     "conditional_negative_share_test",
     "daily_conditional_rank_coefficients",
     "hac_mean_coefficient",
+    "hac_regime_mean_contrast",
 ]

@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "status": "completed_postflight_read_only_audit",
+  "recorded_at_utc": "2026-08-13T10:02:17Z",
+  "parent_spec": "final_experiments/frozen_specs/lseg_structured_reaction_score_v1_20260813.json",
+  "scoring_scope": {
+    "end_entry_session_exclusive": "2025-01-01",
+    "parent_events": 3242,
+    "strict_successes": 3241,
+    "strict_success_share": 0.9996915484,
+    "remaining_invalid_outputs": 1,
+    "companies": 33,
+    "years_scored": [2024],
+    "years_deliberately_unscored": [2025, 2026]
+  },
+  "usage": {
+    "append_only_attempt_reported_cost_usd": 0.18951202,
+    "account_total_usage_before_usd": 111.470865241,
+    "account_total_usage_after_usd": 111.662961381,
+    "observed_account_usage_delta_usd": 0.19209614,
+    "unattributed_difference_usd": 0.00258412,
+    "remaining_credit_usd": 18.337038619,
+    "combined_notebook83_and_84_attempt_cost_usd": 3.16042887,
+    "cumulative_authorised_maximum_usd": 20.0,
+    "cumulative_operational_ceiling_usd": 19.0,
+    "within_both_limits": true
+  },
+  "route_and_payload": {
+    "provider": "DeepInfra only",
+    "model": "google/gemma-4-26b-a4b-it",
+    "quantization": "fp8",
+    "fallbacks_used": false,
+    "earlier_headlines_sent": false,
+    "newness_assessed": false,
+    "payload": "current Reuters headline plus target-company name and symbol only"
+  },
+  "economic_gate": {
+    "selection_year": 2024,
+    "passed": false,
+    "gross_mean_bps_session": -2.5896183151,
+    "net_mean_bps_session": -19.6658308464,
+    "net_sharpe": -2.1782907185,
+    "total_return_net": -0.4053291753,
+    "positive_quarters": 1,
+    "beat_same_date_gemma_quarters": 1,
+    "beat_same_date_finbert_quarters": 1,
+    "evaluation_2025_scores_requested": false,
+    "evaluation_2025_returns_materialised": false,
+    "numeric_2026_prices_parsed": 0,
+    "confirmation_returns_materialised": 0
+  },
+  "interpretation": "The structured anticipated-reaction sentiment score fails before costs and after costs. The account-level delta is a conservative cross-check; its small excess over the append-only attempt ledger is not attributed because account totals can include reconciliation or other activity."
+}

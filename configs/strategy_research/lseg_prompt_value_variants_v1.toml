@@ -1,0 +1,72 @@
+[experiment]
+id = "lseg_prompt_economic_value_v1"
+model_id = "google/gemma-4-26b-a4b-it"
+provider = "DeepInfra"
+quantization = "fp8"
+temperature = 0.0
+max_tokens = 120
+
+[[prompts]]
+id = "reaction_h1_direct_v1"
+horizon_sessions = 1
+task_prompt = """
+Estimate the direction of the TARGET COMPANY'S market-adjusted open-to-next-open
+stock return after this headline becomes tradable. Focus on information that is
+newly public in CURRENT HEADLINE. A reported price move, market-movers list,
+analyst opinion, vague rumour, or generic sector news is not itself a catalyst.
+Use earlier headlines only to decide whether the information is new. Assign
+probabilities to negative, neutral, and positive next-session reactions.
+"""
+
+[[prompts]]
+id = "reaction_h5_delayed_v1"
+horizon_sessions = 5
+task_prompt = """
+Estimate the direction of the TARGET COMPANY'S cumulative market-adjusted stock
+return over the next two to five trading sessions. Focus on information whose
+implication may be incorporated with delay; do not reward a headline merely for
+describing a price move that has already happened. Use earlier headlines only
+to judge whether the information is new. Assign probabilities to negative,
+neutral, and positive two-to-five-session reactions.
+"""
+
+[[prompts]]
+id = "cashflow_revision_h5_v1"
+horizon_sessions = 5
+task_prompt = """
+Act as a fundamental analyst. Decide whether CURRENT HEADLINE changes expected
+future cash flows, financing costs, asset value, legal or regulatory exposure,
+or durable operating risk for the TARGET COMPANY. Translate that revision into
+the likely direction of its market-adjusted return over the next two to five
+trading sessions. Ignore generic emotional tone, price-only news, and facts with
+no concrete target-company consequence. Use earlier headlines only to judge
+newness. Assign negative, neutral, and positive probabilities.
+"""
+
+[[prompts]]
+id = "surprise_catalyst_h5_v1"
+horizon_sessions = 5
+task_prompt = """
+Act as a sceptical catalyst analyst. Score only the expectation-changing part
+of CURRENT HEADLINE for the TARGET COMPANY over the next two to five trading
+sessions. Give more weight to realised outcomes, quantified changes, binding
+decisions, earnings or guidance surprises, contract wins or losses, financing,
+and legal or regulatory resolutions. Treat proposals, rumours, repetitions,
+routine scheduling, analyst commentary, and already-reported price moves as
+neutral unless they add a concrete new fact. Use earlier headlines only to
+judge newness. Assign negative, neutral, and positive probabilities.
+"""
+
+[[prompts]]
+id = "redteam_consensus_h5_v1"
+horizon_sessions = 5
+task_prompt = """
+Evaluate CURRENT HEADLINE for the TARGET COMPANY over the next two to five
+trading sessions by internally considering the strongest negative, neutral,
+and positive interpretations. Choose a directional probability only when the
+target-specific economic evidence remains persuasive after that red-team
+check; otherwise concentrate probability on neutral. Do not use outside
+knowledge, price movements, analyst opinions, generic sector tone, rumours, or
+repeated information as directional evidence. Use earlier headlines only to
+judge newness.
+"""

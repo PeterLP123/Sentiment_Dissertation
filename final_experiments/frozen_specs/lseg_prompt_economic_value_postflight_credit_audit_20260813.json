@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "status": "completed_postflight_read_only_audit",
+  "endpoint": "https://openrouter.ai/api/v1/credits",
+  "preflight": {
+    "total_credits_usd": 130.0,
+    "total_usage_usd": 108.465123121,
+    "remaining_credit_usd": 21.534876879
+  },
+  "postflight": {
+    "total_credits_usd": 130.0,
+    "total_usage_usd": 111.470865241,
+    "remaining_credit_usd": 18.529134759
+  },
+  "observed_account_usage_delta_usd": 3.00574212,
+  "append_only_prompt_attempt_reported_cost_usd": 2.97091685,
+  "unattributed_difference_usd": 0.03482527,
+  "interpretation": "The append-only attempt ledger is authoritative for this experiment under the frozen specification. The account-level usage delta is a conservative cross-check and may include other account activity or billing reconciliation, so the 0.03482527 difference is not attributed to the prompt experiment.",
+  "authorised_maximum_usd": 20.0,
+  "operational_ceiling_usd": 19.0,
+  "within_both_limits": true,
+  "api_key_recorded": false
+}

@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "status": "frozen_before_paid_calls_and_new_prompt_scores",
+  "frozen_at_utc": "2026-08-12T23:04:21Z",
+  "experiment": {
+    "notebook": "final_experiments/83_lseg_prompt_economic_value.ipynb",
+    "title": "LSEG-33 prompt-engineered economic-value experiment",
+    "objective": "Test whether target-specific return, cash-flow-revision, surprise-catalyst or red-team prompt wording improves later net economic value relative to the existing generic Gemma and FinBERT scores.",
+    "evidence_role": "user-authorised iterative retrospective prompt search with a fixed chronological selection/test boundary",
+    "confirmation_claim_allowed": false,
+    "deployment_claim_allowed": false
+  },
+  "authorisation_and_spend": {
+    "researcher_instruction": "Use the available OpenRouter credit to try prompt engineering on the scoring and test whether economic value improves.",
+    "external_payload": "selected Reuters headline, named target company and at most five strictly earlier same-company Reuters headlines",
+    "route": "OpenRouter to DeepInfra only; Gemma 4 26B FP8; no fallback; ZDR requested; provider data collection denied",
+    "maximum_authorised_spend_usd": 20.0,
+    "operational_spend_ceiling_usd": 19.0,
+    "credit_preflight": {
+      "checked_at_utc": "2026-08-12T23:01:00Z",
+      "total_credits_usd": 130.0,
+      "total_usage_usd": 108.465123121,
+      "remaining_credit_usd": 21.534876879
+    },
+    "authoritative_cost": "sum of reported_cost_usd over append-only prompt attempt rows",
+    "stop_rule": "No request family may start if a one-character-per-token conservative estimate plus recorded experiment cost exceeds 19 dollars."
+  },
+  "population": {
+    "expected_events": 9317,
+    "universe": "same 33 LSEG companies; Reuters NS:RTRS only",
+    "filters": "explicit target, non-market-price/technical, one original-33 company, first story-family release",
+    "spacing": "one deterministic headline per company and first executable XNYS session",
+    "entry_timing": "first XNYS open at least 15 minutes after availability",
+    "context": "at most five strictly earlier same-company Reuters headlines in the frozen 30-day window, used only for newness",
+    "prices_or_returns_used_for_population": false,
+    "licensed_text_local_and_gitignored": true
+  },
+  "model_and_request": {
+    "model_id": "google/gemma-4-26b-a4b-it",
+    "provider": "DeepInfra",
+    "quantization": "fp8",
+    "temperature": 0.0,
+    "max_tokens": 120,
+    "structured_output": "strict six-field probability/evidence JSON",
+    "prompt_config": {
+      "path": "configs/strategy_research/lseg_prompt_value_variants_v1.toml",
+      "sha256": "36c16773be99110484deb1db0691aba9e9564a1f65ef974b302839fb720c9d7a"
+    },
+    "prompts": [
+      {
+        "id": "reaction_h1_direct_v1",
+        "horizon_sessions": 1,
+        "prompt_hash": "72c5e624f37e2598"
+      },
+      {
+        "id": "reaction_h5_delayed_v1",
+        "horizon_sessions": 5,
+        "prompt_hash": "47dfe0197e633eb5"
+      },
+      {
+        "id": "cashflow_revision_h5_v1",
+        "horizon_sessions": 5,
+        "prompt_hash": "799c6495532f32fb"
+      },
+      {
+        "id": "surprise_catalyst_h5_v1",
+        "horizon_sessions": 5,
+        "prompt_hash": "53f09fe527afa0fa"
+      },
+      {
+        "id": "redteam_consensus_h5_v1",
+        "horizon_sessions": 5,
+        "prompt_hash": "96e31b708e8dd306"
+      }
+    ]
+  },
+  "signal_translation": {
+    "signed_probability": "p_positive minus p_negative",
+    "materiality_weights": {
+      "none": 0.0,
+      "low": 0.25,
+      "moderate": 0.5,
+      "high": 0.75,
+      "very_high": 1.0
+    },
+    "trade_signal": "signed_probability times materiality weight when target_specific and new_information are both true; otherwise zero",
+    "portfolio": "one strongest positive and one strongest negative company per formation session, plus 0.5 and minus 0.5, overlapping equal tranches for the prompt's fixed horizon",
+    "cost_bps_per_side": 10.0,
+    "no_leverage": true,
+    "cash_included": true,
+    "drift_aware_turnover_and_final_liquidation": true
+  },
+  "chronology": {
+    "selection_start": "2024-01-01",
+    "selection_end_exclusive": "2025-01-01",
+    "test_start": "2025-01-01",
+    "test_end_exclusive": "2026-01-01",
+    "confirmation_start": "2026-01-01",
+    "confirmation_prices_or_returns_may_be_parsed": false,
+    "test_boundary": "2025 prompt outcomes are opened only if at least one prompt passes the fixed 2024 selection gate."
+  },
+  "selection": {
+    "candidate_count": 5,
+    "minimum_formation_sessions": 80,
+    "eligibility": [
+      "2024 net mean after 10 bps per side is positive",
+      "2024 net Sharpe is positive",
+      "2024 break-even cost is at least 10 bps per side",
+      "net mean is positive in at least three of four non-overlapping 2024 quarters",
+      "net mean beats the exact same-date existing Gemma comparator in at least three of four 2024 quarters"
+    ],
+    "score": "minimum quarterly net-mean difference versus the same-date existing Gemma comparator",
+    "tie_breakers": [
+      "higher mean quarterly difference versus same-date Gemma",
+      "higher 2024 net Sharpe",
+      "lower annualised turnover",
+      "lexicographic prompt id"
+    ],
+    "no_eligible_candidate_action": "stop without opening any 2025 prompt strategy result"
+  },
+  "test": {
+    "comparators": [
+      "cash",
+      "existing generic Gemma polarity on the selected prompt's exact formation dates",
+      "existing FinBERT polarity on the selected prompt's exact formation dates"
+    ],
+    "primary_family": [
+      "selected prompt net mean versus cash",
+      "selected prompt minus same-date Gemma net mean",
+      "selected prompt minus same-date FinBERT net mean"
+    ],
+    "inference": "paired circular moving-block bootstrap with 10-session blocks and 9999 replications",
+    "multiplicity": "Benjamini-Hochberg across the three primary tests at q=0.05",
+    "economic_gate": [
+      "all three primary effects positive with BH q below 0.05",
+      "2025 net Sharpe positive",
+      "2025 break-even cost at least 10 bps per side",
+      "2025 total net return positive",
+      "net mean positive in both 2025 halves"
+    ],
+    "diagnostics": [
+      "gross and net paths",
+      "cost and turnover",
+      "formation activity",
+      "company concentration",
+      "leave-one-company-out replay",
+      "prompt agreement and evidence-filter rates"
+    ]
+  },
+  "immutable_inputs": {
+    "price_export": {
+      "path": "Data/derived/prices/lseg_us_sector_33_2024_2026.csv",
+      "sha256": "ecdd3c67d9b61183c6beebba6330918eace8a165764dba695ed87b86b6cec24a"
+    },
+    "company_config": {
+      "path": "configs/lseg_us_sector_33_6m.toml",
+      "sha256": "3f8964779306ff3e3cca25ee6f98017bd4a5990d02559b89819554b880a1d537"
+    },
+    "implementation_at_freeze": {
+      "path": "final_experiments/lib/lseg_prompt_value.py",
+      "sha256": "15043b8fef777867a01d66b91632631ee35dfe4a6450ef575059464cef0af8ae"
+    },
+    "git_commit_at_freeze": "6488d02d99311573c83dd233fc9538402fded46c"
+  },
+  "claim_boundaries": [
+    "This is an iterative, retrospective prompt search on already-opened 2024-2025 LSEG outcomes, not independent confirmation.",
+    "The source regimes remain separate from FNSPID and 2026 remains sealed.",
+    "A positive result must beat same-date existing scorers after costs; gross loss avoidance or lower activity alone is not prompt information value.",
+    "No prompt wording, signal weight, horizon, cost, threshold, universe or portfolio rule may be changed after the new prompt scores are opened."
+  ],
+  "reproducibility": {
+    "seed": 20260813,
+    "bootstrap_replications": 9999,
+    "block_length_sessions": 10,
+    "aggregate_outputs_only": true,
+    "licensed_text_exported": false
+  }
+}

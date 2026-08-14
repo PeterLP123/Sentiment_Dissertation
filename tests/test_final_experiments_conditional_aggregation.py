@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from final_experiments.lib.conditional_aggregation import (
     conditional_negative_share_test,
     daily_conditional_rank_coefficients,
+    hac_regime_mean_contrast,
 )
 
 
@@ -75,3 +77,29 @@ def test_rank_deficient_and_small_sessions_are_counted() -> None:
         "dates_constant_variable": 1,
         "dates_rank_deficient": 0,
     }
+
+
+def test_hac_regime_contrast_estimates_comparison_minus_reference() -> None:
+    development_dates = pd.date_range("2019-11-01", periods=20, freq="B")
+    evaluation_dates = pd.date_range("2020-01-02", periods=20, freq="B")
+    common_variation = np.sin(np.arange(20)) * 0.002
+    daily = pd.DataFrame(
+        {
+            "session_date": [*development_dates, *evaluation_dates],
+            "regime": ["development"] * 20 + ["evaluation"] * 20,
+            "beta_negative_share": [
+                *(-0.01 + common_variation),
+                *(-0.03 + common_variation),
+            ],
+        }
+    )
+
+    result = hac_regime_mean_contrast(daily, hac_lags=2)
+
+    assert result["contrast"] == "evaluation_minus_development"
+    assert result["reference_estimate"] == pytest.approx(float((-0.01 + common_variation).mean()))
+    assert result["comparison_estimate"] == pytest.approx(float((-0.03 + common_variation).mean()))
+    assert result["estimate"] == pytest.approx(-0.02)
+    assert result["ci_high"] < 0
+    assert result["n_reference"] == 20
+    assert result["n_comparison"] == 20

@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "status": "authorised_before_external_prompt_scoring",
+  "authorised_at_utc": "2026-08-12T23:13:47Z",
+  "parent_spec": "final_experiments/frozen_specs/lseg_prompt_economic_value_v1_20260813.json",
+  "researcher_approval": "I approve sending the selected Reuters headlines, target-company names, and up to five earlier same-company Reuters headlines to OpenRouter, routed only to DeepInfra, for Gemma 4 26B FP8 prompt experiments under the stated no-retention controls, with a maximum spend of 20",
+  "approved_payload": [
+    "selected Reuters headline",
+    "target-company name and symbol",
+    "up to five strictly earlier same-company Reuters headlines"
+  ],
+  "approved_destination": {
+    "gateway": "OpenRouter",
+    "provider": "DeepInfra",
+    "model": "google/gemma-4-26b-a4b-it",
+    "quantization": "fp8"
+  },
+  "privacy_and_routing": {
+    "zero_data_retention_requested": true,
+    "provider_data_collection": "deny",
+    "fallbacks_allowed": false,
+    "reasoning_excluded": true
+  },
+  "maximum_spend_usd": 20.0,
+  "operational_spend_ceiling_usd": 19.0
+}

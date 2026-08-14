@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "status": "frozen_pre_outcome_amendment; not yet executed",
+  "frozen_at_utc": "2026-08-14T10:23:56Z",
+  "parent_spec": "final_experiments/frozen_specs/fnspid_evaluation_beyond_mean_replication_v1_20260812.json",
+  "parent_spec_sha256": "db8ccd7d7a659d7348e2ba39d43c3e6842100490ee04b2d5d9aa2248b1726283",
+  "authority": {
+    "source": "direct researcher instruction in the current Codex task",
+    "instruction": "Do this",
+    "scope": "Apply the proposed outcome-blind amendment and execute Notebook 75 exactly once."
+  },
+  "provenance_clarification": {
+    "design_state_commit_recorded_by_parent": "7d8c2f6d76c361854689617430a52a401ec0a12b",
+    "implementation_first_committed_at": "6488d02d99311573c83dd233fc9538402fded46c",
+    "interpretation": "The parent field identifies the repository state named when the design was frozen. The Notebook 75 implementation and parent freeze file first entered git together in commit 6488d02. This amendment preserves both facts rather than rewriting the parent after outcomes are known.",
+    "execution_provenance_rule": "The run manifest must record the exact source, helper, parent, amendment and input hashes plus the git status at execution."
+  },
+  "implementation_source": "final_experiments/75_fnspid_evaluation_beyond_mean_replication.py",
+  "implementation_source_sha256": "23c9f3738ce27843d85a1c772b856deeca768f23f7c4bffa6c7239cae39623ca",
+  "conditional_helper": "final_experiments/lib/conditional_aggregation.py",
+  "conditional_helper_sha256": "4336e2da2fff31d2a2c54ca5c38a7f615b6f31c611993a0bc60741b8102a2589",
+  "outcome_blind_additions": {
+    "prospective_power_context": {
+      "role": "interpretive context only; not an execution, selection or success gate",
+      "method": "Scale the frozen development HAC standard error by sqrt(2264 / 998), use the absolute development coefficient as the alternative, and use the conservative first BH-2 hurdle as two-sided alpha 0.025.",
+      "registered_approximate_power": 0.35433,
+      "registered_approximate_mde80": 0.013717,
+      "limitation": "This normal approximation assumes evaluation dependence and variance resemble development; the realised evaluation interval remains primary."
+    },
+    "temporal_stability_contrast": {
+      "estimand": "evaluation minus development difference in the mean daily all-firm-day beta_negative_share coefficient",
+      "method": "Stack the unchanged daily conditional-rank coefficients, regress them on an intercept and evaluation indicator, and use HAC lag 5 inference after sorting by session date.",
+      "reference": "development",
+      "comparison": "evaluation",
+      "expected_direction": "none",
+      "multiplicity": "one-member separately declared secondary stability family",
+      "decision_role": "diagnostic only; cannot rescue a failed Family A or Family B result and does not alter their multiplicity corrections",
+      "interpretation": "A non-significant evaluation coefficient is not by itself evidence that development and evaluation differ. Report the realised evaluation interval and the difference interval together."
+    },
+    "one_shot_guard": {
+      "rule": "Refuse execution whenever the output path already exists, including an empty or partial path.",
+      "output_path": "final_experiments/outputs/75_fnspid_evaluation_beyond_mean_replication",
+      "retry_policy": "No automatic retry. A failed run requires explicit researcher review and a separately recorded incident decision."
+    }
+  },
+  "unchanged_parent_contract": [
+    "The evaluation rows, outcome, nine aggregators, all-firm-day and n>=2 conditional members, HAC lags, BH corrections and expected directions are unchanged.",
+    "No trading, threshold, cost sweep, new horizon, sector, event type, prompt, alternative scorer, extra stratum or retuning is added.",
+    "The 2020-2023 period remains a chronological evaluation block rather than a pristine confirmatory holdout.",
+    "Null and opposite-signed results remain reportable outcomes and license no further evaluation search."
+  ]
+}
