@@ -4,7 +4,7 @@ This page maps the broader research workspace retained around the completed diss
 
 ## Exploratory notebook programme
 
-[`final_experiments/`](../final_experiments/README.md) preserves the full notebook-first closing programme, its frozen specifications, decision records, invalidations, and licence-safe aggregate outputs. Its long chain includes the selected beyond-the-mean analysis and later bounded investigations, including:
+[`final_experiments/`](../final_experiments/README.md) preserves the full notebook-first closing programme, its frozen specifications, decision records, invalidations, and licence-safe aggregate outputs. Its long chain includes the selected negative-story-share analysis and later bounded investigations, including:
 
 - Notebook 75: the one-shot 2020–2023 temporal evaluation;
 - Notebooks 79–84: robustness, economic-value, prompt, and structured-score diagnostics.

@@ -1,6 +1,8 @@
-# News sentiment beyond the mean
+# A Hard Negative-Story Threshold
 
-![News sentiment beyond the mean: measurement, timing and temporal replication](docs/assets/project-banner.svg)
+*Training-Period Association, Temporal Non-Replication and Economic Limits*
+
+![A Hard Negative-Story Threshold: Training-Period Association, Temporal Non-Replication and Economic Limits](docs/assets/project-banner.svg)
 
 **Does the mix of financial news tell us more than its average sentiment?** An MSc Computational Finance dissertation at UCL, with the submitted manuscript, reproducible aggregate evidence and the research code that led to it.
 
@@ -32,7 +34,7 @@ Coefficients describe daily cross-sectional **rank regressions**, not percentage
 
 ## Reproduce the published evidence
 
-With **Python 3.12, uv and Make** installed, run from the repository root:
+For exact artifact reproduction, use **macOS on Apple silicon, Python 3.12, uv and Make**. Run from the repository root:
 
 ```bash
 make setup

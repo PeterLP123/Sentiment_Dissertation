@@ -4,7 +4,7 @@ The completed dissertation project is [`submission/news-sentiment-beyond-mean/`]
 
 This directory documents the broader research workspace from which that final package was distilled. It includes reusable benchmark tooling and historical protocols, results, and runbooks. Use it to understand how the project developed; use the submission package when citing or reproducing the final study.
 
-![News sentiment beyond the mean](assets/project-banner.svg)
+![A Hard Negative-Story Threshold: Training-Period Association, Temporal Non-Replication and Economic Limits](assets/project-banner.svg)
 
 ## Start here
 

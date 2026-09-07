@@ -8,6 +8,13 @@ separate locked Python projects and should not share an environment.
 Prerequisites: Python 3.12, `uv`, and Make. The locked environments install
 the Python dependencies; TeX is needed only for a manuscript build.
 
+Exact-byte validation of the committed derived artifacts is supported on macOS
+ARM64. The final-submission CI job therefore uses GitHub's `macos-15` ARM64 runner
+with the locked Python 3.12 environment. Other platforms can produce numerically
+equivalent CSV, JSON, or rendered image outputs whose bytes differ, so they are not
+the reference environment for the 30-artifact byte comparison. This platform
+requirement does not relax the comparison or change the frozen artifacts.
+
 ## Validate the public snapshot
 
 From the repository root, install the final package and run its repository, prose,

@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: "Please cite the software repository and the final dissertation when using this work."
-title: "News sentiment beyond the mean"
+title: "A Hard Negative-Story Threshold: Training-Period Association, Temporal Non-Replication and Economic Limits"
 type: software
 authors:
   - family-names: "Prendergast"

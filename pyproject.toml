@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "sentiment-dissertation-benchmark"
 version = "0.1.0"
-description = "Benchmark, news-scoring and evaluation tools supporting the News Sentiment Beyond the Mean dissertation."
+description = "Research tools for A Hard Negative-Story Threshold: Training-Period Association, Temporal Non-Replication and Economic Limits."
 readme = "README.md"
 authors = [{name = "Peter Prendergast"}]
 requires-python = ">=3.12,<3.13"
