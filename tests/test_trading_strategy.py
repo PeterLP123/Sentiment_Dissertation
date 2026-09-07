@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from sentiment_benchmark.artifact_io import sha256_file
+from sentiment_benchmark.baselines import VaderSentiment
 from sentiment_benchmark.models import LLMResponseRecord
 from sentiment_benchmark.news_source import NewsArticleRecord, article_record_id, normalize_url
 from sentiment_benchmark.newsapi_source import NewsApiFetchResult
@@ -450,7 +451,11 @@ def test_strict_resume_identity_invalidates_changed_content_and_model_digest(tmp
     assert changed_client.calls == 1
 
 
-def test_end_to_end_runner_writes_meeting_artifacts(tmp_path: Path) -> None:
+def test_end_to_end_runner_writes_meeting_artifacts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "sentiment_benchmark.trading_strategy.classify_vader_text",
+        lambda _text: VaderSentiment("positive", 0.5),
+    )
     corpus = tmp_path / "tavily"
     corpus.mkdir()
     tavily_record = _record("https://tavily.test/apple", "Apple wins large contract", "2026-06-10T13:00:00Z")
@@ -536,7 +541,14 @@ aliases = ["Apple", "AAPL"]
     assert resumed.return_count == result.return_count
 
 
-def test_end_to_end_cross_sectional_run_writes_funded_artifacts_and_resumes(tmp_path: Path) -> None:
+def test_end_to_end_cross_sectional_run_writes_funded_artifacts_and_resumes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "sentiment_benchmark.trading_strategy.classify_vader_text",
+        lambda _text: VaderSentiment("positive", 0.5),
+    )
     corpus = tmp_path / "tavily"
     corpus.mkdir()
     record = _record("https://tavily.test/apple", "Apple wins large contract", "2026-06-10T13:00:00Z")

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import tomllib
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 
@@ -30,7 +32,14 @@ def _selected(session: str, symbol: str, direction: int = -1) -> SelectedSession
 
 
 def test_frozen_real_replication_contract_verifies_manifests_without_opening_prices() -> None:
-    frozen = load_frozen_replication("experiments/strategy_midcap_negative_h2_replication_20260717.toml")
+    config_path = Path("experiments/strategy_midcap_negative_h2_replication_20260717.toml")
+    with config_path.open("rb") as handle:
+        config = tomllib.load(handle)
+    local_manifests = (config["news"]["corpus_manifest"], config["prices"]["manifest_path"])
+    if any(not Path(path).is_file() for path in local_manifests):
+        pytest.skip("historical LSEG manifest check requires authorised local collection and price manifests")
+    # Present but changed inputs still fail the frozen loader's hash checks.
+    frozen = load_frozen_replication(config_path)
 
     assert frozen.experiment_id == "strategy-midcap-negative-h2-replication-20260717"
     assert frozen.payload["strategy"]["holding_sessions"] == 2

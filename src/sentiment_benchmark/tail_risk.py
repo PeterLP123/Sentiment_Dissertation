@@ -918,7 +918,7 @@ def kupiec_test(hits: np.ndarray, alpha: float) -> dict[str, float]:
     }
 
 
-def christoffersen_tests(hits: np.ndarray, alpha: float) -> dict[str, float]:
+def christoffersen_tests(hits: np.ndarray, alpha: float) -> dict[str, float | dict[str, int]]:
     """Christoffersen independence and conditional-coverage tests."""
 
     hits = np.asarray(hits, dtype=int)

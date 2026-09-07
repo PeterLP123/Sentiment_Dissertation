@@ -14,12 +14,14 @@ from urllib.parse import unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_PATH = ROOT / "submission" / "source_manifest.json"
+SUBMISSION_ROOT = "submission/news-sentiment-beyond-mean"
 MAX_PUBLIC_FILE_SIZE = 10 * 1024 * 1024
 FORBIDDEN_SUFFIXES = {".arrow", ".db", ".feather", ".jsonl", ".parquet", ".pickle", ".pkl", ".sqlite", ".sqlite3"}
 CACHE_PARTS = {".mypy_cache", ".pytest_cache", ".ruff_cache", ".venv", "__pycache__", "checkpoints"}
 RAW_TEXT_COLUMNS = {"article", "body", "headline", "headline_text", "main_body", "prompt", "raw_response", "text"}
 CSV_RAW_TEXT_EXACT = {"Data/derived/labeled/financial_sentiment_v2.csv"}
 CSV_RAW_TEXT_PREFIXES = ("Data/source/fiqa_2018/", "tests/fixtures/")
+# Required entry points; link validation also covers every other visible Markdown file.
 MARKDOWN_FILES = (
     "README.md",
     "CONTRIBUTING.md",
@@ -31,6 +33,7 @@ MARKDOWN_FILES = (
     "submission/README.md",
 )
 LINK_PATTERN = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
+FENCE_PATTERN = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 
 
 def git_visible_files() -> set[str]:
@@ -43,9 +46,11 @@ def git_visible_files() -> set[str]:
     return {item.decode("utf-8") for item in result.stdout.split(b"\0") if item}
 
 
-def safe_relative_path(value: str) -> bool:
+def safe_relative_path(value: object) -> bool:
+    if not isinstance(value, str) or not value or value == ".":
+        return False
     path = PurePosixPath(value)
-    return bool(value) and not path.is_absolute() and "\\" not in value and ".." not in path.parts and str(path) == value
+    return not path.is_absolute() and "\\" not in value and ".." not in path.parts and str(path) == value
 
 
 def sha256(path: Path) -> str:
@@ -60,7 +65,7 @@ def validate_manifest(visible: set[str]) -> tuple[list[str], int]:
     errors: list[str] = []
     try:
         manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         return [f"cannot read submission manifest: {exc}"], 0
     if not isinstance(manifest, dict):
         return ["submission manifest must be a JSON object"], 0
@@ -69,25 +74,35 @@ def validate_manifest(visible: set[str]) -> tuple[list[str], int]:
         "transfer_date": "2026-09-01",
         "integration_audit_date": "2026-09-07",
         "experiment_rerun": False,
-        "package_root": "submission/news-sentiment-beyond-mean",
+        "package_root": SUBMISSION_ROOT,
     }
     for key, expected in expected_metadata.items():
         if manifest.get(key) != expected:
             errors.append(f"manifest field {key!r} must be {expected!r}")
     source = manifest.get("source", {})
+    if not isinstance(source, dict):
+        errors.append("manifest source must be a JSON object")
+        source = {}
     if source.get("repository") != "https://github.com/PeterLP123/news-sentiment-beyond-mean":
         errors.append("manifest source repository is incorrect")
     if source.get("commit") != "59577da111f69f1d7678b922d3d753208bfba1ef":
         errors.append("manifest source commit is incorrect")
     amendments = manifest.get("amendments", [])
+    if not isinstance(amendments, list) or any(not isinstance(item, dict) for item in amendments):
+        errors.append("manifest amendments must be a list of JSON objects")
+        amendments = []
     if not any(item.get("path") == "manuscript/main.tex" for item in amendments):
         errors.append("manifest does not record the candidate-number amendment")
     entries = manifest.get("files", [])
+    if not isinstance(entries, list):
+        return [*errors, "manifest files must be a list of JSON objects"], 0
     if len(entries) != 387:
         errors.append(f"manifest must contain 387 submitted files, found {len(entries)}")
-    package_root = manifest.get("package_root", "")
     listed: set[str] = set()
-    for entry in entries:
+    for index, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            errors.append(f"manifest files[{index}] must be a JSON object")
+            continue
         relative = entry.get("path", "")
         if not safe_relative_path(relative):
             errors.append(f"unsafe manifest path: {relative!r}")
@@ -96,7 +111,7 @@ def validate_manifest(visible: set[str]) -> tuple[list[str], int]:
             errors.append(f"duplicate manifest path: {relative}")
             continue
         listed.add(relative)
-        project_relative = f"{package_root}/{relative}"
+        project_relative = f"{SUBMISSION_ROOT}/{relative}"
         path = ROOT / project_relative
         if project_relative not in visible:
             errors.append(f"submitted file is not Git-visible: {project_relative}")
@@ -107,13 +122,17 @@ def validate_manifest(visible: set[str]) -> tuple[list[str], int]:
         if not path.is_file():
             errors.append(f"submitted file is missing: {project_relative}")
             continue
-        actual_size = path.stat().st_size
+        try:
+            actual_size = path.stat().st_size
+            actual_hash = sha256(path)
+        except OSError as exc:
+            errors.append(f"cannot read submitted file {relative}: {exc}")
+            continue
         if actual_size != entry.get("size"):
             errors.append(f"submitted file size changed: {relative} (expected {entry.get('size')}, found {actual_size})")
-        actual_hash = sha256(path)
         if actual_hash != entry.get("sha256"):
             errors.append(f"submitted file hash changed: {relative} (expected {entry.get('sha256')}, found {actual_hash})")
-    visible_package = {path.removeprefix(f"{package_root}/") for path in visible if path.startswith(f"{package_root}/")}
+    visible_package = {path.removeprefix(f"{SUBMISSION_ROOT}/") for path in visible if path.startswith(f"{SUBMISSION_ROOT}/")}
     extras = sorted(visible_package - listed)
     if extras:
         errors.append("unmanifested files in submitted package: " + ", ".join(extras))
@@ -159,13 +178,19 @@ def validate_public_files(visible: set[str]) -> list[str]:
 
 
 def markdown_targets(source: str) -> list[str]:
+    """Find inline links outside fenced code blocks; remote URLs are filtered later."""
     targets: list[str] = []
-    in_fence = False
+    fence = ""
     for line in source.splitlines():
-        if line.lstrip().startswith((chr(96) * 3, "~~~")):
-            in_fence = not in_fence
+        match = FENCE_PATTERN.match(line)
+        if match:
+            marker, suffix = match.groups()
+            if not fence:
+                fence = marker
+            elif marker[0] == fence[0] and len(marker) >= len(fence) and not suffix.strip():
+                fence = ""
             continue
-        if not in_fence:
+        if not fence:
             targets.extend(match.group(1).strip() for match in LINK_PATTERN.finditer(line))
     return targets
 
@@ -176,15 +201,29 @@ def validate_markdown_links(visible: set[str]) -> tuple[list[str], int]:
     for relative in MARKDOWN_FILES:
         if relative not in visible:
             errors.append(f"required documentation file is not Git-visible: {relative}")
-            continue
+    for relative in sorted(path for path in visible if path.lower().endswith(".md")):
         source_path = ROOT / relative
-        for raw_target in markdown_targets(source_path.read_text(encoding="utf-8")):
+        if source_path.is_symlink():
+            errors.append(f"documentation file must not be a symlink: {relative}")
+            continue
+        try:
+            source = source_path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            errors.append(f"cannot read documentation file {relative}: {exc}")
+            continue
+        for raw_target in markdown_targets(source):
             target = raw_target
+            if not target:
+                continue
             if target.startswith("<") and ">" in target:
                 target = target[1 : target.index(">")]
             else:
                 target = target.split(maxsplit=1)[0]
-            parsed = urlsplit(target)
+            try:
+                parsed = urlsplit(target)
+            except ValueError as exc:
+                errors.append(f"{relative}: invalid link {raw_target!r}: {exc}")
+                continue
             if parsed.scheme or parsed.netloc or target.startswith("#"):
                 continue
             decoded = unquote(parsed.path)
@@ -198,7 +237,7 @@ def validate_markdown_links(visible: set[str]) -> tuple[list[str], int]:
                 errors.append(f"{relative}: link escapes repository: {raw_target}")
                 continue
             if candidate.is_dir():
-                prefix = project_relative.rstrip("/") + "/"
+                prefix = "" if candidate == ROOT else project_relative.rstrip("/") + "/"
                 if not any(path.startswith(prefix) for path in visible):
                     errors.append(f"{relative}: linked directory is empty in Git: {raw_target}")
             elif project_relative not in visible:

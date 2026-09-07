@@ -40,6 +40,14 @@ The canonical project lives under [`submission/news-sentiment-beyond-mean/`](../
 
 The [research archive map](research_archive.md) separates the exploratory notebook programme, frozen protocols, historical result records, and operational runbooks. The large [`final_experiments/`](../final_experiments/README.md) tree is preserved for auditability; the final package provides the concise reproduction surface.
 
+| Archive area | Guide |
+| --- | --- |
+| Experiment notebooks and decision records | [`final_experiments/`](../final_experiments/README.md) |
+| Historical command-line tools | [`scripts/`](../scripts/README.md) |
+| Dated and provider-specific parameters | [`configs/`](../configs/README.md) |
+| Result narratives and compact evidence | [`reports/`](../reports/README.md) |
+| Superseded manuscript workspace | [`dissertation/`](../dissertation/README.md) |
+
 ## Evidence boundary
 
 The final result is a bounded temporal non-replication and timing diagnosis. The training-period negative-story-share association does not establish a deployable signal: row-level availability times are missing, the unchanged coefficient reverses sign in the frozen 2020–2023 evaluation, and trading evidence is adverse after costs. See the final package for the exact estimands, intervals, specifications, and limitations.

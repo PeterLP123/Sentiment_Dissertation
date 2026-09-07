@@ -173,6 +173,11 @@ Data/news/tavily_news_20260607T120000Z_bank-earnings-sentiment/
 | `articles.csv` | Compact review table for spreadsheets and manual article screening. |
 | `manifest.json` | Query parameters, fetched timestamp, counts, package/schema version, request IDs, usage, and failure counts. |
 
+Both Tavily and NewsAPI stream these files into a temporary directory and publish
+the timestamped directory only after every file is complete. Existing destinations
+are preserved; repeated or concurrent saves use `_2`, `_3`, and subsequent suffixes.
+Handled write failures clean up the temporary directory and leave earlier corpora intact.
+
 ## Record Fields
 
 `articles.jsonl` preserves fields only when Tavily returns them.

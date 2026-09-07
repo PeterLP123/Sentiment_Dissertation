@@ -136,6 +136,31 @@ def test_newsapi_surfaces_api_error() -> None:
 
 
 @pytest.mark.parametrize(
+    ("failure", "message"),
+    [
+        ("transport", "after 1 attempt"),
+        ("http", "HTTP 503"),
+        ("json", "invalid JSON"),
+    ],
+)
+def test_newsapi_wraps_terminal_request_errors(failure: str, message: str) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if failure == "transport":
+            raise httpx.ConnectError("offline", request=request)
+        if failure == "http":
+            return httpx.Response(503, text="unavailable")
+        return httpx.Response(200, text="not json")
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
+            client = NewsApiClient(api_key="key", client=http_client, retries=0)
+            return await client.fetch(make_newsapi_fetch_config(query="markets"))
+
+    with pytest.raises(NewsApiError, match=message):
+        asyncio.run(run())
+
+
+@pytest.mark.parametrize(
     ("kwargs", "message"),
     [
         ({"query": ""}, "query is required"),

@@ -39,6 +39,19 @@ These records remain valid for their declared samples and dates. They are not ad
 | [Mid-cap deadline runbook](midcap_deadline_runbook.md) | Completed July 2026 collection run. |
 | [Historical strategy pipeline](strategy_research_pipeline.md) | Point-in-time portfolio and evaluation infrastructure. |
 
+## Repository map
+
+| Path | Status |
+| --- | --- |
+| [`final_experiments/`](../final_experiments/README.md) | Notebook-first research record with frozen decisions, invalidations, and selected aggregate outputs. |
+| [`scripts/`](../scripts/README.md) | Historical collection, scoring, validation, and report commands; some require licensed inputs or external services. |
+| [`configs/`](../configs/README.md) | Dated experiment and provider parameters retained for traceability. |
+| [`reports/`](../reports/README.md) | Licence-safe result narratives, manifests, and compact evidence. |
+| [`dissertation/`](../dissertation/README.md) | Earlier manuscript workspace, retained as superseded history. |
+
+The paths above remain stable for provenance. Their contents document the project as it
+developed and are not alternative entry points to the submitted study.
+
 ## Data and source-control boundary
 
 Licensed article corpora, model checkpoints, caches, databases, and large generated outputs remain local or ignored. The public sentiment benchmark and its documented source fixtures are tracked, alongside code, specifications, manifests, documentation, notebooks and aggregate evidence. Do not manually edit the default benchmark dataset at `Data/derived/labeled/financial_sentiment_v2.csv`; rebuild it with `scripts/build_labeled_dataset.py` if its provenance logic changes.

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-import csv
 import json
 import os
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -12,6 +12,7 @@ from typing import Any
 import httpx
 
 from .env import load_env_file
+from .news_artifacts import publish_news_corpus
 from .news_source import (
     DEFAULT_NEWS_OUTPUT_DIR,
     TEXT_QUALITY_MISSING,
@@ -181,10 +182,14 @@ class NewsApiClient:
                     message = payload.get("message") or "NewsAPI request failed"
                     raise NewsApiError(f"{code}: {message}")
                 return payload
-            except (httpx.TimeoutException, httpx.TransportError):
+            except (httpx.TimeoutException, httpx.TransportError) as exc:
                 if attempt >= self.retries:
-                    raise
+                    raise NewsApiError(f"NewsAPI request failed after {attempt + 1} attempt(s): {exc}") from exc
                 await asyncio.sleep(min(2**attempt, 8))
+            except httpx.HTTPStatusError as exc:
+                raise NewsApiError(f"NewsAPI returned HTTP {exc.response.status_code}") from exc
+            except json.JSONDecodeError as exc:
+                raise NewsApiError("NewsAPI returned invalid JSON") from exc
         raise NewsApiError("NewsAPI retry loop ended unexpectedly")
 
     async def check(self, query: str = "financial markets") -> NewsApiFetchResult:
@@ -263,40 +268,23 @@ def write_newsapi_corpus(
     result: NewsApiFetchResult,
     output_root: str | Path = DEFAULT_NEWS_OUTPUT_DIR,
 ) -> NewsOutputPaths:
-    root = Path(output_root)
     timestamp = result.fetched_at.replace("+00:00", "Z").replace(":", "").replace("-", "").split(".")[0]
     base_name = f"newsapi_news_{timestamp}_{_slugify(result.config.query)}"
-    output_dir = root / base_name
-    suffix = 1
-    while output_dir.exists():
-        suffix += 1
-        output_dir = root / f"{base_name}_{suffix}"
-    output_dir.mkdir(parents=True, exist_ok=False)
+    fields = ["record_id", "title", "url", "published_date", "source_name", "text_quality", "snippet_preview"]
 
-    jsonl_path = output_dir / "articles.jsonl"
-    csv_path = output_dir / "articles.csv"
-    manifest_path = output_dir / "manifest.json"
-    with jsonl_path.open("w", encoding="utf-8") as file:
-        for record in result.records:
-            file.write(json.dumps(asdict(record), sort_keys=True, ensure_ascii=False) + "\n")
-    with csv_path.open("w", newline="", encoding="utf-8") as file:
-        fields = ["record_id", "title", "url", "published_date", "source_name", "text_quality", "snippet_preview"]
-        writer = csv.DictWriter(file, fieldnames=fields)
-        writer.writeheader()
+    def csv_rows() -> Iterable[dict[str, Any]]:
         for record in result.records:
             source = record.raw_search_result.get("source")
             source_name = source.get("name") if isinstance(source, dict) else ""
-            writer.writerow(
-                {
-                    "record_id": record.record_id,
-                    "title": record.title or "",
-                    "url": record.url,
-                    "published_date": record.published_date or "",
-                    "source_name": source_name or "",
-                    "text_quality": record.text_quality,
-                    "snippet_preview": _preview(record.snippet),
-                }
-            )
+            yield {
+                "record_id": record.record_id,
+                "title": record.title or "",
+                "url": record.url,
+                "published_date": record.published_date or "",
+                "source_name": source_name or "",
+                "text_quality": record.text_quality,
+                "snippet_preview": _preview(record.snippet),
+            }
     manifest = {
         "schema_version": NEWSAPI_SCHEMA_VERSION,
         "source": "newsapi",
@@ -307,14 +295,20 @@ def write_newsapi_corpus(
         "total_results": result.total_results,
         "pages_fetched": result.pages_fetched,
         "files": {
-            "articles_jsonl": jsonl_path.name,
-            "articles_csv": csv_path.name,
-            "manifest_json": manifest_path.name,
+            "articles_jsonl": "articles.jsonl",
+            "articles_csv": "articles.csv",
+            "manifest_json": "manifest.json",
         },
         "notes": [
             "NewsAPI supplies titles, descriptions, and discovery metadata rather than full article bodies.",
             "Records are unlabeled source material and do not modify the benchmark dataset.",
         ],
     }
-    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True, ensure_ascii=False), encoding="utf-8")
-    return NewsOutputPaths(output_dir, jsonl_path, csv_path, manifest_path)
+    return publish_news_corpus(
+        output_root,
+        base_name,
+        jsonl_rows=(asdict(record) for record in result.records),
+        csv_fieldnames=fields,
+        csv_rows=csv_rows(),
+        manifest=manifest,
+    )

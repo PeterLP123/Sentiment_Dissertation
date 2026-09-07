@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import hashlib
-import json
 import os
 import re
 from collections import Counter
@@ -13,6 +11,7 @@ from typing import Any, Literal
 from urllib.parse import ParseResult, urlparse, urlunparse
 
 from .env import load_env_file
+from .news_artifacts import NewsOutputPaths, publish_news_corpus
 from .utils import normalize_domains as _normalize_domains
 from .utils import preview as _preview
 from .utils import slugify as _slugify
@@ -148,14 +147,6 @@ class NewsFetchResult:
     search_usage: dict[str, Any] = field(default_factory=dict)
     extract_usage: dict[str, Any] = field(default_factory=dict)
     failed_extractions: list[dict[str, Any]] = field(default_factory=list)
-
-
-@dataclass(frozen=True)
-class NewsOutputPaths:
-    output_dir: Path
-    articles_jsonl: Path
-    articles_csv: Path
-    manifest_json: Path
 
 
 def _import_async_tavily_client() -> type:
@@ -416,11 +407,13 @@ class TavilyNewsClient:
     async def close(self) -> None:
         if self._client is None or not self._owns_client:
             return
-        closer = getattr(self._client, "aclose", None) or getattr(self._client, "close", None)
-        if callable(closer):
-            result = closer()
-            if hasattr(result, "__await__"):
-                await result
+        client, self._client = self._client, None
+        closer = getattr(client, "aclose", None) or getattr(client, "close", None)
+        if not callable(closer):
+            return
+        result = closer()
+        if hasattr(result, "__await__"):
+            await result
 
     def _get_client(self) -> Any:
         if self._client is None:
@@ -574,57 +567,38 @@ class TavilyNewsClient:
 
 
 def write_news_corpus(result: NewsFetchResult, output_root: str | Path = DEFAULT_NEWS_OUTPUT_DIR) -> NewsOutputPaths:
-    output_root = Path(output_root)
     timestamp = result.fetched_at.replace("+00:00", "Z").replace(":", "").replace("-", "")
     timestamp = timestamp.split(".")[0]
     directory_name = f"tavily_news_{timestamp}_{_slugify(result.config.query)}"
-    output_dir = output_root / directory_name
-    suffix = 1
-    while output_dir.exists():
-        suffix += 1
-        output_dir = output_root / f"{directory_name}_{suffix}"
-    output_dir.mkdir(parents=True, exist_ok=False)
-
-    jsonl_path = output_dir / "articles.jsonl"
-    csv_path = output_dir / "articles.csv"
-    manifest_path = output_dir / "manifest.json"
-
-    with jsonl_path.open("w", encoding="utf-8") as file:
-        for record in result.records:
-            file.write(json.dumps(asdict(record), sort_keys=True, ensure_ascii=False) + "\n")
-
-    with csv_path.open("w", newline="", encoding="utf-8") as file:
-        fieldnames = [
-            "record_id",
-            "title",
-            "url",
-            "published_date",
-            "published_date_source",
-            "score",
-            "extraction_status",
-            "text_quality",
-            "extract_error",
-            "snippet_preview",
-            "article_text_preview",
-        ]
-        writer = csv.DictWriter(file, fieldnames=fieldnames)
-        writer.writeheader()
-        for record in result.records:
-            writer.writerow(
-                {
-                    "record_id": record.record_id,
-                    "title": record.title or "",
-                    "url": record.url,
-                    "published_date": record.published_date or "",
-                    "published_date_source": record.published_date_source,
-                    "score": record.score if record.score is not None else "",
-                    "extraction_status": record.extraction_status,
-                    "text_quality": record.text_quality,
-                    "extract_error": record.extract_error or "",
-                    "snippet_preview": _preview(record.snippet),
-                    "article_text_preview": _preview(record.article_text),
-                }
-            )
+    fieldnames = [
+        "record_id",
+        "title",
+        "url",
+        "published_date",
+        "published_date_source",
+        "score",
+        "extraction_status",
+        "text_quality",
+        "extract_error",
+        "snippet_preview",
+        "article_text_preview",
+    ]
+    csv_rows = (
+        {
+            "record_id": record.record_id,
+            "title": record.title or "",
+            "url": record.url,
+            "published_date": record.published_date or "",
+            "published_date_source": record.published_date_source,
+            "score": record.score if record.score is not None else "",
+            "extraction_status": record.extraction_status,
+            "text_quality": record.text_quality,
+            "extract_error": record.extract_error or "",
+            "snippet_preview": _preview(record.snippet),
+            "article_text_preview": _preview(record.article_text),
+        }
+        for record in result.records
+    )
 
     failed_count = sum(1 for record in result.records if record.extraction_status == "failed")
     text_quality_counts = dict(sorted(Counter(record.text_quality for record in result.records).items()))
@@ -644,19 +618,20 @@ def write_news_corpus(result: NewsFetchResult, output_root: str | Path = DEFAULT
         "search_usage": result.search_usage,
         "extract_usage": result.extract_usage,
         "files": {
-            "articles_jsonl": jsonl_path.name,
-            "articles_csv": csv_path.name,
-            "manifest_json": manifest_path.name,
+            "articles_jsonl": "articles.jsonl",
+            "articles_csv": "articles.csv",
+            "manifest_json": "manifest.json",
         },
         "notes": [
             "Records are unlabeled source material and are not benchmark rows.",
             "Benchmark datasets are not modified by this workflow.",
         ],
     }
-    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True, ensure_ascii=False), encoding="utf-8")
-    return NewsOutputPaths(
-        output_dir=output_dir,
-        articles_jsonl=jsonl_path,
-        articles_csv=csv_path,
-        manifest_json=manifest_path,
+    return publish_news_corpus(
+        output_root,
+        directory_name,
+        jsonl_rows=(asdict(record) for record in result.records),
+        csv_fieldnames=fieldnames,
+        csv_rows=csv_rows,
+        manifest=manifest,
     )

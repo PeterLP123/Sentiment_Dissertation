@@ -71,8 +71,14 @@ make benchmark-setup
 make benchmark-check
 ```
 
-These commands validate the public benchmark and focused statistical tests. They do not
-run paid model calls, collect news, or execute the historical notebook chain.
+These commands install the locked development and plotting extras, validate the public
+dataset, lint `src/`, `tests/` and `scripts/`, type-check the library, and run the full
+root pytest suite. Optional model integrations skip when their dependencies are absent;
+the historical LSEG manifest test skips without its licensed local manifests. Skip
+reasons are shown in the test summary. The public checks use fixtures and mocked
+providers; they do not run paid model calls, collect news, or execute the historical
+notebook chain. Individual gates are available as
+`make benchmark-test`, `make benchmark-lint` and `make benchmark-types`.
 
 ## Full computational replay
 

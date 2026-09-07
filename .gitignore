@@ -73,10 +73,9 @@ models/
 checkpoints/
 artifacts/
 exports/
-# Stray root-level outputs/ from older Week 4 gist commands that used cwd-relative
-# --output-dir before clean_lseg_articles.py resolved paths under week_4_tasks/.
-# so it never shadows the tracked week_4_tasks/outputs/.gitignore. Keeps
-# licensed LSEG story text out of version control.
+# Ignore stray root-level outputs from older commands that used a path relative
+# to the working directory. This keeps licensed LSEG story text out of version
+# control.
 /outputs/
 # Final-experiments phase: generated panels, figures, tables and fitted models may
 # contain licensed LSEG/FNSPID headline text. Promote only aggregate, licence-safe

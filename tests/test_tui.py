@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import sqlite3
 import threading
 from pathlib import Path
@@ -30,6 +31,83 @@ def _make_app(tmp_path: Path) -> SentimentBenchmarkApp:
     app.selected_models = []
     app._model_names = {}
     return app
+
+
+def test_tui_session_save_failure_preserves_previous_state(tmp_path: Path, monkeypatch, caplog) -> None:
+    app = _make_app(tmp_path)
+    previous = b'{"selected_models": ["previous/model"]}\n'
+    app._session_path.write_bytes(previous)
+
+    def fail_replace(*args, **kwargs):
+        raise OSError("simulated replace failure")
+
+    monkeypatch.setattr("sentiment_benchmark.artifact_io.os.replace", fail_replace)
+    with caplog.at_level(logging.WARNING, logger="sentiment_benchmark.tui_run"):
+        app._save_session()
+
+    assert app._session_path.read_bytes() == previous
+    assert list(tmp_path.glob(".tui_session.json.*.tmp")) == []
+    assert "Could not save TUI session state" in caplog.text
+
+
+def test_tui_queue_save_failure_preserves_previous_state(tmp_path: Path, monkeypatch, caplog) -> None:
+    app = _make_app(tmp_path)
+    previous = b'[{"uid": "previous"}]\n'
+    app._queue_path.write_bytes(previous)
+
+    def fail_replace(*args, **kwargs):
+        raise OSError("simulated replace failure")
+
+    monkeypatch.setattr("sentiment_benchmark.artifact_io.os.replace", fail_replace)
+    with caplog.at_level(logging.WARNING, logger="sentiment_benchmark.tui_queue"):
+        app._save_queue()
+
+    assert app._queue_path.read_bytes() == previous
+    assert list(tmp_path.glob(".tui_queue.json.*.tmp")) == []
+    assert "Could not save TUI queue state" in caplog.text
+
+
+def test_tui_malformed_state_is_ignored_and_logged(tmp_path: Path, caplog) -> None:
+    app = _make_app(tmp_path)
+    app._session_path.write_text("{broken", encoding="utf-8")
+    app._queue_path.write_text("[broken", encoding="utf-8")
+
+    with caplog.at_level(logging.WARNING):
+        app._load_session()
+        app._load_queue()
+
+    assert app.selected_models == []
+    assert app._experiment_queue == []
+    assert "Could not load TUI session state" in caplog.text
+    assert "Could not load TUI queue state" in caplog.text
+
+
+def test_tui_crash_logging_setup_is_idempotent(tmp_path: Path, monkeypatch) -> None:
+    import sentiment_benchmark.tui as tui_module
+
+    root_logger = logging.getLogger()
+    original_handlers = list(root_logger.handlers)
+    original_level = root_logger.level
+    enabled_files = []
+    monkeypatch.setattr(tui_module, "_LOG_PATH", tmp_path / "tui.log")
+    monkeypatch.setattr(tui_module, "_CRASH_LOG_PATH", tmp_path / "tui_crash.log")
+    monkeypatch.setattr(tui_module, "_CRASH_LOGGING_CONFIGURED", False)
+    monkeypatch.setattr(tui_module, "_CRASH_FILE", None)
+    monkeypatch.setattr(tui_module.faulthandler, "enable", lambda *, file: enabled_files.append(file))
+
+    try:
+        tui_module._setup_crash_logging()
+        tui_module._setup_crash_logging()
+
+        assert len(root_logger.handlers) == len(original_handlers) + 1
+        assert len(enabled_files) == 1
+    finally:
+        for handler in root_logger.handlers[len(original_handlers) :]:
+            root_logger.removeHandler(handler)
+            handler.close()
+        root_logger.setLevel(original_level)
+        if tui_module._CRASH_FILE is not None:
+            tui_module._CRASH_FILE.close()
 
 
 def _seed_run_with_metrics(db_path: Path, model_id: str = "openai/test-model") -> int:

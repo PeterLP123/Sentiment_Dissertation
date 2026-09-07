@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import pandas as pd
 import pytest
 
@@ -140,6 +142,8 @@ def test_complete_collection_baselines_are_resumable(tmp_path, monkeypatch) -> N
             yield [SoftSentiment("negative", 0.1, 0.7, 0.2)]
 
     monkeypatch.setattr(headline_return_study, "iter_finbert_text_batches", fake_finbert_batches)
+    package_versions = {"nltk": "test-nltk", "torch": "test-torch", "transformers": "test-transformers"}
+    monkeypatch.setattr(headline_return_study.importlib.metadata, "version", package_versions.__getitem__)
     output = tmp_path / "complete_baselines.csv"
 
     revision = "4556d13015211d73dccd3fdd39d39232506f3e43"
@@ -165,10 +169,11 @@ def test_complete_collection_baselines_are_resumable(tmp_path, monkeypatch) -> N
     assert output.read_bytes() == initial_bytes
     assert not scores.duplicated(["headline_sha256", "baseline"]).any()
     assert set(scores["baseline"]) == {"finbert", "vader"}
-    manifest = pd.read_json(first.manifest_path, typ="series")
+    manifest = json.loads(first.manifest_path.read_text(encoding="utf-8"))
     assert manifest["status"] == "completed"
     assert manifest["counts"]["remaining"] == 0
     assert manifest["models"]["finbert"]["revision_enforced"] is True
+    assert manifest["environment"]["packages"] == package_versions
     assert manifest["inference"]["local_files_only_enforced"] is True
     assert local_only_calls == ["positive headline", "negative headline"]
     with pytest.raises(ValueError, match="different or unenforced FinBERT provenance"):
@@ -198,6 +203,7 @@ def test_vader_compound_scoring_writes_canonical_labels_and_manifest(tmp_path, m
         return VaderSentiment("positive", 0.62) if "great" in text else VaderSentiment("neutral", 0.0)
 
     monkeypatch.setattr(headline_return_study, "classify_vader_text", fake_classify)
+    monkeypatch.setattr(headline_return_study.importlib.metadata, "version", lambda name: {"nltk": "test-nltk"}[name])
     output = tmp_path / "compound.csv"
 
     summary = score_collection_vader_compound(tmp_path / "collection", output)
@@ -207,11 +213,12 @@ def test_vader_compound_scoring_writes_canonical_labels_and_manifest(tmp_path, m
     assert set(scores["baseline"]) == {"vader_compound"}
     assert list(scores["label"]) == ["positive", "neutral"]
     assert list(scores["compound"]) == [0.62, 0.0]
-    manifest = pd.read_json(summary.manifest_path, typ="series")
+    manifest = json.loads(summary.manifest_path.read_text(encoding="utf-8"))
     assert manifest["status"] == "completed"
     assert manifest["counts"]["remaining"] == 0
     assert manifest["models"]["vader_compound"]["classification"] == "compound_threshold"
     assert manifest["models"]["vader_compound"]["threshold"] == 0.05
+    assert manifest["environment"]["packages"] == {"nltk": "test-nltk"}
     assert manifest["inference"]["local_files_only_enforced"] is True
     with pytest.raises(FileExistsError, match="refusing to overwrite"):
         score_collection_vader_compound(tmp_path / "collection", output)

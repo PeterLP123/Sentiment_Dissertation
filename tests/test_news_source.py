@@ -1,5 +1,6 @@
 import asyncio
 import json
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -44,6 +45,28 @@ class FakeTavilyClient:
 
     async def aclose(self) -> None:
         self.closed = True
+
+
+def test_tavily_owned_client_close_is_idempotent() -> None:
+    async def scenario() -> None:
+        fake = FakeTavilyClient(search_payload={"results": []})
+        close_calls = 0
+
+        async def close() -> None:
+            nonlocal close_calls
+            close_calls += 1
+
+        fake.aclose = close
+        client = TavilyNewsClient(api_key="key")
+        client._client = fake
+
+        await client.close()
+        await client.close()
+
+        assert close_calls == 1
+        assert client._client is None
+
+    run(scenario())
 
 
 def test_tavily_news_fetch_merges_search_and_extract_and_dedupes() -> None:
@@ -337,3 +360,128 @@ def test_write_news_corpus_writes_jsonl_csv_and_manifest(tmp_path: Path) -> None
     assert manifest["failed_extraction_count"] == 0
     assert manifest["usable_record_count"] == 1
     assert manifest["text_quality_counts"] == {"ok": 1}
+
+
+def test_write_news_corpus_uses_collision_suffix(tmp_path: Path) -> None:
+    result = NewsFetchResult(
+        config=make_news_fetch_config(query="bank earnings", max_results=1),
+        fetched_at="2026-06-07T12:00:00+00:00",
+        records=[],
+    )
+
+    first = write_news_corpus(result, tmp_path)
+    second = write_news_corpus(result, tmp_path)
+
+    assert second.output_dir == first.output_dir.with_name(f"{first.output_dir.name}_2")
+    assert first.manifest_json.exists()
+    assert second.manifest_json.exists()
+
+
+def test_write_news_corpus_does_not_replace_empty_directory(tmp_path: Path) -> None:
+    result = NewsFetchResult(
+        config=make_news_fetch_config(query="bank earnings", max_results=1),
+        fetched_at="2026-06-07T12:00:00+00:00",
+        records=[],
+    )
+    reserved = tmp_path / "tavily_news_20260607T120000Z_bank-earnings"
+    reserved.mkdir()
+
+    paths = write_news_corpus(result, tmp_path)
+
+    assert reserved.exists()
+    assert list(reserved.iterdir()) == []
+    assert paths.output_dir.name.endswith("_2")
+
+
+def test_write_news_corpus_skips_reserved_name(tmp_path: Path) -> None:
+    result = NewsFetchResult(
+        config=make_news_fetch_config(query="bank earnings", max_results=1),
+        fetched_at="2026-06-07T12:00:00+00:00",
+        records=[],
+    )
+    reservation = tmp_path / ".tavily_news_20260607T120000Z_bank-earnings.publish-lock"
+    reservation.mkdir()
+
+    paths = write_news_corpus(result, tmp_path)
+
+    assert reservation.exists()
+    assert paths.output_dir.name == "tavily_news_20260607T120000Z_bank-earnings_2"
+
+
+def test_write_news_corpus_preserves_dangling_symlink(tmp_path: Path) -> None:
+    result = NewsFetchResult(
+        config=make_news_fetch_config(query="bank earnings", max_results=1),
+        fetched_at="2026-06-07T12:00:00+00:00",
+        records=[],
+    )
+    destination = tmp_path / "tavily_news_20260607T120000Z_bank-earnings"
+    destination.symlink_to(tmp_path / "missing-target", target_is_directory=True)
+
+    paths = write_news_corpus(result, tmp_path)
+
+    assert destination.is_symlink()
+    assert not destination.exists()
+    assert paths.output_dir.name == "tavily_news_20260607T120000Z_bank-earnings_2"
+
+
+def test_write_news_corpus_serializes_concurrent_publishers(tmp_path: Path) -> None:
+    result = NewsFetchResult(
+        config=make_news_fetch_config(query="bank earnings", max_results=1),
+        fetched_at="2026-06-07T12:00:00+00:00",
+        records=[],
+    )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        paths = list(executor.map(lambda _: write_news_corpus(result, tmp_path), range(2)))
+
+    assert {path.output_dir.name for path in paths} == {
+        "tavily_news_20260607T120000Z_bank-earnings",
+        "tavily_news_20260607T120000Z_bank-earnings_2",
+    }
+    assert all(path.manifest_json.exists() for path in paths)
+    assert not list(tmp_path.glob(".*.publish-lock"))
+
+
+def test_write_news_corpus_cleans_up_failed_publication(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import sentiment_benchmark.news_artifacts as news_artifacts
+
+    original_dumps = news_artifacts.json.dumps
+
+    def failing_dumps(value, *args, **kwargs) -> str:
+        if isinstance(value, dict) and value.get("source") == "tavily":
+            raise OSError("disk full")
+        return original_dumps(value, *args, **kwargs)
+
+    monkeypatch.setattr(news_artifacts.json, "dumps", failing_dumps)
+    result = NewsFetchResult(
+        config=make_news_fetch_config(query="bank earnings", max_results=1),
+        fetched_at="2026-06-07T12:00:00+00:00",
+        records=[],
+    )
+
+    with pytest.raises(OSError, match="disk full"):
+        write_news_corpus(result, tmp_path)
+
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_write_news_corpus_does_not_treat_permission_error_as_collision(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import sentiment_benchmark.news_artifacts as news_artifacts
+
+    def deny_rename(_source: Path, _destination: Path) -> None:
+        raise PermissionError("read-only destination")
+
+    monkeypatch.setattr(news_artifacts.os, "rename", deny_rename)
+    result = NewsFetchResult(
+        config=make_news_fetch_config(query="bank earnings", max_results=1),
+        fetched_at="2026-06-07T12:00:00+00:00",
+        records=[],
+    )
+
+    with pytest.raises(PermissionError, match="read-only destination"):
+        write_news_corpus(result, tmp_path)
+
+    assert list(tmp_path.iterdir()) == []

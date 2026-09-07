@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 import os
 import shlex
 import sys
 import time
 import tomllib
 from contextlib import AsyncExitStack
+from datetime import date
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -158,16 +160,20 @@ def _comma_separated_floats(value: str, *, option: str) -> tuple[float, ...]:
         raise typer.BadParameter(f"{option} must be a comma-separated numeric list") from exc
     if not parsed:
         raise typer.BadParameter(f"{option} cannot be empty")
+    if any(not math.isfinite(item) for item in parsed):
+        raise typer.BadParameter(f"{option} must contain only finite numbers")
     return parsed
 
 
-def _comma_separated_ints(value: str, *, option: str) -> tuple[int, ...]:
+def _comma_separated_ints(value: str, *, option: str, positive: bool = False) -> tuple[int, ...]:
     try:
         parsed = tuple(int(item.strip()) for item in value.split(",") if item.strip())
     except ValueError as exc:
         raise typer.BadParameter(f"{option} must be a comma-separated integer list") from exc
     if not parsed:
         raise typer.BadParameter(f"{option} cannot be empty")
+    if positive and any(item < 1 for item in parsed):
+        raise typer.BadParameter(f"{option} must contain positive integers")
     return parsed
 
 
@@ -1619,25 +1625,42 @@ def sweep_trading_strategy_command(
         strategy_obj = get_strategy(strategy)
     except KeyError as exc:
         raise typer.BadParameter(str(exc)) from exc
+    parsed_thresholds = _comma_separated_floats(thresholds, option="--thresholds")
+    parsed_horizons = _comma_separated_ints(horizons, option="--horizons", positive=True)
+    cutoff: date | None = None
+    if max_news_date is not None:
+        try:
+            cutoff = date.fromisoformat(max_news_date)
+        except ValueError as exc:
+            raise typer.BadParameter("--max-news-date must be an ISO date in YYYY-MM-DD format") from exc
+        if cutoff.isoformat() != max_news_date:
+            raise typer.BadParameter("--max-news-date must be an ISO date in YYYY-MM-DD format")
     try:
         signals = [s for s in load_signals_csv(run_dir / "daily_signals.csv") if s.scorer_id == scorer]
         prices = load_prices_csv(prices_path if prices_path is not None else run_dir / "prices.csv")
     except OSError as exc:
         raise typer.BadParameter(str(exc)) from exc
-    if max_news_date is not None:
-        signals = [s for s in signals if s.news_date <= max_news_date]
+    if cutoff is not None:
+        try:
+            parsed_signal_dates = [(signal, date.fromisoformat(signal.news_date)) for signal in signals]
+        except ValueError as exc:
+            raise typer.BadParameter(
+                f"{run_dir / 'daily_signals.csv'} contains an invalid news_date; expected YYYY-MM-DD"
+            ) from exc
+        if any(parsed.isoformat() != signal.news_date for signal, parsed in parsed_signal_dates):
+            raise typer.BadParameter(f"{run_dir / 'daily_signals.csv'} contains an invalid news_date; expected YYYY-MM-DD")
+        signals = [signal for signal, parsed in parsed_signal_dates if parsed <= cutoff]
     if not signals:
         raise typer.BadParameter(f"no daily signals for scorer {scorer!r} in {run_dir}")
     param_space = dict(strategy_obj.param_space())
-    param_space["threshold"] = tuple(float(value) for value in thresholds.split(",") if value.strip())
-    horizons_tuple = tuple(int(value) for value in horizons.split(",") if value.strip())
+    param_space["threshold"] = parsed_thresholds
     try:
         split_date = chronological_split_date([s.news_date for s in signals], train_fraction)
         results = sweep_strategy(
             signals,
             prices,
             strategy_obj,
-            horizons=horizons_tuple,
+            horizons=parsed_horizons,
             split_date=split_date,
             notional_usd=10_000.0,
             metric=metric,
@@ -2304,9 +2327,9 @@ def agreement_command(
 
 @app.command("tui")
 def tui() -> None:
-    from .tui import SentimentBenchmarkApp
+    from .tui import main
 
-    SentimentBenchmarkApp().run()
+    main()
 
 
 # ------------------------------------------------------------------

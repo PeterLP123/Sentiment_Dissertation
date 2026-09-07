@@ -21,6 +21,12 @@ sentiment-bench tui
 
 The app stores local session preferences in `results/tui_session.json`.
 
+Session preferences and the experiment queue are saved atomically, so an interrupted
+write preserves the previous file. The normal `sentiment-bench tui` launcher records
+application warnings in `results/tui.log` and hard-crash traces in
+`results/tui_crash.log`. Check the application log if settings fail to save or a saved
+state file cannot be read.
+
 On Windows, if `sentiment-bench` is not recognized, activate the virtual environment or run the executable directly:
 
 ```powershell

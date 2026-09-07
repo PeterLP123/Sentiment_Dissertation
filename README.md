@@ -92,6 +92,11 @@ make benchmark-check
 uv run sentiment-bench --help
 ```
 
+The benchmark check runs the full root test suite, Ruff and mypy, alongside public
+dataset validation. The [contribution guide](CONTRIBUTING.md) lists individual
+development commands, and the [script index](scripts/README.md) maps the earlier
+collection, scoring and reporting workflows.
+
 The default benchmark is the **5,947-row provenance-clean Financial PhraseBank/FiQA dataset**. The legacy `Data/data.csv` contains documented label corruption and is not the default. See the [dataset card](docs/dataset_card.md), [getting-started guide](docs/getting_started.md) and [CLI reference](docs/cli_reference.md).
 
 ## Data, citation and contributions

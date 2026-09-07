@@ -119,8 +119,6 @@ def test_finbert_cache_only_scoring_is_forwarded_to_transformers(monkeypatch) ->
     import sys
     import types
 
-    import torch
-
     pipeline_options: dict[str, object] = {}
 
     def fake_pipeline(_task: str, **kwargs):
@@ -140,10 +138,13 @@ def test_finbert_cache_only_scoring_is_forwarded_to_transformers(monkeypatch) ->
 
     fake_transformers = types.ModuleType("transformers")
     fake_transformers.pipeline = fake_pipeline  # type: ignore[attr-defined]
+    fake_torch = types.ModuleType("torch")
+    fake_torch.cuda = types.SimpleNamespace(is_available=lambda: False)  # type: ignore[attr-defined]
+    fake_torch.backends = types.SimpleNamespace(  # type: ignore[attr-defined]
+        mps=types.SimpleNamespace(is_available=lambda: False)
+    )
     monkeypatch.setitem(sys.modules, "transformers", fake_transformers)
-    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
-    if hasattr(torch.backends, "mps"):
-        monkeypatch.setattr(torch.backends.mps, "is_available", lambda: False)
+    monkeypatch.setitem(sys.modules, "torch", fake_torch)
 
     results = list(
         iter_finbert_text_batches(
@@ -200,9 +201,9 @@ def test_vader_baseline_if_available() -> None:
         _row(2, "Losses mounted as the company collapsed.", "negative"),
     ]
     try:
-        predictions = predict_baseline("vader", rows)
-    except Exception as exc:  # pragma: no cover - network/lexicon unavailable
-        pytest.skip(f"VADER unavailable: {exc}")
+        predictions = [score_vader_text(row.sentence, local_files_only=True).label for row in rows]
+    except (LookupError, RuntimeError) as exc:  # pragma: no cover - optional local lexicon unavailable
+        pytest.skip(f"cached VADER lexicon unavailable: {exc}")
     assert len(predictions) == len(rows)
     assert all(label in ALLOWED_LABELS for label in predictions)
 

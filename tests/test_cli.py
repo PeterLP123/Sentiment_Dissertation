@@ -14,6 +14,44 @@ from sentiment_benchmark.storage import BenchmarkStore
 runner = CliRunner()
 
 
+def test_cli_sweep_rejects_invalid_parameter_lists_before_reading_inputs() -> None:
+    cases = [
+        ("--thresholds", "not-a-number", "comma-separated numeric list"),
+        ("--thresholds", "nan", "finite numbers"),
+        ("--thresholds", "", "cannot be empty"),
+        ("--horizons", "0,1", "positive integers"),
+        ("--horizons", "", "cannot be empty"),
+    ]
+
+    for option, value, expected in cases:
+        result = runner.invoke(app, ["sweep-trading-strategy", "--run-dir", "missing", option, value])
+
+        assert result.exit_code != 0
+        assert expected in result.output
+        assert "Traceback" not in result.output
+
+
+def test_cli_sweep_rejects_malformed_max_news_date_before_reading_inputs() -> None:
+    result = runner.invoke(
+        app,
+        ["sweep-trading-strategy", "--run-dir", "missing", "--max-news-date", "20260907"],
+    )
+
+    assert result.exit_code != 0
+    assert "YYYY-MM-DD" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_cli_tui_delegates_to_logged_entrypoint(monkeypatch) -> None:
+    calls = []
+    monkeypatch.setattr("sentiment_benchmark.tui.main", lambda: calls.append("main"))
+
+    result = runner.invoke(app, ["tui"])
+
+    assert result.exit_code == 0
+    assert calls == ["main"]
+
+
 def test_cli_concurrency_default_is_provider_aware() -> None:
     from sentiment_benchmark.cli import _resolve_concurrency
     from sentiment_benchmark.constants import DEFAULT_CEREBRAS_CONCURRENCY
@@ -197,6 +235,25 @@ def test_cli_sweep_accepts_prices_override_and_news_date_cutoff(tmp_path: Path) 
 
     assert result.exit_code == 0, result.output
     assert (run_dir / "sweep.csv").exists()
+
+    with (run_dir / "daily_signals.csv").open("a", encoding="utf-8") as handle:
+        handle.write("AAPL,20260617,llm/test,1,1,0.5,positive,1,\n")
+    malformed_result = runner.invoke(
+        app,
+        [
+            "sweep-trading-strategy",
+            "--run-dir", str(run_dir),
+            "--scorer", "llm/test",
+            "--prices", str(prices_csv),
+            "--max-news-date", "2026-06-17",
+            "--thresholds", "0.0",
+            "--horizons", "1",
+        ],
+    )
+    assert malformed_result.exit_code != 0
+    assert "invalid news_date" in malformed_result.output
+    assert "YYYY-MM-DD" in malformed_result.output
+    assert "Traceback" not in malformed_result.output
 
 
 def test_cli_trading_strategy_dry_run_has_no_credential_dependency() -> None:
@@ -555,4 +612,3 @@ def test_cli_fetch_news_rejects_invalid_topic(tmp_path: Path) -> None:
 
     assert result.exit_code != 0
     assert "topic must be one of" in result.output
-

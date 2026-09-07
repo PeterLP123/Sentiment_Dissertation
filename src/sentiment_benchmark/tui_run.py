@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from contextlib import suppress
 from pathlib import Path
 from threading import Event as ThreadEvent
@@ -12,6 +13,7 @@ from textual.coordinate import Coordinate
 from textual.widgets import Button, DataTable, Input, ProgressBar, RadioButton, Select, Static, TextArea
 from textual.worker import WorkerFailed
 
+from .artifact_io import atomic_write_json
 from .dataset import compute_stats, load_dataset
 from .models import RunConfig
 from .news_source import NEWS_TIME_RANGES, NEWS_TOPICS
@@ -22,6 +24,8 @@ from .storage import BenchmarkStore
 from .tui_base import _CONFIRM_THRESHOLD, _VALIDATED_INPUTS, AppMixin
 from .tui_format import _count_text, _status_text
 from .tui_screens import ConfirmScreen
+
+logger = logging.getLogger(__name__)
 
 # (cache key, widget id, caster, low, high) for run settings persisted across sessions.
 _RUN_SETTING_FIELDS = (
@@ -39,7 +43,10 @@ class RunMixin(AppMixin):
         try:
             raw = self._session_path.read_text(encoding="utf-8")
             data = json.loads(raw)
-        except (OSError, ValueError):
+        except FileNotFoundError:
+            return
+        except (OSError, ValueError) as exc:
+            logger.warning("Could not load TUI session state from %s: %s", self._session_path, exc)
             return
         if not isinstance(data, dict):
             return
@@ -156,10 +163,9 @@ class RunMixin(AppMixin):
             **self._run_settings,
         }
         try:
-            self._session_path.parent.mkdir(parents=True, exist_ok=True)
-            self._session_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-        except OSError:
-            pass
+            atomic_write_json(self._session_path, payload)
+        except OSError as exc:
+            logger.warning("Could not save TUI session state to %s: %s", self._session_path, exc)
 
     def _refresh_prompt_preview(self) -> None:
         self.query_one("#prompt-preview", Static).update(

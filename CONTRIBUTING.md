@@ -35,7 +35,16 @@ make benchmark-setup
 make benchmark-check
 ```
 
-Run additional focused tests for the code you change. A manuscript rebuild requires
+`benchmark-check` validates the public dataset, runs Ruff across `src/`, `tests/`
+and `scripts/`, runs mypy on the library, and executes the full root pytest suite.
+The setup includes the locked plotting extra for figure tests. Optional model
+integrations skip when their dependencies are absent. A historical LSEG manifest
+test skips when its licensed local inputs are absent; present inputs still undergo
+the original hash checks. Pytest lists skip reasons in its summary. Model weights
+and licensed data are not needed for the public suite. Use `make benchmark-test`,
+`make benchmark-lint`, or `make benchmark-types` to run one gate during development.
+
+Run focused tests first for the code you change. A manuscript rebuild requires
 `latexmk` and can be checked with `make manuscript`; the preserved named submission
 PDF is not overwritten by that command.
 

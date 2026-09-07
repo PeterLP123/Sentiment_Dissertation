@@ -339,7 +339,7 @@ def build_v2_targets(
             for side_symbols, sign in ((longs, 1.0), (shorts, -1.0)):
                 side_budget = gross_exposure / 2
                 if weighting == "magnitude":
-                    magnitudes = {symbol: rows[symbol].magnitude for symbol in side_symbols}  # type: ignore[union-attr]
+                    magnitudes = {symbol: lookup[(session, symbol)].magnitude for symbol in side_symbols}
                     total = sum(magnitudes.values())
                 else:
                     magnitudes = dict.fromkeys(side_symbols, 1.0)
@@ -352,17 +352,17 @@ def build_v2_targets(
         positions = tuple(
             PositionTarget(
                 symbol=symbol,
-                action=float(rows[symbol].action) if rows[symbol] is not None else 0.0,
+                action=float(row.action) if row is not None else 0.0,
                 volatility=None,
                 raw_weight=weights[symbol],
                 target_weight=weights[symbol],
                 exclusion_reason=(
                     None
-                    if eligible or rows[symbol] is None or rows[symbol].action == 0  # type: ignore[union-attr]
+                    if eligible or row is None or row.action == 0
                     else "insufficient_opposite_leg"
                 ),
             )
-            for symbol in symbol_tuple
+            for symbol, row in rows.items()
         )
         long_exposure = sum(weight for weight in weights.values() if weight > 0)
         short_exposure = sum(-weight for weight in weights.values() if weight < 0)

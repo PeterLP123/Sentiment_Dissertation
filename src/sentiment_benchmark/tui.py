@@ -99,6 +99,8 @@ _LOG_PATH = Path("results/tui.log")
 _CRASH_LOG_PATH = Path("results/tui_crash.log")
 
 logger = logging.getLogger(__name__)
+_CRASH_LOGGING_CONFIGURED = False
+_CRASH_FILE = None
 
 
 class SentimentBenchmarkApp(BaselinesMixin, ModelsMixin, MonitorMixin, NewsMixin, QueueMixin, ResultsMixin, RunMixin, App):
@@ -1400,6 +1402,9 @@ class SentimentBenchmarkApp(BaselinesMixin, ModelsMixin, MonitorMixin, NewsMixin
 def _setup_crash_logging() -> None:
     """Leave a trace on disk when the TUI dies overnight: a rotating app log for
     handled failures plus faulthandler output for hard crashes."""
+    global _CRASH_FILE, _CRASH_LOGGING_CONFIGURED
+    if _CRASH_LOGGING_CONFIGURED:
+        return
     _LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     handler = RotatingFileHandler(_LOG_PATH, maxBytes=2_000_000, backupCount=2, encoding="utf-8")
     handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
@@ -1409,8 +1414,9 @@ def _setup_crash_logging() -> None:
         root.setLevel(logging.WARNING)
     logging.getLogger("sentiment_benchmark").setLevel(logging.INFO)
     # Kept open for the process lifetime so faulthandler can write during a crash.
-    crash_file = open(_CRASH_LOG_PATH, "a", encoding="utf-8")  # noqa: SIM115
-    faulthandler.enable(file=crash_file)
+    _CRASH_FILE = open(_CRASH_LOG_PATH, "a", encoding="utf-8")  # noqa: SIM115
+    faulthandler.enable(file=_CRASH_FILE)
+    _CRASH_LOGGING_CONFIGURED = True
 
 
 def main() -> None:

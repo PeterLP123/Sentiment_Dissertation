@@ -13,6 +13,7 @@ from threading import Event as ThreadEvent
 
 from textual.widgets import Button, DataTable, Input, Select, Static
 
+from .artifact_io import atomic_write_json
 from .dataset import compute_stats, load_dataset
 from .models import RunConfig
 from .prompts import make_prompt
@@ -322,15 +323,17 @@ class QueueMixin(AppMixin):
 
     def _save_queue(self) -> None:
         try:
-            self._queue_path.parent.mkdir(parents=True, exist_ok=True)
-            self._queue_path.write_text(json.dumps(self._experiment_queue, indent=2), encoding="utf-8")
-        except OSError:
-            pass
+            atomic_write_json(self._queue_path, self._experiment_queue)
+        except OSError as exc:
+            logger.warning("Could not save TUI queue state to %s: %s", self._queue_path, exc)
 
     def _load_queue(self) -> None:
         try:
             data = json.loads(self._queue_path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
+        except FileNotFoundError:
+            return
+        except (OSError, ValueError) as exc:
+            logger.warning("Could not load TUI queue state from %s: %s", self._queue_path, exc)
             return
         if not isinstance(data, list):
             return

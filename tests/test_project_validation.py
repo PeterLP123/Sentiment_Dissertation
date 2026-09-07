@@ -125,3 +125,63 @@ def test_manifest_rejects_unsafe_path_and_non_object_json(
     errors, count = check_project.validate_manifest(set())
     assert errors == ["submission manifest must be a JSON object"]
     assert count == 0
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("source", None, "manifest source must be a JSON object"),
+        ("amendments", [None], "manifest amendments must be a list of JSON objects"),
+        ("files", None, "manifest files must be a list of JSON objects"),
+        ("files", [None], "manifest files[0] must be a JSON object"),
+        ("files", [{"path": None}], "unsafe manifest path: None"),
+    ],
+)
+def test_malformed_manifest_fields_report_errors_without_crashing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    field: str,
+    value: object,
+    message: str,
+) -> None:
+    manifest = _manifest([])
+    manifest[field] = value
+    _configure_manifest(monkeypatch, tmp_path, manifest)
+
+    errors, _ = check_project.validate_manifest(set())
+
+    assert message in errors
+
+
+def test_links_are_checked_in_archive_docs_and_matching_code_fences_are_skipped(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "README.md").write_text("[root](.)\n", encoding="utf-8")
+    archive = tmp_path / "archive.md"
+    archive.write_text(
+        "````markdown\n```\n[example](not-a-file)\n~~~~\n````\n"
+        "[missing](missing.png)\n[empty]( )\n[home](README.md)\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(check_project, "ROOT", tmp_path)
+    monkeypatch.setattr(check_project, "MARKDOWN_FILES", ("README.md",))
+
+    errors, checked = check_project.validate_markdown_links({"README.md", "archive.md"})
+
+    assert checked == 3
+    assert errors == ["archive.md: local link is missing from Git: missing.png"]
+
+
+def test_missing_markdown_source_is_reported_without_crashing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(check_project, "ROOT", tmp_path)
+    monkeypatch.setattr(check_project, "MARKDOWN_FILES", ("README.md",))
+
+    errors, checked = check_project.validate_markdown_links({"README.md"})
+
+    assert checked == 0
+    assert len(errors) == 1
+    assert errors[0].startswith("cannot read documentation file README.md:")

@@ -9,7 +9,7 @@ from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ...artifact_io import canonical_json, read_json, sha256_file, sha256_text
 from ...headline_value import classify_headline
@@ -37,6 +37,9 @@ from .signals import (
     build_event_labels,
     load_headline_scores,
 )
+
+if TYPE_CHECKING:
+    from .v2.config import LiteratureBaselineV2Config
 
 
 class BaselineRunError(RuntimeError):
@@ -103,7 +106,7 @@ def _require_file(path: Path, name: str) -> None:
 
 
 def _verify_score_manifest(
-    config: LiteratureBaselineConfig,
+    config: LiteratureBaselineConfig | LiteratureBaselineV2Config,
     *,
     repo_root: Path,
     score_path: Path,
