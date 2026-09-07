@@ -1,0 +1,5 @@
+# pdfLaTeX cannot include SVG. Convert the title-page wordmark first.
+add_cus_dep('svg', 'pdf', 0, 'svg2pdf');
+sub svg2pdf {
+  system('python', '../scripts/svg_to_pdf.py', "$_[0].svg", "$_[0].pdf");
+}

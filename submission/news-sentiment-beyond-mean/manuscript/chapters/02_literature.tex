@@ -1,0 +1,192 @@
+\chapter{Literature review}
+\label{ch:literature}
+
+The statistical literature connects four issues: information in financial news,
+sentiment measurement, information lost through aggregation and the evidence
+needed for prediction. A separate literature on risk controls explains why an
+economic test must compare risk rules with controls that have similar market
+exposure.
+
+\section{Return information in news text}
+
+News stories select facts and compare company results with expectations. A
+sentiment model therefore measures framing, not fundamentals alone.
+
+\citet{tetlock2007} finds that pessimism in a daily Wall Street Journal column
+tracks downward market pressure and high volume before partially reversing. The
+reversal distinguishes a temporary price move from a lasting change in value.
+At the firm level, \citet{tetlock2008words} find that the fraction of negative
+words predicts earnings and returns. Their measure counts words within a
+document, whereas this dissertation counts negative stories within a firm-day.
+
+The response to a price move depends on its source. \citet{chan2003news} finds
+drift after identifiable public news, especially bad news, but reversal after
+large returns without an attached story. \citet{savor2012information} reports a
+similar split using analyst information. Negative coverage in this study could
+therefore follow an earlier decline rather than precede a later one. The
+recent-return controls in \cref{ch:methodology} test this reversal explanation.
+
+Coverage and market conditions also change through time. \citet{fang2009} link
+attention to expected returns, while \citet{engelberg2011} show that newspaper
+distribution affects trading around earnings. \citet{garcia2013} finds that the
+predictive content of news language is concentrated in recessions. Audience,
+coverage and market state are therefore possible sources of temporal change.
+
+Reuters studies motivate the separate LSEG analysis. Using 3.6 million articles,
+\citet{uhl2014} finds greater index-level forecasting power in negative than
+positive sentiment. With more than 900,000 Reuters stories,
+\citet{heston2017} report daily predictability, weekly effects and slower
+responses to negative news. Although their designs differ from this firm-day
+comparison, both support asking whether an average sentiment score discards
+useful information.
+
+\section{Converting text to a numerical score}
+
+The scoring method determines which language is positive, neutral or negative.
+General-purpose dictionaries can misclassify financial terms that sound
+negative in ordinary English but are neutral in company reporting.
+\citet{loughran2011liability} discuss terms such as ``liability'' and ``tax'',
+which a general dictionary can mark as negative even when they are routine in a
+10-K. A finance-specific dictionary changes the labels and results.
+\citet{loughran2016} also identify corpus design, negation, document length and
+task-level validation as consequential choices.
+
+Contextual models use the words around a phrase rather than counting words in
+isolation. FinBERT adapts the BERT language model to financial text and classifies
+sentences as positive, neutral or negative. ProsusAI FinBERT is trained further
+on Financial PhraseBank, which records labels and disagreement among financially
+trained readers \citep{malo2014,araci2019}. A separate finance-trained FinBERT
+outperforms dictionaries and conventional machine learning in
+\citet{huang2023}.
+
+This study fixes one FinBERT version throughout. The model was trained on short
+financial sentences, but it is applied here to FNSPID headlines, Reuters stories
+and later periods outside that benchmark. Those differences create a measurement
+limitation.
+
+Prompted large language models can target firm-specific economic effects rather
+than generic tone. \citet{kirtac2024} compare dictionaries, BERT-family models
+and large language models on nearly a million US financial-news articles.
+\citet{lopezlira2026} ask whether a headline is good or bad for the named firm
+and find delayed responses concentrated in negative news and smaller firms,
+with weaker results later. These studies motivate the prompt tests, which ask
+whether a tailored score beats FinBERT on the same dates after costs.
+
+Scoring old news with a modern model can mix look-ahead bias with distraction
+from company knowledge. \citet{glasserman2023} compare original and
+company-anonymised headlines to separate these effects and find that
+anonymisation improves in-sample performance. Every prompted result here is
+therefore a 2024 training-period experiment. Returns never enter the prompt,
+and the experiment stops if none of the prompts meets the pre-specified
+criteria.
+
+\section{The information lost by averaging}
+
+Each firm-day needs one signal, but document scores can be averaged, selected or
+modelled separately. The studies reviewed here do not make a like-for-like
+comparison of simple firm-day summaries. This study compares nine return-blind
+measures using the same outcome, sample and adjustment for multiple tests.
+
+Equal weighting gives a routine update the same weight as a first release and
+allows positive or neutral coverage to offset a negative item. A threshold
+measure keeps that negative item visible.
+
+Earlier work also looks beyond average tone. \citet{allee2015} relate the
+placement of positive and negative words within conference calls to firm
+performance, reporting choices and user responses. \citet{isakin2023} link
+news-sentiment dispersion to corporate-bond returns and uncertainty, while
+\citet{chen2024} study dispersion around Chinese merger announcements. These
+measures differ from a firm-day share but support retaining distributional
+information.
+
+Selection is another response to crowded news. \citet{uhl2021} construct a
+selected ``top news'' measure and report that investors can benefit from
+ignoring most news topics. This design instead keeps every story and fixes nine
+summaries before a shared return test, so return relevance cannot determine
+which stories enter.
+
+Several stories may describe the same event. Stale and reprinted stories receive
+a different market response and can be followed by reversal
+\citep{tetlock2011stale}. Repeated updates about one adverse event also raise
+negative share without adding information. Story count measures volume, but
+FNSPID has no stable story-family or publisher identifier. The training
+regression therefore cannot separate novelty from editorial repetition, which
+limits both the association and its later non-replication.
+
+\section{From a coefficient to an investment claim}
+
+Training-period significance does not show that a result will persist. Many
+proposed return predictors are unstable in later data \citep{welch2008}. Across
+97 cross-sectional predictors, \citet{mclean2016} find smaller estimates outside
+the original sample and after publication. Sampling error, selection and the
+tendency to report unusually strong initial results can all contribute.
+
+The order in which data become available also matters. In the exchange between
+\citet{farmer2023} and \citet{cakici2025}, replacing a calculation that uses
+future observations with one that uses only past observations sharply weakens
+the reported forecasting value. A changed coefficient in this dissertation
+shows non-replication, but cannot identify whether the market, sample or
+measurement changed.
+
+An information coefficient is the daily rank correlation between a signal and
+returns. Information coefficients and portfolio returns answer different
+questions: a precise association may still be too small to trade.
+\citet{korajczyk2004} show that proportional costs and price impact materially
+change momentum profitability and capacity, while \citet{novymarx2016} find the
+worst damage among high-turnover anomalies. The economic tests report gross and
+net return, turnover and per-side break-even cost.
+
+When several predictors are tested, some may look significant by chance
+\citep{harvey2016multiple}. The Benjamini--Hochberg (BH) adjustment limits the
+expected share of false findings within a declared group of tests, under its
+stated assumptions \citep{benjamini1995}. It covers the nine-rule comparison and
+related groups, not specifications designed after seeing results. The training
+coefficient is therefore treated as exploratory.
+
+Nearby sessions can be related, and their variance can change. Newey--West
+heteroskedasticity and autocorrelation consistent (HAC) standard errors allow
+for both features
+\citep{newey1987}. Portfolio comparisons use fixed-length block resampling to
+keep nearby sessions together \citep{kunsch1989}; this implementation wraps the
+blocks at the sample boundary. It differs from the random-length stationary
+bootstrap of \citet{politis1994}.
+
+An interval crossing zero can reflect either a small effect or low precision.
+Minimum detectable effects (MDEs) quantify the effect size a test has a good
+chance of detecting \citep{bloom1995}. If a short LSEG sample can detect only
+coefficients several times larger than the FNSPID estimate, its null cannot
+establish whether an FNSPID-sized relationship exists in LSEG\@.
+
+\section{Evaluating risk overlays}
+
+A weak directional signal might still identify periods for lower risk. However,
+time in cash mechanically lowers volatility and losses, so the control must have
+similar market exposure.
+
+The sentiment-free benchmark is a heterogeneous autoregressive (HAR) volatility
+forecast. \citet{corsi2009har} models realised volatility with daily, weekly and
+monthly components. In the benchmark used here, exposure falls as the forecast
+rises. Evidence on inverse-volatility factor scaling \citep{moreira2017}
+motivates this benchmark without endorsing sentiment timing.
+
+The first comparator is the fixed HAR path. The second holds a constant
+fraction of that path to match the news rule's average exposure. In FNSPID, the
+constant is calibrated after observing the 2020--2023 testing results, so it supports only
+descriptive lower-exposure attribution. In LSEG, matched constants are selected
+in the training folds before forward testing.
+
+A circular-shift check moves the full risk-off schedule through returns while
+preserving its activation frequency. It tests whether the same-session risk
+schedule aligns unusually with downside outcomes, but not whether news was
+observable before returns began. A timing claim needs both unusual alignment
+and verified pre-return availability. The matched constant separately tests
+whether lower average exposure explains the result.
+
+\section{The research gap}
+
+The measurement comparison uses one outcome, a declared test family and
+dependence-aware uncertainty. An investment claim also needs testing-period
+evidence and trading costs. This dissertation applies those requirements to a
+hard-threshold firm-day measure through training selection, timing, testing,
+economic and separate-source checks. The analysis retains null results without
+using them to start a further search.

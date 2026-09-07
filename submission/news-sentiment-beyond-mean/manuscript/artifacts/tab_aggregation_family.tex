@@ -1,0 +1,21 @@
+\begin{table}[htbp]
+\centering
+\caption[Nine firm-day aggregation rules]{Nine aggregation rules in the FNSPID training period. $\overline{IC}$ is the mean daily Spearman rank correlation with the assigned-session open-to-next-open abnormal return, and $t$ uses Newey--West HAC(5). BH applies Benjamini--Hochberg correction across the nine rules. Break-even is the per-side cost that makes the corresponding rank portfolio's mean net return zero. The rules use 512,145--512,149 firm-days across 2,264 sessions.}
+\label{tab:aggregation-family}
+\small
+\begin{tabular}{@{}l d{-1.5} d{-1.2} d{1.4} c d{1.3}@{}}
+\toprule
+Aggregation rule & {$\overline{IC}$} & {HAC $t$} & {$p$} & {BH} & {Break-even (bps)} \\
+\midrule
+Negative-story share & -0.00543 & -3.12 & 0.0018 & \checkmark & 0.625 \\
+Decayed sentiment state & 0.00416 & 2.23 & 0.0259 & \textendash & 0.323 \\
+Median continuous score & 0.00347 & 2.02 & 0.0431 & \textendash & 0.320 \\
+Log-count weighted mean & 0.00328 & 1.81 & 0.0704 & \textendash & 0.245 \\
+Trimmed mean & 0.00302 & 1.70 & 0.0889 & \textendash & 0.248 \\
+Mean continuous score & 0.00298 & 1.68 & 0.0930 & \textendash & 0.245 \\
+Mean hard label & 0.00280 & 1.58 & 0.1149 & \textendash & 0.292 \\
+Strongest event & 0.00271 & 1.55 & 0.1205 & \textendash & 0.116 \\
+Score dispersion & -0.00149 & -0.92 & 0.3590 & \textendash & 0.278 \\
+\bottomrule
+\end{tabular}
+\end{table}

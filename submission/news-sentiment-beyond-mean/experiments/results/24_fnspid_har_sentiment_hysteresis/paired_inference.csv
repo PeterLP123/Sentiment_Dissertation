@@ -1,0 +1,3 @@
+estimand,n,mean,ci_low,ci_high,p_two_sided,block_length,replications,seed
+HAR sentiment minus HAR net return,998,3.659730587868019e-05,-9.958556207373486e-05,0.00019297567429193497,0.6172,20,4999,20260806
+HAR minus HAR sentiment downside squared return,998,5.12482590429771e-06,2.0193196325453083e-06,9.73945627174472e-06,0.0148,20,4999,20260807

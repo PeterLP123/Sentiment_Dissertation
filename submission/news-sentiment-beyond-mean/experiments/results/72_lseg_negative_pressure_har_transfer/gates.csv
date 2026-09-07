@@ -1,0 +1,2 @@
+return_gate,useful_risk_gate,timing_gate,cross_source_support,sharpe_improvement,drawdown_relative_improvement,return_ci_low_bps_session,downside_ci_low_bps2_session,risk_off_sessions
+False,False,False,False,0.0,0.0,0.0,0.0,0

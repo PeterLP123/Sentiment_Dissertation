@@ -1,0 +1,37 @@
+{
+  "status": "completed",
+  "executed_at_utc": "2026-08-12T20:35:15.259799+00:00",
+  "candidate_rq": "distribution_shape_beyond_the_mean",
+  "population": {
+    "development_rows": 512153,
+    "price_complete_rows": 511941,
+    "sessions": 2264,
+    "symbols": 570
+  },
+  "published_baseline_reproduced": true,
+  "same_sample_baseline": {
+    "estimate": -0.00830143048136616,
+    "se": 0.002956709232127447,
+    "p_two_sided": 0.004990308015770633,
+    "ci_low": -0.014096474089093036,
+    "ci_high": -0.002506386873639286
+  },
+  "primary": {
+    "specification": "full_price_path_controls",
+    "estimate": -0.009140391546921745,
+    "se": 0.0028175167102856,
+    "p_two_sided": 0.0011780980864329784,
+    "ci_low": -0.014662622824921295,
+    "ci_high": -0.0036181602689221957,
+    "n_clusters": 2264,
+    "passes_frozen_gate": true,
+    "relative_magnitude_change_vs_same_sample_baseline": 0.10106222866513931
+  },
+  "interpretation": "The frozen reversal-confound test passes: negative-story share remains negative and statistically distinguishable from zero after the three price-path controls.",
+  "claim_boundary": "This supports information beyond this observed price path in the development sample. It does not establish causality, remove every omitted variable, or supply independent confirmation.",
+  "evaluation_notebook_75_seal": {
+    "code_cells": 4,
+    "executed_code_cells": 0,
+    "output_blocks": 0
+  }
+}

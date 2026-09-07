@@ -1,0 +1,66 @@
+{
+  "notebook": "82_lseg33_firm_level_loss_control",
+  "spec_path": "final_experiments/frozen_specs/lseg33_firm_level_loss_control_search_v1_20260812.json",
+  "spec_sha256": "fbb367fc3279ba4a36089881561f06d68ec190bb597a8ccc79df2304dea36629",
+  "git_commit": "7d8c2f6d76c361854689617430a52a401ec0a12b",
+  "inputs": [
+    {
+      "input": "gemma_firm_open",
+      "path": "final_experiments/outputs/67_lseg_gemma_finbert_joined_long_window/joined_gemma4_26b_firm_open.parquet",
+      "sha256": "a146463e7c36dcbd1905efe60e08ed370e4b76353392db4942ddac66a6cf85aa",
+      "bytes": 1364310
+    },
+    {
+      "input": "finbert_firm_open",
+      "path": "final_experiments/outputs/67_lseg_gemma_finbert_joined_long_window/joined_finbert_firm_open.parquet",
+      "sha256": "903b5921b4bfd73b2c04be5d0f6b5bebf7d1aa2274b25afaf1e085e8e3976322",
+      "bytes": 1818557
+    }
+  ],
+  "population": {
+    "companies": "33",
+    "complete_sessions": "612",
+    "development_sessions": "445",
+    "evaluation_sessions": "167",
+    "development_fold_sizes": "149/148/148",
+    "first_session": "2024-01-02 00:00:00",
+    "last_session": "2026-06-26 00:00:00"
+  },
+  "candidate_count": 4608,
+  "eligible_candidate_count": 2267,
+  "selected_candidate": {
+    "candidate_id": "candidate_2113",
+    "scorer": "gemma4_26b",
+    "feature": "attention_weighted_negative_share",
+    "normaliser": "firm_rolling_63",
+    "threshold": 0.6,
+    "risk_multiplier": 0.0,
+    "mapping": "step",
+    "market_gate": "always",
+    "mean_exposure": 0.6062648961525368,
+    "reduced_company_share": 0.3937351038474634,
+    "annual_turnover": 96.06100961671156,
+    "eligible": true,
+    "selection_score": 0.03025413957712497,
+    "mean_fold_utility_delta_vs_symbol_constant": 0.037130968916496136,
+    "mean_fold_es_reduction_vs_symbol_constant": 0.0003837587614885397,
+    "fold_1_utility_delta_vs_symbol_constant": 0.03222941441810336,
+    "fold_1_es_reduction_vs_symbol_constant": -0.0011770148532092347,
+    "fold_1_net_delta_vs_symbol_constant": 0.00012868152028148585,
+    "fold_2_utility_delta_vs_symbol_constant": 0.03025413957712497,
+    "fold_2_es_reduction_vs_symbol_constant": 0.0005753232673366346,
+    "fold_2_net_delta_vs_symbol_constant": 0.00011392968497992236,
+    "fold_3_utility_delta_vs_symbol_constant": 0.04890935275426008,
+    "fold_3_es_reduction_vs_symbol_constant": 0.0017529678703382193,
+    "fold_3_net_delta_vs_symbol_constant": 0.00017247150542826933
+  },
+  "primary_cost_bps_per_side": 2.0,
+  "bootstrap": {
+    "block_length": 20,
+    "replications": 9999,
+    "family_size": 12,
+    "seed_base": 20260812
+  },
+  "claim_status": "post_hoc_exploratory_chronological_forward_test",
+  "licensed_text_written": false
+}

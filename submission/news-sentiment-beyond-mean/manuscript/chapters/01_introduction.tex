@@ -1,0 +1,146 @@
+\chapter{Introduction}
+\label{ch:introduction}
+
+\section{The aggregation problem}
+
+Several news stories can appear about the same company in one trading session,
+but there is only one return observation for that firm and session. Comparing
+news with returns therefore requires one daily news measure. Different summaries
+retain different information.
+
+The usual summary is the arithmetic mean of the sentiment scores. It measures
+the average tone, but opposing stories can cancel out. This dissertation instead
+tests
+\emph{negative-story share}: the fraction of stories whose strongest FinBERT
+label is negative. The share measures how much of the day's coverage is
+negative. The mean measures the tone of the average story.
+
+Here, ``hard'' means that each story is assigned to the class with the highest
+FinBERT probability. It does not mean that the analysis estimates a confidence
+cut-off.
+
+Consider four hard labels: $(-1,-1,+1,+1)$. Their mean is zero, while their
+negative-story share is one half. Replacing the two positive labels with neutral
+labels leaves the share unchanged but makes the mean more negative. Four mildly
+negative stories, by contrast, produce a share of one even if every continuous
+score is only slightly below zero. The statistics are related but not
+interchangeable.
+
+Earlier research links negative financial language to returns, earnings
+information and slow price adjustment
+\citep{tetlock2007,tetlock2008words,uhl2014,heston2017}.
+
+Research using public news also reports drift after negative coverage and
+reversal after large price moves with no identifiable news story
+\citep{chan2003news,savor2012information}. Together, these studies justify
+comparing daily news summaries. They do not show that negative-story share is
+useful. The measure must add information beyond average sentiment and story
+count, precede the return, and survive a later test.
+
+Story count also affects interpretation. The training sample contains 512,153
+firm-days, but 48.3\% contain one story and the median is two. On a one-story
+day, negative-story share is simply a binary FinBERT label. It describes a
+within-day distribution only when several stories are present. Results are
+therefore reported for all firm-days and for multi-story days.
+
+The statistical and economic questions remain separate. An association can be
+precisely estimated yet too small to cover trading costs, and a risk rule may
+reduce losses merely by reducing market exposure. Timing also matters. News
+published after a return window opens cannot predict that return. The tests
+therefore ask whether the association exists, when it appears, whether it
+survives later, and whether it supports a practical rule.
+
+\section{Research questions and hypotheses}
+
+The dissertation first studies the training period, then asks whether the
+unchanged relationship survives in a later testing period. The later test uses
+choices set in advance. FNSPID, a public financial-news and price dataset, is
+used in both periods. Reuters news supplied through LSEG provides a smaller
+second sample.
+
+\begin{quote}
+\textbf{Training period.} After allowing for average sentiment and news volume,
+is a higher negative-story-share rank associated with a lower market-adjusted
+return rank from the assigned open to the following open? If so, which part of
+that return window contains the relationship?
+
+\textbf{Testing period.} Does the unchanged baseline relationship remain
+negative in the fixed 2020--2023 FNSPID news-and-price sample?
+\end{quote}
+
+Every coefficient compares firms within the same session. Firms are ranked by
+market-adjusted return, negative-story share, average sentiment and story count.
+The model asks whether a higher negative-share rank is associated with a lower
+return rank after controlling for the other news measures. Daily coefficients
+are averaged so that heavily covered sessions do not dominate. Later models
+also control for recent returns, volatility and market sensitivity.
+
+A negative coefficient means that firms with more widespread negative coverage
+tend to rank lower by return. It does not imply that a given increase in
+negative share causes a fixed price fall. Unobserved news or market conditions
+may affect both variables, so the result remains a conditional association.
+
+Four hypotheses carry the tests, with the first split into a training-period leg and
+a testing-period leg.
+
+\begin{enumerate}[leftmargin=1.1cm]
+  \item[H1a.] In the training period, the negative-share coefficient is below zero after controlling for average sentiment and story count.
+  \item[H1b.] The unchanged baseline coefficients for all firm-days and multi-story days remain below zero during 2020--2023 after correcting for the two tests.
+  \item[H2.] A simple high-minus-low negative-share sort within average-sentiment groups produces a negative training-period spread.
+  \item[H3.] A daily long-short rule earns a positive average return after charging 10 basis points per side on its own turnover.
+  \item[H4.] After costs, an LSEG risk rule passes its pre-specified return, risk and stability tests against a training-selected control with the same average market exposure.
+\end{enumerate}
+
+A high-minus-low sort compares firms with high and low negative-story shares.
+Turnover is the amount of the portfolio that must be traded. Ten basis points is
+0.10\% of the amount traded on each side.
+
+H1a is exploratory because the nine-rule training comparison selected negative
+share. The correction covers the nine initial tests, but the usual interval
+around the winning estimate does not capture all selection uncertainty.
+
+H1b is narrower. The two coefficients, the multiple-testing adjustment and the
+decision rule were fixed before the 2020--2023 estimates were calculated. The
+test is therefore more informative than the training comparison. However,
+some portfolio outcomes from those years had already been examined, so the
+period was not completely unseen.
+\ifdefined\withoutappendices
+\else
+  \Cref{app:reproducibility} records the origin and run status of every notebook
+  used in the chapters that follow.
+\fi
+
+\section{Summary of findings}
+
+Only negative-story share remained statistically significant after correcting
+the nine training-period comparisons. Firms with a higher negative share tended
+to rank lower by assigned-window open-to-next-open abnormal return. After
+controlling for average sentiment and story count, the coefficient was
+$-0.00831$, with a 95\% confidence interval of $[-0.01410,-0.00252]$ that allows
+for dependence between nearby sessions.
+
+The timing checks weaken a forecasting interpretation. The relationship appears
+from the assigned open to close, disappears overnight, and is also present from
+the previous open to the assigned open. FNSPID lacks reliable row-level
+availability times, so some stories may have entered a session after its return
+began. The result is a relationship within the assigned window, not evidence of
+a forecast based on news known before the return began.
+
+The relationship also fails to persist. In the fixed 2020--2023 testing period,
+the unchanged coefficient changes sign to $+0.00583$. A direct comparison finds
+a statistically significant difference between the training and testing
+estimates. Aggregate data cannot distinguish among changes in timing, coverage,
+firm composition or classifier outputs.
+
+The economic evidence also argues against practical usefulness. Across the
+observed negative-share rank spread, the full-control estimate corresponds to
+$-0.512$ return-rank percentile points. The best break-even cost among the nine
+rules is $0.625$ basis points per side, versus the assumed 10 basis points.
+
+The separate Reuters/LSEG samples are too small to show that the relationship
+appears in another source. No risk or prompt rule passes its pre-specified
+criteria. The training coefficient is therefore a statistical pattern, not a
+reliable trading signal.
+
+Chapter 2 reviews the literature, Chapters 3 and 4 describe the data and
+methods, Chapter 5 reports the results, and Chapter 6 concludes.

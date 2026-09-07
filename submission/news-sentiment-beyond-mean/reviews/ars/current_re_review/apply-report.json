@@ -1,0 +1,153 @@
+{
+  "report_format_version": "1.3",
+  "mode": "patch",
+  "base_path": "reviews/ars/current_re_review/original_manuscript.md",
+  "output_path": "reviews/ars/current_re_review/revised_manuscript.md",
+  "base_draft_hash": "df7809760f53",
+  "output_draft_hash": "5f73b895261c",
+  "patch_digest": "cf0849cd76b4750701125fa4ee69195b9b2866d042b774b6d6370629c5579132",
+  "revision_round": 1,
+  "authorization_context": "review_roadmap",
+  "authorization_witness": {
+    "status": "pass",
+    "roadmap_sha256": "21c899169d4aad8d516d23a51c0ec98f829c5f4174bfe17582f474b2728d3ff9",
+    "author_adjudication_sha256": "44430684ad214a8f3d9dd1301792f8d71fa13fb61ff8b5f7ac44ea32fa6ca117",
+    "author_decision_digest": "59ef191a01d5d3dca183397321b072c742f41f259e79c0e0094a1b910fbdb8e2",
+    "claim_surface_manifest_sha256": "9f0e6b995243ca4ca23bb27cdfd4154bb62a1d9e676fd05442736bfe6cedc970",
+    "registered_claim_surfaces_checked": 0,
+    "unregistered_claim_drift_review_required": true
+  },
+  "ops_applied": [
+    {
+      "op_index": 0,
+      "op": "replace_block",
+      "block_id": "B0004",
+      "roadmap_item_ids": [
+        "REV-ESTIMAND-ALIGNMENT",
+        "REV-INTERPRETATION-BOUNDARY",
+        "REV-WORD-COUNT",
+        "REV-PRESENTATION"
+      ],
+      "claim_strength_changes": [],
+      "collateral_authorization_ids": [],
+      "new_block_ids": []
+    },
+    {
+      "op_index": 1,
+      "op": "replace_block",
+      "block_id": "B0006",
+      "roadmap_item_ids": [
+        "REV-ESTIMAND-ALIGNMENT",
+        "REV-HYPOTHESIS-LANGUAGE",
+        "REV-WORD-COUNT"
+      ],
+      "claim_strength_changes": [],
+      "collateral_authorization_ids": [],
+      "new_block_ids": []
+    },
+    {
+      "op_index": 2,
+      "op": "replace_block",
+      "block_id": "B0008",
+      "roadmap_item_ids": [
+        "REV-INTERPRETATION-BOUNDARY",
+        "REV-TEMPORAL-LITERATURE",
+        "REV-WORD-COUNT"
+      ],
+      "claim_strength_changes": [],
+      "collateral_authorization_ids": [],
+      "new_block_ids": []
+    },
+    {
+      "op_index": 3,
+      "op": "replace_block",
+      "block_id": "B0010",
+      "roadmap_item_ids": [
+        "REV-INTERPRETATION-BOUNDARY",
+        "REV-WORD-COUNT"
+      ],
+      "claim_strength_changes": [],
+      "collateral_authorization_ids": [],
+      "new_block_ids": []
+    },
+    {
+      "op_index": 4,
+      "op": "replace_block",
+      "block_id": "B0012",
+      "roadmap_item_ids": [
+        "REV-ESTIMAND-ALIGNMENT",
+        "REV-WORD-COUNT"
+      ],
+      "claim_strength_changes": [],
+      "collateral_authorization_ids": [],
+      "new_block_ids": []
+    },
+    {
+      "op_index": 5,
+      "op": "replace_block",
+      "block_id": "B0014",
+      "roadmap_item_ids": [
+        "REV-ESTIMAND-ALIGNMENT",
+        "REV-INTERPRETATION-BOUNDARY",
+        "REV-HYPOTHESIS-LANGUAGE",
+        "REV-WORD-COUNT"
+      ],
+      "claim_strength_changes": [],
+      "collateral_authorization_ids": [],
+      "new_block_ids": []
+    },
+    {
+      "op_index": 6,
+      "op": "replace_block",
+      "block_id": "B0016",
+      "roadmap_item_ids": [
+        "REV-ESTIMAND-ALIGNMENT",
+        "REV-INTERPRETATION-BOUNDARY",
+        "REV-HYPOTHESIS-LANGUAGE",
+        "REV-WORD-COUNT"
+      ],
+      "claim_strength_changes": [],
+      "collateral_authorization_ids": [],
+      "new_block_ids": []
+    },
+    {
+      "op_index": 7,
+      "op": "replace_block",
+      "block_id": "B0036",
+      "roadmap_item_ids": [
+        "REV-TEMPORAL-LITERATURE"
+      ],
+      "claim_strength_changes": [],
+      "collateral_authorization_ids": [],
+      "new_block_ids": []
+    },
+    {
+      "op_index": 8,
+      "op": "replace_block",
+      "block_id": "B0038",
+      "roadmap_item_ids": [
+        "REV-PRESENTATION"
+      ],
+      "claim_strength_changes": [],
+      "collateral_authorization_ids": [],
+      "new_block_ids": []
+    }
+  ],
+  "fresh_block_ids": [],
+  "pure_move_pairs": [],
+  "structural_flags": {
+    "heading_op_indexes": [],
+    "section_count_delta": 0,
+    "touched_ratio": 0.2368,
+    "touched_ratio_threshold": 0.6,
+    "touched_ratio_exceeded": false,
+    "any": false,
+    "acknowledged": false
+  },
+  "counters": {
+    "blocks_total": 38,
+    "blocks_touched": 9,
+    "blocks_preserved_byte_identical": 29,
+    "preserved_ratio": 0.7632
+  }
+}

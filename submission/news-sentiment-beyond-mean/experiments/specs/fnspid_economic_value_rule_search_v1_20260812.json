@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "status": "frozen_before_notebook_81_search_result",
+  "frozen_at_local": "2026-08-12T23:25:00+01:00",
+  "experiment": {
+    "notebook": "final_experiments/81_fnspid_economic_value_rule_search.ipynb",
+    "title": "FNSPID economic-value risk-rule search",
+    "objective": "Select a causal aggregate negative-news risk rule on 2013-2019 and test whether its downside-adjusted economic value persists on 2020-2023 after costs and against an equal-average-exposure control.",
+    "evidence_role": "exploratory chronological model selection on already-opened historical outcomes",
+    "confirmation_claim_allowed": false,
+    "deployment_claim_allowed": false
+  },
+  "inputs": {
+    "daily_aggregate_pressure": {
+      "path": "final_experiments/outputs/20_fnspid_market_sentiment_risk_overlay/daily_aggregate_pressure.parquet",
+      "sha256": "405076d864cbecb4c0667a190f282ea95323dda6b5531fc328162554f85dee1b"
+    },
+    "development_har_daily": {
+      "path": "final_experiments/outputs/27_fnspid_har_sentiment_composition/pre_2020_har_base_daily.parquet",
+      "sha256": "e1fa6e92cd3a119ed2009da9d0e844f6f0c84d4209f98e9a31643249e51344ab"
+    },
+    "evaluation_har_daily": {
+      "path": "final_experiments/outputs/27_fnspid_har_sentiment_composition/evaluation_har_base_daily.parquet",
+      "sha256": "b4f88244ff87c0bb917f3b19264f980cc4b185aa40e27a611231369bc2835f52"
+    }
+  },
+  "chronology": {
+    "pressure_history_start": "2011-01-03",
+    "development_start": "2013-01-04",
+    "development_end": "2019-12-30",
+    "development_sessions": 1759,
+    "selection_folds": 4,
+    "fold_rule": "four consecutive near-equal blocks, each repriced independently with entry and final-liquidation costs",
+    "evaluation_start": "2020-01-02",
+    "evaluation_end": "2023-12-18",
+    "evaluation_sessions": 998,
+    "boundary": "evaluation returns do not enter candidate generation, ranking, constraints or tie-breaking"
+  },
+  "search_family": {
+    "daily_measure": "headline-count-weighted negative-story share",
+    "normalisers": [
+      "strictly-prior rolling mean and sample standard deviation",
+      "strictly-prior exponentially weighted mean and standard deviation"
+    ],
+    "lookback_or_span_sessions": [63, 126, 252],
+    "minimum_prior_observations": "ceiling(window / 2)",
+    "mappings": {
+      "one_day": {
+        "entry_z": [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0],
+        "risk_multiplier": [0.0, 0.25, 0.5, 0.75]
+      },
+      "hysteresis": {
+        "entry_z": [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0],
+        "exit_gap_below_entry": [0.5, 1.0, 1.5],
+        "risk_multiplier": [0.0, 0.25, 0.5, 0.75]
+      },
+      "smooth": {
+        "start_z": [0.0, 0.5, 1.0],
+        "full_cut_distance_z": [0.75, 1.25, 2.0],
+        "minimum_multiplier": [0.25, 0.5, 0.75]
+      }
+    },
+    "composition": [
+      "multiply the HAR exposure by the news multiplier",
+      "cap the HAR exposure at the news multiplier"
+    ],
+    "candidate_count": 1668,
+    "cost_bps_per_side": 2.0,
+    "no_leverage": true
+  },
+  "selection": {
+    "primary_daily_utility": "net_return minus 5 times squared negative net_return",
+    "fold_comparator": "constant HAR multiplier with the same mean candidate exposure inside that development fold",
+    "selection_score": "minimum annualised fold utility difference versus the equal-exposure constant",
+    "eligibility": [
+      "development mean exposure ratio versus HAR is between 0.50 and 0.95",
+      "each fold mean net return is no worse than HAR by 1 basis point per session",
+      "downside-squared loss is lower than the equal-exposure constant in at least three of four folds",
+      "primary utility is higher than the equal-exposure constant in at least three of four folds"
+    ],
+    "tie_breakers": [
+      "higher mean fold utility difference versus equal exposure",
+      "higher minimum fold utility difference versus HAR",
+      "lower annualised turnover",
+      "lexicographic candidate id"
+    ]
+  },
+  "evaluation": {
+    "comparators": [
+      "frozen HAR",
+      "constant HAR multiplier fixed to the selected candidate's mean development exposure ratio"
+    ],
+    "primary_family": [
+      "selected overlay minus comparator mean net return",
+      "comparator minus selected overlay downside-squared return",
+      "comparator minus selected overlay 5 percent expected-shortfall loss",
+      "selected overlay minus comparator daily downside utility at risk aversion 5"
+    ],
+    "inference": "paired circular moving-block bootstrap, 20-session blocks, 9999 replications",
+    "multiplicity": "Benjamini-Hochberg across all eight evaluation tests at q=0.05",
+    "cost_sensitivity_bps_per_side": [0.0, 2.0, 5.0, 10.0],
+    "utility_sensitivity_risk_aversion": [2.0, 5.0, 10.0]
+  },
+  "claim_boundaries": [
+    "The 2020-2023 outcomes were opened in earlier notebooks; the chronological split reduces but does not erase post-hoc research degrees of freedom.",
+    "All 1,668 candidates and the deterministic selection rule are preserved.",
+    "A result versus HAR but not the fixed equal-exposure control is mechanical de-risking rather than news timing.",
+    "The selected rule is hypothesis-generating and requires genuinely new-date confirmation.",
+    "The LSEG-33 Notebook 80 failure remains binding evidence against immediate portability."
+  ],
+  "reproducibility": {
+    "seed": 20260812,
+    "aggregate_outputs_only": true,
+    "licensed_text_exported": false
+  }
+}

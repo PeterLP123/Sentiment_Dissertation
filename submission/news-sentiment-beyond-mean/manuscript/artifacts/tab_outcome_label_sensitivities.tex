@@ -1,0 +1,16 @@
+\begin{table}[htbp]
+\centering
+\caption[Measurement sensitivities]{Measurement checks added after the main FNSPID training-period result. The baseline row repeats the earlier next-open hard-share estimate and is not a fourth test. BH is Benjamini--Hochberg at $q=0.05$ across the three new coefficients. Close-to-close starts at the assigned session close; FF3 residuals use trailing 252-session betas that exclude the outcome session.}
+\label{tab:outcome-label-sensitivities}
+\scriptsize
+\begin{tabular}{@{}l d{-1.5} c d{1.4} c c@{}}
+\toprule
+Test & {Estimate} & {95\% CI} & {$p$} & {$q$} & {BH} \\
+\midrule
+Assigned-window hard share (baseline) & -0.00831 & $[-0.01410,\,-0.00252]$ & 0.0049 & -- & -- \\
+Close-to-close hard share & 0.00027 & $[-0.00572,\,0.00627]$ & 0.9292 & 0.929 & -- \\
+FF3 residual hard share & 0.00182 & $[-0.00404,\,0.00767]$ & 0.5435 & 0.815 & -- \\
+Assigned-window soft negative mass & -0.00378 & $[-0.00844,\,0.00088]$ & 0.1122 & 0.337 & -- \\
+\bottomrule
+\end{tabular}
+\end{table}

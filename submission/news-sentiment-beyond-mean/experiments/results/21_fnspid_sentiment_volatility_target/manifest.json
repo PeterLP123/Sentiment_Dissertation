@@ -1,0 +1,235 @@
+{
+  "notebook": "21_fnspid_sentiment_volatility_target",
+  "built_for": "incremental aggregate-sentiment variance forecasting and SPY volatility targeting",
+  "analysis_status": "exploratory_frozen_before_notebook21_evaluation_execution_2026-08-05",
+  "git_commit_at_execution": "8736eebdbb254c8bc6416a09a352f6b5e2f6b1b3",
+  "spine": "FNSPID_aggregate_only",
+  "split": {
+    "development_target_end_max": "2019-12-31",
+    "evaluation_decision_start": "2020-01-01",
+    "evaluation_previously_opened_elsewhere": true
+  },
+  "design": {
+    "forecast_horizon_sessions": 5,
+    "control_features": [
+      "log_var_daily",
+      "log_var_weekly",
+      "log_var_monthly"
+    ],
+    "sentiment_feature": "clip(max(negative_pressure_z, 0), 0, 3)",
+    "sentiment_sign_gate": "positive development coefficient; otherwise deploy control",
+    "target_annual_volatility": 0.1,
+    "exposure_bounds": [
+      0.25,
+      1.0
+    ],
+    "cost_bps_per_side": 2.0,
+    "cost_grid": [
+      0.0,
+      1.0,
+      2.0,
+      5.0,
+      10.0
+    ],
+    "cash_return": 0.0,
+    "bootstrap": {
+      "kind": "paired circular block",
+      "block_length": 20,
+      "replications": 4999,
+      "seed": 20260805
+    }
+  },
+  "input_sha256": {
+    "final_experiments/outputs/20_fnspid_market_sentiment_risk_overlay/daily_aggregate_pressure.parquet": "405076d864cbecb4c0667a190f282ea95323dda6b5531fc328162554f85dee1b",
+    "final_experiments/outputs/20_fnspid_market_sentiment_risk_overlay/development_baseline_daily.parquet": "8562e7db63301b3b9a3014944056ef11662192f5e4f854e2646d0185c1570510",
+    "final_experiments/outputs/20_fnspid_market_sentiment_risk_overlay/evaluation_baseline_daily.parquet": "a99849fd88696e763a9bd0d8373e2d17cdaf7c7ad3eb60239b4a8a92ac393e50"
+  },
+  "development_sentiment_coefficient": 0.2302253567865272,
+  "development_sign_gate": true,
+  "forecast_metrics": [
+    {
+      "arm": "control_har",
+      "n_targets": 994,
+      "mean_qlike": -7.8843544677,
+      "log_variance_rmse": 0.9523999616,
+      "forecast_actual_spearman": 0.6148279802
+    },
+    {
+      "arm": "sentiment_har",
+      "n_targets": 994,
+      "mean_qlike": -7.8886203057,
+      "log_variance_rmse": 0.9362406711,
+      "forecast_actual_spearman": 0.6143425951
+    }
+  ],
+  "forecast_inference": [
+    {
+      "estimand": "QLIKE control minus sentiment",
+      "n": 994,
+      "mean": 0.004265838,
+      "ci_low": -0.0152145215,
+      "ci_high": 0.0266761962,
+      "p_two_sided": 0.6852,
+      "block_length": 20,
+      "replications": 4999,
+      "seed": 20260805
+    },
+    {
+      "estimand": "log-MSE control minus sentiment",
+      "n": 994,
+      "mean": 0.0305190927,
+      "ci_low": 0.0008832576,
+      "ci_high": 0.0616974977,
+      "p_two_sided": 0.0504,
+      "block_length": 20,
+      "replications": 4999,
+      "seed": 20260806
+    }
+  ],
+  "strategy_results": [
+    {
+      "arm": "long_spy",
+      "n_sessions": 998,
+      "active_sessions": 998,
+      "mean_gross": 0.0004804669,
+      "mean_net": 0.0004800661,
+      "sharpe_gross": 0.5683276092,
+      "sharpe_net": 0.5678502098,
+      "ann_vol_net": 0.2130432522,
+      "total_return_net": 0.4749611171,
+      "cagr_net": 0.1031077605,
+      "max_drawdown": -0.320489603,
+      "mean_turnover": 0.001002004,
+      "annualized_turnover": 0.25250501,
+      "mean_gross_exposure": 1.0,
+      "mean_positions": 1.0,
+      "max_abs_net_exposure": 1.0,
+      "max_missing_weight_share": 0.0,
+      "breakeven_bps_per_side": 2397.5298051656,
+      "bootstrap_net_mean": 0.0004800661,
+      "bootstrap_net_ci_low": -0.000371578,
+      "bootstrap_net_ci_high": 0.0012361664,
+      "bootstrap_block_length": 20,
+      "bootstrap_replications": 4999,
+      "bootstrap_seed": 20260805
+    },
+    {
+      "arm": "control_har_target",
+      "n_sessions": 998,
+      "active_sessions": 998,
+      "mean_gross": 0.0002931937,
+      "mean_net": 0.0002842799,
+      "sharpe_gross": 0.6937553813,
+      "sharpe_net": 0.6726744786,
+      "ann_vol_net": 0.1064980575,
+      "total_return_net": 0.298474369,
+      "cagr_net": 0.0681752158,
+      "max_drawdown": -0.1572999845,
+      "mean_turnover": 0.022284661,
+      "annualized_turnover": 5.6157345795,
+      "mean_gross_exposure": 0.6185730666,
+      "mean_positions": 1.0,
+      "max_abs_net_exposure": 1.0,
+      "max_missing_weight_share": 0.0,
+      "breakeven_bps_per_side": 65.7837528713,
+      "bootstrap_net_mean": 0.0002842799,
+      "bootstrap_net_ci_low": -0.0001147477,
+      "bootstrap_net_ci_high": 0.0006690962,
+      "bootstrap_block_length": 20,
+      "bootstrap_replications": 4999,
+      "bootstrap_seed": 20260805
+    },
+    {
+      "arm": "sentiment_har_target",
+      "n_sessions": 998,
+      "active_sessions": 998,
+      "mean_gross": 0.0003000117,
+      "mean_net": 0.0002888263,
+      "sharpe_gross": 0.6993626069,
+      "sharpe_net": 0.6732645075,
+      "ann_vol_net": 0.1081064465,
+      "total_return_net": 0.3034867806,
+      "cagr_net": 0.0692148971,
+      "max_drawdown": -0.1656907332,
+      "mean_turnover": 0.0279634797,
+      "annualized_turnover": 7.0467968809,
+      "mean_gross_exposure": 0.6295801169,
+      "mean_positions": 1.0,
+      "max_abs_net_exposure": 1.0,
+      "max_missing_weight_share": 0.0,
+      "breakeven_bps_per_side": 53.6434876112,
+      "bootstrap_net_mean": 0.0002888263,
+      "bootstrap_net_ci_low": -0.0001148129,
+      "bootstrap_net_ci_high": 0.0006840656,
+      "bootstrap_block_length": 20,
+      "bootstrap_replications": 4999,
+      "bootstrap_seed": 20260805
+    }
+  ],
+  "strategy_inference": [
+    {
+      "estimand": "sentiment minus control net return",
+      "n": 998,
+      "mean": 4.5465e-06,
+      "ci_low": -2.81826e-05,
+      "ci_high": 3.71078e-05,
+      "p_two_sided": 0.7934,
+      "block_length": 20,
+      "replications": 4999,
+      "seed": 20260807
+    },
+    {
+      "estimand": "control minus sentiment downside squared return",
+      "n": 998,
+      "mean": -6.624e-07,
+      "ci_low": -1.3839e-06,
+      "ci_high": 1.084e-07,
+      "p_two_sided": 0.081,
+      "block_length": 20,
+      "replications": 4999,
+      "seed": 20260808
+    }
+  ],
+  "temporal_stability": [
+    {
+      "period": "2020",
+      "n_sessions": 253,
+      "control_sharpe": 0.5974684627,
+      "sentiment_sharpe": 0.6696256402,
+      "sentiment_minus_control_bps_day": 0.4094802098,
+      "control_total_return": 0.0668169303,
+      "sentiment_total_return": 0.0775978289
+    },
+    {
+      "period": "2021_2023",
+      "n_sessions": 745,
+      "control_sharpe": 0.7048565194,
+      "sentiment_sharpe": 0.6770828819,
+      "sentiment_minus_control_bps_day": -0.078154111,
+      "control_total_return": 0.2171482586,
+      "sentiment_total_return": 0.2096226863
+    }
+  ],
+  "gates": {
+    "development_sentiment_coefficient_positive": true,
+    "qlike_improvement": 0.004265838,
+    "qlike_ci_low": -0.0152145215,
+    "forecast_gate": false,
+    "net_sharpe_improvement": 0.0005900289,
+    "drawdown_relative_improvement": -0.053342337,
+    "paired_net_ci_low_bps_day": -0.2818258548,
+    "stable_nonnegative_mean_both_periods": false,
+    "alpha_gate": false,
+    "useful_risk_gate": false
+  },
+  "verdict": "The sentiment-augmented volatility target does not pass either predeclared gate.",
+  "limitations": [
+    "the 2020-2023 block has influenced prior dissertation work",
+    "FNSPID date-only news timing uses the conservative next-session mapping",
+    "the five-session variance target overlaps",
+    "SPY adjusted opens are split-adjusted but not dividend-adjusted",
+    "cash return is zero rather than the historical risk-free return",
+    "the model lacks option-implied volatility and macro controls",
+    "aggregate pressure inherits changing FNSPID coverage and FinBERT error"
+  ]
+}

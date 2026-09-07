@@ -2,6 +2,8 @@
 
 Last updated: 2026-08-14
 
+> **Historical record.** This was the delivery plan used before submission. The completed project and submitted manuscript now live in [`submission/news-sentiment-beyond-mean/`](../submission/news-sentiment-beyond-mean/README.md); this plan is retained to document stage gates and decisions.
+
 This is the delivery plan for the closing phase. The dissertation deadline is **1 September 2026**. Calendar promises from the superseded July 12 plan are retired; progress is controlled by evidence gates and stage exit conditions.
 
 - Live checklist and decisions: [Final experiments plan](../final_experiments/plan.html)

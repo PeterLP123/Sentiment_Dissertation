@@ -1,0 +1,2 @@
+primary_test,expected_direction,estimate,se_hac5,p_two_sided,ci_low,ci_high,passes_frozen_gate,same_sample_baseline_estimate,relative_magnitude_change
+full_price_path_controls beta_negative_share,negative,-0.009140391546921745,0.0028175167102856,0.0011780980864329784,-0.014662622824921295,-0.0036181602689221957,True,-0.00830143048136616,0.10106222866513931

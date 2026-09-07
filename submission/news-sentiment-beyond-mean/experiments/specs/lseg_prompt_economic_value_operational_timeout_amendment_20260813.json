@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "status": "frozen_after_one_transport_stall_before_remaining_prompt_scoring_or_any_return_access",
+  "frozen_at_utc": "2026-08-13T00:52:00Z",
+  "parent_spec": "final_experiments/frozen_specs/lseg_prompt_economic_value_v1_20260813.json",
+  "incident": "The first prompt main pass durably recorded 9,316 of 9,317 attempts, then one HTTP response body stalled beyond the intended retry window because the transport read timeout reset on partial network activity. The process was interrupted after more than eight minutes with no loss of checkpointed rows.",
+  "operational_change": "Wrap every complete OpenRouter POST in a 45-second wall-clock timeout in addition to the existing HTTP transport timeout and append-only retry logic.",
+  "scientific_design_changed": false,
+  "prompt_or_model_changed": false,
+  "price_or_return_opened": false,
+  "spend_ceiling_changed": false,
+  "resume_rule": "Retry only unresolved or never-recorded events at lower concurrency; never rescore a successful event."
+}

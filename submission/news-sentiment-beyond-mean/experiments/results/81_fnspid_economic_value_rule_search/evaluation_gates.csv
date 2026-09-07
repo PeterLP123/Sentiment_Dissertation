@@ -1,0 +1,3 @@
+comparison,utility_positive_and_bh,tail_metric_positive_and_bh,return_lower_bound_within_minus_1bp,complete_comparison_gate
+selected_overlay_vs_har,False,True,True,False
+selected_overlay_vs_development_matched_constant,False,False,True,False

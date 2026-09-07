@@ -1,0 +1,196 @@
+{
+  "manifest_format_version": "1.0",
+  "base_draft_hash": "df7809760f53",
+  "blocks": [
+    {
+      "block_id": "B0001",
+      "old_hash": "b3fe71fe1578",
+      "first_line_excerpt": "# ARS canonical manuscript source snapshot"
+    },
+    {
+      "block_id": "B0002",
+      "old_hash": "db3f25045af5",
+      "first_line_excerpt": "This review artifact contains the manuscript source files and a hash manifest f…"
+    },
+    {
+      "block_id": "B0003",
+      "old_hash": "5ac36385310e",
+      "first_line_excerpt": "## manuscript/main.tex"
+    },
+    {
+      "block_id": "B0004",
+      "old_hash": "d8e41848bfb9",
+      "first_line_excerpt": "````latex"
+    },
+    {
+      "block_id": "B0005",
+      "old_hash": "684b6b7c2a85",
+      "first_line_excerpt": "## manuscript/chapters/01_introduction.tex"
+    },
+    {
+      "block_id": "B0006",
+      "old_hash": "f9239a975e51",
+      "first_line_excerpt": "````latex"
+    },
+    {
+      "block_id": "B0007",
+      "old_hash": "b155716ec5e5",
+      "first_line_excerpt": "## manuscript/chapters/02_literature.tex"
+    },
+    {
+      "block_id": "B0008",
+      "old_hash": "3348b6a7811a",
+      "first_line_excerpt": "````latex"
+    },
+    {
+      "block_id": "B0009",
+      "old_hash": "251697bf1c92",
+      "first_line_excerpt": "## manuscript/chapters/03_data.tex"
+    },
+    {
+      "block_id": "B0010",
+      "old_hash": "7d585ae8b411",
+      "first_line_excerpt": "````latex"
+    },
+    {
+      "block_id": "B0011",
+      "old_hash": "1628821c51c4",
+      "first_line_excerpt": "## manuscript/chapters/04_methodology.tex"
+    },
+    {
+      "block_id": "B0012",
+      "old_hash": "3a9bc3ac647d",
+      "first_line_excerpt": "````latex"
+    },
+    {
+      "block_id": "B0013",
+      "old_hash": "80cb567fa319",
+      "first_line_excerpt": "## manuscript/chapters/05_results.tex"
+    },
+    {
+      "block_id": "B0014",
+      "old_hash": "26eed902ebc8",
+      "first_line_excerpt": "````latex"
+    },
+    {
+      "block_id": "B0015",
+      "old_hash": "ba4109380acb",
+      "first_line_excerpt": "## manuscript/chapters/06_conclusion.tex"
+    },
+    {
+      "block_id": "B0016",
+      "old_hash": "d69956b96970",
+      "first_line_excerpt": "````latex"
+    },
+    {
+      "block_id": "B0017",
+      "old_hash": "23b87e63bfef",
+      "first_line_excerpt": "## manuscript/appendices/project_summary.tex"
+    },
+    {
+      "block_id": "B0018",
+      "old_hash": "f3a90997292d",
+      "first_line_excerpt": "````latex"
+    },
+    {
+      "block_id": "B0019",
+      "old_hash": "663d6832d7aa",
+      "first_line_excerpt": "## manuscript/appendices/reproducibility.tex"
+    },
+    {
+      "block_id": "B0020",
+      "old_hash": "5e806d44427c",
+      "first_line_excerpt": "````latex"
+    },
+    {
+      "block_id": "B0021",
+      "old_hash": "c5aa8fb63ffa",
+      "first_line_excerpt": "## manuscript/tables/tab_core_result_provenance.tex"
+    },
+    {
+      "block_id": "B0022",
+      "old_hash": "eaa215ec114c",
+      "first_line_excerpt": "````latex"
+    },
+    {
+      "block_id": "B0023",
+      "old_hash": "612b8c0c725d",
+      "first_line_excerpt": "## manuscript/tables/tab_null_mde.tex"
+    },
+    {
+      "block_id": "B0024",
+      "old_hash": "fde72192b787",
+      "first_line_excerpt": "````latex"
+    },
+    {
+      "block_id": "B0025",
+      "old_hash": "d4158adcd802",
+      "first_line_excerpt": "## manuscript/tables/tab_reversal_confound.tex"
+    },
+    {
+      "block_id": "B0026",
+      "old_hash": "b494636db443",
+      "first_line_excerpt": "````latex"
+    },
+    {
+      "block_id": "B0027",
+      "old_hash": "8c27d405c4ef",
+      "first_line_excerpt": "## manuscript/artifacts/tab_aggregation_family.tex"
+    },
+    {
+      "block_id": "B0028",
+      "old_hash": "d9367e5a3a93",
+      "first_line_excerpt": "````latex"
+    },
+    {
+      "block_id": "B0029",
+      "old_hash": "13b5b0f8a058",
+      "first_line_excerpt": "## manuscript/artifacts/tab_headline_estimates.tex"
+    },
+    {
+      "block_id": "B0030",
+      "old_hash": "8d2537fbee13",
+      "first_line_excerpt": "````latex"
+    },
+    {
+      "block_id": "B0031",
+      "old_hash": "1dbc981e319b",
+      "first_line_excerpt": "## manuscript/artifacts/tab_outcome_label_sensitivities.tex"
+    },
+    {
+      "block_id": "B0032",
+      "old_hash": "9e5949180123",
+      "first_line_excerpt": "````latex"
+    },
+    {
+      "block_id": "B0033",
+      "old_hash": "62f4617198d0",
+      "first_line_excerpt": "## manuscript/artifacts/tab_robustness_diagnostics.tex"
+    },
+    {
+      "block_id": "B0034",
+      "old_hash": "a67f30c58e43",
+      "first_line_excerpt": "````latex"
+    },
+    {
+      "block_id": "B0035",
+      "old_hash": "22d433f6f69c",
+      "first_line_excerpt": "## manuscript/references.bib"
+    },
+    {
+      "block_id": "B0036",
+      "old_hash": "aab428af74b2",
+      "first_line_excerpt": "````bibtex"
+    },
+    {
+      "block_id": "B0037",
+      "old_hash": "154f5add5376",
+      "first_line_excerpt": "## Binary artifact manifest"
+    },
+    {
+      "block_id": "B0038",
+      "old_hash": "9aeb082e97d8",
+      "first_line_excerpt": "````text"
+    }
+  ]
+}

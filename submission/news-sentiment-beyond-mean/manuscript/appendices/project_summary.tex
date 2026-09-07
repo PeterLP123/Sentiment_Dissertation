@@ -1,0 +1,47 @@
+\chapter{Project summary}
+\label{app:project-summary}
+
+\section*{Title}
+
+\textit{A Hard Negative-Story Threshold: Training-Period Association, Temporal Non-Replication and Economic Limits}
+
+\section*{Problem}
+
+Financial-news systems often average every sentiment score for a firm on a given
+day. Counting the share of stories classified as negative gives a different
+measure. The project tests whether that measure is related to returns after the
+main controls. It also asks when the relationship appears and whether it remains
+useful in later data and after trading costs.
+
+\section*{Objectives}
+
+\begin{enumerate}
+  \item Build a reproducible firm-day dataset joining financial news, sentiment scores and assigned-session open-to-open returns.
+  \item Compare several return-blind rules for aggregating multiple same-day stories.
+  \item Test whether the selected measure is still related to returns after controlling for average sentiment, news volume and recent prices.
+  \item Separate the assigned return into intraday and overnight parts and state the timestamp limitation.
+  \item Evaluate selection, uncertainty, multiple testing, transaction costs and downside-risk performance.
+  \item Test the measure on a separate Reuters/LSEG company set without combining the two data sources.
+\end{enumerate}
+
+\section*{Methods}
+
+FinBERT, a language model for financial sentiment, scores each story. Daily rank
+correlations and rank regressions test the relationship. The statistical methods
+allow for links between nearby sessions and for the fact that several measures
+are tested. The economic tests include turnover, trading costs, a volatility-based
+risk rule, controls with similar market exposure and checks that shift the risk
+schedule to other dates.
+
+\section*{Outcome}
+
+Negative-story share has a small exploratory relationship with returns in the
+training period. The relationship appears during the assigned open-to-next-open
+window and in an earlier return window. Because exact story availability times
+are missing, the timing evidence does not support a forecasting claim. The
+unchanged specification produces an opposite-signed estimate during 2020--2023.
+This suggests instability but does not explain its cause. Daily trading does not
+cover costs. In FNSPID, the same-session news risk rule has a worse overall maximum
+drawdown than its volatility benchmark. It also does not show that the news was
+available before the return began. The LSEG estimates are too uncertain, and the
+tuned LSEG risk and prompt rules fail their economic tests.

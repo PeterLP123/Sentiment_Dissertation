@@ -1,0 +1,4 @@
+check,n_complete,max_absolute_error,tolerance,passes
+stock_gross_return_identity,1946568,1.7763568394002505e-15,1e-12,True
+market_gross_return_identity,3520,2.220446049250313e-16,1e-12,True
+recomputed_abnormal_full_window_matches_committed_panel,715534,0.0,1e-12,True

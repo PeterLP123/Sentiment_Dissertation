@@ -1,0 +1,19 @@
+\begin{table}[!ht]
+\centering
+\caption[Prompt training-period results]{Prompt results from the fixed 2024 LSEG training period. Means are basis points per formation session; net figures charge 10 basis points per side. Break-even is the per-side cost that would set the mean net return to zero, so a negative value means no non-negative cost level makes the prompt profitable. The Quarters column counts the 2024 quarters with a positive net mean, out of four. The test required a positive net mean, a positive net Sharpe, a break-even of at least 10 basis points, three positive quarters and three quarters beating the same-date Gemma comparator. No prompt met all five pre-specified conditions, so the final analysis formed no 2025 prompt portfolio.}
+\label{tab:prompt-selection}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}l c d{-1.3} d{-2.3} d{-1.3} d{-2.3} c c@{}}
+\toprule
+Prompt & {Horizon} & {Gross} & {Net} & {Net Sharpe} & {Break-even} & {Quarters} & {Passes} \\
+\midrule
+Direct one-session reaction & 1 & -3.686 & -16.455 & -2.079 & -2.887 & 1 & \textendash \\
+Delayed five-session reaction & 5 & -0.989 & -4.012 & -1.098 & -3.271 & 1 & \textendash \\
+Cash-flow revision & 5 & -1.859 & -5.260 & -1.344 & -5.466 & 2 & \textendash \\
+Surprise catalyst & 5 & -1.667 & -4.492 & -1.271 & -5.897 & 1 & \textendash \\
+Red-team consensus & 5 & -6.145 & -9.543 & -2.408 & -18.081 & 1 & \textendash \\
+Structured reaction score & 1 & -2.590 & -19.666 & -2.178 & -1.517 & 1 & \textendash \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -1,8 +1,8 @@
 # Getting Started With The Benchmark
 
-You will install the project, validate the dissertation dataset, run a small model benchmark, inspect the stored metrics, export the evidence, and optionally fetch a small Tavily news corpus.
+This guide installs the broader benchmark application retained in the research workspace. It lets you validate the public benchmark dataset, run a small model comparison, inspect stored metrics, and export results.
 
-> **Current phase.** This tutorial covers the stable benchmark application. Closing dissertation work now lives in [`final_experiments/`](../final_experiments/README.md) and imports this package rather than extending its CLI. The final notebooks also require licensed/local FNSPID and LSEG artifacts that are intentionally absent from a clean clone.
+For the completed dissertation study, use the separate [`submission/news-sentiment-beyond-mean/`](../submission/news-sentiment-beyond-mean/README.md) package and its [reproducibility guide](../submission/news-sentiment-beyond-mean/docs/reproducibility.md). The archived [`final_experiments/`](../final_experiments/README.md) notebooks additionally require local FNSPID and licensed LSEG artifacts that are intentionally absent from a clean clone.
 
 
 ```mermaid
@@ -28,6 +28,22 @@ flowchart LR
 ## Step 1: Install The Package
 
 From the repository root:
+
+```bash
+uv sync --extra dev
+uv run sentiment-bench --help
+```
+
+This is the shortest cross-platform setup. It uses the Python version declared by the project and creates a local `.venv`. If `uv` is unavailable, create and activate a Python 3.12 virtual environment, then install the editable package:
+
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+```
+
+On Windows PowerShell, the equivalent commands are:
 
 ```powershell
 py -3.12 -m venv .venv

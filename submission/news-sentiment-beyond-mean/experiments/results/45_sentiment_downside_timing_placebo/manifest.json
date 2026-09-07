@@ -1,0 +1,156 @@
+{
+  "notebook": "45_sentiment_downside_timing_placebo.ipynb",
+  "status": "complete_post_result_mechanism_audit",
+  "seed": 20260805,
+  "git_commit_at_execution": "c006fd7323396b90b17f21147afbf4f7b3ac765e",
+  "design": {
+    "primary_estimand": "mean(base net downside squared minus shifted-overlay net downside squared)",
+    "secondary_estimand": "mean(shifted-overlay net return minus base net return)",
+    "null": "all circular placements of each complete frozen sentiment state, observed included once",
+    "primary_family": "three disjoint-regime one-sided exact downside timing tests; BH-FDR q=0.05",
+    "secondary_family": "three disjoint-regime one-sided exact return timing tests; BH-FDR q=0.05",
+    "cross_regime_gate": "positive observed-minus-shift-mean effect and BH rejection in all three regimes",
+    "parameters_searched": false,
+    "strategy_changed": false
+  },
+  "regimes": [
+    "FNSPID 2013-2019 walk-forward HAR times aggregate sentiment",
+    "FNSPID 2020-2023 HAR times aggregate sentiment",
+    "LSEG/Gemma 2025-2026 exact-negative firm brake"
+  ],
+  "cost_bps_per_side": {
+    "fnspid": 2.0,
+    "lseg": 10.0
+  },
+  "risk_fraction": 0.25,
+  "input": {
+    "source_sha256": {
+      "final_experiments/outputs/24_fnspid_har_sentiment_hysteresis/evaluation_control_har_target_daily.parquet": "a9e21e5e8a19ad3fb4b8f63a085921cab4c3950a758b0362622b3b6ecf8fee0e",
+      "final_experiments/outputs/24_fnspid_har_sentiment_hysteresis/evaluation_har_sentiment_daily.parquet": "35036e78f009969284a23d171a5cd2db05001d28c4856546bd34529f6eb31707",
+      "final_experiments/outputs/25_fnspid_har_sentiment_walkforward/walkforward_har_daily.parquet": "6b73cfc8118864fb308d53fb33ccb3feb26a2d7d091784999016c1941bdb006e",
+      "final_experiments/outputs/25_fnspid_har_sentiment_walkforward/walkforward_har_sentiment_daily.parquet": "b607e683e0a84e2a56dbae77a893d59d73113e7521901ed2ca281163011c926d",
+      "final_experiments/outputs/26_lseg_gemma_sparse_risk_brakes/full_baseline_daily.parquet": "234238a86b447e2ac28b903ed9a68e05a712c433936d7139bba5adeb99e01292",
+      "final_experiments/outputs/26_lseg_gemma_sparse_risk_brakes/full_firm_brake_daily.parquet": "9854ee6fe30543975a85263f361469ae01ad486bb9d3b278d68fcb716ce0dc5b",
+      "final_experiments/outputs/13_lseg_44_gemma_robustness/gemma4_26b_firm_open_aggregators.parquet": "2fe436f1d75fce77c821cd6a05d4dbd4fa0473a0e7026400e2a90649003689a5",
+      "Data/derived/prices/lseg_us_sector_33_8m.csv": "97300670e08b8a701851c333eda9e977ad33402ba9e484abe6999a6942084b2f",
+      "Data/derived/prices/lseg_us_sector_add11_8m.csv": "fe0d3e11c27f6d809d3bd6cc8691e94db5d3df15761c072ad8a2adc86b9fe562",
+      "Data/collections/lseg_us_sector_44_8m_headlines/derived/merged/manifest.json": "fc41a6004c316acfb5d15dc15f29555b76fb7e791ff12338904d3c7b3bead43e",
+      "final_experiments/outputs/24_fnspid_har_sentiment_hysteresis/manifest.json": "ea4bb749e01508d6024b1310390041a73f899fcc98e58535f63efbb11e6d0d78",
+      "final_experiments/outputs/25_fnspid_har_sentiment_walkforward/manifest.json": "eb96a1b5069f9184e97b6a6e2724f6adedcd4f7b440aaca8ad03a1a781c81b0d",
+      "final_experiments/outputs/26_lseg_gemma_sparse_risk_brakes/manifest.json": "288811456285f97cc819105c8a4dce3b7ea612f1b3273865e5ef5c095b41631b"
+    },
+    "headline_text_loaded": false,
+    "licensed_text_emitted": false,
+    "gemma_input_grain": "firm-open aggregate",
+    "prospective_post_2026_06_26_news_available": false,
+    "prospective_replay_run": false
+  },
+  "reproduction": [
+    {
+      "regime": "FNSPID 2013\u20132019",
+      "sessions": 1759,
+      "risk_off_sessions": 194,
+      "net_return_max_abs_error": 0.0,
+      "gross_return_max_abs_error": 0.0,
+      "turnover_max_abs_error": 0.0,
+      "exposure_max_abs_error": 0.0,
+      "flagged_firm_sessions": null
+    },
+    {
+      "regime": "FNSPID 2020\u20132023",
+      "sessions": 998,
+      "risk_off_sessions": 125,
+      "net_return_max_abs_error": 0.0,
+      "gross_return_max_abs_error": 0.0,
+      "turnover_max_abs_error": 0.0,
+      "exposure_max_abs_error": 0.0,
+      "flagged_firm_sessions": null
+    },
+    {
+      "regime": "LSEG/Gemma 2025\u20132026",
+      "sessions": 167,
+      "risk_off_sessions": 99,
+      "net_return_max_abs_error": 4.440892099e-16,
+      "gross_return_max_abs_error": 4.440892099e-16,
+      "turnover_max_abs_error": 1.387778781e-17,
+      "exposure_max_abs_error": null,
+      "flagged_firm_sessions": 143.0
+    }
+  ],
+  "results": [
+    {
+      "regime": "FNSPID 2013\u20132019",
+      "sessions": 1759,
+      "nonzero_shifts": 1758,
+      "observed_downside_reduction_bps2": 277.0545279981,
+      "shift_mean_downside_reduction_bps2": 172.3557068054,
+      "observed_minus_shift_mean_downside_bps2": 104.6988211926,
+      "observed_relative_downside_reduction": 0.1636739296,
+      "downside_exact_p_one_sided": 0.0454803866,
+      "downside_percentile_nonzero_shifts": 0.9550625711,
+      "observed_mean_net_difference_bps": -0.1336963975,
+      "shift_mean_net_difference_bps": -0.4431477307,
+      "observed_minus_shift_mean_net_bps": 0.3094513332,
+      "return_exact_p_one_sided": 0.1523592951,
+      "return_percentile_nonzero_shifts": 0.8481228669,
+      "downside_q_bh": 0.0682205799,
+      "return_q_bh": 0.1523592951,
+      "downside_timing_gate": false,
+      "return_timing_gate": false
+    },
+    {
+      "regime": "FNSPID 2020\u20132023",
+      "sessions": 998,
+      "nonzero_shifts": 997,
+      "observed_downside_reduction_bps2": 512.4825904298,
+      "shift_mean_downside_reduction_bps2": 281.2835712057,
+      "observed_minus_shift_mean_downside_bps2": 231.1990192241,
+      "observed_relative_downside_reduction": 0.2118111188,
+      "downside_exact_p_one_sided": 0.0100200401,
+      "downside_percentile_nonzero_shifts": 0.9909729188,
+      "observed_mean_net_difference_bps": 0.3659730588,
+      "shift_mean_net_difference_bps": -0.3569976899,
+      "observed_minus_shift_mean_net_bps": 0.7229707487,
+      "return_exact_p_one_sided": 0.0951903808,
+      "return_percentile_nonzero_shifts": 0.9057171515,
+      "downside_q_bh": 0.0300601202,
+      "return_q_bh": 0.1427855711,
+      "downside_timing_gate": true,
+      "return_timing_gate": false
+    },
+    {
+      "regime": "LSEG/Gemma 2025\u20132026",
+      "sessions": 167,
+      "nonzero_shifts": 166,
+      "observed_downside_reduction_bps2": 46.7572262575,
+      "shift_mean_downside_reduction_bps2": 38.3743237247,
+      "observed_minus_shift_mean_downside_bps2": 8.3829025328,
+      "observed_relative_downside_reduction": 0.0249957369,
+      "downside_exact_p_one_sided": 0.3652694611,
+      "downside_percentile_nonzero_shifts": 0.6385542169,
+      "observed_mean_net_difference_bps": 0.1478655281,
+      "shift_mean_net_difference_bps": -0.2968597362,
+      "observed_minus_shift_mean_net_bps": 0.4447252643,
+      "return_exact_p_one_sided": 0.0718562874,
+      "return_percentile_nonzero_shifts": 0.9337349398,
+      "downside_q_bh": 0.3652694611,
+      "return_q_bh": 0.1427855711,
+      "downside_timing_gate": false,
+      "return_timing_gate": false
+    }
+  ],
+  "gates": {
+    "downside_local_passes": 1,
+    "cross_regime_downside_timing_gate": false,
+    "return_local_passes": 0,
+    "cross_regime_return_timing_gate": false
+  },
+  "limitations": [
+    "This is a post-result mechanism audit on opened outcome windows, not confirmation.",
+    "Circular shifts assume approximate stationarity and wrap sample endpoints.",
+    "The FNSPID rules act on one market exposure while the LSEG/Gemma rule acts on individual firms.",
+    "The LSEG exact-negative event was selected after the expanded return window was opened.",
+    "A shift test distinguishes timing from generic de-risking but cannot establish causal sentiment information.",
+    "No post-2026-06-26 LSEG news exists locally, so no prospective return was opened."
+  ]
+}

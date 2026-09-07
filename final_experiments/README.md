@@ -1,5 +1,7 @@
 # Final Experiments
 
+> **Historical research archive.** This directory preserves the exploratory notebook programme, frozen specifications, invalidations, and decision records. The completed canonical study is the curated [`submission/news-sentiment-beyond-mean/`](../submission/news-sentiment-beyond-mean/README.md) package. Use that package for the submitted manuscript and final reproduction; use this directory to audit the wider research path.
+
 Notebook-first closing programme for the dissertation. This directory is intentionally lighter than `src/sentiment_benchmark`: rapid analysis, plots, and interpretable tables take priority over new CLI commands or production-style abstractions.
 
 - Live decisions and checklist: [`plan.html`](plan.html)

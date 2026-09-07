@@ -1,0 +1,62 @@
+{
+  "report_format_version": "1.3",
+  "mode": "patch",
+  "base_path": "reviews/ars/current_re_review/round2/original_manuscript.md",
+  "output_path": "reviews/ars/current_re_review/round2/revised_manuscript.md",
+  "base_draft_hash": "5f73b895261c",
+  "output_draft_hash": "d15e6c3762b3",
+  "patch_digest": "fbce89fe5efd81e088f64026aaba58fd4b820674ba81ae787af34cb68169ca60",
+  "revision_round": 2,
+  "authorization_context": "review_roadmap",
+  "authorization_witness": {
+    "status": "pass",
+    "roadmap_sha256": "8d9412dbb29253b0bf2dc2cb30e81b5e3593f07785afbc6461c124cccd0737d1",
+    "author_adjudication_sha256": "95aaedcaabcfbf2c0dc6e2f703757e4a4d2213dac4b5aa820808ec4b8a7bd703",
+    "author_decision_digest": "0d2eaec471ebcb1843d36e4c2fbfb598d7df5fb931cf9f0c292cf40cd3190885",
+    "claim_surface_manifest_sha256": "bdc360ba98161b0b68330d7e3770bcd35aff85103ddbf257b85f3f7496cc4752",
+    "registered_claim_surfaces_checked": 0,
+    "unregistered_claim_drift_review_required": true
+  },
+  "ops_applied": [
+    {
+      "op_index": 0,
+      "op": "replace_block",
+      "block_id": "B0014",
+      "roadmap_item_ids": [
+        "REV-INTERPRETATION-BOUNDARY-R2"
+      ],
+      "claim_strength_changes": [],
+      "collateral_authorization_ids": [],
+      "new_block_ids": []
+    },
+    {
+      "op_index": 1,
+      "op": "replace_block",
+      "block_id": "B0018",
+      "roadmap_item_ids": [
+        "REV-ESTIMAND-ALIGNMENT-R2",
+        "REV-INTERPRETATION-BOUNDARY-R2"
+      ],
+      "claim_strength_changes": [],
+      "collateral_authorization_ids": [],
+      "new_block_ids": []
+    }
+  ],
+  "fresh_block_ids": [],
+  "pure_move_pairs": [],
+  "structural_flags": {
+    "heading_op_indexes": [],
+    "section_count_delta": 0,
+    "touched_ratio": 0.0526,
+    "touched_ratio_threshold": 0.6,
+    "touched_ratio_exceeded": false,
+    "any": false,
+    "acknowledged": false
+  },
+  "counters": {
+    "blocks_total": 38,
+    "blocks_touched": 2,
+    "blocks_preserved_byte_identical": 36,
+    "preserved_ratio": 0.9474
+  }
+}

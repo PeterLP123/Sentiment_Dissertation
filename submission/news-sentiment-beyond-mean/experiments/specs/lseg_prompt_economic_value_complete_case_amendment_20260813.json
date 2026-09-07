@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "status": "frozen_after_first_prompt_scoring_before_other_prompt_results_or_any_return_access",
+  "frozen_at_utc": "2026-08-13T00:56:00Z",
+  "parent_spec": "final_experiments/frozen_specs/lseg_prompt_economic_value_v1_20260813.json",
+  "observed_operational_fact": "The first prompt produced 9,306 strict successes from 9,317 events after two cleanup passes. Eleven events repeatedly violated the cross-field target-specific/materiality rule.",
+  "rule": "Do not coerce invalid outputs and do not retry to outcome-select a valid label. The common analysis population is the intersection of strict successful rows across all five prompts. Remove every non-intersection event from every prompt and from both existing-scorer comparators before reading returns.",
+  "minimum_gate": {
+    "retained_share_of_9317": 0.99,
+    "companies": 33,
+    "both_2024_and_2025_must_retain_events": true
+  },
+  "failure_action": "If the five-prompt intersection retains less than 99 percent, any company disappears, or either analysis year is empty, stop before returns.",
+  "scientific_reason": "Strict complete-case analysis prevents prompt-specific missingness from changing activity or comparator exposure and avoids converting invalid model output into a usable score.",
+  "unchanged": [
+    "five prompts and prompt hashes",
+    "signal weights and evidence filters",
+    "2024 selection and one-shot 2025 test",
+    "same-date exact-exposure comparators",
+    "10 bps per side",
+    "sealed 2026 period",
+    "19 dollar operational and 20 dollar authorised spend limits"
+  ]
+}

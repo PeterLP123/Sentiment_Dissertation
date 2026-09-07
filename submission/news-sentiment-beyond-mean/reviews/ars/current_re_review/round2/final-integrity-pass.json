@@ -1,0 +1,51 @@
+{
+  "schema_version": "ars-final-integrity-pass/1.0",
+  "receipt_id": "ARS-FINAL-INTEGRITY-PASS-2026-08-14-round2",
+  "revision_round": 2,
+  "checked_draft_sha256": "d15e6c3762b3637a7a79bd686ff6b6b3f381093688844417779a0d69473599ce",
+  "verdict": "PASS",
+  "open_issue_count": 0,
+  "integrity_modes": {
+    "implementation_bug": "CLEAR",
+    "citation_hallucination": "CLEAR",
+    "hallucinated_result": "CLEAR",
+    "shortcut_reliance": "CLEAR",
+    "bug_as_insight": "CLEAR",
+    "methodology_fabrication": "CLEAR",
+    "frame_lock": "CLEAR"
+  },
+  "claim_verification": {
+    "checked": 18,
+    "verified": 18,
+    "minor_distortion": 0,
+    "major_distortion": 0,
+    "unverifiable": 0
+  },
+  "citation_verification": {
+    "bibliography_records": 37,
+    "records_verified": 37,
+    "citation_commands_checked": 46,
+    "dangling_keys": 0,
+    "ghost_citations": 0
+  },
+  "originality": {
+    "chapter_frame_paragraphs": 145,
+    "chapter_sample_paragraphs": 73,
+    "modified_paragraphs_checked": 2,
+    "exact_fragment_searches": 74,
+    "suspicious_matches": 0,
+    "determination": "NO_SUSPICIOUS_MATCH_OBSERVED"
+  },
+  "stage5_advisories": {
+    "tortured_phrase": "NOT_CHECKED_SNAPSHOT_NOT_PROVIDED",
+    "cross_document_performed_pairs": 3,
+    "cross_document_potential_inconsistencies": 0,
+    "preregistration_pair": "NOT_CHECKED_COUNTERPART_DOCUMENT_MISSING"
+  },
+  "pdf": {
+    "sha256": "53ab7883bee6e9dda94107ac74033250023e0edf1d729960746a6aad61d9c078",
+    "pages": 57,
+    "chapter_word_count": 10889
+  },
+  "issued_by": "academic_research_suite_same_family_review"
+}

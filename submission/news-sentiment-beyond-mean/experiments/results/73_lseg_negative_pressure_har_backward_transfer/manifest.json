@@ -1,0 +1,294 @@
+{
+  "notebook": "73_lseg_negative_pressure_har_backward_transfer",
+  "status": "complete_bounded_historical_cross_source_robustness",
+  "git_commit_at_execution": "12086d5101daa3df08bd72d241a6559aac49d7fc",
+  "frozen_spec": "final_experiments/frozen_specs/lseg_negative_pressure_har_backward_transfer_v1_20260812.json",
+  "pre_outcome_freeze_commit": "12086d5",
+  "known_input_hashes": {
+    "final_experiments/outputs/67_lseg_gemma_finbert_joined_long_window/backward_finbert_firm_open.parquet": "745e6cba49c6dc6e256f9a6495b39eee66679231d162b5e22d9087c45e7680f4",
+    "final_experiments/outputs/21_fnspid_sentiment_volatility_target/model_coefficients.csv": "ea005d6f440ab04814945e17aff902e6200ff3efa2994ee2d6f17eee75dc9530",
+    "final_experiments/outputs/21_fnspid_sentiment_volatility_target/manifest.json": "33bd7ec5a7e9caac6dff56a72b15459889853ca897ff6e4aaa8cc39d3c1a2c13",
+    "final_experiments/frozen_specs/lseg_negative_pressure_har_transfer_v1_20260812.json": "45cc68cfd70a836c22eb4ed586235335326cc7914d7f4e1d3f045c3d6a5e6522"
+  },
+  "acquired_price_hashes": {
+    "Data/derived/prices/lseg_sp500_20230101_20251027.csv": "18f79a30c8946fa86ae7aec83489fb0ef5d571a5c7064109c6be7d40e959f83d",
+    "Data/derived/prices/lseg_sp500_20230101_20251027.manifest.json": "ed3117be4930c67b0aab7d9353dea68169cc870b4debeec4e97d8aefdaa0bbcc"
+  },
+  "price_manifest": {
+    "collection_config_sha256": "34b96ae01f8f720cc27697e27d48b0504a33a999494bb4e3c7cb4cc1232482ef",
+    "counts": {
+      "rows": 707,
+      "rows_by_symbol": {
+        "^GSPC": 707
+      },
+      "symbols": 1
+    },
+    "coverage": {
+      "^GSPC": {
+        "first_session": "2023-01-03",
+        "last_session": "2025-10-27"
+      }
+    },
+    "environment": {
+      "database": {
+        "backend": "libsql"
+      },
+      "git": {
+        "available": true,
+        "branch": "main",
+        "commit": "12086d5101daa3df08bd72d241a6559aac49d7fc",
+        "dirty": false
+      },
+      "machine": {
+        "id": "machine-77ef95f7deb98566",
+        "id_source": "hostname_sha256",
+        "label": "Peters-MacBook-Pro.local"
+      },
+      "package_version": "0.1.0",
+      "platform": {
+        "machine": "arm64",
+        "processor": "arm",
+        "release": "25.5.0",
+        "system": "Darwin",
+        "version": "Darwin Kernel Version 25.5.0: Tue Jun 9 22:28:29 PDT 2026; root:xnu-12377.121.10~1/RELEASE_ARM64_T6030"
+      },
+      "python": {
+        "implementation": "CPython",
+        "version": "3.12.13"
+      },
+      "timezone": {
+        "name": "BST",
+        "utc_offset_minutes": 60
+      }
+    },
+    "file": {
+      "path": "lseg_sp500_20230101_20251027.csv",
+      "sha256": "18f79a30c8946fa86ae7aec83489fb0ef5d571a5c7064109c6be7d40e959f83d"
+    },
+    "provider": "lseg",
+    "requested_end": "2025-10-27",
+    "requested_start": "2023-01-01",
+    "return_convention": "split-adjusted price returns; dividends not back-adjusted",
+    "ric_overrides": {},
+    "rics": {
+      "^GSPC": ".SP500"
+    },
+    "schema_version": 1,
+    "status": "completed",
+    "symbols": [
+      "^GSPC"
+    ]
+  },
+  "sentiment_rule": {
+    "scorer": "pinned FinBERT primary only",
+    "daily_pressure": "headline-count-weighted negative-story share across complete 33-company sessions",
+    "normalisation": "current pressure minus strictly prior rolling mean, divided by strictly prior rolling standard deviation",
+    "trailing_window_sessions": 252,
+    "minimum_prior_observations": 126,
+    "entry_z": 1.5,
+    "exit_z": 0.5,
+    "risk_off_multiplier": 0.25,
+    "state_rule": "hysteresis",
+    "missing_z": "retain previous state; before the first valid z-score remain risk-on"
+  },
+  "portfolio": {
+    "base": "Notebook 21 control HAR fit on FNSPID 2011-2019, transferred unchanged",
+    "composition": "base HAR exposure multiplied by 1.0 or 0.25",
+    "cost_bps_per_side": 2.0,
+    "final_liquidation": true,
+    "cash_return": 0.0,
+    "matched_control": "constant multiplier chosen only to equal the overlay's mean exposure",
+    "no_leverage": true
+  },
+  "pressure_audit": {
+    "decision_sessions": 456,
+    "complete_33_firm_sessions": 445,
+    "incomplete_sessions": 11,
+    "sessions_with_pressure": 445,
+    "sessions_with_z": 319,
+    "first_z_session": 1719964800000,
+    "risk_off_sessions": 53,
+    "risk_off_entries": 18,
+    "risk_off_share": 0.1162280702,
+    "minimum_z": -2.1848166263,
+    "maximum_z": 4.5585731991,
+    "price_sessions": 707,
+    "price_first": 1672704000000,
+    "price_last": 1761523200000,
+    "complete_next_open_returns": 456
+  },
+  "strategy_results": [
+    {
+      "arm": "frozen_har",
+      "n_sessions": 456,
+      "active_sessions": 456,
+      "mean_gross": 0.0005218953,
+      "mean_net": 0.0005111818,
+      "sharpe_gross": 1.3182960956,
+      "sharpe_net": 1.2912732241,
+      "ann_vol_net": 0.099760315,
+      "total_return_net": 0.2511180851,
+      "cagr_net": 0.1318011066,
+      "max_drawdown": -0.1123933414,
+      "mean_turnover": 0.0267835972,
+      "annualized_turnover": 6.7494664972,
+      "mean_gross_exposure": 0.7405614169,
+      "mean_positions": 1.0,
+      "max_abs_net_exposure": 1.0,
+      "max_missing_weight_share": 0.0,
+      "breakeven_bps_per_side": 97.4281524279,
+      "bootstrap_net_mean": 0.0005111818,
+      "bootstrap_net_ci_low": 5.1583e-06,
+      "bootstrap_net_ci_high": 0.0009840829,
+      "bootstrap_block_length": 20,
+      "bootstrap_replications": 4999,
+      "bootstrap_seed": 20260812
+    },
+    {
+      "arm": "har_negative_pressure_overlay",
+      "n_sessions": 456,
+      "active_sessions": 456,
+      "mean_gross": 0.0005421167,
+      "mean_net": 0.0005255612,
+      "sharpe_gross": 1.5685215943,
+      "sharpe_net": 1.5204798947,
+      "ann_vol_net": 0.0871050112,
+      "total_return_net": 0.262040401,
+      "cagr_net": 0.1372508605,
+      "max_drawdown": -0.1083124837,
+      "mean_turnover": 0.0413887333,
+      "annualized_turnover": 10.4299607929,
+      "mean_gross_exposure": 0.6849420683,
+      "mean_positions": 1.0,
+      "max_abs_net_exposure": 1.0,
+      "max_missing_weight_share": 0.0,
+      "breakeven_bps_per_side": 65.4908514809,
+      "bootstrap_net_mean": 0.0005255612,
+      "bootstrap_net_ci_low": 3.34724e-05,
+      "bootstrap_net_ci_high": 0.0009807984,
+      "bootstrap_block_length": 20,
+      "bootstrap_replications": 4999,
+      "bootstrap_seed": 20260812
+    },
+    {
+      "arm": "har_constant_matched_multiplier",
+      "n_sessions": 456,
+      "active_sessions": 456,
+      "mean_gross": 0.0004826987,
+      "mean_net": 0.0004727899,
+      "sharpe_gross": 1.3182960956,
+      "sharpe_net": 1.2912732241,
+      "ann_vol_net": 0.0922678861,
+      "total_return_net": 0.2310186887,
+      "cagr_net": 0.1217164632,
+      "max_drawdown": -0.1042553486,
+      "mean_turnover": 0.0247720338,
+      "annualized_turnover": 6.2425525239,
+      "mean_gross_exposure": 0.6849420683,
+      "mean_positions": 1.0,
+      "max_abs_net_exposure": 0.9248956975,
+      "max_missing_weight_share": 0.0,
+      "breakeven_bps_per_side": 97.4281524279,
+      "bootstrap_net_mean": 0.0004727899,
+      "bootstrap_net_ci_low": 4.7709e-06,
+      "bootstrap_net_ci_high": 0.0009101741,
+      "bootstrap_block_length": 20,
+      "bootstrap_replications": 4999,
+      "bootstrap_seed": 20260812
+    }
+  ],
+  "primary_inference": [
+    {
+      "comparison": "negative_pressure_overlay_vs_frozen_har",
+      "estimand": "challenger minus baseline net return",
+      "n": 456,
+      "mean": 1.43793e-05,
+      "ci_low": -0.0001295387,
+      "ci_high": 0.0001687598,
+      "p_two_sided": 0.8486,
+      "block_length": 20,
+      "replications": 4999,
+      "seed": 20260822,
+      "q_bh_two_test": 0.8486,
+      "bh_reject_q05": false
+    },
+    {
+      "comparison": "negative_pressure_overlay_vs_frozen_har",
+      "estimand": "baseline minus challenger downside squared return",
+      "n": 456,
+      "mean": 5.1741e-06,
+      "ci_low": 1.3279e-06,
+      "ci_high": 9.8435e-06,
+      "p_two_sided": 0.0168,
+      "block_length": 20,
+      "replications": 4999,
+      "seed": 20260823,
+      "q_bh_two_test": 0.0336,
+      "bh_reject_q05": true
+    }
+  ],
+  "matched_exposure_inference": [
+    {
+      "comparison": "negative_pressure_overlay_vs_constant_multiplier",
+      "estimand": "challenger minus baseline net return",
+      "n": 456,
+      "mean": 5.27713e-05,
+      "ci_low": -9.40663e-05,
+      "ci_high": 0.0001948225,
+      "p_two_sided": 0.4696,
+      "block_length": 20,
+      "replications": 4999,
+      "seed": 20260832
+    },
+    {
+      "comparison": "negative_pressure_overlay_vs_constant_multiplier",
+      "estimand": "baseline minus challenger downside squared return",
+      "n": 456,
+      "mean": 2.2076e-06,
+      "ci_low": -1.3136e-06,
+      "ci_high": 6.4323e-06,
+      "p_two_sided": 0.2716,
+      "block_length": 20,
+      "replications": 4999,
+      "seed": 20260833
+    }
+  ],
+  "timing_tests": [
+    {
+      "estimand": "overlay minus HAR net return",
+      "observed": 1.43793e-05,
+      "nonzero_shift_mean": -5.29636e-05,
+      "observed_minus_shift_mean": 6.7343e-05,
+      "p_one_sided_exact": 0.1666666667,
+      "q_bh_two_test": 0.1666666667
+    },
+    {
+      "estimand": "HAR minus overlay downside squared return",
+      "observed": 5.1741e-06,
+      "nonzero_shift_mean": 2.208e-06,
+      "observed_minus_shift_mean": 2.9661e-06,
+      "p_one_sided_exact": 0.024122807,
+      "q_bh_two_test": 0.048245614
+    }
+  ],
+  "gates": {
+    "return_gate": false,
+    "useful_risk_gate": false,
+    "timing_gate": true,
+    "cross_source_support": false,
+    "sharpe_improvement": 0.2292066706,
+    "drawdown_relative_improvement": 0.0363087141,
+    "return_ci_low_bps_session": -1.2953870576,
+    "downside_ci_low_bps2_session": 132.7865079798,
+    "risk_off_sessions": 53,
+    "risk_off_entries": 18
+  },
+  "claim_boundaries": [
+    "The LSEG news inputs and input-only state activation were examined before price acquisition; the historical S&P 500 outcomes were not locally available when this specification was frozen.",
+    "This is a bounded historical robustness test, not a prospective or preregistered confirmation.",
+    "No scorer, threshold, state rule, rolling window, exposure multiplier, cost, comparison, inference family or gate may change after price acquisition.",
+    "The backward and recent Reuters regimes remain reported separately and are never pooled to create a success claim.",
+    "A failed result is preserved and is not permission to reverse, lower or otherwise tune the threshold.",
+    "The separate materiality 2026 confirmation remains sealed."
+  ]
+}

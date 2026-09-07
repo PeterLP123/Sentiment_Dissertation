@@ -1,0 +1,58 @@
+{
+  "status": "declared_before_notebooks_76_to_78_execution_on_previously_opened_outputs",
+  "date": "2026-08-12",
+  "scope": "examiner-facing descriptive figure, precision audit, and aggregate provenance extraction",
+  "claim_boundary": [
+    "All underlying development and robustness outcomes were already open.",
+    "This declaration prevents display and arithmetic choices from being changed after seeing the new summaries; it is not a preregistration or independent confirmation.",
+    "Notebook 75 and the FNSPID 2020-2023 one-shot evaluation replication remain deliberately unexecuted.",
+    "No result in this pack can select the final research question, promote a trading strategy, or license retuning."
+  ],
+  "notebook_76": {
+    "name": "fnspid_development_negative_share_double_sort",
+    "population": "FNSPID development through 2019-12-31",
+    "outcome": "ar_open_h1 in basis points",
+    "first_sort": "within-session mean_continuous quintiles using deterministic average-tie percentile ranks",
+    "second_sort": "within each session and mean-sentiment quintile, form negative-share terciles with fractional allocation of tied values; each tercile receives exactly one third of the cell weight and no arbitrary symbol tie-break is used",
+    "contrast": "equal-weight high-minus-low next-open return inside each mean-sentiment quintile, then equal-weight the available quintile spreads within each session",
+    "samples": [
+      "all complete development firm-days",
+      "predeclared descriptive sensitivity restricted to n >= 2 stories"
+    ],
+    "inference": "HAC(5) interval on the daily spread series; no cross-sectional regression",
+    "minimum_cell_firms": 5,
+    "minimum_available_mean_quintiles_per_session": 3,
+    "design_change_log": "The initially declared absolute <=1/3 and >=2/3 negative-share buckets produced no session with three overlapping mean-sentiment quintiles and execution stopped before any spread estimate was computed. The tie-aware dependent-tercile rule was recorded next because it is the standard double-sort estimand and preserves all ties without outcome-based choices."
+  },
+  "notebook_77": {
+    "name": "null_minimum_detectable_effects",
+    "families": [
+      "Notebook 71 pinned-FinBERT LSEG conditional coefficients",
+      "Notebook 08 story-type interactions",
+      "Notebook 15 publisher-conditioned ICs",
+      "Notebook 09 primary earnings-window interactions",
+      "Notebook 10 learned-threshold evaluation differences versus the historical fixed band"
+    ],
+    "alpha_two_sided": 0.05,
+    "power": 0.8,
+    "nominal_mde": "(z_(1-alpha/2) + z_power) * saved standard error",
+    "conservative_family_mde": "(z_(1-alpha/(2m)) + z_power) * saved standard error; this is a first-BH-threshold guarantee, not exact BH power",
+    "threshold_standard_error": "first reproduce every learned arm and the historical fixed-band arm against Notebook 10's exact seeded circular-block bootstrap; then estimate the learned-minus-fixed contrast with a paired 20-session circular-block bootstrap using seed 20260831 because Notebook 10 did not save a paired contrast standard error",
+    "interpretation": "MDE quantifies precision; it does not prove an exact zero or turn a retrospective null into confirmation"
+  },
+  "notebook_78": {
+    "name": "null_results_and_provenance_tables",
+    "multiplicity_scope": "completed numbered notebooks through 74 with machine-readable BH or FDR decisions; Notebook 75 is excluded because it is unexecuted",
+    "provenance_scope": "core numbers used by the current Gate-F1/write-up evidence package plus every test row in the machine-readable multiplicity ledger",
+    "required_provenance": [
+      "notebook",
+      "source artifact",
+      "source SHA-256",
+      "manifest and SHA-256 where present",
+      "frozen spec and SHA-256 where present",
+      "seed or explicit no-seed marker",
+      "opened-window/status boundary"
+    ],
+    "deduplication": "retain the earliest numbered source for each exact machine-readable family label; exclude labels explicitly beginning descriptive_; add later declared families from their named primary inference artifacts when those artifacts carry BH decisions but no family-label column"
+  }
+}

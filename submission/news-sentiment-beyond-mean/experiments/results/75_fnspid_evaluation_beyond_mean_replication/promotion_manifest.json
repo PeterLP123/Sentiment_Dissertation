@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "status": "promoted_without_reexecution",
+  "promoted_at_utc": "2026-08-14T00:00:00Z",
+  "source_repository": "PeterLP123/Sentiment_Dissertation",
+  "source_commit_containing_execution_record": "3f25ccf13aeafef13ac32bad96fb073c5e69f683",
+  "execution_git_head_recorded_by_run": "6488d02d99311573c83dd233fc9538402fded46c",
+  "execution_worktree_was_dirty": true,
+  "promotion_rule": "Exact source-execution files and licence-safe aggregate outputs were copied; Notebook 75 was not executed again in this repository.",
+  "exact_source_execution": {
+    "source_execution/executed_notebook.ipynb": "c58a9008263c86eee4f5937e6f8e726edce17f5844b4c8f6bf8712d2acdbd699",
+    "source_execution/executed_notebook.py": "23c9f3738ce27843d85a1c772b856deeca768f23f7c4bffa6c7239cae39623ca",
+    "../../specs/fnspid_evaluation_beyond_mean_preexecution_amendment_v1_20260814.json": "0e0e57da88b680a2ddd23e516aa5e33aa806195a74dfed948cef391ea4edd801",
+    "manifest.json": "c9159a8d7266daa60fbab2727eaea4827a90cef55261fd6ba67063a2a2bd052b"
+  },
+  "claim_boundary": [
+    "The result is a frozen chronological evaluation-block non-replication, not pristine confirmation.",
+    "The evaluation coefficient is imprecise; the separate predeclared regime contrast supports temporal instability but does not prove the evaluation effect is zero.",
+    "No evaluation trading, retuning, new horizon, sector, event type, prompt, scorer, or threshold was added."
+  ]
+}

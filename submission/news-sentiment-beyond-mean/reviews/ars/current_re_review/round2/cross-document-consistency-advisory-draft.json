@@ -1,0 +1,221 @@
+{
+  "schema_version": "cross-document-consistency-advisory-draft/1.0",
+  "layer": "LLM-ADVISORY",
+  "recorded_at": "2026-08-14T16:04:49Z",
+  "observations": [
+    {
+      "observation_key": "abstract-results.baseline-evaluation",
+      "pair_kind": "abstract_results",
+      "check_state": "performed",
+      "outcome": "NO_LISTED_INCONSISTENCY_LOCATED",
+      "finding_type": null,
+      "negative_basis": "legitimate_compression",
+      "not_checked_reason": null,
+      "deviation_id": null,
+      "deviation_domain": null,
+      "evidence_slots": [
+        {
+          "logical_role": "abstract",
+          "artifact_id": "ars-round2-accepted-draft",
+          "document_locator": {
+            "kind": "section",
+            "value": "Abstract",
+            "provenance": "agent_supplied_not_independently_authenticated"
+          },
+          "evidence_state": "agent_extracted",
+          "anchor_value_encoded": "repeats%20the%20baseline%20specification%20and%20gives%20%24%2B0.00583%24%2C%20with%20interval",
+          "quote_source_span_utf8": {
+            "start": 6115,
+            "end": 6185
+          },
+          "checked_scope_input": null,
+          "captured_at": "2026-08-14T16:04:49Z",
+          "sharing_scope": "session_only",
+          "rights_basis": "not_assessed"
+        },
+        {
+          "logical_role": "results",
+          "artifact_id": "ars-round2-accepted-draft",
+          "document_locator": {
+            "kind": "section",
+            "value": "Results: temporal replication",
+            "provenance": "agent_supplied_not_independently_authenticated"
+          },
+          "evidence_state": "agent_extracted",
+          "anchor_value_encoded": "coefficient%20is%20%24%2B0.00583%24%2C%20with%20a%2095%5C%25%20HAC%20interval%20of",
+          "quote_source_span_utf8": {
+            "start": 62648,
+            "end": 62702
+          },
+          "checked_scope_input": null,
+          "captured_at": "2026-08-14T16:04:49Z",
+          "sharing_scope": "session_only",
+          "rights_basis": "not_assessed"
+        }
+      ]
+    },
+    {
+      "observation_key": "discussion-results.interpretation-boundary",
+      "pair_kind": "discussion_results",
+      "check_state": "performed",
+      "outcome": "NO_LISTED_INCONSISTENCY_LOCATED",
+      "finding_type": null,
+      "negative_basis": "same_rung_rewording",
+      "not_checked_reason": null,
+      "deviation_id": null,
+      "deviation_domain": null,
+      "evidence_slots": [
+        {
+          "logical_role": "discussion",
+          "artifact_id": "ars-round2-accepted-draft",
+          "document_locator": {
+            "kind": "section",
+            "value": "Conclusion",
+            "provenance": "agent_supplied_not_independently_authenticated"
+          },
+          "evidence_state": "agent_extracted",
+          "anchor_value_encoded": "families%20and%20direct%20contrast%20establish%20non-replication%20of%20the%20measured%20baseline",
+          "quote_source_span_utf8": {
+            "start": 81548,
+            "end": 81627
+          },
+          "checked_scope_input": null,
+          "captured_at": "2026-08-14T16:04:49Z",
+          "sharing_scope": "session_only",
+          "rights_basis": "not_assessed"
+        },
+        {
+          "logical_role": "results",
+          "artifact_id": "ars-round2-accepted-draft",
+          "document_locator": {
+            "kind": "section",
+            "value": "Results: temporal replication",
+            "provenance": "agent_supplied_not_independently_authenticated"
+          },
+          "evidence_state": "agent_extracted",
+          "anchor_value_encoded": "temporal%20non-replication%20and%20instability%20in%20the%20measured%20baseline%20pipeline",
+          "quote_source_span_utf8": {
+            "start": 64302,
+            "end": 64376
+          },
+          "checked_scope_input": null,
+          "captured_at": "2026-08-14T16:04:49Z",
+          "sharing_scope": "session_only",
+          "rights_basis": "not_assessed"
+        }
+      ]
+    },
+    {
+      "observation_key": "methods-results.frozen-family-b",
+      "pair_kind": "methods_reported_analyses",
+      "check_state": "performed",
+      "outcome": "NO_LISTED_INCONSISTENCY_LOCATED",
+      "finding_type": null,
+      "negative_basis": "other_no_listed_observation",
+      "not_checked_reason": null,
+      "deviation_id": null,
+      "deviation_domain": null,
+      "evidence_slots": [
+        {
+          "logical_role": "methods",
+          "artifact_id": "ars-round2-accepted-draft",
+          "document_locator": {
+            "kind": "section",
+            "value": "Methods: frozen temporal replication",
+            "provenance": "agent_supplied_not_independently_authenticated"
+          },
+          "evidence_state": "agent_extracted",
+          "anchor_value_encoded": "Family%20B%20repeats%20%5Ccref%7Beq%3Aconditional-base%7D%20on%20all%20evaluation%20firm-days",
+          "quote_source_span_utf8": {
+            "start": 48863,
+            "end": 48934
+          },
+          "checked_scope_input": null,
+          "captured_at": "2026-08-14T16:04:49Z",
+          "sharing_scope": "session_only",
+          "rights_basis": "not_assessed"
+        },
+        {
+          "logical_role": "reported_analyses",
+          "artifact_id": "ars-round2-accepted-draft",
+          "document_locator": {
+            "kind": "section",
+            "value": "Results: temporal replication",
+            "provenance": "agent_supplied_not_independently_authenticated"
+          },
+          "evidence_state": "agent_extracted",
+          "anchor_value_encoded": "predeclared%20multi-story%20estimate%20is%20also%20positive%2C%20%24%2B0.00295%24%2C%20with%20interval",
+          "quote_source_span_utf8": {
+            "start": 62777,
+            "end": 62853
+          },
+          "checked_scope_input": null,
+          "captured_at": "2026-08-14T16:04:49Z",
+          "sharing_scope": "session_only",
+          "rights_basis": "not_assessed"
+        }
+      ]
+    },
+    {
+      "observation_key": "manuscript-preregistration.not-provided",
+      "pair_kind": "manuscript_preregistration",
+      "check_state": "not_checked",
+      "outcome": null,
+      "finding_type": null,
+      "negative_basis": null,
+      "not_checked_reason": "COUNTERPART_DOCUMENT_MISSING",
+      "deviation_id": null,
+      "deviation_domain": null,
+      "evidence_slots": [
+        {
+          "logical_role": "manuscript_report",
+          "artifact_id": "ars-round2-accepted-draft",
+          "document_locator": {
+            "kind": "section",
+            "value": "Manuscript report",
+            "provenance": "agent_supplied_not_independently_authenticated"
+          },
+          "evidence_state": "not_checked",
+          "anchor_value_encoded": null,
+          "quote_source_span_utf8": null,
+          "checked_scope_input": null,
+          "captured_at": null,
+          "sharing_scope": "session_only",
+          "rights_basis": "not_assessed"
+        },
+        {
+          "logical_role": "preregistration",
+          "artifact_id": "completed-preregistration",
+          "document_locator": {
+            "kind": "section",
+            "value": "Preregistration",
+            "provenance": "agent_supplied_not_independently_authenticated"
+          },
+          "evidence_state": "source_missing",
+          "anchor_value_encoded": null,
+          "quote_source_span_utf8": null,
+          "checked_scope_input": null,
+          "captured_at": null,
+          "sharing_scope": "session_only",
+          "rights_basis": "not_assessed"
+        },
+        {
+          "logical_role": "disclosure_scope",
+          "artifact_id": "ars-round2-accepted-draft",
+          "document_locator": {
+            "kind": "section",
+            "value": "Preregistration disclosures",
+            "provenance": "agent_supplied_not_independently_authenticated"
+          },
+          "evidence_state": "not_checked",
+          "anchor_value_encoded": null,
+          "quote_source_span_utf8": null,
+          "checked_scope_input": null,
+          "captured_at": null,
+          "sharing_scope": "session_only",
+          "rights_basis": "not_assessed"
+        }
+      ]
+    }
+  ]
+}

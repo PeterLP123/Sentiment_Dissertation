@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "status": "frozen_before_notebook_72_result",
+  "frozen_at_utc": "2026-08-12T15:32:12Z",
+  "git_commit_at_freeze": "d362cab6ae59d16118c97117872d52bb9c4a82b9",
+  "experiment": {
+    "notebook": "final_experiments/72_lseg_negative_pressure_har_transfer.ipynb",
+    "title": "Exact FNSPID negative-pressure HAR transfer to LSEG",
+    "candidate_rq": "negative_tail_as_market_risk_state",
+    "objective": "Apply the unchanged FNSPID aggregate negative-pressure hysteresis rule to the frozen LSEG HAR base and test whether its timing improves return or downside relative to HAR and an exposure-matched constant.",
+    "evidence_role": "bounded retrospective cross-source mechanism transfer",
+    "confirmation_claim_allowed": false,
+    "deployment_claim_allowed": false,
+    "retuning_allowed": false
+  },
+  "inputs": {
+    "backward_finbert_firm_open": {
+      "path": "final_experiments/outputs/67_lseg_gemma_finbert_joined_long_window/backward_finbert_firm_open.parquet",
+      "sha256": "745e6cba49c6dc6e256f9a6495b39eee66679231d162b5e22d9087c45e7680f4",
+      "role": "strictly prior negative-pressure warm-up; sessions before 2025-10-27"
+    },
+    "recent_finbert_firm_open": {
+      "path": "final_experiments/outputs/67_lseg_gemma_finbert_joined_long_window/recent_finbert_firm_open.parquet",
+      "sha256": "0931e77d73e723985d0a4b1000a1ee9601f7a4f330d2fac5f4ae9cb762fdcb17",
+      "role": "decision-period negative pressure; 2025-10-27 through 2026-06-26"
+    },
+    "frozen_lseg_har_daily": {
+      "path": "final_experiments/outputs/46_lseg_external_time_har_base_transfer/frozen_har_daily.parquet",
+      "sha256": "828a0f4e08b800c8e4e086ed74ae0c33096be830ded38a7611cee37a26facc3b",
+      "sessions": 167
+    },
+    "frozen_lseg_har_manifest": {
+      "path": "final_experiments/outputs/46_lseg_external_time_har_base_transfer/manifest.json",
+      "sha256": "5031eb387755a697e97f878dd1d3abb69694c7ee42b6a150900b13b39c14b265"
+    },
+    "source_regime": "Reuters LSEG only; no FNSPID observations are pooled"
+  },
+  "sentiment_rule": {
+    "scorer": "pinned FinBERT primary only",
+    "daily_pressure": "headline-count-weighted negative-story share across complete 33-company sessions",
+    "incomplete_backward_sessions": "missing pressure observations; never filled and never treated as neutral",
+    "normalisation": "current pressure minus strictly prior rolling mean, divided by strictly prior rolling standard deviation",
+    "trailing_window_sessions": 252,
+    "minimum_prior_observations": 126,
+    "entry_z": 1.5,
+    "exit_z": 0.5,
+    "risk_off_multiplier": 0.25,
+    "state_rule": "hysteresis",
+    "missing_z": "retain previous state; before the first valid z-score remain risk-on"
+  },
+  "portfolio": {
+    "base": "Notebook 46 frozen HAR exposure transferred from FNSPID development",
+    "composition": "base HAR exposure multiplied by 1.0 or 0.25",
+    "cost_bps_per_side": 2.0,
+    "final_liquidation": true,
+    "cash_return": 0.0,
+    "matched_control": "constant multiplier chosen only to equal the overlay's mean exposure",
+    "no_leverage": true
+  },
+  "inference": {
+    "primary_family": [
+      "overlay minus HAR mean net return",
+      "HAR minus overlay downside-squared return"
+    ],
+    "bootstrap": {
+      "method": "paired circular moving-block bootstrap",
+      "block_length_sessions": 20,
+      "replications": 4999,
+      "seed": 20260812
+    },
+    "multiplicity": "Benjamini-Hochberg across the two two-sided primary tests at q=0.05",
+    "matched_exposure_attribution": "overlay minus constant-multiplier net return and downside reduction",
+    "temporal_check": "two chronological halves",
+    "timing_placebo": "all circular placements of the unchanged binary multiplier; one-sided exact return and downside p-values corrected as a two-test family"
+  },
+  "gates": {
+    "return_gate": "return interval lower bound above zero, BH q below 0.05, Sharpe improvement at least 0.10, and non-negative overlay-minus-HAR mean in both halves",
+    "useful_risk_gate": "downside interval lower bound above zero, BH q below 0.05, relative drawdown improvement at least 10 percent, return interval lower bound no worse than -1 bp per session, and non-negative overlay Sharpe in both halves",
+    "timing_gate": "observed downside reduction exceeds the mean shifted reduction and its one-sided BH q is below 0.05",
+    "cross_source_support": "at least the useful-risk gate and timing gate must pass; otherwise the FNSPID risk-timing mechanism does not transfer on this LSEG window"
+  },
+  "claim_boundaries": [
+    "The 167-session LSEG outcome window was already opened before this specification.",
+    "The earlier LSEG news block is used only to construct strictly prior pressure history; its company returns are not pooled into this index-level test.",
+    "No scorer, threshold, state rule, rolling window, exposure multiplier, cost, or comparison may change after this freeze.",
+    "A failed transfer is a portability limit, not permission to reverse or tune the rule.",
+    "The separate materiality 2026 confirmation remains sealed."
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "schema_version": "ars-originality-result/1.0",
+  "checked_on": "2026-08-14",
+  "sample_sha256": "c8c50bb59ce93c1cae45f30776705bc99238127830473be75ab0f4e69be27760",
+  "chapter_frame_paragraphs": 145,
+  "chapter_sample_paragraphs": 73,
+  "chapter_sample_rate": 0.503448275862069,
+  "modified_paragraphs_checked": 2,
+  "total_exact_fragment_searches": 74,
+  "search_fragment_words": 9,
+  "nonempty_search_responses": 19,
+  "exact_fragment_matches": 0,
+  "close_or_verbatim_matches": 0,
+  "determination": "NO_SUSPICIOUS_MATCH_OBSERVED",
+  "boundary": "Public exact-fragment search is a screening procedure, not a Turnitin or iThenticate certification. The author publication corpus was not supplied, so self-plagiarism could not be independently checked."
+}

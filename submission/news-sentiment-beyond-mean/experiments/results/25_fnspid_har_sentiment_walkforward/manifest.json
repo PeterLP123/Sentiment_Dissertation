@@ -1,0 +1,150 @@
+{
+  "notebook": "25_fnspid_har_sentiment_walkforward",
+  "built_for": "pre-2020 prior-only robustness of the exact HAR and aggregate-hysteresis product",
+  "analysis_status": "retrospective_historical_robustness_frozen_before_notebook25_execution_2026-08-05",
+  "git_commit_at_execution": "8736eebdbb254c8bc6416a09a352f6b5e2f6b1b3",
+  "design": {
+    "initial_training_rows": 504,
+    "refit_every_sessions": 21,
+    "training_rule": "target_end_date strictly before refit_date",
+    "base": "sentiment-free HAR 10% volatility target",
+    "sentiment_rule": {
+      "entry_z": 1.5,
+      "exit_z": 0.5,
+      "risk_exposure_multiplier": 0.25
+    },
+    "cost_bps_per_side": 2.0,
+    "cost_grid": [
+      0.0,
+      1.0,
+      2.0,
+      5.0,
+      10.0
+    ],
+    "bootstrap": {
+      "kind": "paired circular block",
+      "block_length": 20,
+      "replications": 4999,
+      "seed": 20260805
+    }
+  },
+  "forecast_metrics": {
+    "n_complete_targets": 1755,
+    "mean_qlike": -8.7839357057,
+    "forecast_actual_spearman": 0.4946446327,
+    "n_refits": 84,
+    "first_forecast_session": "2013-01-04T00:00:00.000",
+    "last_forecast_session": "2019-12-30T00:00:00.000",
+    "minimum_training_rows": 478,
+    "maximum_training_rows": 2221
+  },
+  "results": [
+    {
+      "arm": "walkforward_har",
+      "n_sessions": 1759,
+      "active_sessions": 1759,
+      "mean_gross": 0.0004097462,
+      "mean_net": 0.0004016735,
+      "sharpe_gross": 1.1363503681,
+      "sharpe_net": 1.1139049014,
+      "ann_vol_net": 0.0908710701,
+      "total_return_net": 0.9690642276,
+      "cagr_net": 0.1019366242,
+      "max_drawdown": -0.1252910243,
+      "mean_turnover": 0.0201816737,
+      "annualized_turnover": 5.0857817687,
+      "mean_gross_exposure": 0.8154790673,
+      "mean_positions": 1.0,
+      "max_abs_net_exposure": 1.0,
+      "max_missing_weight_share": 0.0,
+      "breakeven_bps_per_side": 101.5144257156,
+      "bootstrap_net_mean": 0.0004016735,
+      "bootstrap_net_ci_low": 0.0001509594,
+      "bootstrap_net_ci_high": 0.0006479196,
+      "bootstrap_block_length": 20,
+      "bootstrap_replications": 4999,
+      "bootstrap_seed": 20260805
+    },
+    {
+      "arm": "walkforward_har_sentiment",
+      "n_sessions": 1759,
+      "active_sessions": 1759,
+      "mean_gross": 0.000405387,
+      "mean_net": 0.0003883039,
+      "sharpe_gross": 1.2152900826,
+      "sharpe_net": 1.163947232,
+      "ann_vol_net": 0.0840696026,
+      "total_return_net": 0.9313486357,
+      "cagr_net": 0.0988877206,
+      "max_drawdown": -0.0857060067,
+      "mean_turnover": 0.0427076721,
+      "annualized_turnover": 10.7623333632,
+      "mean_gross_exposure": 0.7565004738,
+      "mean_positions": 1.0,
+      "max_abs_net_exposure": 1.0,
+      "max_missing_weight_share": 0.0,
+      "breakeven_bps_per_side": 47.4606719039,
+      "bootstrap_net_mean": 0.0003883039,
+      "bootstrap_net_ci_low": 0.0001659543,
+      "bootstrap_net_ci_high": 0.0006103911,
+      "bootstrap_block_length": 20,
+      "bootstrap_replications": 4999,
+      "bootstrap_seed": 20260805
+    }
+  ],
+  "paired_inference": [
+    {
+      "estimand": "walk-forward HAR sentiment minus HAR net return",
+      "n": 1759,
+      "mean": -1.33696e-05,
+      "ci_low": -9.87482e-05,
+      "ci_high": 7.36419e-05,
+      "p_two_sided": 0.7632,
+      "block_length": 20,
+      "replications": 4999,
+      "seed": 20260806
+    },
+    {
+      "estimand": "HAR minus sentiment downside squared return",
+      "n": 1759,
+      "mean": 2.7705e-06,
+      "ci_low": 1.3044e-06,
+      "ci_high": 4.6858e-06,
+      "p_two_sided": 0.0052,
+      "block_length": 20,
+      "replications": 4999,
+      "seed": 20260807
+    }
+  ],
+  "temporal_stability": [
+    {
+      "period": "2013_2015",
+      "overlay_minus_base_bps_day": 0.0332760258,
+      "overlay_minus_base_sharpe": 0.0673326126
+    },
+    {
+      "period": "2016_2019",
+      "overlay_minus_base_bps_day": -0.2589672504,
+      "overlay_minus_base_sharpe": 0.042072515
+    }
+  ],
+  "gates": {
+    "net_sharpe_improvement": 0.05004233063414709,
+    "drawdown_relative_improvement": 0.315944560235616,
+    "paired_net_mean_bps_day": -0.13369639751811074,
+    "paired_net_ci_low_bps_day": -0.9874816029583912,
+    "paired_net_ci_high_bps_day": 0.7364185585036082,
+    "downside_improvement_mean": 2.7705452799805258e-06,
+    "downside_improvement_p_two_sided": 0.0052,
+    "stable_nonnegative_mean_both_periods": false,
+    "alpha_gate": false,
+    "useful_risk_gate": false
+  },
+  "limitations": [
+    "the direct product was proposed after 2020-2023 evaluation results were known",
+    "this is a retrospective walk-forward audit, not a registered confirmation",
+    "the earliest 504 development rows are used only to initialise fitting",
+    "the expanding model is refit every 21 sessions rather than every day",
+    "SPY adjusted-open returns omit dividends and cash earns zero"
+  ]
+}

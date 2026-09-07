@@ -1,0 +1,113 @@
+{
+  "schema_version": "revision-roadmap/1.0",
+  "revision_round": 2,
+  "base_draft_sha256": "5f73b895261c314d22538104b3dfc797b71f06425b3a8554b1df9269466bd7e0",
+  "block_manifest_sha256": "e5f77ebe3ce23828268b6e1d810be8fc0571e9cf55e07461b46238512842d54c",
+  "items": [
+    {
+      "id": "REV-ESTIMAND-ALIGNMENT-R2",
+      "description": "The appendix project summary still moves from the recent-price-control result to the frozen-era sign change without naming the matched development baseline.",
+      "reviewer": "EIC",
+      "obligation_class": "should_fix",
+      "severity": "minor",
+      "target_section": "appendix project summary outcome",
+      "suggested_action": "State that the frozen +0.00583 estimate is matched to the -0.00831 development baseline and that -0.00914 is separate development robustness.",
+      "consensus_level": "SINGLE-VERIFIER",
+      "verification_criteria": "The appendix project summary explicitly pairs -0.00831 with +0.00583 and identifies -0.00914 as separate recent-price-control robustness.",
+      "source_refs": [
+        {
+          "seat": "EIC",
+          "channel": "editorial",
+          "ordinal": 1,
+          "subclaim_ordinal": 0
+        }
+      ],
+      "evidence_anchor": {
+        "anchor_type": "text",
+        "locator": "revised appendix project summary Outcome",
+        "quote": "remains negative under recent-price controls. It does not replicate in the frozen 2020--2023 opening; the estimated coefficient changes sign"
+      },
+      "confidence": 5,
+      "competence_basis": "direct comparison of the stated development and frozen specifications",
+      "cost_scope": {
+        "kind": "section",
+        "locator": "appendix project summary outcome"
+      },
+      "consequence_if_unaddressed": {
+        "code": "reader_traceability_reduced",
+        "target": {
+          "kind": "section",
+          "locator": "appendix project summary outcome"
+        }
+      },
+      "proposed_targets": [
+        {
+          "block_id": "B0018",
+          "allowed_operations": [
+            "replace_block"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REV-INTERPRETATION-BOUNDARY-R2",
+      "description": "The results synthesis and appendix project summary still use broad temporal-instability wording without consistently limiting the finding to the measured baseline pipeline or leaving its cause unidentified.",
+      "reviewer": "R1",
+      "obligation_class": "should_fix",
+      "severity": "minor",
+      "target_section": "results synthesis and appendix project summary outcome",
+      "suggested_action": "Describe the result as non-transport of the measured baseline pipeline association and state that the evidence does not identify its cause.",
+      "consensus_level": "SINGLE-VERIFIER",
+      "verification_criteria": "The results synthesis and appendix project summary limit the instability finding to the measured baseline pipeline association and explicitly state that its cause is unidentified.",
+      "source_refs": [
+        {
+          "seat": "R1",
+          "channel": "finding",
+          "ordinal": 1,
+          "subclaim_ordinal": 0
+        }
+      ],
+      "evidence_anchor": {
+        "anchor_type": "text",
+        "locator": "revised results synthesis and appendix project summary Outcome",
+        "quote": "the defensible reading is temporal non-replication and instability"
+      },
+      "confidence": 5,
+      "competence_basis": "statistical interpretation and transport-validity review",
+      "cost_scope": {
+        "kind": "section",
+        "locator": "results synthesis and appendix project summary outcome"
+      },
+      "consequence_if_unaddressed": {
+        "code": "interpretive_ambiguity_remains",
+        "target": {
+          "kind": "claim",
+          "locator": "cause of the across-era coefficient change"
+        }
+      },
+      "proposed_targets": [
+        {
+          "block_id": "B0014",
+          "allowed_operations": [
+            "replace_block"
+          ]
+        },
+        {
+          "block_id": "B0018",
+          "allowed_operations": [
+            "replace_block"
+          ]
+        }
+      ]
+    }
+  ],
+  "total_items": 2,
+  "obligation_counts": {
+    "must_fix": 0,
+    "should_fix": 2,
+    "consider": 0
+  },
+  "editorial_decision": "Minor Revision",
+  "consensus_summary": "All four original should-fix items are complete. Two lower-magnitude wording gaps remain from the original must-fix criteria, both confined to the results synthesis and appendix project summary.",
+  "dissenting_opinions": []
+}

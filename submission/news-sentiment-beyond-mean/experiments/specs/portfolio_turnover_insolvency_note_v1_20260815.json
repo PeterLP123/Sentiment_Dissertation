@@ -1,0 +1,24 @@
+{
+  "spec_id": "portfolio_turnover_insolvency_note_v1_20260815",
+  "recorded_at": "2026-08-15",
+  "status": "recorded_after_mechanical_replay_diagnostic",
+  "parent_amendment": "experiments/specs/portfolio_turnover_accounting_amendment_v1_20260815.json",
+  "trigger": {
+    "notebook": "10_thresholds",
+    "arm": "mlp_label_shuffle",
+    "session": "2021-01-26",
+    "pre_cost_wealth_growth": -0.510908043523,
+    "interpretation": "The gross-one dollar-neutral negative-control book lost more than its starting capital before rebalancing. NAV-normalised drift and subsequent transaction-cost metrics are therefore undefined."
+  },
+  "reporting_rule": {
+    "economic_status": "INSOLVENT",
+    "cost_dependent_metrics": "NA",
+    "selection_effect": "none; this is a label-shuffled negative control and the frozen learned models and cutoffs are unchanged",
+    "primary_conclusion_effect": "none; an insolvent negative control cannot rescue the tested signal"
+  },
+  "constraints": [
+    "Do not cap, winsorise or replace the realised asset return after observing it.",
+    "Do not substitute target-to-target turnover for the undefined drift-aware calculation.",
+    "Preserve the failure explicitly in the aggregate evidence and manuscript."
+  ]
+}

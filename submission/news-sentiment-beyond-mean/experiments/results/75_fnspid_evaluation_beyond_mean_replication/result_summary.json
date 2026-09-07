@@ -1,0 +1,43 @@
+{
+  "executed_at_utc": "2026-08-14T10:28:12.329223+00:00",
+  "family_a_negative_share_pass": false,
+  "family_b_all_firm_days_pass": false,
+  "family_b_multi_story_pass": false,
+  "power_context": {
+    "approximate_mde80": 0.013717458801705789,
+    "approximate_power_for_stable_development_effect": 0.35433246373079325,
+    "conservative_two_sided_alpha": 0.025,
+    "development_estimate": -0.008310052990470732,
+    "development_hac_se": 0.0029540906894468953,
+    "development_sessions": 2264,
+    "evaluation_sessions_frozen": 998,
+    "limitations": "normal approximation using a scaled development HAC standard error; realised evaluation dependence and variance may differ",
+    "method": "development_hac_se_scaled_by_sqrt_session_ratio",
+    "role": "prospective_interpretive_context_not_a_gate",
+    "scaled_evaluation_se": 0.004449351991563852,
+    "stable_effect_z": 1.8676996124889473
+  },
+  "recorded_interpretation": "The all-firm-day conditional coefficient does not pass on the evaluation block; the development coefficient did not replicate across eras under the frozen gate.",
+  "schema_version": 1,
+  "stability_contrast": {
+    "ci_high": 0.025787689092373174,
+    "ci_low": 0.0024990569947200697,
+    "coefficient": "beta_negative_share",
+    "comparison": "evaluation",
+    "comparison_estimate": 0.005833320053075809,
+    "contrast": "evaluation_minus_development",
+    "estimate": 0.014143373043546622,
+    "hac_lags": 5,
+    "inference": "daily_cross_sectional_rank_coefficient_regime_contrast_hac",
+    "n_clusters": 3262,
+    "n_comparison": 998,
+    "n_reference": 2264,
+    "p_two_sided": 0.01728429574396065,
+    "reference": "development",
+    "reference_estimate": -0.008310052990470733,
+    "se": 0.0059410867447950225,
+    "t": 2.380603692739819
+  },
+  "stability_contrast_role": "separate predeclared secondary diagnostic; not a rescue gate",
+  "status": "completed_one_shot_evaluation_opening"
+}

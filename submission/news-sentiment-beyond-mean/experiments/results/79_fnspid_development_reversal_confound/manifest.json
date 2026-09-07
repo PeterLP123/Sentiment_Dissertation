@@ -1,0 +1,119 @@
+{
+  "notebook": "final_experiments/79_fnspid_development_reversal_confound.ipynb",
+  "source": "final_experiments/79_fnspid_development_reversal_confound.py",
+  "spec": "final_experiments/frozen_specs/conditional_negative_share_price_path_controls_v1_20260812.json",
+  "declared_spec": "final_experiments/frozen_specs/conditional_negative_share_price_path_controls_v1_20260812.json",
+  "spec_sha256": "c84d98d2b727894ddf1d73e113a7ba59e03dbc75c0b3ce49dac3b4135a1ad79c",
+  "git_commit_at_execution": "7d8c2f6d76c361854689617430a52a401ec0a12b",
+  "executed_at_utc": "2026-08-12T20:35:15.259799+00:00",
+  "inputs": [
+    {
+      "input": "fnspid_firm_day_aggregators",
+      "path": "final_experiments/outputs/03_aggregation/firm_day_aggregators.parquet",
+      "expected_sha256": "1ca1c38109bc06af232119adeff17de66a567174d457038bc923a930a2da61f1",
+      "actual_sha256": "1ca1c38109bc06af232119adeff17de66a567174d457038bc923a930a2da61f1",
+      "bytes": 55370575
+    },
+    {
+      "input": "fnspid_price_archive",
+      "path": "/Users/peterprendergast/Documents/Sentiment_Dissertation_data/FNSPID/bf9189c41527198897d1af3e17b1a0095279fc45/raw/Stock_price/full_history.zip",
+      "expected_sha256": "03da4fce7ebea90d5715ba3501773d410ae663b617027b338ef000a9955dab91",
+      "actual_sha256": "03da4fce7ebea90d5715ba3501773d410ae663b617027b338ef000a9955dab91",
+      "bytes": 589525596
+    }
+  ],
+  "outputs": [
+    {
+      "path": "final_experiments/outputs/79_fnspid_development_reversal_confound/conditional_negative_share_price_controls.png",
+      "sha256": "3f53b7ae1829e1bd8277f611bbc86b190fc9dc9424b92cb89c9d65880ef46f08",
+      "bytes": 93361
+    },
+    {
+      "path": "final_experiments/outputs/79_fnspid_development_reversal_confound/conditional_price_control_exclusion_audit.csv",
+      "sha256": "be260dd2edefede7f4d013c4f755d6af44937392f9511bc855bed624e5581b48",
+      "bytes": 320
+    },
+    {
+      "path": "final_experiments/outputs/79_fnspid_development_reversal_confound/conditional_price_control_summary.csv",
+      "sha256": "14ff95efe66eaa2c5aa679403118662dacb827de82ca264c46c552ac1a8bdb49",
+      "bytes": 1738
+    },
+    {
+      "path": "final_experiments/outputs/79_fnspid_development_reversal_confound/daily_coefficients_baseline_price_complete_sample.parquet",
+      "sha256": "6d896c89e75ee5aadce6f0a302b38aad85848a96f7f966d6c793fd346bf7e78e",
+      "bytes": 158441
+    },
+    {
+      "path": "final_experiments/outputs/79_fnspid_development_reversal_confound/daily_coefficients_full_price_path_controls.parquet",
+      "sha256": "e0ba4135dee7d4635f9f829b8119c9e39f013c1d24b944a56a6d42bad4c96f99",
+      "bytes": 224942
+    },
+    {
+      "path": "final_experiments/outputs/79_fnspid_development_reversal_confound/daily_coefficients_plus_lagged_return_1.parquet",
+      "sha256": "abd40de2cb1ff020b6d2eae036cff562d5ba8db30e18c390b45a5e06ef68498d",
+      "bytes": 180632
+    },
+    {
+      "path": "final_experiments/outputs/79_fnspid_development_reversal_confound/daily_coefficients_plus_lagged_returns_1_and_5.parquet",
+      "sha256": "c243c30445d43fe588de2e7f005f0339aebb7180c5dc6ed2a6ce77efe1138461",
+      "bytes": 202815
+    },
+    {
+      "path": "final_experiments/outputs/79_fnspid_development_reversal_confound/daily_coefficients_published_baseline_full_sample.parquet",
+      "sha256": "b6ec8fd6df45437d3c9924402b4b6237ab22a1a9867443eccba47527e57a2c2b",
+      "bytes": 158441
+    },
+    {
+      "path": "final_experiments/outputs/79_fnspid_development_reversal_confound/evaluation_seal_audit.json",
+      "sha256": "6210f50e326f0e88ca8233d6b55966a769ea71adea8c56ddf3b49fa44b01681a",
+      "bytes": 72
+    },
+    {
+      "path": "final_experiments/outputs/79_fnspid_development_reversal_confound/full_model_coefficient_summary.csv",
+      "sha256": "cec5adc3679ce94eab9d1ac1b3bf409bf53b7b051983d9bcce498c2de57c0194",
+      "bytes": 1288
+    },
+    {
+      "path": "final_experiments/outputs/79_fnspid_development_reversal_confound/input_audit.csv",
+      "sha256": "550ad957234b0abee4d7ce7479c85fe1a6ead38ee13c4bc777cefbe302236178",
+      "bytes": 588
+    },
+    {
+      "path": "final_experiments/outputs/79_fnspid_development_reversal_confound/price_control_coverage.csv",
+      "sha256": "29f22bdbf9f8baa9aa7ef8106f88c443edcca16d5df69c7c35f7644cf94dacae",
+      "bytes": 297
+    },
+    {
+      "path": "final_experiments/outputs/79_fnspid_development_reversal_confound/primary_gate.csv",
+      "sha256": "4b2bfb9548301818ac2d66f87acd67a84c616dd2ae330d63a568a56769534362",
+      "bytes": 359
+    },
+    {
+      "path": "final_experiments/outputs/79_fnspid_development_reversal_confound/result.json",
+      "sha256": "e72675d47e8b71b6f25fc1207f9ae9786477be77aaca4dc53012f8c36e32e557",
+      "bytes": 1426
+    },
+    {
+      "path": "final_experiments/outputs/79_fnspid_development_reversal_confound/sample_audit.csv",
+      "sha256": "18b6b30f28d0aabe75c2b0ee0fcba5d82c9a4ca192d062b9de18b7bfc493d2e0",
+      "bytes": 164
+    }
+  ],
+  "aggregate_dissertation_artifacts": [
+    {
+      "path": "dissertation/figures/fig_reversal_confound.png",
+      "sha256": "78b322aa326b93f12db265cb6249c2fa38f3796e39d6dec2dfab2fa36c25758f",
+      "bytes": 149921
+    },
+    {
+      "path": "dissertation/tables/tab_reversal_confound.tex",
+      "sha256": "d9f1d912b018b0285557bfd7b08e5b6c535d49386522c745c482e01310d0ad91",
+      "bytes": 760
+    }
+  ],
+  "evaluation_notebook_75_seal": {
+    "code_cells": 4,
+    "executed_code_cells": 0,
+    "output_blocks": 0
+  }
+}

@@ -1,0 +1,194 @@
+{
+  "schema_version": 1,
+  "notebook": "86_fnspid_outcome_leg_decomposition",
+  "status": "completed_post_review_diagnostic_not_confirmation",
+  "executed_at_utc": "2026-08-16T13:55:41.346070+00:00",
+  "git_commit_at_execution": "acaf530c75a20e882166e7218245342384cf2b1b",
+  "spec": "experiments/specs/fnspid_outcome_leg_decomposition_v1_20260816.json",
+  "spec_sha256": "ae76ac148cb681ab3c2a0ca51e1f7420fedbb9e064bb3a7985abc5fff027f719",
+  "environment": {
+    "python": "3.12.12",
+    "platform": "macOS-26.5.2-arm64-arm-64bit",
+    "pandas": "3.0.5",
+    "numpy": "2.5.2"
+  },
+  "inputs": {
+    "aggregators": {
+      "path": "/Users/peterprendergast/Documents/Sentiment_Dissertation/final_experiments/outputs/03_aggregation/firm_day_aggregators.parquet",
+      "sha256": "1ca1c38109bc06af232119adeff17de66a567174d457038bc923a930a2da61f1"
+    },
+    "prices": {
+      "path": "/Users/peterprendergast/Documents/Sentiment_Dissertation_data/FNSPID/bf9189c41527198897d1af3e17b1a0095279fc45/raw/Stock_price/full_history.zip",
+      "sha256": "03da4fce7ebea90d5715ba3501773d410ae663b617027b338ef000a9955dab91"
+    },
+    "notebook_75": {
+      "path": "experiments/notebooks/75_fnspid_evaluation_beyond_mean_replication.ipynb",
+      "sha256_before": "df0b6c5105158198f62c828842b3ff3e1051ccaf664e7a778c9c66e11cffc455",
+      "sha256_after": "df0b6c5105158198f62c828842b3ff3e1051ccaf664e7a778c9c66e11cffc455",
+      "executed": false
+    }
+  },
+  "coverage": [
+    {
+      "item": "panel_rows",
+      "value": 715546.0
+    },
+    {
+      "item": "panel_symbols",
+      "value": 570.0
+    },
+    {
+      "item": "price_rows",
+      "value": 1950672.0
+    },
+    {
+      "item": "missing_price_symbols",
+      "value": 0.0
+    },
+    {
+      "item": "development_rows",
+      "value": 512153.0
+    },
+    {
+      "item": "development_sessions",
+      "value": 2264.0
+    },
+    {
+      "item": "development_singleton_share",
+      "value": 0.4831954513592618
+    },
+    {
+      "item": "development_assigned_open_to_next_open_complete_rows",
+      "value": 512149.0
+    },
+    {
+      "item": "development_assigned_session_intraday_complete_rows",
+      "value": 512153.0
+    },
+    {
+      "item": "development_post_close_overnight_complete_rows",
+      "value": 512149.0
+    },
+    {
+      "item": "development_pre_open_overnight_complete_rows",
+      "value": 512135.0
+    },
+    {
+      "item": "evaluation_rows",
+      "value": 203393.0
+    },
+    {
+      "item": "evaluation_sessions",
+      "value": 998.0
+    },
+    {
+      "item": "evaluation_singleton_share",
+      "value": 0.5652505248459878
+    },
+    {
+      "item": "evaluation_assigned_open_to_next_open_complete_rows",
+      "value": 203385.0
+    },
+    {
+      "item": "evaluation_assigned_session_intraday_complete_rows",
+      "value": 203393.0
+    },
+    {
+      "item": "evaluation_post_close_overnight_complete_rows",
+      "value": 203385.0
+    },
+    {
+      "item": "evaluation_pre_open_overnight_complete_rows",
+      "value": 203390.0
+    },
+    {
+      "item": "price_complete_rows",
+      "value": 511941.0
+    },
+    {
+      "item": "price_complete_sessions",
+      "value": 2264.0
+    },
+    {
+      "item": "pooled_rank_p10",
+      "value": -0.15358361774744028
+    },
+    {
+      "item": "pooled_rank_p90",
+      "value": 0.40697674418604646
+    }
+  ],
+  "interpretation_gate": {
+    "decision": "intraday_only_or_dominant",
+    "assigned_session_intraday_interval_negative": true,
+    "post_close_overnight_interval_negative": false,
+    "pre_open_overnight_interval_negative": true,
+    "assigned_session_intraday_bh_reject": true,
+    "post_close_overnight_bh_reject": false,
+    "pre_open_overnight_bh_reject": false
+  },
+  "claim_boundaries": [
+    "The diagnostic was specified after the development association, evaluation non-replication, and external criticism were known; it is not independent confirmation.",
+    "The FNSPID checkpoint does not preserve reliable row-level availability timestamps, so no return-leg result identifies the true story-arrival time.",
+    "A coefficient is an average conditional rank association, not a causal effect or a directly tradable return.",
+    "The evaluation leg diagnostics are additional post-opening analyses and cannot repair the original study's low power or turn the block into a pristine holdout.",
+    "Do not execute Notebook 75, do not rescore text, do not rebuild the checkpoint, and do not pool FNSPID with LSEG.",
+    "Preserve null, opposite-signed, adverse-economic, and multiplicity-adjusted results exactly as observed."
+  ],
+  "outputs": [
+    {
+      "name": "coefficient_summary",
+      "path": "/Users/peterprendergast/Documents/news-sentiment-beyond-mean/experiments/generated/86_fnspid_outcome_leg_decomposition/coefficient_summary.csv",
+      "sha256": "526a3effdb8478578389db7c1bd61824d5736bfb32913458c74269f115556a0a",
+      "bytes": 3248
+    },
+    {
+      "name": "era_contrasts",
+      "path": "/Users/peterprendergast/Documents/news-sentiment-beyond-mean/experiments/generated/86_fnspid_outcome_leg_decomposition/era_contrasts.csv",
+      "sha256": "f738ad52bdbb7ea1148aff140566b2a0e34b012b3efda1a7bcc50e52c9c12a32",
+      "bytes": 1903
+    },
+    {
+      "name": "daily_coefficients",
+      "path": "/Users/peterprendergast/Documents/news-sentiment-beyond-mean/experiments/generated/86_fnspid_outcome_leg_decomposition/daily_coefficients.csv",
+      "sha256": "29ce490311407e24b424ef5dcb63f8878cc539cd12a56dfdf892e597deb076fd",
+      "bytes": 1457665
+    },
+    {
+      "name": "story_count_strata",
+      "path": "/Users/peterprendergast/Documents/news-sentiment-beyond-mean/experiments/generated/86_fnspid_outcome_leg_decomposition/story_count_strata.csv",
+      "sha256": "624de48c530d36945273d86502de55298438b7938048f1c56db49132265aea84",
+      "bytes": 1418
+    },
+    {
+      "name": "timing_identity_audit",
+      "path": "/Users/peterprendergast/Documents/news-sentiment-beyond-mean/experiments/generated/86_fnspid_outcome_leg_decomposition/timing_identity_audit.csv",
+      "sha256": "2f6773773ed3a9c0bf8a07c6181936ed8b44fa6866a8fc3c096c603d4e990fc6",
+      "bytes": 268
+    },
+    {
+      "name": "rank_effect_translation",
+      "path": "/Users/peterprendergast/Documents/news-sentiment-beyond-mean/experiments/generated/86_fnspid_outcome_leg_decomposition/rank_effect_translation.csv",
+      "sha256": "0f4087b4ab2ebeac4ad61d5141bf073897b1a6d5bd7d6bb1e8f1ea0c6d40b1f0",
+      "bytes": 664
+    },
+    {
+      "name": "power_reconciliation",
+      "path": "/Users/peterprendergast/Documents/news-sentiment-beyond-mean/experiments/generated/86_fnspid_outcome_leg_decomposition/power_reconciliation.csv",
+      "sha256": "f441c95e5de61e321082083bb30dd4197805f7234ebaa13199c1b537b6ed91c9",
+      "bytes": 521
+    },
+    {
+      "name": "drawdown_reconciliation",
+      "path": "/Users/peterprendergast/Documents/news-sentiment-beyond-mean/experiments/generated/86_fnspid_outcome_leg_decomposition/drawdown_reconciliation.csv",
+      "sha256": "5d9f72faf0d309bb7d38f9b0dd4e2f44b3884fc971cf7cf19f7b1d91cb004d65",
+      "bytes": 455
+    },
+    {
+      "name": "coverage_audit",
+      "path": "/Users/peterprendergast/Documents/news-sentiment-beyond-mean/experiments/generated/86_fnspid_outcome_leg_decomposition/coverage_audit.csv",
+      "sha256": "0b6be2a810d97a01709db27a4b2e5930b902a1d1765d1f15cfbe577553ae0bf0",
+      "bytes": 891
+    }
+  ]
+}

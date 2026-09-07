@@ -1,0 +1,2 @@
+contrast,coefficient,reference,comparison,reference_estimate,comparison_estimate,estimate,se,t,p_two_sided,ci_low,ci_high,n_reference,n_comparison,n_clusters,hac_lags,inference
+evaluation_minus_development,beta_negative_share,development,evaluation,-0.008310052990470733,0.005833320053075809,0.014143373043546622,0.0059410867447950225,2.380603692739819,0.01728429574396065,0.0024990569947200697,0.025787689092373174,2264,998,3262,5,daily_cross_sectional_rank_coefficient_regime_contrast_hac

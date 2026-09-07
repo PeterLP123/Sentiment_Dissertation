@@ -1,0 +1,339 @@
+{
+  "contract_version": "1.1",
+  "round_id": "ars-re-review-2026-08-14-round-1",
+  "revision": 1,
+  "verdict_record_hash": "1dbf04442ee768bd82379346e4bf4c6397d66589cd74a29928aeb34d296f72ef",
+  "rows": [
+    {
+      "item_id": "REV-ESTIMAND-ALIGNMENT",
+      "concern_id": "R1",
+      "obligation_class": "MUST_FIX",
+      "original_comment": "The abstract and conclusion mix the development price-control coefficient with the baseline coefficient used in the frozen across-era contrast.",
+      "authors_claim": "—",
+      "revision_location": "Abstract lines 168-178; Conclusions lines 986-994; project-summary Outcome lines 1136-1140",
+      "verified": "PARTIAL",
+      "status": "PARTIALLY_ADDRESSED",
+      "quality_assessment": "The main abstract and conclusion separate the -0.00831 development baseline, -0.00914 price-control robustness estimate and +0.00583 frozen baseline estimate, but the project-summary Outcome still juxtaposes recent-price controls with the frozen-era sign change without naming the matched baseline.",
+      "final_verdict": "PARTIALLY_ADDRESSED",
+      "phase2a_verdict": "PARTIALLY_ADDRESSED",
+      "verified_by": "EIC",
+      "author_triage": "will_address",
+      "authorized_targets": [
+        {
+          "allowed_operations": [
+            "replace_block"
+          ],
+          "block_id": "B0004"
+        },
+        {
+          "allowed_operations": [
+            "replace_block"
+          ],
+          "block_id": "B0006"
+        },
+        {
+          "allowed_operations": [
+            "replace_block"
+          ],
+          "block_id": "B0012"
+        },
+        {
+          "allowed_operations": [
+            "replace_block"
+          ],
+          "block_id": "B0014"
+        },
+        {
+          "allowed_operations": [
+            "replace_block"
+          ],
+          "block_id": "B0016"
+        }
+      ],
+      "claim_strength_authorizations": [],
+      "cross_model_status": "not_configured"
+    },
+    {
+      "item_id": "REV-INTERPRETATION-BOUNDARY",
+      "concern_id": "R2",
+      "obligation_class": "MUST_FIX",
+      "original_comment": "The manuscript describes temporal instability without consistently separating a measured pipeline change from market, sample-composition, timing or classifier explanations.",
+      "authors_claim": "—",
+      "revision_location": "Abstract lines 174-178; Literature Review lines 359-368; Results lines 761-768; project-summary Outcome lines 1138-1140",
+      "verified": "PARTIAL",
+      "status": "PARTIALLY_ADDRESSED",
+      "quality_assessment": "The abstract, literature review, data limitations and conclusion add measured-pipeline and unidentified-cause boundaries, but the Results synthesis and project-summary Outcome retain broader temporal-instability wording without those boundaries.",
+      "final_verdict": "PARTIALLY_ADDRESSED",
+      "phase2a_verdict": "PARTIALLY_ADDRESSED",
+      "verified_by": "R1",
+      "author_triage": "will_address",
+      "authorized_targets": [
+        {
+          "allowed_operations": [
+            "replace_block"
+          ],
+          "block_id": "B0004"
+        },
+        {
+          "allowed_operations": [
+            "replace_block"
+          ],
+          "block_id": "B0008"
+        },
+        {
+          "allowed_operations": [
+            "replace_block"
+          ],
+          "block_id": "B0010"
+        },
+        {
+          "allowed_operations": [
+            "replace_block"
+          ],
+          "block_id": "B0014"
+        },
+        {
+          "allowed_operations": [
+            "replace_block"
+          ],
+          "block_id": "B0016"
+        }
+      ],
+      "claim_strength_authorizations": [],
+      "cross_model_status": "not_configured"
+    },
+    {
+      "item_id": "REV-HYPOTHESIS-LANGUAGE",
+      "concern_id": "S1",
+      "obligation_class": "SHOULD_FIX",
+      "original_comment": "The results call H1b rejected even though the declared directional effect is not supported in the frozen evaluation.",
+      "authors_claim": "—",
+      "revision_location": "Results lines 738-744; final hypothesis summary lines 968-970",
+      "verified": "YES",
+      "status": "FULLY_ADDRESSED",
+      "quality_assessment": "The revision replaces the H1b rejection wording with 'not supported' and distinguishes development H1a from frozen-evaluation H1b in the final hypothesis summary.",
+      "final_verdict": "FULLY_ADDRESSED",
+      "phase2a_verdict": "FULLY_ADDRESSED",
+      "verified_by": "R1",
+      "author_triage": "will_address",
+      "authorized_targets": [
+        {
+          "allowed_operations": [
+            "replace_block"
+          ],
+          "block_id": "B0006"
+        },
+        {
+          "allowed_operations": [
+            "replace_block"
+          ],
+          "block_id": "B0014"
+        },
+        {
+          "allowed_operations": [
+            "replace_block"
+          ],
+          "block_id": "B0016"
+        }
+      ],
+      "claim_strength_authorizations": []
+    },
+    {
+      "item_id": "REV-TEMPORAL-LITERATURE",
+      "concern_id": "S2",
+      "obligation_class": "SHOULD_FIX",
+      "original_comment": "The literature review lacks direct empirical-finance context for out-of-sample predictor instability and post-publication attenuation.",
+      "authors_claim": "—",
+      "revision_location": "Literature Review lines 359-368; bibliography lines 1542-1550, 1691-1699 and 1812-1820",
+      "verified": "YES",
+      "status": "FULLY_ADDRESSED",
+      "quality_assessment": "The revision adds three relevant empirical-finance predictor-stability studies with complete primary-publication metadata and uses them to bound rather than broaden the temporal contribution.",
+      "final_verdict": "FULLY_ADDRESSED",
+      "phase2a_verdict": "FULLY_ADDRESSED",
+      "verified_by": "R2",
+      "author_triage": "will_address",
+      "authorized_targets": [
+        {
+          "allowed_operations": [
+            "replace_block"
+          ],
+          "block_id": "B0008"
+        },
+        {
+          "allowed_operations": [
+            "replace_block"
+          ],
+          "block_id": "B0036"
+        }
+      ],
+      "claim_strength_authorizations": []
+    },
+    {
+      "item_id": "REV-WORD-COUNT",
+      "concern_id": "S3",
+      "obligation_class": "SHOULD_FIX",
+      "original_comment": "The six numbered chapters contain 12,107 words, materially above the programme's approximate 10,000-word target.",
+      "authors_claim": "—",
+      "revision_location": "Numbered chapter blocks 01_introduction.tex through 06_conclusion.tex, revised-manuscript lines 224-1100",
+      "verified": "YES",
+      "status": "FULLY_ADDRESSED",
+      "quality_assessment": "The six numbered chapters were compressed from 12,107 to 10,873 TeXcount words while retaining the required estimates, uncertainty, nulls, multiplicity, transaction-cost, power and limitations surfaces.",
+      "final_verdict": "FULLY_ADDRESSED",
+      "phase2a_verdict": "FULLY_ADDRESSED",
+      "verified_by": "R3",
+      "author_triage": "will_address",
+      "authorized_targets": [
+        {
+          "allowed_operations": [
+            "replace_block"
+          ],
+          "block_id": "B0004"
+        },
+        {
+          "allowed_operations": [
+            "replace_block"
+          ],
+          "block_id": "B0006"
+        },
+        {
+          "allowed_operations": [
+            "replace_block"
+          ],
+          "block_id": "B0008"
+        },
+        {
+          "allowed_operations": [
+            "replace_block"
+          ],
+          "block_id": "B0010"
+        },
+        {
+          "allowed_operations": [
+            "replace_block"
+          ],
+          "block_id": "B0012"
+        },
+        {
+          "allowed_operations": [
+            "replace_block"
+          ],
+          "block_id": "B0014"
+        },
+        {
+          "allowed_operations": [
+            "replace_block"
+          ],
+          "block_id": "B0016"
+        }
+      ],
+      "claim_strength_authorizations": []
+    },
+    {
+      "item_id": "REV-PRESENTATION",
+      "concern_id": "S4",
+      "obligation_class": "SHOULD_FIX",
+      "original_comment": "Front-matter page numbering duplicates Arabic destinations and the timing-placebo figure uses the malformed label 99.1th.",
+      "authors_claim": "—",
+      "revision_location": "main.tex lines 139-142 and 202; manuscript/main.pdf physical pages 2, 8 and 37",
+      "verified": "YES",
+      "status": "FULLY_ADDRESSED",
+      "quality_assessment": "The revision uses Roman front-matter numbering and Arabic main matter, and the regenerated timing-placebo figure displays '99.1 percentile' while preserving its evidence values.",
+      "final_verdict": "FULLY_ADDRESSED",
+      "phase2a_verdict": "FULLY_ADDRESSED",
+      "verified_by": "EIC",
+      "author_triage": "will_address",
+      "authorized_targets": [
+        {
+          "allowed_operations": [
+            "replace_block"
+          ],
+          "block_id": "B0004"
+        },
+        {
+          "allowed_operations": [
+            "replace_block"
+          ],
+          "block_id": "B0038"
+        }
+      ],
+      "claim_strength_authorizations": []
+    }
+  ],
+  "adjustments": [],
+  "new_issues": [],
+  "post_letter_observations": [],
+  "dissent_adjudications": [],
+  "resolution_intents": [],
+  "cross_model_resolutions": [],
+  "rebuttal_adjudications": [],
+  "g2d_acceptances": [],
+  "pending_rebuttal_upgrades": [],
+  "escalation_approvals": [],
+  "reapplications": [],
+  "decision_inputs": {
+    "per_item": [
+      {
+        "item_id": "REV-ESTIMAND-ALIGNMENT",
+        "final_verdict": "PARTIALLY_ADDRESSED",
+        "driving_severity": "major",
+        "residual_obligation_class": "should_fix"
+      },
+      {
+        "item_id": "REV-INTERPRETATION-BOUNDARY",
+        "final_verdict": "PARTIALLY_ADDRESSED",
+        "driving_severity": "major",
+        "residual_obligation_class": "should_fix"
+      }
+    ],
+    "verdict_counts": {
+      "must_fix": {
+        "FULLY_ADDRESSED": 0,
+        "PARTIALLY_ADDRESSED": 2,
+        "NOT_ADDRESSED": 0,
+        "MADE_WORSE": 0,
+        "CANNOT_VERIFY": 0
+      },
+      "should_fix": {
+        "FULLY_ADDRESSED": 4,
+        "PARTIALLY_ADDRESSED": 0,
+        "NOT_ADDRESSED": 0,
+        "MADE_WORSE": 0,
+        "CANNOT_VERIFY": 0
+      },
+      "consider": {
+        "FULLY_ADDRESSED": 0,
+        "PARTIALLY_ADDRESSED": 0,
+        "NOT_ADDRESSED": 0,
+        "MADE_WORSE": 0,
+        "CANNOT_VERIFY": 0
+      }
+    },
+    "residual_obligation_class_counts": {
+      "must_fix": {
+        "must_fix": 0,
+        "should_fix": 2,
+        "consider": 0
+      },
+      "should_fix": {
+        "must_fix": 0,
+        "should_fix": 0,
+        "consider": 0
+      },
+      "consider": {
+        "must_fix": 0,
+        "should_fix": 0,
+        "consider": 0
+      }
+    },
+    "should_fix_addressed_rate": {
+      "numerator": 4,
+      "denominator": 4
+    },
+    "regressions": [],
+    "non_regression_new_issue_ids": [],
+    "escalations": [],
+    "reject_recommended": false,
+    "apply_chain_witness": "pass"
+  },
+  "decision_state": "Minor Revision"
+}

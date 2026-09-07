@@ -1,0 +1,158 @@
+{
+  "schema_version": 1,
+  "status": "frozen_before_external_review_robustness_pack_results",
+  "frozen_at_utc": "2026-08-16T14:01:35Z",
+  "git_commit_at_freeze": "acaf530c75a20e882166e7218245342384cf2b1b",
+  "authorisation": {
+    "decision": "complete_the_needed_changes_from_the_external_panel_report",
+    "decision_date": "2026-08-16",
+    "source": "author instruction in the Codex task",
+    "external_review_artifact": "https://claude.ai/code/artifact/88e38c17-e862-43cc-b587-9813717c4fa9"
+  },
+  "experiment": {
+    "notebook": "experiments/notebooks/87_fnspid_external_review_robustness_pack.ipynb",
+    "runner": "experiments/lib/external_review_robustness.py",
+    "title": "FNSPID external-review robustness pack",
+    "evidence_role": "post-review diagnostics specified after all primary and evaluation results",
+    "confirmation_claim_allowed": false,
+    "retuning_allowed": false,
+    "evaluation_notebook_75_must_not_be_executed": true
+  },
+  "inputs": {
+    "fnspid_firm_day_aggregators": {
+      "path": "final_experiments/outputs/03_aggregation/firm_day_aggregators.parquet",
+      "sha256": "1ca1c38109bc06af232119adeff17de66a567174d457038bc923a930a2da61f1"
+    },
+    "fnspid_price_archive": {
+      "path": "/Users/peterprendergast/Documents/Sentiment_Dissertation_data/FNSPID/bf9189c41527198897d1af3e17b1a0095279fc45/raw/Stock_price/full_history.zip",
+      "sha256": "03da4fce7ebea90d5715ba3501773d410ae663b617027b338ef000a9955dab91",
+      "load_window": "2010-01-01 through 2023-12-31"
+    },
+    "development_daily_coefficients": {
+      "path": "experiments/results/75_fnspid_evaluation_beyond_mean_replication/development_daily_coefficients_all_firm_days.csv",
+      "sha256": "244269dbb1c9a96b9586b8716309468df7e51c75680616094ce92ecbef2631b3"
+    },
+    "evaluation_daily_coefficients": {
+      "path": "experiments/results/75_fnspid_evaluation_beyond_mean_replication/evaluation_daily_coefficients_all_firm_days.csv",
+      "sha256": "957afc25ac007e57556291f32a525245ba28199b4c82ba224b59f882542f2601"
+    },
+    "fnspid_har_control_daily": {
+      "path": "/Users/peterprendergast/Documents/Sentiment_Dissertation/final_experiments/outputs/24_fnspid_har_sentiment_hysteresis/evaluation_control_har_target_daily.parquet",
+      "sha256": "a9e21e5e8a19ad3fb4b8f63a085921cab4c3950a758b0362622b3b6ecf8fee0e"
+    },
+    "fnspid_har_overlay_daily": {
+      "path": "/Users/peterprendergast/Documents/Sentiment_Dissertation/final_experiments/outputs/24_fnspid_har_sentiment_hysteresis/evaluation_har_sentiment_daily.parquet",
+      "sha256": "35036e78f009969284a23d171a5cd2db05001d28c4856546bd34529f6eb31707"
+    },
+    "notebook_86_coefficients": {
+      "path": "experiments/results/86_fnspid_outcome_leg_decomposition/coefficient_summary.csv",
+      "sha256": "526a3effdb8478578389db7c1bd61824d5736bfb32913458c74269f115556a0a"
+    },
+    "notebook_86_strata": {
+      "path": "experiments/results/86_fnspid_outcome_leg_decomposition/story_count_strata.csv",
+      "sha256": "624de48c530d36945273d86502de55298438b7938048f1c56db49132265aea84"
+    }
+  },
+  "diagnostics": {
+    "prior_open_to_assigned_open": {
+      "outcome": "stock adjusted-open return from the previous SPY session to assigned open t minus the matching SPY return",
+      "population": "development",
+      "model": "same daily centred-rank regression as the published baseline, with mean sentiment and log story count controls",
+      "inference": "HAC lag 5, two-sided 95 percent interval",
+      "multiplicity": "single requested post-review timing probe",
+      "interpretation": "A negative interval excluding zero means the association is also present before the window called next; it does not recover story arrival time."
+    },
+    "trailing_beta_open_to_open": {
+      "beta": "rolling covariance of stock and SPY adjusted-open returns divided by rolling SPY variance, 252-session window, minimum 126 observations, ending at assigned open t",
+      "outcome": "stock next-open return minus trailing beta times SPY next-open return",
+      "same_sample_rows": "complete for outcome, beta, mean sentiment, negative share, and story count",
+      "specifications": [
+        "unit-beta abnormal outcome on the beta-complete sample",
+        "trailing-beta abnormal outcome with baseline controls",
+        "trailing-beta abnormal outcome with centred rank of trailing beta added as a control"
+      ],
+      "populations": [
+        "development",
+        "evaluation"
+      ],
+      "era_contrast": "evaluation minus development in the daily negative-share coefficient, HAC lag 5",
+      "multiplicity": "Benjamini-Hochberg q=0.05 across the two new beta specifications separately for each regime and for their two era contrasts",
+      "interpretation": "post-review benchmark robustness only; no factor-model alpha or causal claim"
+    },
+    "contrast_dependence": {
+      "daily_series": "committed Notebook 75 development and evaluation negative-share coefficients",
+      "hac_lags": [
+        0,
+        5,
+        21,
+        42
+      ],
+      "acf_lags": [
+        1
+      ],
+      "ljung_box_lags": [
+        5,
+        10,
+        21
+      ],
+      "diagnostic_series": "residualise the combined daily coefficient series on development and evaluation regime means before ACF and Ljung-Box tests",
+      "role": "sensitivity and dependence diagnostic; no model selection by lag"
+    },
+    "fnspid_episode_robustness": {
+      "difference": "control downside squared return minus sentiment-overlay downside squared return",
+      "episode_definition": "contiguous sessions on which the two arms differ in exposure or net return; this includes the first re-entry-cost session when applicable",
+      "leave_one_episode_out": "set the observed paired downside difference to zero for one whole episode at a time, matching the Notebook 74 LSEG protocol",
+      "crash_exclusion": "set the observed paired downside difference to zero from 2020-02-01 through 2020-04-30",
+      "inference": "paired circular block bootstrap, block length 20, 4,999 replications",
+      "seeds": {
+        "leave_one_out_start": 20260830,
+        "crash_exclusion": 20260930
+      },
+      "gate": "survives only if every leave-one-episode-out interval and the crash-excluded interval remain above zero",
+      "interpretation": "failure narrows the finding to episode-sensitive downside timing and withdraws stable risk-timing language"
+    },
+    "class_base_rates": {
+      "derivation": "recover exact negative, neutral and positive story counts from n, negative_share and mean_hard_label in the aggregate firm-day panel; require integer reconciliation",
+      "report_by": [
+        "development",
+        "evaluation",
+        "overall"
+      ],
+      "additional_ties": "report firm-day mass at negative_share equal to zero and one by era"
+    },
+    "stratum_rank_spreads": {
+      "strata": [
+        "n equals 1",
+        "n greater than or equal to 2",
+        "n greater than or equal to 3"
+      ],
+      "spread": "pooled observed 90th-minus-10th percentile and mean session-specific 90th-minus-10th percentile of the actual centred average-tie negative-share rank on each model sample",
+      "translation": "multiply each stratum coefficient by its own spread; comparisons remain descriptive"
+    }
+  },
+  "required_outputs": [
+    "prior_open_timing_probe.csv",
+    "prior_open_daily_coefficients.csv",
+    "beta_robustness_coefficients.csv",
+    "beta_robustness_contrasts.csv",
+    "beta_robustness_daily_coefficients.csv",
+    "contrast_hac_sensitivity.csv",
+    "coefficient_dependence_diagnostics.csv",
+    "fnspid_episode_attribution.csv",
+    "fnspid_leave_one_episode_out.csv",
+    "fnspid_crash_exclusion.csv",
+    "finbert_class_base_rates.csv",
+    "negative_share_tie_mass.csv",
+    "story_count_stratum_rank_spreads.csv",
+    "coverage_audit.csv",
+    "manifest.json"
+  ],
+  "claim_boundaries": [
+    "All inferential analyses in this pack are post-review and post-selection; none is independent confirmation.",
+    "Notebook 75 is not executed. Its committed aggregate daily coefficient series is read for lag sensitivity only.",
+    "The class base rates are arithmetically reconstructed aggregate counts, not a human validation of FinBERT labels.",
+    "Trailing beta changes the market benchmark but does not turn the outcome into a causal alpha.",
+    "Episode-drop results test concentration in the observed schedule and sample; they do not validate the rule out of sample.",
+    "Null, opposite-signed and adverse results are preserved without retuning."
+  ]
+}

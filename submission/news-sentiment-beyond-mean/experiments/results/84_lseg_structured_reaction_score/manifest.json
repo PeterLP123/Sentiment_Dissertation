@@ -1,0 +1,159 @@
+{
+  "chronological_scoring_amendment": {
+    "path": "final_experiments/frozen_specs/lseg_structured_reaction_score_chronological_scoring_amendment_20260813.json",
+    "sha256": "8beeb897e9030b823f99b2c5445b38bd3b31b46403ac55ef62021393bf9735d9"
+  },
+  "claim_boundary": "Designed after Notebook 83 outcomes and run on historically explored LSEG dates; not independent confirmation, validated alpha or deployment evidence.",
+  "decision": "The no-newness structured anticipated-reaction sentiment score fails the fixed 2024 economic and stability gate. No 2025 reaction-score portfolio is computed. Preserve this post-result prompt sensitivity as a null.",
+  "evaluation": {
+    "complete_economic_gate_pass": false,
+    "computed": false,
+    "half_stability": [],
+    "primary_family": [],
+    "summary": []
+  },
+  "evidence_role": "user-directed post-Notebook-83 retrospective sensitivity",
+  "frozen_spec": {
+    "path": "final_experiments/frozen_specs/lseg_structured_reaction_score_v1_20260813.json",
+    "sha256": "6c00f2840ec22f7cd9b66017ee95032fd1568f3ae56ce6b50b6b2069be1bb929"
+  },
+  "git_commit_at_execution": "6488d02d99311573c83dd233fc9538402fded46c",
+  "inputs": {
+    "candidate_events_sha256": "e44cdcaea000ae426efcc9eb5a2734f791dcf340050875677feca9ecd8aa7fd4",
+    "candidate_manifest_sha256": "43a5e0349f3728129f4392b520cca344a8696a2ba3e9a980ac57e632ca89a9ea",
+    "price_export_sha256": "ecdd3c67d9b61183c6beebba6330918eace8a165764dba695ed87b86b6cec24a",
+    "score_manifest_sha256": "66fc214f928583908e680feaf5548048c17be3054104fdeb540e987267fc0376",
+    "scores_sha256": "267b5bec0626a58c528fdcbdf44fa6bcdbb7b584dbbf00e28fd66e7bff335e78"
+  },
+  "notebook": "84_lseg_structured_reaction_score.ipynb",
+  "operational_amendment": {
+    "path": "final_experiments/frozen_specs/lseg_structured_reaction_score_operational_concurrency_amendment_20260813.json",
+    "sha256": "a5088197dcd4530fbe229685d01d64b40a685d33b6a03dce423ea6ae5cbc33ed"
+  },
+  "outputs": {
+    "final_experiments/outputs/84_lseg_structured_reaction_score/analysis/evaluation_summary_2025.csv": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+    "final_experiments/outputs/84_lseg_structured_reaction_score/analysis/half_stability_2025.csv": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+    "final_experiments/outputs/84_lseg_structured_reaction_score/analysis/primary_family_2025.csv": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+    "final_experiments/outputs/84_lseg_structured_reaction_score/analysis/score_distribution.csv": "fce2d5832d0b65108a0ea0aec1ec43b553d25a0b1ad3e4f42405adfff9937360",
+    "final_experiments/outputs/84_lseg_structured_reaction_score/analysis/selection_2024.csv": "e7414d3b5a2a86d922a53d21d28a51c042478c7d499743650be88b8110480c80",
+    "final_experiments/outputs/84_lseg_structured_reaction_score/analysis/selection_quarters_2024.csv": "14b925a4490cf7141e3c03c356aa18ae856f566ecd7d9da846edaf6b959a2be2",
+    "final_experiments/outputs/84_lseg_structured_reaction_score/analysis/structured_reaction_2024.png": "2178f682c6d5f0cc11e4890c15636fd45a65074826823c08890ec5eded0fc11e",
+    "final_experiments/outputs/84_lseg_structured_reaction_score/analysis/support.csv": "3a749a192f287d1e2e688612f1500dea16bf2867d49a88966b198206dc0365d0"
+  },
+  "postflight_audit": {
+    "path": "final_experiments/frozen_specs/lseg_structured_reaction_score_postflight_20260813.json",
+    "sha256": "4ac8869c6468d3824526a207b905dd00fa10d9ea1e3d66e19ca2d45cc7692b89"
+  },
+  "privacy": {
+    "earlier_headlines_sent": false,
+    "newness_assessed": false,
+    "payload": "current Reuters headline plus target-company name and symbol only"
+  },
+  "promoted_outputs": {
+    "dissertation/figures/fig_lseg33_structured_reaction_score.png": "2178f682c6d5f0cc11e4890c15636fd45a65074826823c08890ec5eded0fc11e"
+  },
+  "schema_version": 1,
+  "seal_audit": {
+    "confirmation_returns_materialised": 0,
+    "evaluation_2025_event_returns_materialised": 0,
+    "first_numeric_session": "2023-12-29",
+    "last_numeric_session": "2025-12-31",
+    "numeric_2026_prices_parsed": 0,
+    "numeric_confirmation_prices_parsed": 0,
+    "preconfirmation_rows": 16571,
+    "source_sha256": "ecdd3c67d9b61183c6beebba6330918eace8a165764dba695ed87b86b6cec24a",
+    "symbols": 33
+  },
+  "selection": {
+    "passed": false,
+    "quarters": [
+      {
+        "end_exclusive": "2024-04-01",
+        "finbert_net_bps_session": -10.3668558919,
+        "formation_sessions": 57,
+        "gemma_net_bps_session": -21.6888574178,
+        "quarter": 1,
+        "reaction_minus_finbert_bps": -20.7254852181,
+        "reaction_minus_gemma_bps": -9.4034836922,
+        "reaction_net_bps_session": -31.09234111,
+        "start": "2024-01-01"
+      },
+      {
+        "end_exclusive": "2024-07-01",
+        "finbert_net_bps_session": -13.8055123558,
+        "formation_sessions": 60,
+        "gemma_net_bps_session": -16.3672748771,
+        "quarter": 2,
+        "reaction_minus_finbert_bps": -15.0283492649,
+        "reaction_minus_gemma_bps": -12.4665867436,
+        "reaction_net_bps_session": -28.8338616207,
+        "start": "2024-04-01"
+      },
+      {
+        "end_exclusive": "2024-10-01",
+        "finbert_net_bps_session": -6.2290954934,
+        "formation_sessions": 58,
+        "gemma_net_bps_session": -13.0611872585,
+        "quarter": 3,
+        "reaction_minus_finbert_bps": -19.270239123,
+        "reaction_minus_gemma_bps": -12.4381473578,
+        "reaction_net_bps_session": -25.4993346163,
+        "start": "2024-07-01"
+      },
+      {
+        "end_exclusive": "2025-01-01",
+        "finbert_net_bps_session": -10.6336871468,
+        "formation_sessions": 56,
+        "gemma_net_bps_session": -24.735433582,
+        "quarter": 4,
+        "reaction_minus_finbert_bps": 16.5319322305,
+        "reaction_minus_gemma_bps": 30.6336786657,
+        "reaction_net_bps_session": 5.8982450837,
+        "start": "2024-10-01"
+      }
+    ],
+    "result": {
+      "active_holding_sessions": 234,
+      "annualized_turnover": 215.1602778941,
+      "beat_same_date_finbert_quarters": 1,
+      "beat_same_date_gemma_quarters": 1,
+      "breakeven_bps_per_side": -1.5165062571,
+      "cost_bps_per_side": 10.0,
+      "formation_sessions": 234,
+      "gross_sharpe": -0.2867538179,
+      "max_drawdown_net": -0.450837944,
+      "mean_gross_bps_session": -2.5896183151,
+      "mean_net_bps_session": -19.6658308464,
+      "mean_turnover": 0.8538106266,
+      "n_sessions": 251,
+      "net_sharpe": -2.1782907185,
+      "positive_quarters": 1,
+      "prompt_id": "structured_first_reaction_v1",
+      "same_date_finbert_mean_net_bps_session": -11.5156924671,
+      "same_date_finbert_total_return_net": -0.2677559834,
+      "same_date_gemma_mean_net_bps_session": -18.9436756988,
+      "same_date_gemma_total_return_net": -0.3928433477,
+      "selection_pass": false,
+      "total_return_gross": -0.0865992582,
+      "total_return_net": -0.4053291753
+    }
+  },
+  "status": "complete",
+  "support": {
+    "companies": 33,
+    "earlier_headlines_sent": false,
+    "missing_strict_scores_within_scope": 1,
+    "newness_assessed": false,
+    "nonzero_score_share": 0.5214439988,
+    "parent_events": 9317,
+    "reported_api_cost_usd": 0.18951202,
+    "reported_combined_prompt_cost_usd": 3.16042887,
+    "scoring_scope_end_exclusive": "2025-01-01",
+    "scoring_scope_events": 3242,
+    "sessions": 252,
+    "strict_retained_share": 0.9996915484,
+    "strict_scores": 3241,
+    "target_specific_share": 0.9308855292,
+    "unscored_parent_events_after_scope": 6075
+  }
+}

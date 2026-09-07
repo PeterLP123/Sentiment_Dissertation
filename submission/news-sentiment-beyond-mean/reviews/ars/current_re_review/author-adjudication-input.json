@@ -1,0 +1,98 @@
+{
+  "schema_version": "author-adjudication-input/1.0",
+  "author_events": [
+    {
+      "event_id": "AUTHOR-EVENT-2026-08-14-roadmap-authorization",
+      "source": "explicit_session_user_message",
+      "actor_role": "author",
+      "input_sha256": "1014502e362bb346a5534b3cf7502a1f821a8ae924757cd56508f0f0d973db91"
+    }
+  ],
+  "display_order": {
+    "mode": "source_traceability",
+    "item_ids": [
+      "REV-ESTIMAND-ALIGNMENT",
+      "REV-INTERPRETATION-BOUNDARY",
+      "REV-HYPOTHESIS-LANGUAGE",
+      "REV-TEMPORAL-LITERATURE",
+      "REV-WORD-COUNT",
+      "REV-PRESENTATION"
+    ],
+    "author_event_id": "AUTHOR-EVENT-2026-08-14-roadmap-authorization"
+  },
+  "author_adjudications": [
+    {
+      "item_id": "REV-ESTIMAND-ALIGNMENT",
+      "author_event_id": "AUTHOR-EVENT-2026-08-14-roadmap-authorization",
+      "author_triage": "will_address",
+      "authorized_targets": [
+        {"block_id": "B0004", "allowed_operations": ["replace_block"]},
+        {"block_id": "B0006", "allowed_operations": ["replace_block"]},
+        {"block_id": "B0012", "allowed_operations": ["replace_block"]},
+        {"block_id": "B0014", "allowed_operations": ["replace_block"]},
+        {"block_id": "B0016", "allowed_operations": ["replace_block"]}
+      ],
+      "claim_strength_authorizations": []
+    },
+    {
+      "item_id": "REV-INTERPRETATION-BOUNDARY",
+      "author_event_id": "AUTHOR-EVENT-2026-08-14-roadmap-authorization",
+      "author_triage": "will_address",
+      "authorized_targets": [
+        {"block_id": "B0004", "allowed_operations": ["replace_block"]},
+        {"block_id": "B0008", "allowed_operations": ["replace_block"]},
+        {"block_id": "B0010", "allowed_operations": ["replace_block"]},
+        {"block_id": "B0014", "allowed_operations": ["replace_block"]},
+        {"block_id": "B0016", "allowed_operations": ["replace_block"]}
+      ],
+      "claim_strength_authorizations": []
+    },
+    {
+      "item_id": "REV-HYPOTHESIS-LANGUAGE",
+      "author_event_id": "AUTHOR-EVENT-2026-08-14-roadmap-authorization",
+      "author_triage": "will_address",
+      "authorized_targets": [
+        {"block_id": "B0006", "allowed_operations": ["replace_block"]},
+        {"block_id": "B0014", "allowed_operations": ["replace_block"]},
+        {"block_id": "B0016", "allowed_operations": ["replace_block"]}
+      ],
+      "claim_strength_authorizations": []
+    },
+    {
+      "item_id": "REV-TEMPORAL-LITERATURE",
+      "author_event_id": "AUTHOR-EVENT-2026-08-14-roadmap-authorization",
+      "author_triage": "will_address",
+      "authorized_targets": [
+        {"block_id": "B0008", "allowed_operations": ["replace_block"]},
+        {"block_id": "B0036", "allowed_operations": ["replace_block"]}
+      ],
+      "claim_strength_authorizations": []
+    },
+    {
+      "item_id": "REV-WORD-COUNT",
+      "author_event_id": "AUTHOR-EVENT-2026-08-14-roadmap-authorization",
+      "author_triage": "will_address",
+      "authorized_targets": [
+        {"block_id": "B0004", "allowed_operations": ["replace_block"]},
+        {"block_id": "B0006", "allowed_operations": ["replace_block"]},
+        {"block_id": "B0008", "allowed_operations": ["replace_block"]},
+        {"block_id": "B0010", "allowed_operations": ["replace_block"]},
+        {"block_id": "B0012", "allowed_operations": ["replace_block"]},
+        {"block_id": "B0014", "allowed_operations": ["replace_block"]},
+        {"block_id": "B0016", "allowed_operations": ["replace_block"]}
+      ],
+      "claim_strength_authorizations": []
+    },
+    {
+      "item_id": "REV-PRESENTATION",
+      "author_event_id": "AUTHOR-EVENT-2026-08-14-roadmap-authorization",
+      "author_triage": "will_address",
+      "authorized_targets": [
+        {"block_id": "B0004", "allowed_operations": ["replace_block"]},
+        {"block_id": "B0038", "allowed_operations": ["replace_block"]}
+      ],
+      "claim_strength_authorizations": []
+    }
+  ],
+  "collateral_authorizations": []
+}

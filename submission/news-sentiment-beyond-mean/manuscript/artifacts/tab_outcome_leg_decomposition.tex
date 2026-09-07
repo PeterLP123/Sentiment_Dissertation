@@ -1,0 +1,30 @@
+\begin{table}[htbp]
+\centering
+\caption[Outcome-leg decomposition]{Post-hoc FNSPID return-window decomposition. The assigned-open-to-next-open row repeats the baseline and is excluded from the new multiplicity adjustment. Within each period, BH correction covers the three decomposed return legs. The three between-period differences form a separate family. The previous-open analysis is a separate post-hoc timing diagnostic. All intervals use HAC(5).}
+\label{tab:outcome-leg-decomposition}
+\scriptsize
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{5.5cm} d{-1.5} c d{1.4} c@{}}
+\toprule
+Outcome or contrast & {Estimate} & {95\% CI} & {$p$} & {BH $q$} \\
+\midrule
+\multicolumn{5}{@{}l}{\emph{Training period}} \\
+\quad Assigned open to next open (reference) & -0.00831 & $[-0.01410,\,-0.00252]$ & 0.0049 & -- \\
+\quad Assigned open to close & -0.01029 & $[-0.01596,\,-0.00462]$ & 0.0004 & 0.0011 \\
+\quad Assigned close to next open & 0.00155 & $[-0.00416,\,0.00725]$ & 0.5949 & 0.5949 \\
+\quad Previous close to assigned open & -0.00638 & $[-0.01264,\,-0.00012]$ & 0.0457 & 0.0686 \\
+\quad Previous open to assigned open (separate) & -0.01926 & $[-0.02580,\,-0.01272]$ & \multicolumn{1}{c}{$7.9\times10^{-9}$} & -- \\
+\addlinespace
+\multicolumn{5}{@{}l}{\emph{Testing period (additional timing diagnostic)}} \\
+\quad Assigned open to next open (reference) & 0.00583 & $[-0.00426,\,0.01593]$ & 0.2574 & -- \\
+\quad Assigned open to close & 0.00337 & $[-0.00669,\,0.01343]$ & 0.5111 & 0.5111 \\
+\quad Assigned close to next open & 0.00348 & $[-0.00616,\,0.01312]$ & 0.4796 & 0.5111 \\
+\quad Previous close to assigned open & -0.01552 & $[-0.02521,\,-0.00582]$ & 0.0017 & 0.0051 \\
+\addlinespace
+\multicolumn{5}{@{}l}{\emph{Testing minus training}} \\
+\quad Assigned open to next open (reference) & 0.01414 & $[0.00250,\,0.02579]$ & 0.0173 & -- \\
+\quad Assigned open to close & 0.01366 & $[0.00211,\,0.02521]$ & 0.0204 & 0.0613 \\
+\quad Assigned close to next open & 0.00193 & $[-0.00928,\,0.01314]$ & 0.7357 & 0.7357 \\
+\quad Previous close to assigned open & -0.00914 & $[-0.02067,\,0.00240]$ & 0.1205 & 0.1807 \\
+\bottomrule
+\end{tabular}
+\end{table}

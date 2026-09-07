@@ -1,0 +1,40 @@
+{
+  "contract_version": "1.1",
+  "round_id": "ars-re-review-2026-08-14-round-2",
+  "input_manifest_hash": "4d94944028b3172651995b4540b9fd0d28f9c4e76c68776154ebb0fcb5b58a3d",
+  "items": [
+    {
+      "item_id": "REV-ESTIMAND-ALIGNMENT-R2",
+      "obligation_class": "should_fix",
+      "inherited_criterion": {
+        "roadmap_text": "The appendix project summary explicitly pairs -0.00831 with +0.00583 and identifies -0.00914 as separate recent-price-control robustness."
+      },
+      "operationalization": {
+        "fully_addressed": "The appendix project summary identifies -0.00831 as the development baseline matched to the frozen +0.00583 estimate and identifies -0.00914 only as a separate development recent-price-control robustness estimate."
+      },
+      "expected_change_surface": "Appendix project summary Outcome (B0018).",
+      "equivalence_policy": "allowed",
+      "source_reviewer": "EIC",
+      "source_reviewer_labels": [
+        "EIC"
+      ]
+    },
+    {
+      "item_id": "REV-INTERPRETATION-BOUNDARY-R2",
+      "obligation_class": "should_fix",
+      "inherited_criterion": {
+        "roadmap_text": "The results synthesis and appendix project summary limit the instability finding to the measured baseline pipeline association and explicitly state that its cause is unidentified."
+      },
+      "operationalization": {
+        "fully_addressed": "Both the results synthesis and appendix project summary describe instability only in the measured baseline pipeline association and explicitly state that the evidence does not identify its cause."
+      },
+      "expected_change_surface": "Results synthesis (B0014) and appendix project summary Outcome (B0018).",
+      "equivalence_policy": "allowed",
+      "source_reviewer": "R1",
+      "source_reviewer_labels": [
+        "R1"
+      ]
+    }
+  ],
+  "new_standards": []
+}

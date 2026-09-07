@@ -1,0 +1,203 @@
+{
+  "notebook": "76_fnspid_development_negative_share_double_sort",
+  "status": "complete_descriptive_previously_opened_development",
+  "git_commit_at_execution": "7d8c2f6d76c361854689617430a52a401ec0a12b",
+  "declared_spec": "final_experiments/frozen_specs/examiner_facing_analysis_pack_v1_20260812.json",
+  "declared_spec_sha256": "cb0b200f2b1151bd0f72cf2f19c002e2d0853802c28a84485a971a18a41dfc14",
+  "input": "final_experiments/outputs/03_aggregation/firm_day_aggregators.parquet",
+  "input_sha256": "1ca1c38109bc06af232119adeff17de66a567174d457038bc923a930a2da61f1",
+  "design": {
+    "name": "fnspid_development_negative_share_double_sort",
+    "population": "FNSPID development through 2019-12-31",
+    "outcome": "ar_open_h1 in basis points",
+    "first_sort": "within-session mean_continuous quintiles using deterministic average-tie percentile ranks",
+    "second_sort": "within each session and mean-sentiment quintile, form negative-share terciles with fractional allocation of tied values; each tercile receives exactly one third of the cell weight and no arbitrary symbol tie-break is used",
+    "contrast": "equal-weight high-minus-low next-open return inside each mean-sentiment quintile, then equal-weight the available quintile spreads within each session",
+    "samples": [
+      "all complete development firm-days",
+      "predeclared descriptive sensitivity restricted to n >= 2 stories"
+    ],
+    "inference": "HAC(5) interval on the daily spread series; no cross-sectional regression",
+    "minimum_cell_firms": 5,
+    "minimum_available_mean_quintiles_per_session": 3,
+    "design_change_log": "The initially declared absolute <=1/3 and >=2/3 negative-share buckets produced no session with three overlapping mean-sentiment quintiles and execution stopped before any spread estimate was computed. The tie-aware dependent-tercile rule was recorded next because it is the standard double-sort estimand and preserves all ties without outcome-based choices."
+  },
+  "seed": 20260812,
+  "coverage": [
+    {
+      "sample": "all_firm_days",
+      "firm_days": 512149,
+      "sessions_in_input": 2264,
+      "eligible_mean_quintile_cells": 11320,
+      "quintile_session_spreads": 11320,
+      "sessions_in_pooled_spread": 2264,
+      "mean_available_quintiles": 5.0,
+      "mean_within_quintile_sentiment_gap": -0.1064190698
+    },
+    {
+      "sample": "multi_story_n_ge_2",
+      "firm_days": 264679,
+      "sessions_in_input": 2264,
+      "eligible_mean_quintile_cells": 11318,
+      "quintile_session_spreads": 11318,
+      "sessions_in_pooled_spread": 2264,
+      "mean_available_quintiles": 4.9991166078,
+      "mean_within_quintile_sentiment_gap": -0.0822905023
+    }
+  ],
+  "quintile_spreads": [
+    {
+      "sample": "all_firm_days",
+      "mean_quintile": 1,
+      "n_sessions": 2264,
+      "mean_bps": -1.5234695241,
+      "hac_se_bps": 1.5733909692,
+      "ci_low_bps": -4.6072591573,
+      "ci_high_bps": 1.560320109,
+      "z": -0.9682714303,
+      "p_two_sided_descriptive": 0.3329088292,
+      "hac_lags": 5
+    },
+    {
+      "sample": "all_firm_days",
+      "mean_quintile": 2,
+      "n_sessions": 2264,
+      "mean_bps": -0.8746724729,
+      "hac_se_bps": 1.0964567605,
+      "ci_low_bps": -3.0236882341,
+      "ci_high_bps": 1.2743432883,
+      "z": -0.7977263713,
+      "p_two_sided_descriptive": 0.4250292968,
+      "hac_lags": 5
+    },
+    {
+      "sample": "all_firm_days",
+      "mean_quintile": 3,
+      "n_sessions": 2264,
+      "mean_bps": 0.1662763969,
+      "hac_se_bps": 0.630175197,
+      "ci_low_bps": -1.0688442932,
+      "ci_high_bps": 1.4013970869,
+      "z": 0.2638574124,
+      "p_two_sided_descriptive": 0.7918897929,
+      "hac_lags": 5
+    },
+    {
+      "sample": "all_firm_days",
+      "mean_quintile": 4,
+      "n_sessions": 2264,
+      "mean_bps": -0.462540546,
+      "hac_se_bps": 0.7682072411,
+      "ci_low_bps": -1.9681990711,
+      "ci_high_bps": 1.0431179792,
+      "z": -0.6021038611,
+      "p_two_sided_descriptive": 0.5471050046,
+      "hac_lags": 5
+    },
+    {
+      "sample": "all_firm_days",
+      "mean_quintile": 5,
+      "n_sessions": 2264,
+      "mean_bps": -0.3939062181,
+      "hac_se_bps": 0.3086818383,
+      "ci_low_bps": -0.9989115037,
+      "ci_high_bps": 0.2110990676,
+      "z": -1.2760913317,
+      "p_two_sided_descriptive": 0.2019232355,
+      "hac_lags": 5
+    },
+    {
+      "sample": "multi_story_n_ge_2",
+      "mean_quintile": 1,
+      "n_sessions": 2263,
+      "mean_bps": 1.5518093576,
+      "hac_se_bps": 2.33557934,
+      "ci_low_bps": -3.0258420318,
+      "ci_high_bps": 6.129460747,
+      "z": 0.6644215981,
+      "p_two_sided_descriptive": 0.5064205132,
+      "hac_lags": 5
+    },
+    {
+      "sample": "multi_story_n_ge_2",
+      "mean_quintile": 2,
+      "n_sessions": 2264,
+      "mean_bps": -0.4272471543,
+      "hac_se_bps": 2.0422885551,
+      "ci_low_bps": -4.4300591684,
+      "ci_high_bps": 3.5755648598,
+      "z": -0.2092001902,
+      "p_two_sided_descriptive": 0.8342919639,
+      "hac_lags": 5
+    },
+    {
+      "sample": "multi_story_n_ge_2",
+      "mean_quintile": 3,
+      "n_sessions": 2263,
+      "mean_bps": -1.0505420363,
+      "hac_se_bps": 1.4245275873,
+      "ci_low_bps": -3.8425648024,
+      "ci_high_bps": 1.7414807298,
+      "z": -0.7374669649,
+      "p_two_sided_descriptive": 0.4608384255,
+      "hac_lags": 5
+    },
+    {
+      "sample": "multi_story_n_ge_2",
+      "mean_quintile": 4,
+      "n_sessions": 2264,
+      "mean_bps": -1.1544625182,
+      "hac_se_bps": 1.5530791136,
+      "ci_low_bps": -4.198441646,
+      "ci_high_bps": 1.8895166095,
+      "z": -0.7433378687,
+      "p_two_sided_descriptive": 0.4572771502,
+      "hac_lags": 5
+    },
+    {
+      "sample": "multi_story_n_ge_2",
+      "mean_quintile": 5,
+      "n_sessions": 2264,
+      "mean_bps": -0.196161015,
+      "hac_se_bps": 0.7117661127,
+      "ci_low_bps": -1.5911969614,
+      "ci_high_bps": 1.1988749314,
+      "z": -0.2755975755,
+      "p_two_sided_descriptive": 0.782857172,
+      "hac_lags": 5
+    }
+  ],
+  "pooled_spreads": [
+    {
+      "sample": "all_firm_days",
+      "mean_quintile": "pooled",
+      "n_sessions": 2264,
+      "mean_bps": -0.6176624728,
+      "hac_se_bps": 0.4554044853,
+      "ci_low_bps": -1.5102388624,
+      "ci_high_bps": 0.2749139167,
+      "z": -1.3562942237,
+      "p_two_sided_descriptive": 0.1750055726,
+      "hac_lags": 5
+    },
+    {
+      "sample": "multi_story_n_ge_2",
+      "mean_quintile": "pooled",
+      "n_sessions": 2264,
+      "mean_bps": -0.2530997746,
+      "hac_se_bps": 0.8001843959,
+      "ci_low_bps": -1.8214323715,
+      "ci_high_bps": 1.3152328223,
+      "z": -0.3163018123,
+      "p_two_sided_descriptive": 0.7517734357,
+      "hac_lags": 5
+    }
+  ],
+  "figure": "dissertation/figures/fig_conditional_double_sort.png",
+  "claim_boundary": [
+    "All underlying development and robustness outcomes were already open.",
+    "This declaration prevents display and arithmetic choices from being changed after seeing the new summaries; it is not a preregistration or independent confirmation.",
+    "Notebook 75 and the FNSPID 2020-2023 one-shot evaluation replication remain deliberately unexecuted.",
+    "No result in this pack can select the final research question, promote a trading strategy, or license retuning."
+  ]
+}

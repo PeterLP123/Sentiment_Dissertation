@@ -1,0 +1,15 @@
+{
+  "patch_sha256": "cf0849cd76b4750701125fa4ee69195b9b2866d042b774b6d6370629c5579132",
+  "operation_count": 9,
+  "changed_canonical_surfaces": [
+    "manuscript/main.tex",
+    "manuscript/chapters/01_introduction.tex",
+    "manuscript/chapters/02_literature.tex",
+    "manuscript/chapters/03_data.tex",
+    "manuscript/chapters/04_methodology.tex",
+    "manuscript/chapters/05_results.tex",
+    "manuscript/chapters/06_conclusion.tex",
+    "manuscript/references.bib",
+    "__binary_artifact_manifest__"
+  ]
+}

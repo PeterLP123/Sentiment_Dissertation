@@ -1,0 +1,442 @@
+\chapter{Methodology}
+\label{ch:methodology}
+
+\section{The analysis in six steps}
+
+The analysis has six ordered steps. A measure reaches the economic tests only
+after the fixed statistical comparison, preventing a later return result from
+replacing the measure chosen at the start.
+
+\begin{enumerate}[leftmargin=1.0cm]
+  \item Compare nine firm-day summaries using one outcome and one multiplicity
+  correction.
+  \item Test whether the selected measure adds to average sentiment.
+  \item Split the return window into parts to see where the relationship appears.
+  \item Apply the unchanged baseline once to the fixed 2020--2023 testing period.
+  \item Translate the coefficient into return scale, portfolio performance,
+  turnover and costs.
+  \item Evaluate a same-session FNSPID risk diagnostic, then repeat the
+  coefficient and economic work in the LSEG data.
+\end{enumerate}
+
+No statistic covers association, timing and practical value. Rank correlations
+measure co-movement. Portfolio returns require turnover and costs. A drawdown
+claim also requires matched market exposure and verified signal availability.
+
+The selected coefficient is exploratory because the aggregation analysis
+changed before the final research question was set. Comparing its $p$-value with
+$0.05/9=0.00556$ provides a conservative nine-test check, but does not capture
+all uncertainty from choosing the best rule \citep{harvey2016multiple}. Some
+later checks were also designed after seeing the association.
+
+The testing-period estimates, test groups and decision rule were fixed before they
+were calculated. However, some outcomes from those years had already been
+examined.
+
+\section{Step 1: nine firm-day aggregation rules}
+
+Let $\mathcal{J}_{it}$ contain the stories assigned to firm $i$ on session $t$,
+with $n_{it}=|\mathcal{J}_{it}|$. The continuous score $s_{ijt}$ comes from
+\cref{eq:continuous-score}, and $h_{ijt}\in\{-1,0,1\}$ is the hard negative,
+neutral or positive label. Eight rules use only the current firm-day. The ninth
+carries a decayed state through time.
+
+\begin{enumerate}[leftmargin=0.9cm]
+  \item \textbf{Mean hard label:}
+  $a^{\mathrm{hard}}_{it}=n_{it}^{-1}\sum_j h_{ijt}$.
+
+  \item \textbf{Mean continuous score:}
+  $a^{\mathrm{mean}}_{it}=n_{it}^{-1}\sum_j s_{ijt}$.
+
+  \item \textbf{Median continuous score:}
+  $a^{\mathrm{median}}_{it}=\operatorname{median}_{j}(s_{ijt})$.
+
+  \item \textbf{Ten-per-cent trimmed mean:} sort the scores, drop
+  $k=\lfloor0.1n_{it}\rfloor$ observations from each tail and average the rest.
+  With small $n_{it}$, $k=0$ and the rule collapses to the mean.
+
+  \item \textbf{Negative-story share:}
+  \begin{equation}
+  q^{-}_{it}=\frac{1}{n_{it}}\sum_{j\in\mathcal{J}_{it}}
+  \mathbf{1}(h_{ijt}=-1).
+  \label{eq:negative-share}
+  \end{equation}
+
+  \item \textbf{Dispersion:} the sample standard deviation of $s_{ijt}$, set to
+  zero on a one-story firm-day.
+
+  \item \textbf{Strongest event:} prefer a non-recap story, then take the
+  remaining story with the largest $|s_{ijt}|$. An exact tie in opposite
+  directions is recorded as missing, and the return never breaks a tie.
+
+  \item \textbf{Log-count attention:}
+  $a^{\mathrm{attn}}_{it}=a^{\mathrm{mean}}_{it}\log(1+n_{it})$. This rule picks
+  out no particular story. It gives more cross-sectional weight to a mean built
+  from more stories.
+
+  \item \textbf{Decayed state:} convert the current continuous mean into an
+  impulse $u_{it}=\operatorname{sign}(a^{\mathrm{mean}}_{it})|a^{\mathrm{mean}}_{it}|^{1.5}$.
+  Writing $d_{it^{-}}$ for the state at firm $i$'s previous news-bearing session
+  and $\Delta_{it}$ for the number of exchange sessions since it,
+  \begin{equation}
+   d_{it}=2^{-\Delta_{it}/3}d_{it^{-}}
+   \Bigl(1-\tfrac{3}{4}\mathbf{1}\bigl[u_{it}d_{it^{-}}<0\bigr]\Bigr)+u_{it}.
+   \label{eq:decayed-state}
+  \end{equation}
+  Tone persists across sessions, and a strictly opposite non-zero impulse
+  resets three quarters of the decayed prior state before the new impulse enters.
+  The state is initialised at zero for each firm's first news-bearing session.
+\end{enumerate}
+
+The rules are deliberately simple: learning an aggregator would add another
+selection problem and obscure what the mean discarded. The candidates cover a
+threshold, dispersion, trimmed extremes, story selection, attention and a
+cross-session state.
+
+For each session, firms are ranked by the signal and by return. The Spearman
+correlation asks whether firms with higher signal ranks also tend to have higher
+or lower return ranks. For rule $a$, it is
+
+\begin{equation}
+ IC^a_t=\operatorname{corr}_{S}\left(a_{it},r^A_{i,t+1}\right).
+ \label{eq:daily-ic}
+\end{equation}
+
+The reported coefficient is $\overline{IC}^a=T^{-1}\sum_t IC^a_t$, requiring at
+least three complete firms per session. Five-lag Newey-West HAC errors allow
+changing variance and short-run dependence \citep{newey1987}. The nine two-sided
+$p$-values form one Benjamini-Hochberg family at $q=0.05$
+\citep{benjamini1995}. Story-count groups are descriptive. Expected directions
+are fixed: positive-score summaries point upward, while negative share and
+dispersion point downward.
+
+\section{Step 2: the relationship after controlling for the mean}
+
+For each session, firms are ranked by return, negative share, average sentiment
+and story count. The regression asks whether negative-share rank is still
+related to return rank after accounting for the other two news measures. The
+formal calculation uses within-session percentile ranks, with tied values given
+their average rank and each rank shifted by one half. Let $N_t$ be the available
+firms, $L$ the number strictly below a firm on $x$, and $E$ its tie-group size:
+
+\begin{equation}
+ \widetilde x_{it}=R_t(x_{it})-\tfrac12,
+ \qquad
+ R_t(x_{it})=\frac{L+\tfrac12(E+1)}{N_t}.
+ \label{eq:shifted-rank}
+\end{equation}
+
+\noindent Without ties, shifted ranks span $N_t^{-1}-\tfrac12$ to $\tfrac12$.
+Their mean is $1/(2N_t)$, which the daily intercept absorbs. Because ties narrow
+the support, effect translations use observed rank spreads. The base model is
+
+\begin{equation}
+ \widetilde r^A_{i,t+1}=\alpha_t+\beta_t\widetilde q^{-}_{it}
+ +\gamma_t\widetilde{\bar s}_{it}
+ +\delta_t\widetilde{\log(1+n_{it})}+\varepsilon_{it},
+ \label{eq:conditional-base}
+\end{equation}
+
+\noindent where $\bar s_{it}$ is average continuous sentiment and tildes denote
+shifted ranks. The reported coefficient averages the daily slopes:
+
+\begin{equation}
+ \bar\beta=\frac{1}{T}\sum_{t=1}^{T}\beta_t.
+ \label{eq:mean-beta}
+\end{equation}
+
+A session needs ten complete firms and an estimable design matrix. The slope
+series uses a five-lag HAC error. Ranking limits outliers and gives FNSPID and
+LSEG a common scale. Since ties prevent a full unit change in negative-share
+rank, translations use the observed spread.
+
+The price-path specification adds three shifted ranks to test the reversal
+finding of \citet{chan2003news}:
+
+\begin{equation}
+ \widetilde r^A_{i,t+1}=\alpha_t+\beta_t\widetilde q^{-}_{it}
+ +\gamma_t\widetilde{\bar s}_{it}+\delta_t\widetilde{\log(1+n_{it})}
+ +\theta_{1t}\widetilde r^{(1)}_{it}+\theta_{5t}\widetilde r^{(5)}_{it}
+ +\phi_t\widetilde\sigma^{(20)}_{it}+\varepsilon_{it}.
+ \label{eq:conditional-full}
+\end{equation}
+
+\noindent Here $r^{(1)}$ is the adjusted-open return from $t-1$ to $t$,
+$r^{(5)}$ is the cumulative return from $t-5$ to $t$, and $\sigma^{(20)}$ is the
+standard deviation of the twenty returns ending at formation. Every control
+ends before the outcome starts. The full model is the main reversal test.
+Intermediate rows show the effect of adding controls.
+
+Three post-result measurement checks form a separate Benjamini--Hochberg family.
+The first uses a close-to-close market-adjusted outcome. The second further
+removes the component explained by a trailing Fama--French three-factor (FF3)
+model \citep{famafrench1993}. The third keeps the primary outcome but replaces
+hard negative share with average $p(\mathrm{negative})$. Factor betas use the
+252 sessions ending at formation, require 126 observations and exclude the
+outcome session.
+
+The rank control is linear. On one-story days, negative share is a thresholded
+class from the same probability vector as mean sentiment, so its coefficient may
+capture a nonlinear boundary rather than aggregation. The result is conditional
+only on the stated controls. A more flexible model would be another
+training-sample test and is left for a prospectively specified study.
+
+On price-complete rows, the pooled 90th-minus-10th percentile negative-share-rank
+spread is 0.56056. The mean session spread is 0.52722. Multiplying either by
+$100\bar\beta$ gives return-rank percentile points. A hypothetical change of
+0.8 exceeds the observed pooled range and is not used.
+
+\section{Step 3: locating the association inside the return window}
+
+The timing test splits stock and SPY returns into assigned-open-to-close,
+assigned-close-to-next-open and previous-close-to-assigned-open parts, plus a
+separate previous-open-to-assigned-open window. Gross-return identities are
+checked to $10^{-12}$, and the three new training legs form one correction
+family. The testing-period results and contrasts between periods are additional
+checks rather than pre-specified tests. Without story arrival times, the split
+cannot establish sequence.
+
+A second check uses a 252-session rolling stock-SPY beta ending at the assigned
+open and requiring 126 observations. One model beta-adjusts the outcome. Another
+also controls for beta rank. The two tests are corrected within each period. A
+separate correction is applied to the two between-period contrasts. Neither
+analysis estimates causality or tradable alpha.
+
+\section{Step 4: the fixed 2020--2023 test}
+
+The fixed testing procedure evaluates two pre-specified families once. The first
+repeats the nine two-sided information-coefficient tests from
+\cref{eq:daily-ic}. The second repeats \cref{eq:conditional-base} on all firm-days
+and the pre-specified multi-story subset, with a shared correction and negative
+expected direction. It does not examine testing-period portfolios, alternative
+outcomes, price controls, thresholds, event types, scorers or other story-count
+groups.
+
+Before the two fixed 2020--2023 coefficient families were calculated, an
+amendment added prospective power information and a direct
+training-versus-testing contrast.
+Expected precision scales the training HAC error by $\sqrt{2,264/998}$ and uses
+the corrected two-test threshold, a two-sided size of 0.025. A descriptive check
+uses the observed testing error instead.
+
+To compare the periods, I stack the unchanged daily coefficient series and estimate
+
+\begin{equation}
+ \beta_t=\alpha+\Delta D^{\mathrm{test}}_t+u_t
+ \label{eq:temporal-contrast}
+\end{equation}
+
+\noindent with HAC(5) uncertainty. $D^{\mathrm{test}}_t$ is zero in
+training and one in testing, so $\alpha=\bar\beta_{\mathrm{training}}$ and
+$\Delta=\bar\beta_{\mathrm{testing}}-\bar\beta_{\mathrm{training}}$. The contrast
+uses \cref{eq:conditional-base}, excluding the price-path model. It is needed
+because significance in one period and non-significance in another do not prove
+a difference. It does not change the verdict from the primary tests.
+
+\section{Step 5: translation into economic terms}
+
+This step covers the double-sort comparison, portfolio costs and learned
+no-trade filters.
+
+\subsection{Double-sort comparison}
+
+The double sort first groups firms with similar average sentiment. Within each
+group, it then compares firms with low, middle and high negative-story shares.
+The high-minus-low difference shows whether negative share matters among firms
+with similar average sentiment. Fractional ties prevent symbol order or returns
+from breaking them. Cells need five firms and sessions need three usable groups.
+The daily high-minus-low series uses HAC(5) uncertainty and is repeated for
+multi-story days. Its $p$-value is descriptive. Earlier fixed cut-offs produced
+no usable sessions, so the tie-aware replacement was fixed before estimation.
+
+\subsection{Rank portfolios, turnover and costs}
+
+Each rule also forms a daily cross-sectional rank portfolio. Expected-direction
+ranks are scaled to equal long and short gross exposure. Positions formed at
+open $t$ earn abnormal returns to open $t+1$. Let $w_{it}$ be the target weight,
+$r_{it}$ the raw stock return into open $t$, and $w^{\mathrm{pre}}_{it}$ the
+previous target after that return:
+
+\begin{equation}
+ w^{\mathrm{pre}}_{it}=
+ \frac{w_{i,t-1}(1+r_{it})}
+ {1+\sum_j w_{j,t-1}r_{jt}}.
+ \label{eq:weight-drift}
+\end{equation}
+
+Turnover is reported one-way, as half the traded notional:
+
+\begin{equation}
+ \mathrm{TO}_t=\tfrac{1}{2}\sum_i\left|w_{it}-w^{\mathrm{pre}}_{it}\right|.
+ \label{eq:turnover}
+\end{equation}
+
+A quoted per-side cost applies to both sales and purchases, giving a charge of
+$2c\,\mathrm{TO}_t$ and a net return of
+
+\begin{equation}
+ r^{\mathrm{net}}_{p,t+1}=\sum_i w_{it}r^A_{i,t+1}-2c\,\mathrm{TO}_t.
+ \label{eq:portfolio-net}
+\end{equation}
+
+Starting a dollar-neutral portfolio with gross exposure of one gives
+$\mathrm{TO}_t=0.5$ and costs $c$. Final liquidation charges the same rate on
+half the remaining absolute notional. The main cost is 10 basis points per side.
+Descriptive break-even cost is
+$\bar r^{\mathrm{gross}}_p/(2\overline{\mathrm{TO}})$, annualised turnover is
+$252\overline{\mathrm{TO}}$, and Sharpe ratios use the same annualisation. A
+non-positive denominator in \cref{eq:weight-drift} implies insolvency and leaves
+later cost metrics undefined unless returns are capped.
+
+\subsection{Learned no-trade filters}
+
+Learned no-trade thresholds test sensitivity to the simple rule. Logistic
+regression, gradient boosting and a multilayer perceptron (MLP) predict whether
+to trade. The comparison covers testing-period discrimination, measured by the
+area under the receiver operating characteristic curve (AUC), trading activity
+and net return against a fixed band, an activity-matched rule and cash. A network
+fitted to shuffled labels is the negative control.
+
+\section{Step 6: same-session risk tests}
+
+The risk analysis asks whether weak directional information coincides with
+periods when lower exposure would have helped. The FNSPID exercise is a
+same-session diagnostic, not a strategy test based on information known in
+advance, because the data do not show when each story became available.
+
+\subsection{Volatility benchmark}
+
+The benchmark reduces market exposure when recent volatility points to higher
+risk. The news rule reduces exposure further on unusually negative-news days.
+It adds value only if it improves downside outcomes beyond the volatility rule
+at a similar level of market exposure.
+
+The sentiment-free HAR benchmark forecasts the average squared SPY return over
+the next five sessions. At decision open $t$,
+$u_t=r^2_{\mathrm{SPY},t-1\rightarrow t}$ is the previous session's squared
+adjusted-open return and is already known. The forecast target is
+$v_t^{(5)}=5^{-1}\sum_{j=0}^{4}r^2_{\mathrm{SPY},t+j\rightarrow t+j+1}$. With
+$\epsilon=10^{-8}$, training-period ordinary least squares (OLS) estimates
+
+\begin{equation}
+ \log(v_t^{(5)}+\epsilon)=\alpha+\beta_1\log(u_t+\epsilon)
+ +\beta_5\log\left(\frac{1}{5}\sum_{j=0}^{4}u_{t-j}+\epsilon\right)
+ +\beta_{22}\log\left(\frac{1}{22}\sum_{j=0}^{21}u_{t-j}+\epsilon\right)+e_t.
+ \label{eq:har-variance}
+\end{equation}
+
+Let $x_t$ collect the three logged volatility measures in
+\cref{eq:har-variance}, excluding the intercept. Converting the forecast back
+from logs gives
+$\widehat v_t=\kappa\exp(\widehat\alpha+x_t'\widehat\beta)$, where the positive
+training-period scale correction is
+$\kappa=\operatorname{mean}\{v_t^{(5)}/\exp(\widehat\alpha+x_t'\widehat\beta)\}$;
+the mean is taken over training-period targets. This correction adjusts the
+average forecast level after the conversion from logs.
+
+The fixed test model is fitted only to five-session targets whose windows end by
+31 December 2019. A historical sensitivity starts after 504 rows and refits
+expanding OLS every 21 sessions using completed target windows. Forecasts are
+converted into exposure as
+$\operatorname{clip}\{0.10/\sqrt{252\widehat v_t},0.25,1\}$, so higher forecast
+volatility reduces market exposure. Exposure cannot fall below 0.25 or exceed
+1. Cash earns zero, costs are 2 basis points per side, and the overlay cannot
+exceed HAR exposure.
+
+\subsection{Same-session news rule}
+
+The sentiment input is market-wide negative-news pressure: the
+headline-count-weighted negative share, compared with its recent history.
+
+\begin{equation}
+ P_t=\frac{\sum_i q^{-}_{it}n_{it}}{\sum_i n_{it}},
+ \qquad
+ z_t=\frac{P_t-\mu_{t-1}}{\sigma_{t-1}},
+ \label{eq:negative-pressure}
+\end{equation}
+
+\noindent Here $\mu_{t-1}$ and $\sigma_{t-1}$ use the 252 sessions ending at
+$t-1$ and require 126 observations. Current-session news enters $P_t$ and the
+numerator of $z_t$. Only the normalisation is historical. The signal is therefore
+not lagged. A two-threshold state defines the exposure modifier:
+
+\begin{equation}
+ S_t=\begin{cases}
+ 1 & \text{if } S_{t-1}=0 \text{ and } z_t\geq 1.5,\\
+ 0 & \text{if } S_{t-1}=1 \text{ and } z_t\leq 0.5,\\
+ S_{t-1} & \text{otherwise,}
+ \end{cases}
+ \label{eq:hysteresis}
+\end{equation}
+
+\noindent with $S_0=0$ and the prior state retained when $z_t$ is unavailable.
+When $S_t=1$, HAR exposure is multiplied by 0.25. Separate entry and exit
+thresholds limit switching. The state calculated for session $t$ sets exposure
+in that same session; it is not delayed by one session. The result therefore
+cannot be interpreted as a strategy based on information known before the
+session began.
+
+\subsection{Matched controls and uncertainty}
+
+For a like-for-like comparison, a constant multiplier rescales HAR to the news
+rule's mean 2020--2023 exposure. This scale is calculated from the testing
+results, so it provides an after-the-fact explanation of lower exposure rather
+than a control selected in training.
+
+Paired block bootstraps keep nearby sessions in fixed twenty-session blocks and
+wrap them at the sample boundary, using 4,999 or 9,999 repetitions as recorded
+in each manifest \citep{kunsch1989}. Return differences and reductions in
+squared negative returns are separate outcomes. Circular shifts test unusual
+alignment of the same-session risk schedule with downside outcomes, but cannot
+establish signal availability. Additional checks omit each episode and
+February--April 2020 in turn.
+
+\section{The LSEG analysis and the prompt experiments}
+
+The unchanged FNSPID pressure rule is first applied to both LSEG periods. A
+restricted search then tests other aggregate rules under a fixed plan. The
+selected aggregate rule is compared with HAR and a constant multiplier chosen
+in training.
+
+A separate firm-level rule is compared with full investment and with fixed
+company weights that match its training exposure. A rule passes only if it
+improves tail risk or utility, retains an acceptable lower bound on return and
+is stable across checks. Half-sample and leave-one-firm-out results show whether
+the finding depends on a small part of the data.
+
+Prompt experiments compare generic tone with firm-specific economic labels.
+Five Gemma 4 26B prompts target one-session reaction, delayed reaction,
+cash-flow revision, surprise catalysts and a red-team consensus view. A sixth
+targets the first tradable price reaction. Each returns a score on a fixed grid.
+Reuters headlines and company names passed through OpenRouter to DeepInfra under
+recorded no-retention controls. Returns were excluded from every payload.
+
+Training uses 2024. A prompt is retained only if it meets five pre-specified
+conditions. It must have a positive net mean after 10 basis points per
+side, a positive net Sharpe and a break-even cost of at least 10 basis points.
+It must also be positive in three quarters and beat the same-date Gemma baseline
+in three quarters. If none meets all five conditions, the procedure computes no
+2025 prompt portfolio.
+\ifdefined\withoutappendices
+\else
+  \Cref{app:prompts} records the tested wording because the null depends on what
+  the model was asked.
+\fi
+
+\section{Reporting null results}
+
+A null result may mean that there is little effect, or that the sample is too
+small to detect it. The minimum detectable effect (MDE) is the smallest effect
+that the test has an 80\% chance of detecting under the stated assumptions. For
+standard error $SE$, the nominal two-sided 5\% MDE is
+
+\begin{equation}
+ MDE_{0.80}=\left(z_{0.975}+z_{0.80}\right)SE=2.8016SE.
+ \label{eq:mde}
+\end{equation}
+
+For $m$ tests, the conservative first-BH threshold replaces $z_{0.975}$ with
+$z_{1-0.05/(2m)}$. This is sufficient for the first ordered test, not exact
+adaptive-BH power. MDEs are reported for LSEG transfer, story-type,
+earnings-window, publisher and learned-threshold nulls. The analysis records
+families specified before the main analysis and labels later families separately.

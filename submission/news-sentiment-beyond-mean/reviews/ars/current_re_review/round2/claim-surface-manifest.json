@@ -1,0 +1,8 @@
+{
+  "schema_version": "claim-surface-manifest/1.0",
+  "revision_round": 2,
+  "base_draft_sha256": "5f73b895261c314d22538104b3dfc797b71f06425b3a8554b1df9269466bd7e0",
+  "roadmap_sha256": "8d9412dbb29253b0bf2dc2cb30e81b5e3593f07785afbc6461c124cccd0737d1",
+  "claim_intent_sources": [],
+  "surfaces": []
+}

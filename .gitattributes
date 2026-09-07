@@ -9,3 +9,9 @@
 *.sqlite binary
 *.sqlite3 binary
 *.webp binary
+
+# Keep generated evidence available in GitHub while collapsing routine diffs.
+uv.lock linguist-generated=true
+submission/news-sentiment-beyond-mean/uv.lock linguist-generated=true
+submission/news-sentiment-beyond-mean/manuscript/artifacts/** linguist-generated=true
+submission/news-sentiment-beyond-mean/experiments/results/** linguist-generated=true

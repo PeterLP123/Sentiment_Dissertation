@@ -1,0 +1,3 @@
+comparison,estimand,n,mean,ci_low,ci_high,p_two_sided,block_length,replications,seed,q_bh_two_test,bh_reject_q05
+negative_pressure_overlay_vs_frozen_har,challenger minus baseline net return,167,0.0,0.0,0.0,1.0,20,4999,20260822,1.0,False
+negative_pressure_overlay_vs_frozen_har,baseline minus challenger downside squared return,167,0.0,0.0,0.0,1.0,20,4999,20260823,1.0,False

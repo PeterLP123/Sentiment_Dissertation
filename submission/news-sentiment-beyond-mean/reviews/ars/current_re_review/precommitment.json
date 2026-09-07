@@ -1,0 +1,108 @@
+{
+  "contract_version": "1.1",
+  "round_id": "ars-re-review-2026-08-14-round-1",
+  "input_manifest_hash": "9e650bb2cad1f5ccf48e37c3ebc237fcea6ce6fe22b910af9a634e08156d283b",
+  "items": [
+    {
+      "item_id": "REV-ESTIMAND-ALIGNMENT",
+      "obligation_class": "must_fix",
+      "inherited_criterion": {
+        "roadmap_text": "Every comparison states that -0.00831 is the development baseline paired with +0.00583, while -0.00914 remains separate development robustness."
+      },
+      "operationalization": {
+        "fully_addressed": "Every passage that compares development and frozen-evaluation estimates identifies -0.00831 as the development baseline paired with +0.00583 and presents -0.00914 only as the separate development price-control robustness estimate.",
+        "partially_addressed": "At least one relevant comparison correctly pairs -0.00831 with +0.00583 and separates -0.00914 as development robustness, but one or more other comparison passages still omit that distinction or conflate the estimates.",
+        "made_worse_discriminator": "Relative to the original manuscript, the treatment of the three estimates increases conflation by newly pairing +0.00583 with -0.00914 as though they were the matched baseline estimates, newly mislabelling -0.00831, or spreading the mismatch to additional comparison passages."
+      },
+      "expected_change_surface": "Expected in the abstract, introduction, methodology, results, and conclusion wherever the development baseline, development price-control robustness estimate, and frozen baseline replication are compared.",
+      "equivalence_policy": "allowed",
+      "source_reviewer": "EIC",
+      "source_reviewer_labels": [
+        "EIC"
+      ]
+    },
+    {
+      "item_id": "REV-INTERPRETATION-BOUNDARY",
+      "obligation_class": "must_fix",
+      "inherited_criterion": {
+        "roadmap_text": "The revised manuscript consistently limits the finding to measured pipeline-level instability and explicitly leaves its cause unidentified."
+      },
+      "operationalization": {
+        "fully_addressed": "Every interpretation of the across-era contrast describes instability in the measured baseline pipeline association, explicitly states that the cause is unidentified, and does not present market change, sample composition, timing, classifier change, or another explanation as identified by the contrast.",
+        "partially_addressed": "One or more relevant passages limit the result to measured pipeline-level instability and leave the cause unidentified, but at least one other interpretive passage still implies an identified cause or an instability claim beyond the measured pipeline association.",
+        "made_worse_discriminator": "Relative to the original manuscript, the revision strengthens causal attribution, presents one of the plausible market, composition, timing, or classifier explanations as established, or broadens the claimed instability beyond the measured pipeline association."
+      },
+      "expected_change_surface": "Expected in the abstract, literature review, data or methodology discussion, results, and conclusion passages interpreting temporal non-replication and the across-era coefficient change.",
+      "equivalence_policy": "allowed",
+      "source_reviewer": "R1",
+      "source_reviewer_labels": [
+        "R1"
+      ]
+    },
+    {
+      "item_id": "REV-HYPOTHESIS-LANGUAGE",
+      "obligation_class": "should_fix",
+      "inherited_criterion": {
+        "roadmap_text": "H1b is described as not supported, and the final hypothesis summary identifies the correct development hypothesis label."
+      },
+      "operationalization": {
+        "fully_addressed": "All H1b verdict statements use 'not supported' rather than 'rejected', and the final hypothesis summary uses the development hypothesis label that corresponds to H1b."
+      },
+      "expected_change_surface": "Expected in the results and final hypothesis-summary statements, including any abstract or conclusion passage that repeats the H1b verdict.",
+      "equivalence_policy": "allowed",
+      "source_reviewer": "R1",
+      "source_reviewer_labels": [
+        "R1"
+      ]
+    },
+    {
+      "item_id": "REV-TEMPORAL-LITERATURE",
+      "obligation_class": "should_fix",
+      "inherited_criterion": {
+        "roadmap_text": "The literature chapter cites verified primary metadata and uses it to bound, rather than overstate, the temporal contribution."
+      },
+      "operationalization": {
+        "fully_addressed": "The literature chapter cites predictor-stability or temporal-transport studies supported by verified primary metadata and uses that context to distinguish bounded measured non-replication from broader claims of local predictability, out-of-sample failure, or publication-related attenuation."
+      },
+      "expected_change_surface": "Expected in the literature-review discussion of temporal transport or predictor stability and in the corresponding bibliography entries.",
+      "equivalence_policy": "allowed",
+      "source_reviewer": "R2",
+      "source_reviewer_labels": [
+        "R2"
+      ]
+    },
+    {
+      "item_id": "REV-WORD-COUNT",
+      "obligation_class": "should_fix",
+      "inherited_criterion": {
+        "roadmap_text": "The six numbered chapters fall within ten percent of the approximate 10,000-word target without removing required evidence or limitations."
+      },
+      "operationalization": {
+        "fully_addressed": "The combined word count of the six numbered chapters is between 9,000 and 11,000 words, while the manuscript retains the required estimates, uncertainty, null results, multiplicity corrections, transaction-cost evidence, power evidence, and limitations."
+      },
+      "expected_change_surface": "Expected across the six numbered chapters, especially repeated secondary trading, risk, transfer, and prompt discussion identified for compression.",
+      "equivalence_policy": "allowed",
+      "source_reviewer": "R3",
+      "source_reviewer_labels": [
+        "R3"
+      ]
+    },
+    {
+      "item_id": "REV-PRESENTATION",
+      "obligation_class": "should_fix",
+      "inherited_criterion": {
+        "roadmap_text": "The PDF has distinct Roman front matter, Arabic main matter and a timing figure labelled 99.1 percentile with unchanged evidence values."
+      },
+      "operationalization": {
+        "fully_addressed": "The rendered document uses distinct Roman page numbering for the front matter and Arabic page numbering for the main matter, and the timing-placebo figure displays '99.1 percentile' while preserving its underlying evidence values."
+      },
+      "expected_change_surface": "Expected in the front-matter page-numbering configuration and the timing-placebo figure and its generated label.",
+      "equivalence_policy": "allowed",
+      "source_reviewer": "DA",
+      "source_reviewer_labels": [
+        "DA"
+      ]
+    }
+  ],
+  "new_standards": []
+}

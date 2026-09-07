@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "Please cite the software repository and the final dissertation when using this work."
+title: "News sentiment beyond the mean"
+type: software
+authors:
+  - family-names: "Prendergast"
+    given-names: "Peter"
+repository-code: "https://github.com/PeterLP123/Sentiment_Dissertation"
+preferred-citation:
+  type: thesis
+  title: "A Hard Negative-Story Threshold: Training-Period Association, Temporal Non-Replication and Economic Limits"
+  authors:
+    - family-names: "Prendergast"
+      given-names: "Peter"
+  institution:
+    name: "University College London"
+  year: 2026

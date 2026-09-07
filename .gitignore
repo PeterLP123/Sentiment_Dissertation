@@ -1,10 +1,15 @@
 .DS_Store
 .env
+.env.*
+!.env.example
 lseg-data.config.json
 .venv/
 __pycache__/
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
+.benchmarks/
+/.claude/
 *.egg-info/
 *.pyc
 *.sqlite
@@ -97,3 +102,19 @@ dissertation/*.synctex.gz
 dissertation/*.toc
 .foglamp/
 .gstack/
+/output/
+
+# Local research panels and serialized state; aggregate submission evidence is
+# included below. Tiny synthetic test fixtures remain explicitly trackable.
+*.parquet
+*.arrow
+*.feather
+*.pkl
+*.pickle
+*.jsonl
+!tests/fixtures/**/*.jsonl
+
+# The final submission snapshot contains reviewed aggregate manuscript artifacts.
+# The repository-wide artifacts/ rule above must not hide this licence-safe set.
+!submission/news-sentiment-beyond-mean/manuscript/artifacts/
+!submission/news-sentiment-beyond-mean/manuscript/artifacts/**

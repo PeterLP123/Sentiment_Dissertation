@@ -1,0 +1,38 @@
+\chapter{Reproducibility record}
+\label{app:reproducibility}
+
+\section{Research archive}
+
+The research archive contains the LaTeX source, selected notebooks, analysis
+code, analysis plans, aggregate results and licence-safe figures. Raw news text,
+row-level datasets, API responses, model caches and credentials are excluded.
+Full replication requires authorised access to the original workspace and
+licensed inputs.
+
+Saved summaries, analysis plans, hashes and seeds link the reported results to
+their source files. The fixed 2020--2023 estimates were calculated once under the
+recorded rule and were not rerun during manuscript preparation. Other analyses
+write to separate output directories and cannot overwrite them.
+
+Before compilation, reproducibility checks regenerated 30 figures, tables and
+supporting files from saved aggregate inputs.
+
+\section{Artificial-intelligence assistance}
+
+I used OpenAI Codex to assist with code, figures, source checks, drafting and
+editing. I checked its output against the saved results and cited sources and
+remain responsible for the dissertation.
+
+\begin{landscape}
+\section{Core provenance}
+
+\Cref{tab:core-result-provenance} links each core result in \cref{ch:results} to
+its producing notebook and analysis plan. It also records the saved
+aggregate-output hash and, where applicable, the random seed. Later rows cover
+the fixed testing-period families, the direct period comparison and subsequent
+economic, prompt, measurement and sensitivity checks. Each completed study
+contributes one row. The table uses short descriptions, while the saved files
+retain the exact specification identifiers.
+
+\input{tables/tab_core_result_provenance}
+\end{landscape}

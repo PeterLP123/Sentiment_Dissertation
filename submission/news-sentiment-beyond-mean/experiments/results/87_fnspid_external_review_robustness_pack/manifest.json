@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "notebook": "87_fnspid_external_review_robustness_pack",
+  "status": "completed_post_review_robustness_not_confirmation",
+  "executed_at_utc": "2026-08-16T14:09:30.611511+00:00",
+  "git_commit_at_execution": "acaf530c75a20e882166e7218245342384cf2b1b",
+  "spec": "experiments/specs/fnspid_external_review_robustness_pack_v1_20260816.json",
+  "spec_sha256": "b88218134bbb7b13a398fb56bd9686e7359068d937c87dcb43144dc83841e4c6",
+  "environment": {
+    "python": "3.12.12",
+    "platform": "macOS-26.5.2-arm64-arm-64bit",
+    "pandas": "3.0.5",
+    "numpy": "2.5.2"
+  },
+  "inputs": {
+    "aggregators": {
+      "path": "/Users/peterprendergast/Documents/Sentiment_Dissertation/final_experiments/outputs/03_aggregation/firm_day_aggregators.parquet",
+      "sha256": "1ca1c38109bc06af232119adeff17de66a567174d457038bc923a930a2da61f1"
+    },
+    "prices": {
+      "path": "/Users/peterprendergast/Documents/Sentiment_Dissertation_data/FNSPID/bf9189c41527198897d1af3e17b1a0095279fc45/raw/Stock_price/full_history.zip",
+      "sha256": "03da4fce7ebea90d5715ba3501773d410ae663b617027b338ef000a9955dab91"
+    },
+    "development_daily": {
+      "path": "/Users/peterprendergast/Documents/news-sentiment-beyond-mean/experiments/results/75_fnspid_evaluation_beyond_mean_replication/development_daily_coefficients_all_firm_days.csv",
+      "sha256": "244269dbb1c9a96b9586b8716309468df7e51c75680616094ce92ecbef2631b3"
+    },
+    "evaluation_daily": {
+      "path": "/Users/peterprendergast/Documents/news-sentiment-beyond-mean/experiments/results/75_fnspid_evaluation_beyond_mean_replication/evaluation_daily_coefficients_all_firm_days.csv",
+      "sha256": "957afc25ac007e57556291f32a525245ba28199b4c82ba224b59f882542f2601"
+    },
+    "risk_control": {
+      "path": "/Users/peterprendergast/Documents/Sentiment_Dissertation/final_experiments/outputs/24_fnspid_har_sentiment_hysteresis/evaluation_control_har_target_daily.parquet",
+      "sha256": "a9e21e5e8a19ad3fb4b8f63a085921cab4c3950a758b0362622b3b6ecf8fee0e"
+    },
+    "risk_overlay": {
+      "path": "/Users/peterprendergast/Documents/Sentiment_Dissertation/final_experiments/outputs/24_fnspid_har_sentiment_hysteresis/evaluation_har_sentiment_daily.parquet",
+      "sha256": "35036e78f009969284a23d171a5cd2db05001d28c4856546bd34529f6eb31707"
+    },
+    "notebook_86_coefficients": {
+      "path": "/Users/peterprendergast/Documents/news-sentiment-beyond-mean/experiments/results/86_fnspid_outcome_leg_decomposition/coefficient_summary.csv",
+      "sha256": "526a3effdb8478578389db7c1bd61824d5736bfb32913458c74269f115556a0a"
+    },
+    "notebook_86_strata": {
+      "path": "/Users/peterprendergast/Documents/news-sentiment-beyond-mean/experiments/results/86_fnspid_outcome_leg_decomposition/story_count_strata.csv",
+      "sha256": "624de48c530d36945273d86502de55298438b7938048f1c56db49132265aea84"
+    }
+  },
+  "notebook_75": {
+    "path": "experiments/notebooks/75_fnspid_evaluation_beyond_mean_replication.ipynb",
+    "sha256_before": "df0b6c5105158198f62c828842b3ff3e1051ccaf664e7a778c9c66e11cffc455",
+    "sha256_after": "df0b6c5105158198f62c828842b3ff3e1051ccaf664e7a778c9c66e11cffc455",
+    "executed": false
+  },
+  "episode_gate": {
+    "episodes": 44,
+    "leave_one_out_all_intervals_above_zero": true,
+    "crash_excluded_interval_above_zero": true,
+    "passes": true
+  },
+  "claim_boundaries": [
+    "All inferential analyses in this pack are post-review and post-selection; none is independent confirmation.",
+    "Notebook 75 is not executed. Its committed aggregate daily coefficient series is read for lag sensitivity only.",
+    "The class base rates are arithmetically reconstructed aggregate counts, not a human validation of FinBERT labels.",
+    "Trailing beta changes the market benchmark but does not turn the outcome into a causal alpha.",
+    "Episode-drop results test concentration in the observed schedule and sample; they do not validate the rule out of sample.",
+    "Null, opposite-signed and adverse results are preserved without retuning."
+  ],
+  "outputs": [
+    {
+      "name": "prior_open_timing_probe",
+      "path": "/Users/peterprendergast/Documents/news-sentiment-beyond-mean/experiments/generated/87_fnspid_external_review_robustness_pack/prior_open_timing_probe.csv",
+      "sha256": "06b44ced5c59164b0151815ad70fdbb6116f8e065b066ddea9397dd6ba113d6c",
+      "bytes": 591
+    },
+    {
+      "name": "prior_open_daily_coefficients",
+      "path": "/Users/peterprendergast/Documents/news-sentiment-beyond-mean/experiments/generated/87_fnspid_external_review_robustness_pack/prior_open_daily_coefficients.csv",
+      "sha256": "bd3ed692817ab42d1fd9c1009aea0bb6bce6c7b5c1370ccb373f6c287c4aaf63",
+      "bytes": 310053
+    },
+    {
+      "name": "beta_robustness_coefficients",
+      "path": "/Users/peterprendergast/Documents/news-sentiment-beyond-mean/experiments/generated/87_fnspid_external_review_robustness_pack/beta_robustness_coefficients.csv",
+      "sha256": "de559524075cf83b28a95b0be83933382604f91ec62924dc90ffa51add44daaf",
+      "bytes": 2546
+    },
+    {
+      "name": "beta_robustness_contrasts",
+      "path": "/Users/peterprendergast/Documents/news-sentiment-beyond-mean/experiments/generated/87_fnspid_external_review_robustness_pack/beta_robustness_contrasts.csv",
+      "sha256": "7978ed32da48d46d32e8f0187f0a2c71f6464ba718513421e4657ca3efb72181",
+      "bytes": 1636
+    },
+    {
+      "name": "beta_robustness_daily_coefficients",
+      "path": "/Users/peterprendergast/Documents/news-sentiment-beyond-mean/experiments/generated/87_fnspid_external_review_robustness_pack/beta_robustness_daily_coefficients.csv",
+      "sha256": "ececae15c8a83620e12b3a5a4b96515269d4422d64b9c7da150661d8f67d1df2",
+      "bytes": 742462
+    },
+    {
+      "name": "contrast_hac_sensitivity",
+      "path": "/Users/peterprendergast/Documents/news-sentiment-beyond-mean/experiments/generated/87_fnspid_external_review_robustness_pack/contrast_hac_sensitivity.csv",
+      "sha256": "868f8ba2b5a2aa62d2b0d03b004bd767090f6e17506188b634256de07fb06109",
+      "bytes": 1426
+    },
+    {
+      "name": "coefficient_dependence_diagnostics",
+      "path": "/Users/peterprendergast/Documents/news-sentiment-beyond-mean/experiments/generated/87_fnspid_external_review_robustness_pack/coefficient_dependence_diagnostics.csv",
+      "sha256": "62474d3fd2519557a9b02dc00bb5a76856e5cf8dd22b92b2ad83202c339909e1",
+      "bytes": 211
+    },
+    {
+      "name": "fnspid_episode_attribution",
+      "path": "/Users/peterprendergast/Documents/news-sentiment-beyond-mean/experiments/generated/87_fnspid_external_review_robustness_pack/fnspid_episode_attribution.csv",
+      "sha256": "f8236fb03950e6177f49220a9b1786ea25fa54ed6e405c872c1856d5277b6d85",
+      "bytes": 3915
+    },
+    {
+      "name": "fnspid_leave_one_episode_out",
+      "path": "/Users/peterprendergast/Documents/news-sentiment-beyond-mean/experiments/generated/87_fnspid_external_review_robustness_pack/fnspid_leave_one_episode_out.csv",
+      "sha256": "2bb7840cc50e5ef8025a892e546f128df7f01156b095f0772d7048777380ae35",
+      "bytes": 5561
+    },
+    {
+      "name": "fnspid_crash_exclusion",
+      "path": "/Users/peterprendergast/Documents/news-sentiment-beyond-mean/experiments/generated/87_fnspid_external_review_robustness_pack/fnspid_crash_exclusion.csv",
+      "sha256": "4daae900affb09e0f4f1addda47052c95153df90917f2de529cabd9cc578d40c",
+      "bytes": 253
+    },
+    {
+      "name": "finbert_class_base_rates",
+      "path": "/Users/peterprendergast/Documents/news-sentiment-beyond-mean/experiments/generated/87_fnspid_external_review_robustness_pack/finbert_class_base_rates.csv",
+      "sha256": "78dca75acfc2d93a932589cc8bb9054c692a764c0c66c30659b6de9cac8290f4",
+      "bytes": 527
+    },
+    {
+      "name": "negative_share_tie_mass",
+      "path": "/Users/peterprendergast/Documents/news-sentiment-beyond-mean/experiments/generated/87_fnspid_external_review_robustness_pack/negative_share_tie_mass.csv",
+      "sha256": "88ef114eaa21447b2ef12f4dafc602bb740142eae4de0557cc8d415d7ba59cd4",
+      "bytes": 425
+    },
+    {
+      "name": "story_count_stratum_rank_spreads",
+      "path": "/Users/peterprendergast/Documents/news-sentiment-beyond-mean/experiments/generated/87_fnspid_external_review_robustness_pack/story_count_stratum_rank_spreads.csv",
+      "sha256": "137cc82dbd047564da38edfe1add089d377c3a77718ac8366a0f7f32e15b404a",
+      "bytes": 694
+    },
+    {
+      "name": "coverage_audit",
+      "path": "/Users/peterprendergast/Documents/news-sentiment-beyond-mean/experiments/generated/87_fnspid_external_review_robustness_pack/coverage_audit.csv",
+      "sha256": "1ad7d85a4361fdeed6e830c1d23ead61f2f3e2da3d36d78ac41a04a4a6572d1e",
+      "bytes": 159
+    }
+  ]
+}

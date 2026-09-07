@@ -1,0 +1,60 @@
+{
+  "schema_version": "revision-evidence-bundle/1.0",
+  "chain_start": {
+    "first_revision_round": 1,
+    "draft": {
+      "path": "original_manuscript.md",
+      "sha256": "df7809760f530e043117c4741a2a54575f1ae2d8666a336587f324d8d634a524"
+    },
+    "block_manifest": {
+      "path": "original_manuscript.block-manifest.json",
+      "sha256": "e5c9227019f89e16688ee36f76f9b1488718e2b5a88b70dc7a79e4c525f15d21"
+    },
+    "integrity_pass_receipt": {
+      "path": "integrity-pass.json",
+      "sha256": "41e402f1aaaf435339db1cb954bc115baa941ab65bc6ed4107770ab6fa3cd9b3"
+    }
+  },
+  "rounds": [
+    {
+      "kind": "review_roadmap",
+      "revision_round": 1,
+      "pre_round_draft": {
+        "path": "original_manuscript.md",
+        "sha256": "df7809760f530e043117c4741a2a54575f1ae2d8666a336587f324d8d634a524"
+      },
+      "pre_round_block_manifest": {
+        "path": "original_manuscript.block-manifest.json",
+        "sha256": "e5c9227019f89e16688ee36f76f9b1488718e2b5a88b70dc7a79e4c525f15d21"
+      },
+      "revision_roadmap": {
+        "path": "revision-roadmap.json",
+        "sha256": "21c899169d4aad8d516d23a51c0ec98f829c5f4174bfe17582f474b2728d3ff9"
+      },
+      "claim_surface_manifest": {
+        "path": "claim-surface-manifest.json",
+        "sha256": "9f0e6b995243ca4ca23bb27cdfd4154bb62a1d9e676fd05442736bfe6cedc970"
+      },
+      "author_adjudication": {
+        "path": "author-adjudication.json",
+        "sha256": "44430684ad214a8f3d9dd1301792f8d71fa13fb61ff8b5f7ac44ea32fa6ca117"
+      },
+      "revision_patch": {
+        "path": "revision-patch.json",
+        "sha256": "cf0849cd76b4750701125fa4ee69195b9b2866d042b774b6d6370629c5579132"
+      },
+      "apply_report": {
+        "path": "apply-report.json",
+        "sha256": "7c3ded175ed674ad0678e6681a097af270f1fb8b3a721fdfd6ea9026b8a16766"
+      },
+      "post_round_draft": {
+        "path": "revised_manuscript.md",
+        "sha256": "5f73b895261c314d22538104b3dfc797b71f06425b3a8554b1df9269466bd7e0"
+      }
+    }
+  ],
+  "final_draft": {
+    "path": "revised_manuscript.md",
+    "sha256": "5f73b895261c314d22538104b3dfc797b71f06425b3a8554b1df9269466bd7e0"
+  }
+}

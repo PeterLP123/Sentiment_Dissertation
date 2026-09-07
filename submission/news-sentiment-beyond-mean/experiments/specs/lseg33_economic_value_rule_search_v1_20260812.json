@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "status": "frozen_before_notebook_80_search_result",
+  "frozen_at_local": "2026-08-12T23:20:00+01:00",
+  "experiment": {
+    "notebook": "final_experiments/80_lseg33_economic_value_rule_search.ipynb",
+    "title": "Development-tuned LSEG-33 economic-value rule search",
+    "candidate_rq": "negative_news_as_market_risk_state",
+    "objective": "Test whether a causally formed negative-news pressure rule can add economic value by timing downside risk after costs, beyond both the frozen HAR base and simply holding less exposure.",
+    "evidence_role": "exploratory post-hoc model selection with a separate chronological forward test",
+    "retuning_allowed": "only inside the complete grid declared below",
+    "confirmation_claim_allowed": false,
+    "deployment_claim_allowed": false
+  },
+  "inputs": {
+    "backward_finbert_firm_open": {
+      "path": "final_experiments/outputs/67_lseg_gemma_finbert_joined_long_window/backward_finbert_firm_open.parquet",
+      "sha256": "745e6cba49c6dc6e256f9a6495b39eee66679231d162b5e22d9087c45e7680f4"
+    },
+    "recent_finbert_firm_open": {
+      "path": "final_experiments/outputs/67_lseg_gemma_finbert_joined_long_window/recent_finbert_firm_open.parquet",
+      "sha256": "0931e77d73e723985d0a4b1000a1ee9601f7a4f330d2fac5f4ae9cb762fdcb17"
+    },
+    "development_har_daily": {
+      "path": "final_experiments/outputs/73_lseg_negative_pressure_har_backward_transfer/frozen_har_daily.parquet",
+      "sha256": "b896e78eff8f7ab0a8d0a3f5be2dbc6acdb9c016d2cc2752c800c3d90d7082cd"
+    },
+    "evaluation_har_daily": {
+      "path": "final_experiments/outputs/72_lseg_negative_pressure_har_transfer/frozen_har_daily.parquet",
+      "sha256": "a3f3526ebbf12ded42ebbc6537a92f3b7d810604e0f4c0d050de281ed478add7"
+    },
+    "source_regime": "Reuters LSEG sector-33 only; no mid-cap-22 or FNSPID observations are pooled"
+  },
+  "chronology": {
+    "development_start": "2024-01-02",
+    "development_end": "2025-10-24",
+    "development_sessions": 456,
+    "selection_folds": 3,
+    "fold_rule": "three consecutive equal 152-session blocks; each block is repriced independently with entry and final-liquidation costs",
+    "evaluation_start": "2025-10-27",
+    "evaluation_end": "2026-06-26",
+    "evaluation_sessions": 167,
+    "boundary": "the evaluation return path may not enter candidate generation, constraints, ranking or tie-breaking"
+  },
+  "pressure_family": {
+    "daily_measures": [
+      "headline_weighted_negative_share",
+      "equal_firm_negative_share",
+      "upper_quartile_firm_negative_share",
+      "negative_firm_breadth_ge_0.20",
+      "negative_firm_breadth_ge_0.25",
+      "negative_firm_breadth_ge_0.33",
+      "negative_firm_breadth_ge_0.50",
+      "negative_equal_firm_mean_continuous"
+    ],
+    "complete_session_rule": "construct a pressure observation only when all 33 firms are present; incomplete development sessions remain missing",
+    "normalisers": [
+      "strictly-prior rolling mean and sample standard deviation",
+      "strictly-prior exponentially weighted mean and standard deviation"
+    ],
+    "lookback_or_span_sessions": [63, 126, 252],
+    "minimum_prior_observations": "ceiling(window / 2)",
+    "causality": "the current pressure enters the numerator but never its own normalisation baseline"
+  },
+  "mapping_family": {
+    "one_day": {
+      "entry_z": [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0],
+      "risk_multiplier": [0.0, 0.25, 0.5, 0.75]
+    },
+    "hysteresis": {
+      "entry_z": [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0],
+      "exit_gap_below_entry": [0.5, 1.0, 1.5],
+      "risk_multiplier": [0.0, 0.25, 0.5, 0.75]
+    },
+    "smooth": {
+      "start_z": [0.0, 0.5, 1.0],
+      "full_cut_distance_z": [0.75, 1.25, 2.0],
+      "minimum_multiplier": [0.25, 0.5, 0.75],
+      "shape": "linear from multiplier 1 at start_z to minimum_multiplier at start_z plus full_cut_distance_z"
+    },
+    "candidate_count": 6672,
+    "composition": "multiply the frozen unlevered HAR exposure; never exceed the HAR exposure",
+    "cost_bps_per_side": 2.0,
+    "cash_return": 0.0,
+    "final_liquidation": true
+  },
+  "selection": {
+    "primary_daily_utility": "net_return minus 5 times squared negative net_return",
+    "fold_score": "annualised mean utility difference versus a constant multiplier with the same mean modifier inside that development fold",
+    "selection_score": "minimum fold score across the three chronological development folds",
+    "eligibility": [
+      "development mean multiplier is between 0.50 and 0.95",
+      "each fold mean net return is no worse than frozen HAR by 1 basis point per session",
+      "downside-squared loss is lower than the fold-specific equal-exposure constant in at least two of three folds",
+      "primary utility is higher than the fold-specific equal-exposure constant in at least two of three folds"
+    ],
+    "tie_breakers": [
+      "higher mean fold utility difference versus equal exposure",
+      "higher minimum fold utility difference versus HAR",
+      "lower annualised turnover",
+      "lexicographic candidate id"
+    ],
+    "sensitivity_risk_aversion": [2.0, 10.0]
+  },
+  "evaluation": {
+    "comparators": [
+      "frozen HAR",
+      "constant multiplier fixed to the selected rule's mean development multiplier"
+    ],
+    "primary_family": [
+      "selected overlay minus comparator mean net return",
+      "comparator minus selected overlay downside-squared return",
+      "comparator minus selected overlay 5 percent expected shortfall",
+      "selected overlay minus comparator daily downside utility at risk aversion 5"
+    ],
+    "comparisons": 2,
+    "inference": "paired circular moving-block bootstrap, 20-session blocks, 9999 replications",
+    "multiplicity": "Benjamini-Hochberg across all eight evaluation tests at q=0.05",
+    "cost_sensitivity_bps_per_side": [0.0, 2.0, 5.0, 10.0],
+    "descriptive_metrics": [
+      "mean and total net return",
+      "Sharpe and Sortino ratios",
+      "annualised volatility and downside deviation",
+      "5 percent expected shortfall",
+      "maximum drawdown",
+      "turnover and mean exposure",
+      "ending wealth and loss-day/up-day decomposition per GBP 1 million"
+    ]
+  },
+  "claim_boundaries": [
+    "The earlier and recent LSEG outcomes have both been seen in prior experiments, so this is exploratory rather than pristine confirmation.",
+    "Only one complete grid and one deterministic selection rule are reported; all candidates remain in the saved search table.",
+    "A positive development score without a positive chronological evaluation is overfit, not economic evidence.",
+    "A result versus HAR but not versus the fixed equal-exposure control is exposure reduction, not news timing.",
+    "The search does not alter the historical conclusions of Notebooks 72 and 73."
+  ],
+  "reproducibility": {
+    "seed": 20260812,
+    "aggregate_outputs_only": true,
+    "licensed_text_exported": false
+  }
+}

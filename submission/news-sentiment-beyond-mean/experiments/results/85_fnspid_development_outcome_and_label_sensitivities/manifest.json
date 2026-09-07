@@ -1,0 +1,159 @@
+{
+  "notebook": "85_fnspid_development_outcome_and_label_sensitivities",
+  "status": "posthoc_development_sensitivity_not_confirmation",
+  "git_commit_at_execution": "6a032625c510dd28dcacfa77175a0e02f2bafbfa",
+  "built_at_utc": "2026-08-13T15:54:33.544970+00:00",
+  "spec": "experiments/specs/fnspid_development_outcome_and_label_sensitivities_v1_20260813.json",
+  "spec_sha256": "45d29a177cf4ac3689084c4bb4447ad205e21ac5e3e3dde796f162c520ac6d1d",
+  "inputs": {
+    "aggregators": {
+      "path": "/Users/peterprendergast/Documents/Sentiment_Dissertation/final_experiments/outputs/03_aggregation/firm_day_aggregators.parquet",
+      "sha256": "1ca1c38109bc06af232119adeff17de66a567174d457038bc923a930a2da61f1"
+    },
+    "prices": {
+      "path": "/Users/peterprendergast/Documents/Sentiment_Dissertation_data/FNSPID/bf9189c41527198897d1af3e17b1a0095279fc45/raw/Stock_price/full_history.zip",
+      "sha256": "03da4fce7ebea90d5715ba3501773d410ae663b617027b338ef000a9955dab91"
+    },
+    "events": {
+      "path": "/Users/peterprendergast/Documents/Sentiment_Dissertation/reports/loop_moment2_finbert_20260719/finbert_checkpoint.sqlite3",
+      "sha256": "1d4981448bdc1564652be9a1f19ee855bd435e141cdb832381a58ab03c04637f"
+    },
+    "factors": {
+      "path": "/Users/peterprendergast/Documents/news-sentiment-beyond-mean/data/factors/french_ff3_daily.csv",
+      "sha256": "b8b81538736a1f0c8fea9b22db1f84aabc6399d76f172bea86c4b7fb06ff1ff9"
+    }
+  },
+  "sealed_notebook_75": "experiments/notebooks/75_fnspid_evaluation_beyond_mean_replication.ipynb",
+  "missing_price_symbols": [],
+  "coefficients": [
+    {
+      "test": "headline_open_hard_share",
+      "role": "predeclared_baseline_not_in_family",
+      "outcome": "ar_open_h1",
+      "focal_regressor": "negative_share",
+      "estimate": -0.008310052990470732,
+      "se": 0.0029540906894468953,
+      "t": -2.8130663084100007,
+      "p_two_sided": 0.00490715309680186,
+      "ci_low": -0.014099964348851744,
+      "ci_high": -0.002520141632089719,
+      "n_clusters": 2264,
+      "n_rows_complete": 512149,
+      "dates_used": 2264,
+      "dates_below_min_names": 0,
+      "in_posthoc_family": false,
+      "expected_direction": "negative",
+      "direction_matches": true,
+      "q_bh_three_test": null,
+      "bh_reject_q05": false,
+      "bh_family": "predeclared_baseline_excluded"
+    },
+    {
+      "test": "close_to_close_hard_share",
+      "role": "posthoc_sensitivity",
+      "outcome": "ar_close_h1",
+      "focal_regressor": "negative_share",
+      "estimate": 0.0002717590459974774,
+      "se": 0.0030596065872377483,
+      "t": 0.08882156520744876,
+      "p_two_sided": 0.9292237188697327,
+      "ci_low": -0.0057249596718500165,
+      "ci_high": 0.006268477763844971,
+      "n_clusters": 2264,
+      "n_rows_complete": 512149,
+      "dates_used": 2264,
+      "dates_below_min_names": 0,
+      "in_posthoc_family": true,
+      "expected_direction": "negative",
+      "direction_matches": false,
+      "q_bh_three_test": 0.9292237188697327,
+      "bh_reject_q05": false,
+      "bh_family": "posthoc_three_estimand_sensitivity"
+    },
+    {
+      "test": "ff3_residual_hard_share",
+      "role": "posthoc_sensitivity",
+      "outcome": "ff3_residual",
+      "focal_regressor": "negative_share",
+      "estimate": 0.0018154157369139183,
+      "se": 0.00298815788263281,
+      "t": 0.6075367528152125,
+      "p_two_sided": 0.5434947596863722,
+      "ci_low": -0.004041266093165855,
+      "ci_high": 0.0076720975669936926,
+      "n_clusters": 2264,
+      "n_rows_complete": 510960,
+      "dates_used": 2264,
+      "dates_below_min_names": 0,
+      "in_posthoc_family": true,
+      "expected_direction": "negative",
+      "direction_matches": false,
+      "q_bh_three_test": 0.8152421395295583,
+      "bh_reject_q05": false,
+      "bh_family": "posthoc_three_estimand_sensitivity"
+    },
+    {
+      "test": "open_soft_negative_mass",
+      "role": "posthoc_sensitivity",
+      "outcome": "ar_open_h1",
+      "focal_regressor": "soft_negative_mass",
+      "estimate": -0.0037778347467987768,
+      "se": 0.00237846732886342,
+      "t": -1.5883483876165168,
+      "p_two_sided": 0.11220758144914347,
+      "ci_low": -0.008439545049776264,
+      "ci_high": 0.0008838755561787113,
+      "n_clusters": 2264,
+      "n_rows_complete": 512149,
+      "dates_used": 2264,
+      "dates_below_min_names": 0,
+      "in_posthoc_family": true,
+      "expected_direction": "negative",
+      "direction_matches": true,
+      "q_bh_three_test": 0.33662274434743045,
+      "bh_reject_q05": false,
+      "bh_family": "posthoc_three_estimand_sensitivity"
+    }
+  ],
+  "coverage": [
+    {
+      "item": "development_rows",
+      "value": 512153
+    },
+    {
+      "item": "development_symbols",
+      "value": 570
+    },
+    {
+      "item": "missing_price_symbols",
+      "value": 0
+    },
+    {
+      "item": "rows_with_ar_close_h1",
+      "value": 512149
+    },
+    {
+      "item": "rows_with_ff3_residual",
+      "value": 510960
+    },
+    {
+      "item": "rows_with_soft_negative_mass",
+      "value": 512153
+    },
+    {
+      "item": "story_rows_loaded",
+      "value": 1183961
+    }
+  ],
+  "claim_boundary": [
+    "These three tests were specified after the primary next-open hard-share result was seen. They are not independent confirmation.",
+    "Close-to-close starts at the assigned session close, so it is not the executable open-to-open window used by H3.",
+    "FF3 residuals use close-to-close French factors. They do not justify a trading or causal claim.",
+    "Soft negative mass is computed without a human label audit. Agreement or disagreement with hard share is a measurement note, not a semantic validation.",
+    "Do not add soft mass to the original nine-rule family. Do not execute Notebook 75. Do not pool FNSPID with LSEG."
+  ],
+  "outputs": {
+    "sensitivity_coefficients": "/Users/peterprendergast/Documents/news-sentiment-beyond-mean/experiments/generated/85_fnspid_development_outcome_and_label_sensitivities/sensitivity_coefficients.csv",
+    "coverage_audit": "/Users/peterprendergast/Documents/news-sentiment-beyond-mean/experiments/generated/85_fnspid_development_outcome_and_label_sensitivities/coverage_audit.csv"
+  }
+}

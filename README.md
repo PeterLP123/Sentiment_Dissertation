@@ -1,207 +1,101 @@
-# Sentiment Dissertation Research Workspace
+# News sentiment beyond the mean
 
-![Sentiment research workflow](docs/assets/research-workflow.svg)
+![News sentiment beyond the mean: measurement, timing and temporal replication](docs/assets/project-banner.svg)
 
-Research workspace for an MSc dissertation on financial-news sentiment. It contains a provenance-clean sentiment benchmark, model and news-ingestion tooling, historical trading and tail-risk studies, and the closing `final_experiments/` programme.
+**Does the mix of financial news tell us more than its average sentiment?** An MSc Computational Finance dissertation at UCL, with the submitted manuscript, reproducible aggregate evidence and the research code that led to it.
 
-The project is now in its **final experiments phase**. The priority is to improve how multiple news stories become one interpretable firm-day signal, not to add another production pipeline or optimise another backtest.
+[Read the dissertation](submission/news-sentiment-beyond-mean/Peter-Prendergast-COMP0077-Dissertation.pdf) · [Explore the evidence](submission/news-sentiment-beyond-mean/docs/evidence_map.md) · [Reproduce the figures](docs/reproducing_the_submission.md) · [Browse the research history](docs/research_archive.md)
 
-## Current Status
+## The study
 
-| Item | Status |
-| --- | --- |
-| Dissertation deadline | **1 September 2026** |
-| Current phase | [Final experiments](final_experiments/README.md), opened 30 July 2026 |
-| Final research question | **Not chosen yet.** Five candidates remain open until Gate F1, after the filtering and distribution EDA. |
-| Primary data spine | **FNSPID 2011–2023** for breadth and date-cluster support; LSEG is a non-pooled, out-of-regime robustness arm. |
-| Current firm-day panel | 715,546 news-bearing firm-days, 570 priced symbols, 3,262 sessions; 2011–2023 |
-| Frozen chronological split | Development through 2019-12-31; evaluation from 2020-01-01. Call it a *chronological evaluation block*, not a pristine holdout. |
-| Completed closing-stage work | Notebooks `00`–`11` executed: panel, filtering/distribution, aggregation, surprise, strategy diagnostics, story type, earnings, pooled thresholds, and separate LSEG robustness arms |
-| Next stage | Gate F1: resolve or explicitly waive the unlabelled novelty audit, then choose one primary RQ and at most one secondary |
-| Deliberately closed | New VaR/ES work, new scorer bake-offs, and multi-scorer signal ensembles |
+Financial-news pipelines often reduce a day's stories to one average score. This project asks whether the **share of stories classified as negative by FinBERT** carries additional information after controlling for mean sentiment and news volume. It then tests the association's timing, stability across periods, economic value after costs and transfer to a separate news source.
 
-The standing “Beyond the Mean” cross-model-agreement question is now a **fallback/default, not the chosen final RQ**. The live plan compares it with aggregation, filtering, sentiment-surprise, and learned-threshold questions before Gate F1.
+The primary FNSPID panel spans **2011–2023, 570 priced firms and 715,546 news-bearing firm-days**. LSEG/Reuters provides separate transfer checks. The final study contains 22 selected notebooks, frozen specifications, aggregate result snapshots and the complete LaTeX manuscript.
 
-## Research Direction
+**The negative training-period association did not replicate in 2020–2023.** Post-review diagnostics also find an association before the assigned trading window. Without row-level news availability times, the data cannot establish a predictive signal. This is a result about measurement, timing and temporal instability.
 
-The closing programme follows one design rule:
+## Results at a glance
 
-> **Fix the measurement, not the trading rule.** FinBERT is the scorer. The open question is how to select, weight, and aggregate the stories it scores.
-
-Six workstreams structure the remaining research:
-
-1. **Consolidated data panel** across a larger universe and longer window.
-2. **Story filtering and weighting** by publisher, novelty, repetition, and routine reporting.
-3. **Aggregation rules** including the mean, median, trimmed mean, negative share, dispersion, strongest event, attention weighting, and decayed state.
-4. **Sentiment surprise** net of the firm baseline, market-wide sentiment level, and market return.
-5. **Story-type conditioning** under a declared multiplicity family.
-6. **Earnings-date effects** using the locally gathered LSEG results calendar.
-
-A small neural network remains in scope only as a secondary trade/no-trade threshold learner, benchmarked against logistic, gradient-boosted, and fixed-band rules on development data.
-
-### What earlier work has already settled
-
-- **FinBERT is the primary scorer.** It reached 0.811 accuracy and 0.806 macro-F1 on the 5,947-row clean benchmark; hosted LLMs did not beat it.
-- **Combining scorers did not help.** The seven-signal portfolio search collapsed to a singleton and the winner was indistinguishable from selection luck.
-- **The company-day aggregation is fragile.** Moving from a subset to the full headline population changed daily signals materially even when headline-level distributions barely moved.
-- **The first sentiment-surprise pilot was a NO-GO.** Sentiment level beat Kalman surprise out of sample; any retry must use the wider panel and a different demeaning design.
-- **Negative share is worth testing.** It is the only text feature in the repository with a strong BH-corrected second-moment result.
-- **VaR/ES is finished.** News arrival improved tail-risk forecasts; semantic tone did not add a clear increment. The result is retained, not extended.
-- **Trading evidence is exploratory.** The 33-stock robustness run failed after costs and turnover; no result here is deployable alpha or a causal claim.
-
-## Documentation Authority
-
-The repository contains several generations of plans and protocols. Read them in this order:
-
-1. **[Final experiments plan](final_experiments/plan.html)**: live decisions, checklist, and workstream status.
-2. **[Research protocol](docs/research_protocol.md)**: current scientific guardrails while the final RQ remains open.
-3. **[Dissertation execution plan](docs/dissertation_execution_plan.md)**: current stage sequence, exit conditions, and writing dependencies.
-4. **[Final experiments README](final_experiments/README.md)**: operational map for notebooks, local data, and generated outputs.
-5. **[Documentation home](docs/README.md)**: technical guides, reference docs, frozen results, and clearly marked historical protocols.
-
-Dated protocols and result reports remain part of the audit trail. They are not silently rewritten into the current design.
-
-## Repository Map
-
-```text
-Data/                         tracked benchmark + local/ignored research data
-final_experiments/            current notebook-first closing programme
-  data/earnings/              licensed local LSEG results calendar
-  lib/                        thin reusable analysis helpers
-  outputs/                    generated local panels, tables, and figures
-src/sentiment_benchmark/      stable benchmark/news/trading library
-notebooks/                    earlier FNSPID tail-risk notebooks
-configs/                      TOML collection, scoring, and strategy configs
-experiments/manifest.toml     curated registry of formal runs
-reports/                      compact result narratives and provenance
-results/                      generated/local execution evidence
-docs/                         guides, references, protocols, and frozen explanations
-dissertation/                 LaTeX dissertation source and bibliography
-scripts/                      reproducible dataset, collection, and report builders
-tests/                        focused tests for the stable library
-```
-
-```mermaid
-flowchart LR
-    B["Clean labeled benchmark"] --> C["Model competence<br/>FinBERT selected"]
-    N["FNSPID + prices<br/>2011–2023"] --> P["Final firm-day panel<br/>715,546 rows"]
-    E["LSEG earnings calendar"] --> P
-    L["LSEG recent-news corpora"] --> R["Non-pooled robustness arm"]
-    C --> P
-    P --> W["Filter + distribution EDA"]
-    W --> G{"Gate F1<br/>choose final RQ"}
-    G --> A["Primary final experiment"]
-    R --> A
-    A --> D["Figures, tables, dissertation"]
-```
-
-## Setup
-
-Python is pinned to **3.12** (`>=3.12,<3.13`). `uv.lock` is committed, so `uv` is the simplest setup:
-
-```bash
-uv sync --extra dev --extra baselines --extra finbert --extra figures --extra tailrisk
-uv run sentiment-bench validate-data
-```
-
-Equivalent editable install:
-
-```bash
-python3.12 -m venv .venv
-source .venv/bin/activate                  # Windows: .\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install -e ".[dev,baselines,finbert,figures,tailrisk]"
-sentiment-bench validate-data
-```
-
-Optional provider and news credentials live in an ignored `.env`:
-
-```text
-OPENROUTER_API_KEY=...
-CEREBRAS_API_KEY=...
-TAVILY_API_KEY=...
-NEWSAPI_API_KEY=...
-SENTIMENT_BENCH_PROVIDER=ollama
-OLLAMA_HOST=http://localhost:11434
-```
-
-LSEG workflows require an entitled, signed-in Workspace desktop session and the `lseg` extra.
-
-## Working With The Final Experiments
-
-Start with the [phase README](final_experiments/README.md) and [live plan](final_experiments/plan.html). The numbered `.ipynb` files are the research record; reusable helpers live under `final_experiments/lib/` and heavy outputs stay local.
-
-```bash
-# Inventory both candidate data spines and the earnings calendar.
-uv run jupyter nbconvert --to notebook --execute --inplace final_experiments/00_data_inventory.ipynb
-
-# Rebuild the current FNSPID firm-day panel.
-uv run jupyter nbconvert --to notebook --execute --inplace final_experiments/01_panel.ipynb
-```
-
-These commands are **not clone-only demos**. They require the licensed/local archives and generated checkpoints recorded in each notebook. The notebook narrative explains the expected paths and provenance. Never commit raw headline text, the earnings-calendar CSV/JSON files, or `final_experiments/outputs/`.
-
-## Stable Tooling
-
-The older CLI/TUI remains available as a library and reproducibility surface. The final experiments import it rather than extending it.
-
-| Capability | Entry point |
-| --- | --- |
-| Validate the clean benchmark | `sentiment-bench validate-data` |
-| Run/export benchmark models and baselines | `sentiment-bench run`, `run-baselines`, `export` |
-| Inspect metrics, comparisons, and agreement | `sentiment-bench results`, `compare`, `agreement` |
-| Collect and clean Tavily, NewsAPI, or LSEG news | `fetch-news`, `fetch-newsapi`, `fetch-lseg-news`, `build-lseg-corpus` |
-| Replay historical trading/strategy research | `run-trading-strategy`, `sentiment-bench strategy ...` |
-| Use the terminal UI | `sentiment-bench tui` |
-
-See the [CLI reference](docs/cli_reference.md), [architecture](docs/architecture.md), and [results/export reference](docs/results_and_exports.md) for the full surface.
-
-## Data And Output Policy
-
-| Path | Role | Git policy |
+| Test | Final evidence | Interpretation |
 | --- | --- | --- |
-| `Data/derived/labeled/financial_sentiment_v2.csv` | Default provenance-clean labeled benchmark; rebuilt by `scripts/build_labeled_dataset.py` | Tracked; never edit manually |
-| `Data/data.csv` | Legacy Kaggle merge with 514 known corrupt neutral duplicates | Legacy only; never use as ambiguity evidence |
-| `Data/source/`, `Data/news/`, `Data/collections/*/{raw,derived,reports,packages}/` | Source archives and licensed/generated news corpora | Ignored/local |
-| `final_experiments/data/earnings/` | LSEG-derived FNSPID earnings calendar | Documentation tracked; CSV/JSON/checkpoints ignored |
-| `final_experiments/outputs/` | Generated panels, tables, figures, and fitted artifacts | Ignored/local |
-| `results/` | Databases, exports, backtests, and strategy evidence | Generated/local except deliberately tracked compact evidence |
-| `reports/` | Aggregate narratives, manifests, and selected licence-safe tables | Selectively tracked |
-| `experiments/manifest.toml` | Formal experiment registry | Tracked |
+| Training, 2011–2019 | Coefficient **−0.00831**; 95% HAC interval **[−0.01410, −0.00252]** | Conditional association beyond mean sentiment and news count. |
+| Frozen testing, 2020–2023 | **+0.00583**; interval **[−0.00426, +0.01593]** | The negative baseline association does not replicate. |
+| Testing minus training | **+0.01414**; interval **[+0.00250, +0.02579]** | The predeclared contrast supports a difference across periods. |
+| Timing diagnostics | Association measured intraday and before the assigned open | News availability and session assignment limit a predictive reading. |
+| Trading costs | Best break-even cost approximately **0.625 bps per side**, against **10 bps** charged | The tested daily trading rules do not cover costs. |
 
-Every result promoted into the dissertation must record its data identity, split, seed, scorer/model revision, estimand, inference method, multiplicity family, code commit, and limitations. Nulls, invalidated runs, and attrition are results, not cleanup targets.
+Coefficients describe daily cross-sectional **rank regressions**, not percentage returns. Intervals use five-lag HAC inference. The testing period had limited power and had informed some earlier project design; this is neither proof of a zero effect nor a pristine confirmatory holdout. [Full design, estimates and limitations →](submission/news-sentiment-beyond-mean/docs/research_design.md)
 
-## Research Limits
+![Annual negative-story-share coefficients and uncertainty: negative training-period mean, positive testing-period mean](submission/news-sentiment-beyond-mean/manuscript/artifacts/fig_coefficient_drift.png)
 
-- Predictive and associational claims only; no causal market claim.
-- Daily/date-only timing leaves residual intraday ambiguity.
-- FNSPID and LSEG are different source regimes and must not be pooled.
-- The current evaluation period has influenced earlier design work; it is not pristine.
-- Prices are split-adjusted but not dividend-adjusted in the core research panels.
-- Licensed LSEG/FNSPID text stays local and is not redistributed.
-- Portfolio results must report turnover, costs, concentration, and break-even cost; they are secondary to signal measurement.
+*Annual estimates from the submitted dissertation. The shaded block is the frozen testing period; horizontal lines show the two period means. The figure is regenerated from the included aggregate evidence during validation.*
 
-## Documentation
+## Reproduce the published evidence
 
-- [Documentation home](docs/README.md)
-- [Final experiments plan](final_experiments/plan.html)
-- [Research protocol](docs/research_protocol.md)
-- [Dissertation execution plan](docs/dissertation_execution_plan.md)
-- [Dataset card](docs/dataset_card.md)
-- [Architecture](docs/architecture.md)
-- [CLI reference](docs/cli_reference.md)
-- [Results and exports](docs/results_and_exports.md)
+With **Python 3.12, uv and Make** installed, run from the repository root:
 
-## Reproducibility Checklist
+```bash
+make setup
+make validate
+```
 
-Before a final result is cited:
+This installs the final study's locked environment, checks the submission inventory and public file boundary, validates manuscript references and prose, runs the analytical helper tests and lint checks, and regenerates **30 manuscript artifacts, including 20 figure files**, for byte-for-byte comparison. It uses the included aggregate evidence; it does not call a model provider or reopen the testing-period experiment.
 
-- Freeze and report the chronological split before model selection.
-- Record source files/manifests and content hashes where available.
-- Record the exact FinBERT revision and score definition.
-- State the event grain, timing rule, return convention, and initial-reaction treatment.
-- State the clustered or block-bootstrap inference unit and random seed.
-- Declare the multiple-testing family before opening evaluation results.
-- Preserve an attrition table and data-quality caveats.
-- Report effect sizes and intervals alongside any p/q-values.
-- Register the accepted run and promote only aggregate, licence-safe artifacts.
+To build the manuscript, install a TeX distribution with `latexmk` and run:
+
+```bash
+make manuscript
+```
+
+The build writes `submission/news-sentiment-beyond-mean/manuscript/main.pdf`. The [named submission PDF](submission/news-sentiment-beyond-mean/Peter-Prendergast-COMP0077-Dissertation.pdf) remains the preserved final copy. Full notebook replay requires authorised local inputs; [the reproducibility guide](docs/reproducing_the_submission.md) explains the distinction and direct commands for systems without Make.
+
+## Inside the repository
+
+The final submission is a self-contained Python project. Its paths and environment are preserved so that every claim still points to the exact code and evidence used in the dissertation.
+
+```text
+submission/news-sentiment-beyond-mean/    Final dissertation and evidence
+├── manuscript/                         LaTeX, bibliography, figures and tables
+├── experiments/notebooks/              22 selected analysis notebooks
+├── experiments/lib/                    Statistical and portfolio helpers
+├── experiments/specs/                  Frozen decisions and amendments
+├── experiments/results/                Aggregate evidence used in the manuscript
+├── tests/                              Analytical correctness checks
+└── uv.lock                             Final study's Python environment
+
+src/sentiment_benchmark/                 Benchmark, collection and scoring library
+final_experiments/                      Earlier notebook research and local inputs
+Data/                                  Public benchmark; licensed inputs stay local
+configs/ · notebooks/ · reports/        Supporting studies and configurations
+docs/                                  Project guides and research history
+```
+
+| Start with | What you will find |
+| --- | --- |
+| [Final submission](submission/README.md) | The complete submitted package, source provenance and PDF identity. |
+| [Evidence map](submission/news-sentiment-beyond-mean/docs/evidence_map.md) | Claim → notebook → specification → aggregate result. |
+| [Research design](submission/news-sentiment-beyond-mean/docs/research_design.md) | Estimands, chronology, timing checks, multiplicity and null results. |
+| [Documentation index](docs/README.md) | Final-study guides, benchmark tooling and archived plans. |
+| [Research archive](docs/research_archive.md) | How the earlier experiments relate to the final study. |
+
+Historical paths remain stable for provenance. Separate, unpublished novelty studies in the local archive also use notebook numbers 85 and 86; they must not be merged with the final package's notebooks by number. The older `dissertation/` directory contains an earlier manuscript.
+
+## Benchmark and research tooling
+
+The original `sentiment-bench` CLI/TUI supports dataset validation, model benchmarking, news collection, scoring, evaluation and exports. It has its own root environment:
+
+```bash
+make benchmark-setup
+make benchmark-check
+uv run sentiment-bench --help
+```
+
+The default benchmark is the **5,947-row provenance-clean Financial PhraseBank/FiQA dataset**. The legacy `Data/data.csv` contains documented label corruption and is not the default. See the [dataset card](docs/dataset_card.md), [getting-started guide](docs/getting_started.md) and [CLI reference](docs/cli_reference.md).
+
+## Data, citation and contributions
+
+Licensed FNSPID and Reuters/LSEG text, raw model responses, credentials and large intermediate panels stay local. Public evidence consists of aggregate results, specifications, source code and figures. [Data and rights](docs/data_and_rights.md) explains the mixed third-party terms and the recorded data-governance limitations.
+
+**Dissertation:** Peter Prendergast (2026), *A Hard Negative-Story Threshold: Training-Period Association, Temporal Non-Replication and Economic Limits*, MSc Computational Finance, University College London. Citation metadata is available in [CITATION.cff](CITATION.cff).
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for reproducible changes and [SECURITY.md](SECURITY.md) for handling sensitive reports. The [CI workflow](.github/workflows/ci.yml) checks the final submission and the public benchmark separately.

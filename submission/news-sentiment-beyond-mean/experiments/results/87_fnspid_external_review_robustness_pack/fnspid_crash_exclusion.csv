@@ -1,0 +1,2 @@
+excluded_start,excluded_end,excluded_sessions,n,mean,ci_low,ci_high,p_two_sided,block_length,replications,seed,ci_excludes_zero
+2020-02-01,2020-04-30,62,998,2.689130566609188e-06,1.2382367738048473e-06,4.451237030997137e-06,0.0034,20,4999,20260930,True

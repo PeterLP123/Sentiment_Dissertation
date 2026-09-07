@@ -1,0 +1,56 @@
+{
+  "schema_version": "author-adjudication-input/1.0",
+  "author_events": [
+    {
+      "event_id": "AUTHOR-EVENT-2026-08-14-round2-roadmap-authorization",
+      "source": "explicit_session_user_message",
+      "actor_role": "author",
+      "input_sha256": "7652b44d5ec965f2cf5cf5ff8232988b7a4eb04fe24ee73a78e9cd68f725eeb3"
+    }
+  ],
+  "author_adjudications": [
+    {
+      "item_id": "REV-ESTIMAND-ALIGNMENT-R2",
+      "author_event_id": "AUTHOR-EVENT-2026-08-14-round2-roadmap-authorization",
+      "author_triage": "will_address",
+      "authorized_targets": [
+        {
+          "block_id": "B0018",
+          "allowed_operations": [
+            "replace_block"
+          ]
+        }
+      ],
+      "claim_strength_authorizations": []
+    },
+    {
+      "item_id": "REV-INTERPRETATION-BOUNDARY-R2",
+      "author_event_id": "AUTHOR-EVENT-2026-08-14-round2-roadmap-authorization",
+      "author_triage": "will_address",
+      "authorized_targets": [
+        {
+          "block_id": "B0014",
+          "allowed_operations": [
+            "replace_block"
+          ]
+        },
+        {
+          "block_id": "B0018",
+          "allowed_operations": [
+            "replace_block"
+          ]
+        }
+      ],
+      "claim_strength_authorizations": []
+    }
+  ],
+  "collateral_authorizations": [],
+  "display_order": {
+    "mode": "source_traceability",
+    "item_ids": [
+      "REV-ESTIMAND-ALIGNMENT-R2",
+      "REV-INTERPRETATION-BOUNDARY-R2"
+    ],
+    "author_event_id": "AUTHOR-EVENT-2026-08-14-round2-roadmap-authorization"
+  }
+}

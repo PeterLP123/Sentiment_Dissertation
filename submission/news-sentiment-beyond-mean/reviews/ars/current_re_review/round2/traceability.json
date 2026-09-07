@@ -1,0 +1,126 @@
+{
+  "contract_version": "1.1",
+  "round_id": "ars-re-review-2026-08-14-round-2",
+  "revision": 1,
+  "verdict_record_hash": "3c762abd79e928091558134710e0155894de2f9f63adf5e95715d8176efcc618",
+  "rows": [
+    {
+      "item_id": "REV-ESTIMAND-ALIGNMENT-R2",
+      "concern_id": "S1",
+      "obligation_class": "SHOULD_FIX",
+      "original_comment": "The appendix project summary still moves from the recent-price-control result to the frozen-era sign change without naming the matched development baseline.",
+      "authors_claim": "The authorized replacement distinguishes the development baseline, separate development robustness and frozen baseline estimates.",
+      "revision_location": "Appendix project-summary Outcome, revised manuscript lines 1137-1144",
+      "verified": "YES",
+      "status": "FULLY_ADDRESSED",
+      "quality_assessment": "The appendix explicitly identifies -0.00831 as the development baseline matched to +0.00583 and -0.00914 as separate recent-price-control robustness.",
+      "final_verdict": "FULLY_ADDRESSED",
+      "phase2a_verdict": "FULLY_ADDRESSED",
+      "verified_by": "EIC",
+      "author_triage": "will_address",
+      "authorized_targets": [
+        {
+          "block_id": "B0018",
+          "allowed_operations": [
+            "replace_block"
+          ]
+        }
+      ],
+      "claim_strength_authorizations": []
+    },
+    {
+      "item_id": "REV-INTERPRETATION-BOUNDARY-R2",
+      "concern_id": "S2",
+      "obligation_class": "SHOULD_FIX",
+      "original_comment": "The results synthesis and appendix project summary still use broad temporal-instability wording without consistently limiting the finding to the measured baseline pipeline or leaving its cause unidentified.",
+      "authors_claim": "The authorized replacements limit both passages to the measured baseline pipeline association and leave cause unidentified.",
+      "revision_location": "Results synthesis lines 764-769 and appendix project-summary Outcome lines 1141-1144",
+      "verified": "YES",
+      "status": "FULLY_ADDRESSED",
+      "quality_assessment": "Both expected passages use the committed measured-pipeline boundary and explicitly state that the evidence does not identify the cause.",
+      "final_verdict": "FULLY_ADDRESSED",
+      "phase2a_verdict": "FULLY_ADDRESSED",
+      "verified_by": "R1",
+      "author_triage": "will_address",
+      "authorized_targets": [
+        {
+          "block_id": "B0014",
+          "allowed_operations": [
+            "replace_block"
+          ]
+        },
+        {
+          "block_id": "B0018",
+          "allowed_operations": [
+            "replace_block"
+          ]
+        }
+      ],
+      "claim_strength_authorizations": []
+    }
+  ],
+  "adjustments": [],
+  "new_issues": [],
+  "post_letter_observations": [],
+  "dissent_adjudications": [],
+  "resolution_intents": [],
+  "cross_model_resolutions": [],
+  "rebuttal_adjudications": [],
+  "g2d_acceptances": [],
+  "pending_rebuttal_upgrades": [],
+  "escalation_approvals": [],
+  "reapplications": [],
+  "decision_inputs": {
+    "per_item": [],
+    "verdict_counts": {
+      "must_fix": {
+        "FULLY_ADDRESSED": 0,
+        "PARTIALLY_ADDRESSED": 0,
+        "NOT_ADDRESSED": 0,
+        "MADE_WORSE": 0,
+        "CANNOT_VERIFY": 0
+      },
+      "should_fix": {
+        "FULLY_ADDRESSED": 2,
+        "PARTIALLY_ADDRESSED": 0,
+        "NOT_ADDRESSED": 0,
+        "MADE_WORSE": 0,
+        "CANNOT_VERIFY": 0
+      },
+      "consider": {
+        "FULLY_ADDRESSED": 0,
+        "PARTIALLY_ADDRESSED": 0,
+        "NOT_ADDRESSED": 0,
+        "MADE_WORSE": 0,
+        "CANNOT_VERIFY": 0
+      }
+    },
+    "residual_obligation_class_counts": {
+      "must_fix": {
+        "must_fix": 0,
+        "should_fix": 0,
+        "consider": 0
+      },
+      "should_fix": {
+        "must_fix": 0,
+        "should_fix": 0,
+        "consider": 0
+      },
+      "consider": {
+        "must_fix": 0,
+        "should_fix": 0,
+        "consider": 0
+      }
+    },
+    "should_fix_addressed_rate": {
+      "numerator": 2,
+      "denominator": 2
+    },
+    "regressions": [],
+    "non_regression_new_issue_ids": [],
+    "escalations": [],
+    "reject_recommended": false,
+    "apply_chain_witness": "pass"
+  },
+  "decision_state": "Accept"
+}

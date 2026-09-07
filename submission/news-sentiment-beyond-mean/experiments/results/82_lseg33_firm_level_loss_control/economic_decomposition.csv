@@ -1,0 +1,6 @@
+component,gbp_per_million
+losses_avoided_when_fixed_control_lost,24737.94110282663
+return_difference_when_fixed_control_gained,-41126.1583447258
+incremental_trading_cost,-12715.074518279313
+net_arithmetic_difference,-29102.679585632173
+compounded_ending_wealth_difference,-30869.791835476557

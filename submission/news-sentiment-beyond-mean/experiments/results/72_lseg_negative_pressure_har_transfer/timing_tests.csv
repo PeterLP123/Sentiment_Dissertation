@@ -1,0 +1,3 @@
+estimand,observed,nonzero_shift_mean,observed_minus_shift_mean,p_one_sided_exact,q_bh_two_test
+overlay minus HAR net return,0.0,0.0,0.0,1.0,1.0
+HAR minus overlay downside squared return,0.0,0.0,0.0,1.0,1.0

@@ -1,0 +1,3 @@
+role,method,two_sided_alpha,effect,standard_error,effect_z,power,mde80,se_ratio_to_projection
+prospective_before_evaluation,development HAC SE scaled by square-root session ratio,0.025,-0.0083100529904707,0.0044493519915638,1.867699612488962,0.3543324637307985,0.01371745880170563,1.0
+realised_precision_reconciliation,observed evaluation HAC(5) standard error; post-outcome precision diagnostic,0.025,-0.0083100529904707,0.005150492651210519,1.6134481792761302,0.2650747577526305,0.015879092255552518,1.1575826459619554

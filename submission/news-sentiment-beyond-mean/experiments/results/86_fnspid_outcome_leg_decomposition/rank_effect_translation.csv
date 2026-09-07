@@ -1,0 +1,4 @@
+translation,rank_change,coefficient,fitted_rank_change,fitted_percentile_points,valid_for_observed_tied_regressor,note
+hypothetical_fixed_0_8,0.8,-0.0091403915469217,-0.00731231323753736,-0.731231323753736,False,superseded hypothetical translation; exceeds the observed pooled 10th-to-90th spread
+pooled_observed_p90_minus_p10,0.5605603619334867,-0.0091403915469217,-0.00512374119375621,-0.512374119375621,True,primary corrected translation on exact Notebook 79 price-complete rows
+mean_session_specific_p90_minus_p10,0.5272151343258179,-0.0091403915469217,-0.0048189527572008945,-0.48189527572008944,True,sensitivity averaging each session's observed rank spread

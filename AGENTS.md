@@ -5,8 +5,8 @@ This repository contains code, data, experiments, and supporting artifacts for a
 ## Repository Shape
 
 - `Data/` contains datasets and related data files.
-- Future code may include scripts, notebooks, model experiments, evaluation utilities, and reports.
-- Keep new files organized by purpose. Prefer clear top-level folders such as `src/`, `notebooks/`, `experiments/`, `reports/`, `models/`, and `tests/` if the project grows.
+- `submission/news-sentiment-beyond-mean/` contains the completed dissertation and its self-contained reproduction package.
+- `src/`, `scripts/`, `configs/`, and `tests/` support the benchmark application; `final_experiments/` and the older `dissertation/` retain the research history.
 
 ## Working Principles
 
@@ -69,98 +69,53 @@ This repository contains code, data, experiments, and supporting artifacts for a
 - Avoid overstating conclusions in generated reports or summaries. Distinguish observed results from interpretation.
 - If using external models, datasets, or papers, cite or record the source clearly.
 
-## Final Experiments Phase (opened 2026-07-30)
+## Completed Dissertation And Research Archive
 
-`final_experiments/` holds the consolidated closing work for the dissertation.
-Read `final_experiments/README.md` for the notebook/data map and
-`final_experiments/plan.html` for live decisions and checklist status. For scientific
-constraints and stage order, use `docs/research_protocol.md` and
-`docs/dissertation_execution_plan.md`. Dated protocols/results are historical evidence,
-not competing current plans.
+The canonical completed project is `submission/news-sentiment-beyond-mean/`. Its submitted
+manuscript, selected experiment sources, frozen specifications, aggregate evidence,
+`uv.lock`, and validation scripts are the authority for final claims and reproduction.
+Preserve that package as a self-contained project. Do not silently replace its sources,
+locked environment, frozen results, or submitted PDF with files from the wider workspace.
 
-### The research question is not decided
+The final research question is settled: whether hard negative-story share is associated
+with the assigned-window return beyond rank-linear mean sentiment and news volume in the
+training period, where that association is measured, and whether the unchanged baseline
+persists in the frozen 2020--2023 testing period. The submitted result is a bounded
+temporal non-replication and timing diagnosis, not validated alpha or a market mechanism.
+Notebook 75 is the sealed one-shot evaluation record. Do not rerun, retune, or
+extend the testing-period study during repository maintenance.
 
-- **Do not hard-code a single RQ** into new code, docs, or dissertation text. Gate F1
-  follows the filtering/distribution EDA and precedes any evaluation-return comparison.
-  Candidate framings are enumerated in `final_experiments/plan.html`; record which
-  candidate each result speaks to.
-- The "Beyond the Mean" cross-model-agreement RQ remains the standing fallback/default.
-  That is not a decision.
+`final_experiments/`, `docs/research_protocol.md`,
+`docs/dissertation_execution_plan.md`, and `final_experiments/plan.html` are historical
+research records. Retain them for auditability. The local working copy also contains
+unpublished Notebook 85 novelty-conditioning and Notebook 86 economic-value work;
+preserve those separately from this release. Earlier open-RQ,
+workstream, and live-plan language describes the historical decision process; it does not
+reopen the submitted design or supersede the submission package.
 
-### Working style: researcher, not production engineer
+### Reproducibility guardrails
 
-The rest of this repository is a hardened pipeline. `final_experiments/` is deliberately
-looser so iteration is fast:
-
-- Prefer Jupyter notebooks (jupytext `# %%` `.py` pairs, as in `notebooks/`) with plots
-  and tables over new CLI subcommands and frozen-manifest machinery.
-- Write **fewer tests**. Add a `pytest` test only for a reusable data-processing or metric
-  helper where a silent error would corrupt every downstream result. Do not test
-  exploratory analysis, plotting, or notebook glue.
-- Skip full-suite runs, `mypy`, and hash/manifest ceremony unless a result is being
-  promoted into the dissertation.
-- Optimise for academic rigour and explainability: state the estimand, the split, the
-  clustering, the multiplicity family, and the figure that shows the effect. A clear plot
-  beats another abstraction layer.
-- Treat `src/sentiment_benchmark` as a library to import from, not a place to extend. New
-  helpers belong in `final_experiments/lib/`.
-- **Refresh the full affected notebook chain after strategy changes.** Whenever a signal,
-  portfolio rule, holding period, breadth, threshold, cost, turnover/accounting rule,
-  deployment gate, or strategy result changes, inspect every numbered notebook under
-  `final_experiments/` and rerun each notebook whose inputs, cached outputs, figures,
-  manifests, or interpretation could change. Do not refresh only the notebook directly
-  edited. Trace dependencies from generated paths and prose references; if impact is
-  uncertain, rerun the notebook. Update the README, experiment ledger, live plan, and
-  invalidation history when their recorded results or status change.
-
-### Current state and workstreams
-
-Workstream 1 is complete for the current checkpoint chain: FNSPID 2011-2023 is the
-primary spine; the panel has 715,546 news-bearing firm-days, 570 priced symbols and 3,262
-sessions. LSEG sector-33 + midcap-22 is a non-pooled robustness arm. The chronological
-split is frozen at development through 2019-12-31 and evaluation from 2020-01-01.
-Workstream 2 is next.
-
-1. **Data consolidation (complete).** FNSPID provides breadth/history; LSEG provides
-   recent Reuters metadata/body text for separate robustness. Never pool the source
-   regimes.
-2. **Story filtering and weighting.** Publisher/source weighting, plus rules or a
-   classifier separating genuinely new breaking news from repetition/syndication and from
-   routine scheduled corporate reporting. Includes exploratory analysis of the daily
-   distribution of scores within a company-day. FNSPID publisher/story-family fields are
-   unavailable on the current checkpoint grain; do not invent proxies.
-3. **Aggregation.** Compare ways of collapsing many stories into one signal: mean of hard
-   labels (the current rule), mean continuous score, median, trimmed mean, negative
-   share, dispersion, strongest-event selection, attention weighting, decayed state.
-4. **Sentiment surprise.** A larger, better-controlled retry of the 2026-07-17 NO-GO
-   pilot, stripping out both the market return and the general sentiment level
-   (cross-sectional daily mean and the firm's own trailing baseline).
-5. **Story-type conditioning.** Whether the signal should be scaled by event type, using
-   the existing 12-type taxonomy, under an explicitly declared multiplicity family.
-6. **Earnings-date effect.** An LSEG scheduled-results calendar now exists locally under
-   `final_experiments/data/earnings/`; its mapping, title-filter and coverage caveats are
-   binding until validated.
-
-### Scope notes
-
-- **De-prioritise VaR / ES tail risk.** The FNSPID tail-risk factorial is finished and
-  registered (news arrival matters, semantics do not). Cite it; do not extend it.
-- Neural nets are in scope for one narrow purpose: learning the trade/no-trade threshold
-  for a sentiment signal, potentially per stock or per sector, in place of a fixed
-  no-trade band. Fit development-only, compare against the fixed band, and prefer the
-  large FNSPID sample over the ~85-session LSEG development window.
-
-### Still binding in this phase
-
-Speed does not relax honesty. Freeze downstream fitting/model selection before opening
-evaluation outcomes; use date-clustered or block-bootstrap inference; report costs and
-break-even where portfolio outcomes appear; keep licensed LSEG/FNSPID text local and
-gitignored; report nulls as results. `final_experiments/outputs/` is gitignored - commit
-figures and tables only when they are aggregate and licence-safe.
+- Preserve frozen specifications, invalidation records, chronological boundaries, and
+  all null or adverse findings.
+- Do not overwrite source data, experiment outputs, submitted artifacts, or evidence
+  snapshots. Write exploratory reruns to new, clearly identified paths.
+- Keep FNSPID and licensed LSEG text local and gitignored. Do not pool source regimes.
+- State the estimand, sample, split, timing rule, clustering or bootstrap unit,
+  multiplicity family, model identity, and costs where applicable.
+- Treat missing row-level availability times as a binding limit on predictive claims.
+- Changes to a signal, portfolio rule, holding period, threshold, cost, turnover rule, or
+  reported strategy result require tracing and refreshing the full affected notebook
+  chain. Update the archive README, experiment ledger, and invalidation history where the
+  recorded status changes.
+- New exploratory helpers belong in `final_experiments/lib/`; reusable benchmark code
+  belongs in `src/sentiment_benchmark`. Add tests where a silent helper error would corrupt
+  downstream results.
 
 ## Command Guidance
 
 - Use `rg` or `rg --files` for searching.
+- Use `make validate` for the final package and `make benchmark-check` for the
+  public benchmark. These commands select separate locked Python environments.
 - Inspect the worktree before editing with `git status --short`.
 - Do not run destructive commands such as `git reset --hard`, force pushes, or dataset deletion unless explicitly requested.
 - If running long experiments, make outputs resumable or clearly timestamped.

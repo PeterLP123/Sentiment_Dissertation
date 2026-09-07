@@ -1,0 +1,31 @@
+{
+  "contract_version": "1.1",
+  "round_id": "ars-re-review-2026-08-14-round-2",
+  "precommitment_hash": "9eabd09bd903d3ba6ab129be357925c45d574a798768a5387f84fb3cf9971040",
+  "items": [
+    {
+      "item_id": "REV-ESTIMAND-ALIGNMENT-R2",
+      "verdict": "FULLY_ADDRESSED",
+      "evidence_anchor": [
+        "text: revised manuscript lines 1137-1144, 'The development baseline coefficient is $-0.00831$' and 'the separate recent-price-control robustness estimate is $-0.00914$' before 'the frozen 2020--2023 opening repeats the baseline specification and gives $+0.00583$'"
+      ],
+      "change_summary": "The appendix now distinguishes the development baseline, the separate development recent-price-control robustness estimate and the matched frozen baseline estimate.",
+      "verified_by": "EIC",
+      "applied_criterion": "precommitted"
+    },
+    {
+      "item_id": "REV-INTERPRETATION-BOUNDARY-R2",
+      "verdict": "FULLY_ADDRESSED",
+      "evidence_anchor": [
+        "text: revised manuscript lines 764-769, 'instability in the measured baseline pipeline association' followed by 'The evidence does not identify its cause'",
+        "text: revised manuscript lines 1141-1144, 'instability in the measured baseline pipeline association' followed by 'the evidence does not identify whether market conditions, sample composition, timing or classifier measurement caused the change'"
+      ],
+      "change_summary": "Both expected passages now limit the instability finding to the measured baseline pipeline association and explicitly leave its cause unidentified.",
+      "verified_by": "R1",
+      "applied_criterion": "precommitted"
+    }
+  ],
+  "new_issues": [],
+  "dissents": [],
+  "escalation_exceptions": []
+}

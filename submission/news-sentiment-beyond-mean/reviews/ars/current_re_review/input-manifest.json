@@ -1,0 +1,80 @@
+{
+  "contract_version": "1.1",
+  "round_id": "ars-re-review-2026-08-14-round-1",
+  "cross_model_active": false,
+  "artifacts": {
+    "original_manuscript": {
+      "present": true,
+      "path_or_passport_ref": "path:original_manuscript.md",
+      "sha256": "df7809760f530e043117c4741a2a54575f1ae2d8666a336587f324d8d634a524",
+      "version_label": null,
+      "origin_date": null
+    },
+    "revised_manuscript": {
+      "present": true,
+      "path_or_passport_ref": "path:revised_manuscript.md",
+      "sha256": "5f73b895261c314d22538104b3dfc797b71f06425b3a8554b1df9269466bd7e0",
+      "version_label": null,
+      "origin_date": null
+    },
+    "revision_roadmap": {
+      "present": true,
+      "path_or_passport_ref": "path:revision-roadmap.json",
+      "sha256": "21c899169d4aad8d516d23a51c0ec98f829c5f4174bfe17582f474b2728d3ff9",
+      "version_label": null,
+      "origin_date": null
+    },
+    "author_adjudication": {
+      "present": true,
+      "path_or_passport_ref": "path:author-adjudication.json",
+      "sha256": "44430684ad214a8f3d9dd1301792f8d71fa13fb61ff8b5f7ac44ea32fa6ca117",
+      "version_label": null,
+      "origin_date": null
+    },
+    "revision_evidence_bundle": {
+      "present": true,
+      "path_or_passport_ref": "path:revision-evidence-bundle.json",
+      "sha256": "e615e424dc6755933ae249fe2ba7c53374fe30a3207fea9776c8c43b5444a492",
+      "version_label": null,
+      "origin_date": null
+    },
+    "editorial_decision_letter": {
+      "present": false
+    },
+    "response_to_reviewers": {
+      "present": false
+    },
+    "revision_patches": {
+      "present": true,
+      "items": [
+        {
+          "path_or_passport_ref": "path:revision-patch.json",
+          "sha256": "cf0849cd76b4750701125fa4ee69195b9b2866d042b774b6d6370629c5579132",
+          "version_label": null,
+          "origin_date": null
+        }
+      ]
+    },
+    "apply_reports": {
+      "present": true,
+      "items": [
+        {
+          "path_or_passport_ref": "path:apply-report.json",
+          "sha256": "7c3ded175ed674ad0678e6681a097af270f1fb8b3a721fdfd6ea9026b8a16766",
+          "version_label": null,
+          "origin_date": null
+        }
+      ]
+    },
+    "round1_findings": {
+      "present": true,
+      "path_or_passport_ref": "path:round1_findings.md",
+      "sha256": "7422cb8846e57c888e516eae20eb165722154ec4e69453d43dd589deda87d291",
+      "version_label": null,
+      "origin_date": null
+    },
+    "round1_config_cards": {
+      "present": false
+    }
+  }
+}

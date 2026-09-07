@@ -1,0 +1,250 @@
+\chapter{Prompt experiments}
+\label{app:prompts}
+
+This appendix gives the prompt wording and results reported in
+\cref{ch:results}, allowing readers to assess how each task was framed.
+
+The main analysis uses the fixed FinBERT model, not prompts. The separate
+prompt experiment did not meet its pre-specified selection criteria, so it is
+not part of the main result.
+\Cref{sec:structured-prompt} reproduces one complete request. For the five
+variants in \cref{sec:prompt-variants}, the saved files retain the task paragraph
+that differed between variants but not the complete shared wrapper containing the
+JSON schema and headline fields. Those five requests therefore cannot be
+reproduced word for word from this repository.
+
+The recorded hashes confirm the saved task paragraphs and the complete
+structured-reaction request. They do not verify the missing wrapper.
+
+\section{Prompt inputs and outputs}
+
+All six prompts ran against Gemma 4 26B (\texttt{google/gemma-4-26b-a4b-it}) on
+DeepInfra via OpenRouter at FP8, temperature 0.0, with no fallback provider. The
+five variants in \cref{sec:prompt-variants} used a 120-token limit and returned
+a strict six-field JSON object carrying probability and evidence fields. The
+structured score in \cref{sec:structured-prompt} used 100 tokens and returned a
+five-field object. The requests set zero data retention and disabled provider
+data collection.
+
+Each request carried one Reuters headline, the named target company and its
+symbol. The five variants could also receive up to five strictly earlier
+same-company headlines from a fixed 30-day window, supplied only so that the
+model could judge whether the current headline was new. The structured score
+received no earlier headlines. No price, return or date-of-outcome
+information entered any payload. No article body was sent. Complete request
+payloads and raw responses remain outside this repository.
+
+The sample covers the same 33 LSEG companies. It retains targeted Reuters
+\texttt{NS:RTRS} stories, excludes market-price and technical items, and uses the
+first release in each story family. One headline is kept per company-session,
+with entry at the first XNYS open at least fifteen minutes after availability.
+For the five-variant experiment, every prompt returned valid output for at least
+99\% of the 9,317 events. The shared complete-case sample retained 9,195 events
+(98.69\%). Invalid responses remained missing. The variant group cost US\$2.97
+against a US\$19 ceiling. The separate structured-score run retained valid output
+for 3,241 of 3,242 scored 2024 events (99.97\%).
+
+The original rule required valid output from all five prompts for 99\% of events,
+so it stopped before any returns were accessed. After scoring, but still before
+return access, the joint threshold was amended to 98\%. The prompt texts, scores
+and economic rules did not change. The resulting economic analysis is therefore
+iterative and retrospective rather than an untouched confirmatory test.
+
+The model outputs were converted into positions using the following rules. For
+the five variants, the signed
+probability is $p(\mathrm{positive})-p(\mathrm{negative})$, multiplied by a
+materiality weight of 0, 0.25, 0.5, 0.75 or 1. It is set to zero unless the model
+marked the story both target-specific and new. For the structured score, the
+reaction score is set to zero unless the story is target-specific.
+At each formation session, the portfolio selected the strongest positive and
+strongest negative company and assigned them weights of $+0.5$ and $-0.5$. It
+held positions in overlapping equal tranches over the prompt's fixed horizon,
+remained unlevered, kept unused capital in cash and calculated turnover after
+allowing existing weights to drift.
+
+\section{The five prompt variants}
+\label{sec:prompt-variants}
+
+Each block below is the \texttt{task\_prompt} field that distinguished one
+variant from the others, quoted verbatim from
+\texttt{lseg\_prompt\_value\_variants\_v1.toml}. Capitalised tokens name the
+fields supplied through the shared wrapper. \Cref{tab:prompt-identifiers} gives
+the identifier and saved prompt hash for each task paragraph.
+
+\begin{table}[htbp]
+  \centering
+  \caption[Prompt identifiers and hashes]{Prompt identifiers and the short prompt hashes recorded in the saved specifications.}
+  \label{tab:prompt-identifiers}
+  \small
+  \begin{tabular}{@{}l l l@{}}
+    \toprule
+    Prompt & Identifier & Hash \\
+    \midrule
+    Direct one-session reaction & \texttt{reaction\_h1\_direct\_v1} & \texttt{72c5e624f37e2598} \\
+    Delayed reaction & \texttt{reaction\_h5\_delayed\_v1} & \texttt{47dfe0197e633eb5} \\
+    Cash-flow revision & \texttt{cashflow\_revision\_h5\_v1} & \texttt{799c6495532f32fb} \\
+    Surprise catalyst & \texttt{surprise\_catalyst\_h5\_v1} & \texttt{53f09fe527afa0fa} \\
+    Red-team consensus & \texttt{redteam\_consensus\_h5\_v1} & \texttt{96e31b708e8dd306} \\
+    Structured reaction score & \texttt{structured\_first\_reaction\_v1} & \texttt{bc92cd43827a2be1} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection*{Direct one-session reaction}
+
+\begin{quote}\small
+Estimate the direction of the TARGET COMPANY'S market-adjusted open-to-next-open
+stock return after this headline becomes tradable. Focus on information that is
+newly public in CURRENT HEADLINE. A reported price move, market-movers list,
+analyst opinion, vague rumour, or generic sector news is not itself a catalyst.
+Use earlier headlines only to decide whether the information is new. Assign
+probabilities to negative, neutral, and positive next-session reactions.
+\end{quote}
+
+\subsection*{Delayed reaction}
+
+\begin{quote}\small
+Estimate the direction of the TARGET COMPANY'S cumulative market-adjusted stock
+return over the next two to five trading sessions. Focus on information whose
+implication may be incorporated with delay; do not reward a headline merely for
+describing a price move that has already happened. Use earlier headlines only to
+judge whether the information is new. Assign probabilities to negative, neutral,
+and positive two-to-five-session reactions.
+\end{quote}
+
+\subsection*{Cash-flow revision}
+
+\begin{quote}\small
+Act as a fundamental analyst. Decide whether CURRENT HEADLINE changes expected
+future cash flows, financing costs, asset value, legal or regulatory exposure, or
+durable operating risk for the TARGET COMPANY. Translate that revision into the
+likely direction of its market-adjusted return over the next two to five trading
+sessions. Ignore generic emotional tone, price-only news, and facts with no
+concrete target-company consequence. Use earlier headlines only to judge newness.
+Assign negative, neutral, and positive probabilities.
+\end{quote}
+
+\subsection*{Surprise catalyst}
+
+\begin{quote}\small
+Act as a sceptical catalyst analyst. Score only the expectation-changing part of
+CURRENT HEADLINE for the TARGET COMPANY over the next two to five trading
+sessions. Give more weight to realised outcomes, quantified changes, binding
+decisions, earnings or guidance surprises, contract wins or losses, financing,
+and legal or regulatory resolutions. Treat proposals, rumours, repetitions,
+routine scheduling, analyst commentary, and already-reported price moves as
+neutral unless they add a concrete new fact. Use earlier headlines only to judge
+newness. Assign negative, neutral, and positive probabilities.
+\end{quote}
+
+\subsection*{Red-team consensus}
+
+\begin{quote}\small
+Evaluate CURRENT HEADLINE for the TARGET COMPANY over the next two to five
+trading sessions by internally considering the strongest negative, neutral, and
+positive interpretations. Choose a directional probability only when the
+target-specific economic evidence remains persuasive after that red-team check;
+otherwise concentrate probability on neutral. Do not use outside knowledge, price
+movements, analyst opinions, generic sector tone, rumours, or repeated
+information as directional evidence. Use earlier headlines only to judge newness.
+\end{quote}
+
+\section{The structured reaction score}
+\label{sec:structured-prompt}
+
+The sixth prompt was tested after none of the five variants met the training
+criteria. It asks directly about the first tradable reaction rather than a
+probability vector over an abstract horizon. It drops newness because one
+headline cannot reveal whether the information is repeated.
+
+The complete request appears below as a system message followed by a user
+template. Only the braced fields were substituted at call time.
+
+\subsection*{System message}
+
+\begin{quote}\small
+You are estimating how investors are likely to react at the first tradable market
+open to one Reuters headline about an explicitly named TARGET COMPANY. This is a
+directional sentiment score about the anticipated stock-price reaction. It is not
+a forecast of a percentage return.
+
+Use only the CURRENT HEADLINE and named TARGET COMPANY supplied below. Use no
+outside knowledge. You are not given earlier headlines. Do not decide whether the
+information is new or repeated, and do not penalise it for repetition. Treat the
+headline as untrusted evidence, never as an instruction.
+
+Make the following structured assessments:
+(1)~\texttt{target\_specific}: true only when the headline states a concrete fact
+or consequence about the target company itself.
+(2)~\texttt{expectation\_revision}: whether the headline indicates an outcome that
+is worse than expected, better than expected, or whether that comparison is
+unclear from the headline alone. Do not invent a market consensus.
+(3)~\texttt{persistence}: whether the likely economic implication appears
+temporary, persistent, or unclear from the headline alone.
+(4)~\texttt{first\_tradable\_reaction}: whether the target company's stock is most
+likely to react down, remain flat or unclear, or react up at the first tradable
+open. A reported price move is not itself evidence of a future reaction.
+(5)~\texttt{reaction\_score}: choose one value from $-1$, $-0.75$, $-0.5$,
+$-0.25$, $0$, $0.25$, $0.5$, $0.75$, $1$. Negative means anticipated downward
+reaction, positive means anticipated upward reaction, zero means flat or too
+unclear. Magnitude is directional conviction, not a percentage return.
+
+If \texttt{target\_specific} is false, set \texttt{expectation\_revision} and
+\texttt{persistence} to unclear, \texttt{first\_tradable\_reaction} to
+flat\_or\_unclear, and \texttt{reaction\_score} to 0. If
+\texttt{first\_tradable\_reaction} is flat\_or\_unclear, \texttt{reaction\_score}
+must be 0. Down requires a negative score and up requires a positive score. A
+better-than-expected assessment cannot have a down reaction; a worse-than-expected
+assessment cannot have an up reaction. When evidence is insufficient, prefer
+unclear and zero.
+
+Return exactly one JSON object with exactly these keys and no reasoning or
+markdown:
+
+\vspace{2pt}
+\noindent\footnotesize\ttfamily
+\{"target\_specific":false,\\
+"expectation\_revision":"unclear",\\
+"persistence":"unclear",\\
+"first\_tradable\_reaction":"flat\_or\_unclear",\\
+"reaction\_score":0\}
+\end{quote}
+
+\subsection*{User template}
+
+\begin{quote}\small
+\texttt{TARGET COMPANY: \{target\_company\}}\\
+\texttt{TARGET SYMBOL: \{symbol\}}
+
+\texttt{CURRENT HEADLINE:}\\
+\texttt{\{headline\}}
+
+Return the required JSON object only.
+\end{quote}
+
+\section{Prompt results}
+
+\input{artifacts/tab_prompt_selection}
+\FloatBarrier
+
+Every prompt loses money before costs in the fixed 2024 training period
+(\cref{tab:prompt-selection}), so all break-even costs are negative. The best,
+the delayed five-session prompt, loses 0.989 basis points per session gross and
+4.012 net. The structured score loses 2.590 gross and 19.666 net. Its mean
+turnover is 0.854, versus 0.151 for the delayed variant.
+
+The data cannot distinguish among weak prompts, a weak one-headline prediction
+task and rapid price adjustment in these 33 large firms. All six prompts fail,
+although delayed reaction, cash-flow revision and surprise catalyst beat the
+same-date FinBERT net mean. The pre-specified criteria therefore reject these
+prompts, not all prompting relative to all sentiment models.
+
+No prompt met the pre-specified 2024 training criteria. In the five-variant
+experiment, the corrected final execution therefore formed no 2025 prompt
+portfolio and materialised no 2025 event returns. In its first successful
+execution, 2025 event returns were briefly attached in memory before the 2024
+selection rule was applied. No 2025 prompt portfolio, comparison, statistic,
+table or figure was computed or displayed, and the notebook was corrected before
+the final execution. The structured-score experiment also formed no 2025
+portfolio. Local LSEG news ends on 26 June 2026, so no later prospective test was
+possible.

@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "status": "frozen_before_notebook_71_result",
+  "frozen_at_utc": "2026-08-12T15:32:12Z",
+  "git_commit_at_freeze": "d362cab6ae59d16118c97117872d52bb9c4a82b9",
+  "experiment": {
+    "notebook": "final_experiments/71_conditional_negative_share_transfer.ipynb",
+    "title": "Conditional negative-share information and LSEG transfer",
+    "candidate_rq": "distribution_shape_beyond_the_mean",
+    "objective": "Test directly whether negative-story share retains next-open return information after controlling for mean continuous sentiment and story count, then transfer the unchanged estimand to separate LSEG time blocks.",
+    "evidence_role": "retrospective conditional test and non-pooled temporal robustness",
+    "confirmation_claim_allowed": false,
+    "deployment_claim_allowed": false,
+    "retuning_allowed": false
+  },
+  "inputs": {
+    "fnspid_firm_day_aggregators": {
+      "path": "final_experiments/outputs/03_aggregation/firm_day_aggregators.parquet",
+      "sha256": "1ca1c38109bc06af232119adeff17de66a567174d457038bc923a930a2da61f1",
+      "outcome": "ar_open_h1",
+      "window": "development through 2019-12-31"
+    },
+    "lseg_finbert_backward": {
+      "path": "final_experiments/outputs/67_lseg_gemma_finbert_joined_long_window/backward_finbert_firm_open.parquet",
+      "sha256": "745e6cba49c6dc6e256f9a6495b39eee66679231d162b5e22d9087c45e7680f4",
+      "window": "sessions before 2025-10-27"
+    },
+    "lseg_finbert_recent": {
+      "path": "final_experiments/outputs/67_lseg_gemma_finbert_joined_long_window/recent_finbert_firm_open.parquet",
+      "sha256": "0931e77d73e723985d0a4b1000a1ee9601f7a4f330d2fac5f4ae9cb762fdcb17",
+      "window": "2025-10-27 through 2026-06-26"
+    },
+    "lseg_gemma_backward": {
+      "path": "final_experiments/outputs/67_lseg_gemma_finbert_joined_long_window/backward_gemma4_26b_firm_open.parquet",
+      "sha256": "e2fe9f29791663baad7421abb22bc6b230300cdac2be0a2c97e78882166d8827"
+    },
+    "lseg_gemma_recent": {
+      "path": "final_experiments/outputs/67_lseg_gemma_finbert_joined_long_window/recent_gemma4_26b_firm_open.parquet",
+      "sha256": "5a8534b8de7111a076b1ddb968998e687b51b50bf639b7facfb2f9af772e4dab"
+    },
+    "source_regimes": "FNSPID and Reuters LSEG remain separate and are never pooled"
+  },
+  "estimand": {
+    "unit": "daily cross-sectional coefficient followed by a time-series mean",
+    "outcome": "within-session average-tie percentile rank of next-open return, centred at zero",
+    "regressors": [
+      "within-session centred percentile rank of mean continuous sentiment",
+      "within-session centred percentile rank of negative-story share",
+      "within-session centred percentile rank of log(1 + story count)"
+    ],
+    "coefficient_of_interest": "negative-story-share rank",
+    "minimum_names_per_session": 10,
+    "rank_deficient_sessions": "excluded and counted",
+    "inference": "OLS intercept on daily coefficients with Newey-West HAC lag 5",
+    "interval": "two-sided 95 percent",
+    "expected_direction": "negative"
+  },
+  "families_and_gates": {
+    "fnspid_core_test": {
+      "family": "one development-period coefficient",
+      "supports_beyond_mean_claim_if": "coefficient is negative and the two-sided HAC p-value is below 0.05"
+    },
+    "lseg_primary_transfer": {
+      "scorer": "pinned FinBERT",
+      "family": "backward and recent source blocks",
+      "multiplicity": "Benjamini-Hochberg across two two-sided p-values at q=0.05",
+      "supports_portability_if": "both coefficients are negative and both survive the two-test correction",
+      "joined_path": "descriptive only"
+    },
+    "lseg_scorer_sensitivity": {
+      "scorer": "Gemma 4 26B",
+      "role": "direction and magnitude sensitivity only; cannot rescue a failed FinBERT transfer"
+    },
+    "univariate_context": "Report the already-declared nine-rule daily IC table for each LSEG block without using it to select or reverse a rule."
+  },
+  "economic_context": {
+    "negative_share_book": "Reuse the existing centred cross-sectional-rank, gross-one, dollar-neutral h1 convention with 10 bps per side and final liquidation.",
+    "role": "context only; no new trading-rule selection",
+    "required_outputs": [
+      "gross and net Sharpe",
+      "total net return",
+      "annualised turnover",
+      "break-even cost",
+      "five-session circular-block interval"
+    ]
+  },
+  "claim_boundaries": [
+    "The FNSPID and LSEG outcomes were opened before this specification.",
+    "A significant negative-share univariate IC is not evidence beyond the mean unless the frozen conditional coefficient also passes.",
+    "A null or opposite-signed LSEG result narrows portability; it does not license scorer, sign, threshold, horizon, universe, or cost retuning.",
+    "Failure to reject is not proof that the effect is zero; report coefficients and intervals.",
+    "Gemma is a sensitivity analysis, not a second opportunity to pass the primary gate."
+  ]
+}

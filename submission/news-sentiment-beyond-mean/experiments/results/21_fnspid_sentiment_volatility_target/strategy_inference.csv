@@ -1,0 +1,3 @@
+estimand,n,mean,ci_low,ci_high,p_two_sided,block_length,replications,seed
+sentiment minus control net return,998,4.546460960044542e-06,-2.8182585478585537e-05,3.7107780298431225e-05,0.7934,20,4999,20260807
+control minus sentiment downside squared return,998,-6.623787857595895e-07,-1.3839009466271926e-06,1.0842776253414817e-07,0.081,20,4999,20260808

@@ -1,0 +1,62 @@
+# Local environments and Python caches
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+*.egg-info/
+/tmp/
+
+# Licensed and generated research data
+Data/
+data/**
+!data/
+!data/README.md
+!data/factors/
+!data/factors/README.md
+!data/factors/french_ff3_daily.csv
+experiments/generated/
+*.sqlite
+*.sqlite3
+*.db
+*.parquet
+*.jsonl
+*.arrow
+*.feather
+*.pkl
+*.pickle
+
+# Model/API state
+.env
+.env.*
+!.env.example
+openrouter_*
+*_attempts.*
+*_scores.*
+models/
+checkpoints/
+cache/
+
+# LaTeX build products
+manuscript/**/*.aux
+manuscript/**/*.bbl
+manuscript/**/*.blg
+manuscript/**/*.fdb_latexmk
+manuscript/**/*.fls
+manuscript/**/*.lof
+manuscript/**/*.log
+manuscript/**/*.lot
+manuscript/**/*.out
+manuscript/**/*.pdf
+!manuscript/artifacts/fig_*.pdf
+manuscript/**/*.toc
+manuscript/**/*.synctex.gz
+
+# OS/editor state
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/

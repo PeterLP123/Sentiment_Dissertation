@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "status": "promoted_after_independent_byte_reproduction",
+  "promoted_at_utc": "2026-08-16T14:43:24Z",
+  "notebook": {
+    "path": "experiments/notebooks/86_fnspid_outcome_leg_decomposition.ipynb",
+    "sha256": "483d8d34da2b3574d2cb0b198ea0bc9238f1424ed8f5c266cfcd1fa946926eb9"
+  },
+  "runner": {
+    "path": "experiments/lib/outcome_leg_decomposition.py",
+    "sha256": "bf4afb80eb38f7a2f58dd765d532b73e1cd75b5e491cdcb4ef1ae9735b579bbe"
+  },
+  "spec": {
+    "path": "experiments/specs/fnspid_outcome_leg_decomposition_v1_20260816.json",
+    "sha256": "ae76ac148cb681ab3c2a0ca51e1f7420fedbb9e064bb3a7985abc5fff027f719"
+  },
+  "run_manifest_sha256": "e1af35348fed15c605b6b990f58af362c6e7ef3a770a2a4ec5c20877cb723540",
+  "independent_rerun": {
+    "path": "/private/tmp/news-sentiment-nb86.1QfgQj",
+    "csv_outputs_byte_identical": true,
+    "manifest_canonically_identical": true
+  },
+  "notebook_75": {
+    "executed": false,
+    "sha256_before_and_after": "df0b6c5105158198f62c828842b3ff3e1051ccaf664e7a778c9c66e11cffc455"
+  },
+  "promotion_rule": "Only licence-safe aggregate CSV outputs and their manifests were promoted; no row-level text or price panel was copied.",
+  "claim_boundary": [
+    "Post-review diagnostic, not independent confirmation.",
+    "Intraday placement does not identify story-arrival time.",
+    "Null, opposite-signed and adverse economic results are retained."
+  ]
+}

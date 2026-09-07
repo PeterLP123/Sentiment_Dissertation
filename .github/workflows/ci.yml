@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_NO_PROGRESS: "1"
+
+jobs:
+  final-submission:
+    name: Final submission validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff # v6
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - name: Install locked final-submission environment
+        run: make setup
+
+      - name: Validate project and final submission
+        run: make validate
+
+  historical-benchmark:
+    name: Historical benchmark checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff # v6
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - name: Install locked benchmark environment
+        run: make benchmark-setup
+
+      - name: Validate public benchmark and focused tests
+        run: make benchmark-check

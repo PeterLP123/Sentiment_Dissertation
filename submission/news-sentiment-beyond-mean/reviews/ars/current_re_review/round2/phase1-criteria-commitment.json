@@ -1,0 +1,37 @@
+{
+  "schema_version": "phase1-criteria-commitment/1.0",
+  "round_id": "ars-re-review-2026-08-14-round-2",
+  "base_draft_sha256": "5f73b895261c314d22538104b3dfc797b71f06425b3a8554b1df9269466bd7e0",
+  "roadmap_sha256": "8d9412dbb29253b0bf2dc2cb30e81b5e3593f07785afbc6461c124cccd0737d1",
+  "author_event_id": "AUTHOR-EVENT-2026-08-14-round2-roadmap-authorization",
+  "review_scope": "The two authorized Round-2 wording obligations only; no new standards are introduced.",
+  "items": [
+    {
+      "item_id": "REV-ESTIMAND-ALIGNMENT-R2",
+      "obligation_class": "should_fix",
+      "inherited_criterion": "The appendix project summary explicitly pairs -0.00831 with +0.00583 and identifies -0.00914 as separate recent-price-control robustness.",
+      "fully_addressed": "The appendix project summary identifies -0.00831 as the development baseline matched to the frozen +0.00583 estimate and identifies -0.00914 only as a separate development recent-price-control robustness estimate.",
+      "partially_addressed": "The three estimates are present, but their matched-baseline and separate-robustness roles remain unclear or another relevant appendix comparison still conflates them.",
+      "made_worse_discriminator": "The revision newly pairs +0.00583 with -0.00914 as matched baseline estimates, mislabels -0.00831, or otherwise increases estimand conflation.",
+      "expected_change_surface": "Appendix project summary Outcome (B0018).",
+      "equivalence_policy": "allowed",
+      "source_reviewer_labels": [
+        "EIC"
+      ]
+    },
+    {
+      "item_id": "REV-INTERPRETATION-BOUNDARY-R2",
+      "obligation_class": "should_fix",
+      "inherited_criterion": "The results synthesis and appendix project summary limit the instability finding to the measured baseline pipeline association and explicitly state that its cause is unidentified.",
+      "fully_addressed": "Both the results synthesis and appendix project summary describe instability only in the measured baseline pipeline association and explicitly state that the evidence does not identify its cause.",
+      "partially_addressed": "One of the two expected passages is bounded correctly, but the other remains broader than the measured baseline pipeline association or does not leave the cause unidentified.",
+      "made_worse_discriminator": "The revision strengthens causal attribution, presents a plausible explanation as established, or broadens the instability claim beyond the measured baseline pipeline association.",
+      "expected_change_surface": "Results synthesis (B0014) and appendix project summary Outcome (B0018).",
+      "equivalence_policy": "allowed",
+      "source_reviewer_labels": [
+        "R1"
+      ]
+    }
+  ],
+  "new_standards": []
+}

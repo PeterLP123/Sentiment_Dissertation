@@ -1,0 +1,365 @@
+\chapter{Results}
+\label{ch:results}
+
+Results follow the six methodology steps. Threshold and story-count checks come
+after the temporal test because they affect both periods.
+
+\section{Steps 1 and 2: aggregation comparison and controlled estimate}
+
+Only negative-story share remains statistically significant after correcting
+the nine training-period comparisons, and the relationship is small and
+negative. It is the only rule in
+\cref{tab:aggregation-family,fig:aggregation-ic} to survive the adjustment for
+nine comparisons: its mean daily rank correlation is $-0.00543$, with HAC
+$t=-3.12$ and $p=0.0018$. The hard-label and continuous-score means are near
+0.003, both with $p>0.09$. Median sentiment and decayed state have only
+uncorrected $p$-values below 0.05. Non-mean summaries do not outperform as a
+group. The comparison also cannot explain why negative-story share alone
+survived correction.
+
+\input{artifacts/tab_aggregation_family}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.98\textwidth]{fig_aggregation_family}
+  \caption[Nine-rule information coefficients]{Mean daily rank correlation between each aggregation rule and the assigned-session open-to-next-open abnormal return in the FNSPID training period. Bars are 95\% Newey-West HAC(5) intervals over 2,264 sessions. Grey rules do not remain significant after correction across nine tests. Source: aggregate Notebook 03 outputs.}
+  \label{fig:aggregation-ic}
+\end{figure}
+
+The relationship remains negative after accounting for average sentiment and
+story count. Across 512,149 firm-days and 2,264 sessions, the controlled
+negative-share coefficient is $-0.00831$ (SE $0.00295$, 95\% CI
+$[-0.01410,-0.00252]$, $p=0.0049$). It clears the simple nine-test Bonferroni
+threshold of 0.00556.
+
+The same training data helped select negative share before the model was
+estimated. This interval therefore understates selection uncertainty, and the
+estimate may be inflated.
+
+The coefficient describes an ordering, not a basis-point return. Within a
+session, higher negative-share rank is associated with lower assigned-window
+return rank after controlling for mean sentiment and $\log(1+n)$. Adding
+one- and five-session return ranks plus 20-session volatility gives $-0.00914$
+(SE $0.00282$, 95\% CI $[-0.01466,-0.00362]$, $p=0.00118$) on price-complete
+rows. \Cref{tab:price-controls} shows the nested models.
+
+\begin{table}[htbp]
+  \centering
+  \caption[Price-path control coefficients]{Negative-story-share coefficient as recent-return and volatility controls are added. All variables use average-tie percentile ranks shifted by one half within session.}
+  \label{tab:price-controls}
+  \small
+  \input{tables/tab_reversal_confound}
+\end{table}
+
+In the full model, the one-session return and volatility controls are both
+negative, while the mean-sentiment coefficient is close to zero
+(\cref{tab:price-controls}). Negative share remains negative after these controls
+are added. The beta-adjusted coefficient is $-0.01054$, or $-0.00950$ after
+controlling for beta rank; both survive correction.
+
+Ties restrict the observed negative-share-rank spread to 0.56056 between the
+pooled 90th and 10th percentiles. The full-control translation is therefore
+$0.56056\times-0.00914=-0.00512$, or $-0.512$ return-rank percentile points.
+Using the mean within-session spread gives $-0.482$ points. Both are small.
+
+\Cref{tab:headline-estimates} collects the main training-period, testing-period,
+scale and separate-source coefficients.
+\input{artifacts/tab_headline_estimates}
+
+\section{Step 3: where the association appears in the return window}
+\label{sec:outcome-leg-decomposition}
+
+The window split in \cref{tab:outcome-leg-decomposition} changes the timing
+interpretation. The assigned-open-to-close coefficient is $-0.01029$ (95\% CI
+$[-0.01596,-0.00462]$, BH $q=0.0011$), while close-to-next-open is $+0.00155$
+($[-0.00416,+0.00725]$, $q=0.595$). The training association is intraday, not in
+the later overnight leg that more plausibly follows the day's news.
+
+Pre-open returns do not resolve the problem. Previous-close-to-assigned-open is
+$-0.00638$ (unadjusted $p=0.0457$, BH $q=0.0686$). The separate
+previous-open-to-assigned-open probe is $-0.01926$ (95\% CI
+$[-0.02580,-0.01272]$, $p=7.9\times10^{-9}$). Stock and SPY return identities
+reconcile within $1.8\times10^{-15}$, and the reconstructed abnormal return
+matches the baseline panel exactly.
+
+\input{artifacts/tab_outcome_leg_decomposition}
+
+The FNSPID data cannot place each story before or after the assigned open, so
+they do not support a claim that the effect is specific to next-open
+returns. The intraday coefficient
+may be contemporaneous. Assignment lag or earlier information may explain the
+previous-open result. Aggregate data cannot separate these explanations or
+quantify their role in the story-count and period patterns.
+
+The post-result measurement checks in
+\cref{tab:outcome-label-sensitivities} carry no timing claim. The hard-share
+coefficient is $+0.00027$ (BH $q=0.929$) on close-to-close returns and $+0.00182$
+($q=0.815$) when the outcome is the trailing FF3 residual of those returns. Mean
+FinBERT $p(\mathrm{negative})$ is $-0.00378$ on the primary outcome ($q=0.337$).
+None survives correction.
+
+\input{artifacts/tab_outcome_label_sensitivities}
+
+\section{Step 4: the fixed 2020--2023 test}
+\label{sec:temporal-replication}
+
+The fixed test does not repeat the training-period relationship: the unchanged
+coefficient changes sign. Across 203,393 testing firm-days and 998 sessions, the
+all-firm-day coefficient is $+0.00583$ (95\% CI
+$[-0.00426,+0.01593]$, $p=0.257$, BH $q=0.515$). The pre-specified multi-story
+estimate is $+0.00295$ ($[-0.00990,+0.01581]$, $q=0.653$). None of the nine
+information coefficients survives correction, so H1b is not supported. Under
+the pre-specified decision rule, no alternative aggregator is selected and the
+signal is not reversed.
+
+The pre-specified testing-minus-training contrast is $+0.01414$ (SE $0.00594$,
+95\% CI $[+0.00250,+0.02579]$, $p=0.0173$). It remains statistically significant
+with HAC lags from 0 to 42. The daily coefficient series shows almost no serial
+dependence, and Ljung--Box tests through lag 21 find no evidence of serial
+correlation. The contrast is therefore unlikely to be caused by the chosen lag
+length.
+
+Changing the market benchmark does not remove the contrast. It is $+0.01884$
+after trailing-beta adjustment and $+0.01628$ with beta rank controlled; both
+survive correction. Unit market beta does not explain the period difference.
+
+The window split does not locate the change. Testing-period intraday and
+post-close coefficients are small and positive, while the pre-open overnight
+coefficient is negative and survives correction. None of the corresponding
+between-period contrasts survives correction. These additional tests do not
+identify one return leg as the source of the instability.
+
+\Cref{fig:coefficient-drift} places both periods on one axis. Annual means are
+negative from 2011 to 2018 and non-negative from 2019 onward. Because 2019 is
+the final training year, the sign change does not align with the fixed boundary
+and starts before COVID-19. Every annual interval crosses zero, so the figure
+identifies neither a break date nor its cause.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.98\textwidth]{fig_coefficient_drift}
+  \caption[Baseline coefficient by calendar year]{Calendar-year mean of the daily negative-share coefficient from \cref{eq:conditional-base}. Bars are 95\% intervals from annual standard errors. The daily coefficients have almost no autocorrelation, so these are close to HAC intervals. Dashed and dotted lines mark the training and testing means. The figure is descriptive: annual estimates are uncertain and show neither a break date nor a cause. Source: aggregate Notebook 75 daily coefficient series.}
+  \label{fig:coefficient-drift}
+\end{figure}
+
+The test had limited ability to detect a small negative relationship. Pre-test
+power was 35.4\%, with an 80\%-power MDE of 0.01372 at the corrected two-test
+threshold. The observed HAC error was 15.8\% larger, implying 26.5\% power and an
+MDE of 0.01588. The failed test therefore cannot establish a zero effect. Winner
+selection and sampling variation may contribute to the discrepancy, but the data
+do not identify the cause. The positive sign also cautions against transferring
+\citet{garcia2013}'s aggregate recession result directly to this firm-level
+design.
+
+\section{Thresholds and story counts}
+\label{sec:robustness-diagnostics}
+
+The baseline remains negative at HAC lags 5, 10 and 21, but story-count subsets
+are less stable (\cref{tab:robustness-diagnostics,fig:estimate-stability}). The
+coefficient is $-0.01025$ on one-story days (95\% CI
+$[-0.01943,-0.00107]$, $p=0.0286$), $-0.00529$ at $n\geq2$
+($[-0.01272,+0.00214]$), and $-0.00183$ at $n\geq3$
+($[-0.01385,+0.01019]$).
+
+\input{artifacts/tab_robustness_diagnostics}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.98\textwidth]{fig_estimate_stability}
+  \caption[Estimate stability under controls and story count]{The negative-share coefficient as recent-price controls are added (left) and the minimum same-day story count rises (right). Bars are 95\% HAC(5) intervals. Sources: aggregate Notebooks 74 and 79.}
+  \label{fig:estimate-stability}
+\end{figure}
+
+Separate subset models do not test whether groups differ: ranks are recalculated
+within each subset and the one-story model drops the constant count regressor.
+Observed-scale effects are $-0.516$, $-0.324$ and $-0.122$ percentile points,
+with overlapping intervals. A one-story mechanism remains unresolved. The
+testing period has more singletons, so that shift alone cannot explain its
+positive coefficient.
+
+The double sort in \cref{fig:double-sort} is similar. Within mean-sentiment
+quintiles, high-minus-low negative share averages $-0.618$ basis points per
+session (95\% CI $[-1.510,+0.275]$, descriptive $p=0.175$). At $n\geq2$, the
+estimate is $-0.253$ ($[-1.821,+1.315]$). H2 has the declared direction, but
+both intervals include zero.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.98\textwidth]{fig_double_sort}
+  \caption[Double-sort high-minus-low spreads]{High-minus-low difference in assigned-session open-to-next-open abnormal return, calculated within five average-sentiment groups. The right panel requires at least two stories. All 95\% HAC(5) intervals cross zero. Source: aggregate Notebook 76 outputs.}
+  \label{fig:double-sort}
+\end{figure}
+
+\section{Step 5: transaction costs}
+
+Before costs, the negative-share portfolio earns $0.890$ basis points per
+session on one-way turnover of 0.712 (\cref{fig:break-even}). A 10-basis-point
+per-side charge costs 14.24 basis points and leaves $-13.35$ basis points net.
+The descriptive break-even point is $0.625$ basis points per side. Across nine
+rules it ranges from $0.116$ to $0.625$, making the assumed charge 16.0 times
+the best point estimate.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.98\textwidth]{fig_break_even_cost_gap}
+  \caption[Break-even costs against the assumed charge]{Per-side break-even transaction-cost point estimates for nine FNSPID rules on a logarithmic scale. The shaded band is the gap between the best estimate and the 10-basis-point charge. Source: aggregate Notebook 03 outputs.}
+  \label{fig:break-even}
+\end{figure}
+
+Learned no-trade filters do not solve the cost problem. Testing AUCs are
+0.5005--0.5038, and net performance is 7.72--16.89 basis points below the fixed
+band. Gradient-boosted and logistic losses exceed their nominal MDEs. The MLP's
+7.72-basis-point loss remains imprecise against a 10.04-basis-point MDE. The
+shuffled-label control's simulated wealth falls below zero, so later performance
+measures are undefined. H3 fails for every implementation.
+
+\section{Step 6: same-session risk tests}
+
+The news modifier does not show a clear overall advantage over the volatility
+benchmark once their different levels of market exposure are considered.
+
+In the 2020--2023 same-session comparison, the negative-pressure state raises
+HAR cumulative net return from 29.85\% to 35.20\% and lowers mean exposure from
+0.619 to 0.569. The 0.366-basis-point average return advantage is imprecise, while
+squared downside falls ($p=0.0148$). Maximum drawdown worsens from $-15.73\%$ to
+$-16.36\%$, despite improving in 2020 from $-12.95\%$ to $-7.39\%$.
+
+An after-the-fact constant HAR multiplier matches the overlay's realised mean
+exposure. The overlay gains 0.592 basis points per session against this
+descriptive comparator (95\% block-bootstrap CI $[-0.635,+1.962]$, $p=0.3712$).
+The interval crosses zero, and the comparator was not selected in training.
+
+Almost the entire advantage in \cref{fig:har-equity} arises during the first ten
+weeks of 2020. The overlay cuts exposure during the COVID-19 crash and avoids
+part of the HAR portfolio's fall to a net-equity index of 0.90. The paths then
+run almost parallel, and the overlay gives back part of that lead in 2022.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.98\textwidth]{fig_har_sentiment_equity}
+  \caption[HAR and same-session news-risk equity]{Daily exposure (top) and cumulative net equity after 2 basis points per side (bottom) for the fixed HAR target and the same-session news risk rule across the 998-session testing period. The news rule ends at 1.352 against the base at 1.298. It uses news assigned to the current session and is not a one-session-lagged trading signal. Source: Notebook 24.}
+  \label{fig:har-equity}
+\end{figure}
+
+\Cref{fig:downside-placebo,fig:risk-regime} first test whether the risk-off
+schedule aligns unusually with downside days. They do not show whether the news
+was known before returns began. About 1\% of non-zero circular shifts match the
+observed FNSPID 2020--2023 squared-downside reduction. Across the three tested
+periods (FNSPID 2013--2019, FNSPID 2020--2023 and LSEG/Gemma 2025--2026), only
+FNSPID 2020--2023 remains unusual after correction (BH $q=0.0301$).
+
+A separate concentration check omits each of the 44 FNSPID 2020--2023 risk-off
+episodes in turn. Every resulting confidence interval for the squared-downside
+reduction remains above zero. The interval also remains above zero after
+excluding February--April 2020 ($p=0.0034$). Although the two largest episodes
+contribute 30.1\% and 14.3\% of the total reduction, neither one episode nor the
+first COVID-19 crash explains the whole result.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.98\textwidth]{fig_timing_placebo}
+  \caption[Schedule-shift alignment diagnostic]{Position of each observed squared-downside reduction among non-zero shifts of the same-session risk-off schedule. The three periods are FNSPID 2013--2019, FNSPID 2020--2023 and LSEG/Gemma 2025--2026. Only FNSPID 2020--2023 remains unusual after BH correction. This diagnostic tests alignment conditional on the session mapping; it does not establish that the signal was available before the return. Source: aggregate Notebook 45 outputs.}
+  \label{fig:downside-placebo}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.98\textwidth]{fig_risk_regime_stability}
+  \caption[Same-session news rule minus base by period]{Mean return of the same-session news risk rule minus its sentiment-free base by period. These are period means. Only the pooled 2020--2023 squared-downside alignment result survives its correction. Sources: aggregate Notebooks 24 and 25.}
+  \label{fig:risk-regime}
+\end{figure}
+
+The downside result survives schedule-shift and leave-out checks, but it remains
+a same-session relationship because current-session news sets exposure under the
+news risk rule. Overall drawdown is worse, return advantages over HAR and the
+after-the-fact constant are imprecise, the 2013--2019 comparison is null, and the
+rule never activates in the later LSEG period. It has no demonstrated timing or
+economic advantage based on information known in advance.
+
+\section{The LSEG analysis}
+
+Both primary LSEG coefficients are negative, but they use a different data
+source and return definition from FNSPID. The earlier-period estimate is $-0.02861$
+(95\% CI
+$[-0.07283,+0.01560]$, BH $q=0.409$). The later-period estimate is $-0.01573$
+($[-0.09453,+0.06308]$, $q=0.696$). Their 80\%-power MDEs are 7.6 and 13.6 times
+the FNSPID baseline. The samples cannot show whether the relationship repeats
+in another source
+(\cref{fig:cross-source-power}).
+
+An earlier 44-firm LSEG comparison also produces no BH survivor in either of its
+two families: the 18-test aggregator/scorer family and the eight-test
+scorer/filter family. It is reported separately because it uses different firms.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.98\textwidth]{fig_cross_source_coefficient_power}
+  \caption[Cross-period and cross-source coefficients]{Negative-share estimates after the main controls, with 95\% HAC intervals. The fixed FNSPID test uses 2020--2023. LSEG uses raw returns rather than FNSPID market-adjusted returns, so the data sources are never combined. LSEG labels show its 80\%-power MDE as a multiple of the FNSPID coefficient. Sources: aggregate Notebooks 71, 75, 77 and 79.}
+  \label{fig:cross-source-power}
+\end{figure}
+
+The FNSPID risk rule never fires in the later period: its maximum $z$-score is
+1.349 against an entry threshold of 1.5. It fires on 53 of 456 sessions in the
+earlier period. Downside and shift placement survive correction, but the return
+difference is 0.144 basis points (95\% CI $[-1.295,+1.688]$), and two of eighteen
+episodes provide 65.6\% of the reduction. This does not show that the result
+repeats in another source.
+
+The aggregate search compared 6,672 combinations of news-pressure measure,
+historical normalisation, lookback window, risk-off mapping, threshold and
+exposure multiplier. All comparisons used three chronological 152-session
+training folds. One aggregate rule was selected from those folds and evaluated
+once, unchanged, in the later 167-session testing period. Its testing difference
+is $-0.049$ basis points (95\% CI $[-0.656,+0.633]$).
+
+A separate firm-level search compared 4,608 company-level rules using the 445
+complete training sessions described in \cref{ch:data}. The selected rule was
+then evaluated in the same 167-session testing period. It reduces losses against
+full investment but loses to training-selected constant company weights, with
+0.63 percentage points more drawdown, 0.27 percentage points more downside
+deviation and 25.9 times the turnover (\cref{fig:lseg-matched-value}).
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.98\textwidth]{fig_lseg_matched_control_value}
+  \caption[LSEG matched-control economic value]{Firm-level LSEG loss control over the 167-session testing period. The news rule reduces losses compared with full investment, but a constant rule with the same average exposure performs better. The right panel shows how avoided losses, missed gains, costs and compounding produce the difference in ending wealth. Source: aggregate Notebook 82 outputs.}
+  \label{fig:lseg-matched-value}
+\end{figure}
+
+Per US\$1 million, the rule avoids US\$24,738 of losses but forgoes US\$41,126
+of gains. It also incurs US\$12,715 of costs. A US\$1,767 compounding residual
+reconciles the US\$30,870 ending-wealth gap. Every pre-specified economic
+criterion fails, so H4 fails.
+
+\section{Prompt experiments and what the nulls show}
+
+No prompt meets the pre-specified 2024 training criteria
+(\cref{fig:prompt-gate}). The best
+loses 0.989 basis points per session gross and 4.012 net. The structured reaction
+score loses 2.590 gross and 19.666 net. All break-even costs are negative, so no
+2025 prompt portfolio is computed.
+\ifdefined\withoutappendices
+\else
+  \Cref{app:prompts} gives one complete request, the five variant-specific task
+  paragraphs and all per-prompt results.
+\fi
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.98\textwidth]{fig_prompt_gate}
+  \caption[Prompt selection results]{Gross and net 2024 portfolio means for five target-specific prompts and one structured reaction score. Every variant is negative before costs and fails the pre-specified criteria. Sources: aggregate Notebooks 83 and 84.}
+  \label{fig:prompt-gate}
+\end{figure}
+
+Many secondary tests are too imprecise to rule out effects that could still
+matter economically. Median nominal MDEs in \cref{tab:null-mde} are 18.8 basis points per unit of
+negative share for story-type interactions, 15.5 for earnings-window
+interactions and 0.049 daily-IC units for publisher rules. These large thresholds
+leave economically relevant effects inside the null intervals.
+
+\input{tables/tab_null_mde}
+
+Taken together, H1a is consistent with the training estimate, subject to
+selection and timing. H1b is not supported in testing, H2 has the declared sign
+but is imprecise, and H3--H4 miss their economic criteria. The evidence
+establishes neither causality, pre-return availability nor cost coverage.

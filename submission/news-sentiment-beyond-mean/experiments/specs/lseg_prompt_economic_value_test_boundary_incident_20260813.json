@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "status": "recorded_and_corrected_before_final_execution",
+  "recorded_at_utc": "2026-08-13T01:11:03Z",
+  "parent_spec": "final_experiments/frozen_specs/lseg_prompt_economic_value_v1_20260813.json",
+  "incident": "The first successful Notebook 83 execution attached forward returns to all pre-2026 complete-case events before applying the 2024 selection gate. This materialised event-level 2025 returns in memory even though no prompt passed selection and no 2025 portfolio, comparison, statistic, table or plot was computed or displayed.",
+  "affected_execution_manifest_sha256": "58212df5b7cdd60b31af3eb468dc88eff81a68db34bc426aaf6280563c376d59",
+  "observed_2024_selection": "All five prompts had negative gross and net means; eligible prompt count was zero.",
+  "scientific_effect": "The planned claim that 2025 event returns were never materialised is false for the first execution. Because the project is explicitly retrospective and the selected-prompt count was zero, no 2025 prompt result influenced selection or interpretation. The incident nevertheless removes any pristine one-shot status from a later reuse of 2025 for this prompt family.",
+  "correction": "The notebook now attaches returns only to 2024 events before selection. It attaches 2025 event returns inside the selected-prompt branch only. The final execution must record zero 2025 event returns materialised when no prompt is eligible.",
+  "required_disclosure": "Report the empty 2025 portfolio result and this implementation incident. Do not describe 2025 as never opened without the qualification that the first execution materialised event-level returns but computed no prompt portfolio result.",
+  "unchanged": [
+    "2024 selection results",
+    "five prompts and scores",
+    "signals, horizons, costs and portfolio rules",
+    "2026 price and return seal"
+  ]
+}

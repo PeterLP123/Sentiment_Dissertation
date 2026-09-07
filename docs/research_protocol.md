@@ -2,7 +2,7 @@
 
 Last updated: 2026-08-14
 
-> **Current status.** This protocol governs the closing `final_experiments/` phase. Gate F1 selected the aggregation/temporal-stability research question on 2026-08-14, before Notebook 75 opened its declared outcomes. Notebook 75 then recorded temporal non-replication. The live [final experiments plan](../final_experiments/plan.html) records operational decisions and checklist status; this document records the scientific constraints and result boundaries that remain binding.
+> **Historical record.** This protocol governed the pre-submission `final_experiments/` phase and is preserved for auditability. The completed, canonical study is [`submission/news-sentiment-beyond-mean/`](../submission/news-sentiment-beyond-mean/README.md). Its frozen specifications and evidence map control the submitted claims; the constraints below remain useful when reproducing the archived experiments.
 
 Operational guides:
 

@@ -1,0 +1,171 @@
+\chapter{Data and panel construction}
+\label{ch:data}
+
+\section{The FNSPID panel}
+
+FNSPID combines about 15.7 million public financial-news records with 29.7
+million US equity-price observations \citep{dong2024}. I retain firms with
+coverage in every calendar year.
+
+The fixed rule requires at least 20 mappable news days in every calendar year
+from 2011 through 2023. It returns 574 ticker strings. Three lack price files and
+one produces no joined firm-day, leaving 570 after joining news, adjusted opens
+and SPY prices. SPY is an exchange-traded fund that tracks the S\&P 500 and is
+used here as the market benchmark. This coverage-filtered firm universe favours
+surviving, well-covered firms. It follows data availability rather than
+historical index membership and applies no further security-type filter.
+
+The panel contains 715,546 news-bearing firm-days across 3,262 sessions:
+512,153 in training and 203,393 in testing. Four training outcomes are missing,
+so 512,149 rows enter the nine-rule comparison.
+
+Training-period coverage is sparse: 247,470 firm-days (48.3\%) have one story,
+127,541 (24.9\%) have two, and 137,142 (26.8\%) have at least three. On a
+one-story day, negative share is a binary label rather than a distribution
+across stories.
+
+Each story row stores its symbol, assigned session, whether it is marked as a
+recap and three FinBERT class probabilities. Rows are collapsed into the
+firm-session counts, means,
+dispersion, label shares and other rules in \cref{ch:methodology}. Each
+observation combines one priced firm with one assigned exchange session; this is
+the analytic unit $(i,t)$. Story text remains in a local database and never
+enters this repository or its intermediate files.
+
+Timing follows the fixed session-mapping rule. Date-only records move to the first
+New York Stock Exchange session after their date, whereas timestamped records
+keep the session implied by that time. The date-only rule can therefore delay pre-open
+news by a full session. Because the data contain neither verified availability
+times nor a row-level timing-precision flag, it is not possible to identify the
+affected rows.
+Some stories may have appeared after their assigned return window opened, which
+prevents an interpretation based on news known before the return began.
+
+\section{Scoring a story}
+
+FinBERT assigns each story a probability of positive, neutral and negative
+sentiment. The same fixed ProsusAI FinBERT classifier scores both data sources.
+They use model identifier \texttt{ProsusAI/finbert} at revision
+\texttt{4556d13015211d73\allowbreak dccd3fdd39d39232506f3e43}, loaded from an
+enforced local snapshot. For story $j$ about firm $i$ on assigned session $t$,
+the continuous score is
+
+\begin{equation}
+ s_{ijt}=p_{ijt}(\mathrm{positive})-p_{ijt}(\mathrm{negative}),
+ \qquad -1\leq s_{ijt}\leq 1.
+ \label{eq:continuous-score}
+\end{equation}
+
+The hard label is the class with the highest probability. A negative probability
+of 0.40 wins if the other two are lower, so the boundary is relative rather than
+a confidence threshold. The model was pretrained on financial text and
+fine-tuned on Financial PhraseBank \citep{araci2019}. FNSPID has no human-label
+audit or independent-model comparison, so the analysis concerns the unverified
+outputs of one fixed classifier.
+
+The mix of sentiment classes changes modestly at the period boundary. The
+1,183,961 training
+stories are 16.80\% negative, 60.01\% neutral and 23.20\% positive. The 415,490
+testing stories are 15.84\%, 61.42\% and 22.74\%. Negative share is zero on
+74.93\% of training firm-days and 76.85\% of testing firm-days. Single-story
+days rise from 48.32\% to 56.53\%. These shifts do not explain the sign reversal
+alone. Timing, mapping, coverage, classifier behaviour and composition may also
+matter.
+
+Training covers 2,264 sessions from 3 January 2011 to 31 December 2019. Testing
+covers 998 sessions from 2 January 2020 to 18 December 2023. Before the testing
+estimates were calculated, the two coefficients, multiple-testing adjustment,
+power assumptions and decision rule were fixed. The test then ran once without
+changes.
+
+Some later portfolio outcomes had already been examined. This decision was
+recorded internally rather than in an independently timestamped
+preregistration, so the testing period was not completely unseen.
+
+\section{The return being explained}
+
+Daily prices come from the FNSPID archive, whose reference collection code
+downloads Yahoo Finance bars. Yahoo publishes an adjusted close but not an
+adjusted open, so I build the proxy\footnote{See the \href{https://github.com/Zdong104/FNSPID_Financial_News_Dataset/blob/main/data_scraper/stock_price_scraper/get_price_from_yahoo.py}{FNSPID price scraper} and \href{https://help.yahoo.com/kb/adjusted-close-sln28256.html}{Yahoo adjusted-close documentation}, both accessed 15 August 2026.}
+
+\begin{equation}
+ P^{\mathrm{adj,open}}_{it}=P^{\mathrm{open}}_{it}
+ \frac{P^{\mathrm{adj,close}}_{it}}{P^{\mathrm{close}}_{it}}.
+ \label{eq:adjusted-open}
+\end{equation}
+
+Applying Yahoo's adjusted-close ratio to the open transfers its split and
+dividend adjustments. I did not reconstruct corporate actions independently.
+The result is therefore neither an audited total-return series nor an exact
+implementation price. Prices advance to the next SPY-calendar session, not the
+firm's next news day, avoiding multi-session returns when an intervening session
+has no story. The primary outcome is
+
+\begin{equation}
+ r^{A}_{i,t+1}=\left(\frac{P^{\mathrm{adj,open}}_{i,t+1}}
+ {P^{\mathrm{adj,open}}_{it}}-1\right)-
+ \left(\frac{P^{\mathrm{adj,open}}_{\mathrm{SPY},t+1}}
+ {P^{\mathrm{adj,open}}_{\mathrm{SPY},t}}-1\right).
+ \label{eq:abnormal-return}
+\end{equation}
+
+Subtracting SPY's open-to-open return gives a simple market-adjusted event-study
+outcome \citep{mackinlay1997}. Two additional sensitivity checks replace unit market
+exposure with a 252-session trailing stock-SPY beta. One beta-adjusts the
+outcome; the other also controls for beta rank. The baseline association and
+period contrast persist, but remain rank associations, not estimates of factor
+alpha.
+
+\section{The Reuters/LSEG data}
+
+Reuters coverage supplied through LSEG covers 33 large US firms across several
+sectors. It is denser and has richer source and availability fields than the
+available FNSPID data, making it useful as a separate second sample.
+
+The two non-overlapping LSEG periods both follow the FNSPID training period. The
+earlier period has 14,935 firm-days across 456 sessions (2 January 2024--24
+October 2025). The later period has 5,511 rows across 167 sessions (27 October
+2025--26 June 2026). Both cover 33 firms.
+
+News density prevents a direct replication. Median daily story count is 61 in
+the earlier period and 90 in the later period, versus 2 in FNSPID training. A
+large share change may flip one of two FNSPID labels, but shifts a dense
+distribution in LSEG.
+
+LSEG maps each story to the first New York Stock Exchange (XNYS) open at least
+fifteen minutes after recorded availability, which FNSPID cannot do. The
+cross-source table uses raw open-to-open returns because the LSEG aggregate lacks
+the FNSPID abnormal-return construction. A common centred percentile-rank
+transform puts the coefficients on a comparable scale. The outcomes remain
+different and are labelled accordingly. The sources are never pooled.
+
+The firm-level LSEG economic test requires all 33 firms to be present in every
+included session. This removes 11 sessions from the earlier period. The complete
+panel contains 612 sessions: 445 for training and 167 for testing. The training
+sessions are divided into three chronological folds without changing their time
+order. A single rule selected from these folds is then tested on the later
+period.
+
+The rule is compared with an equal-weight long portfolio and two
+constant-exposure controls selected in training.
+
+Licensed source records, complete request payloads and raw model responses are
+excluded from this repository. The prompt appendix reproduces the available
+templates and describes the headline fields sent to the model provider.
+
+\section{Data limitations}
+
+FNSPID lacks stable publisher identifiers, near-duplicate clusters and links
+from an update to its first release. Several negative rows may therefore restate
+one event. Controlling for
+$\log(1+n_{it})$ separates score patterns from coverage volume, but not new
+information from repetition, a distinction that affects market response
+\citep{tetlock2011stale}.
+
+Source density differs sharply, classifier errors remain possible, and FNSPID
+requires news, a mapped symbol, a stock open and a SPY open. Average firms per
+session fall from 226.2 in training to 203.8 in testing. There is no
+common-universe re-estimate, publisher breakdown or row-level timestamp audit.
+The period difference shows that the estimated relationship is not stable across
+these periods, but it does not explain why. Market conditions, coverage,
+production, mapping and classifier behaviour all remain possible explanations.

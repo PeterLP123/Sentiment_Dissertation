@@ -1,0 +1,56 @@
+% Rows through Notebook 79 come from Notebook 78. Rows 80--87 were appended
+% from the committed aggregate outputs; their manifests and specs retain full hashes.
+\begingroup
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{0.8}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{4.8cm} r >{\raggedright\arraybackslash}p{6.2cm} >{\raggedright\arraybackslash}p{5.2cm} l >{\raggedright\arraybackslash}p{2.4cm}@{}}
+\caption{Provenance of the core reported results}
+\label{tab:core-result-provenance} \\
+\toprule
+Claim & NB & Reported value & Analysis plan & Artifact hash & Seed \\
+\midrule
+\endfirsthead
+\toprule
+Claim & NB & Reported value & Analysis plan & Artifact hash & Seed \\
+\midrule
+\endhead
+FNSPID panel dimensions & 01 & 715,546 firm-days; 570 symbols; 3,262 sessions & none & dc5d7433e41c & none \\
+FNSPID training-period negative-share IC & 03 & IC -0.005433; HAC t=-3.119 & none & 1780ca9f47c7 & 20260731 \\
+Direct-signal turnover and break-even & 03 & 179.5x/year one-way; best break-even 0.625 bps/side & none & 1780ca9f47c7 & 20260731 \\
+HAR benchmark testing-period performance & 21 & Sharpe 0.673; return +29.85\%; drawdown -15.73\% & none & 471b008ef45b & 20260805 \\
+HAR x sentiment downside inference & 24 & p=0.0148 & none & cf3a6fb033dd & 20260805 \\
+HAR x sentiment testing-period performance & 24 & Sharpe 0.835; return +35.20\%; drawdown -16.36\% & none & e33b8c4e0108 & 20260805 \\
+Walk-forward HAR downside result & 25 & drawdown -12.53\% to -8.57\%; p=0.0052 & none & c9bbb3a2a24c & 20260805 \\
+FNSPID same-session downside alignment & 45 & q=0.0301 & none & a0defab69499 & 20260805 \\
+FNSPID conditional negative-share coefficient & 71 & beta -0.00831 [-0.01410,-0.00252]; p=0.0049; 2,264 sessions & Conditional transfer plan & d78b9b1b4f3c & none \\
+LSEG conditional-transfer coefficients & 71 & earlier period -0.0286; later period -0.0157; both intervals cross zero & Conditional transfer plan & d78b9b1b4f3c & none \\
+Later-period LSEG pressure non-activation & 72 & 0/167 risk-off sessions; maximum z=1.349 vs 1.5 entry & LSEG pressure transfer plan & 69a981ced4f1 & none \\
+Earlier-period LSEG pressure schedule alignment & 73 & BH q=0.0482 & Earlier-period LSEG pressure plan & 524cb0a1f746 & none \\
+Earlier-period LSEG pressure activation & 73 & 53/456 sessions; 18 entries & Earlier-period LSEG pressure plan & 7faf73cb4846 & none \\
+Earlier-period LSEG pressure downside inference & 73 & BH q=0.0336 & Earlier-period LSEG pressure plan & 9cd3e8235457 & none \\
+Conditional-effect yearly direction & 74 & negative in 8/9 training-period years & none & 8e70cc12d1ed & none \\
+Conditional-effect multi-story diagnostic & 74 & n>=2 beta -0.00529 [-0.01272,+0.00214] & none & d75411234ca1 & none \\
+Training-period double-sort economic magnitude & 76 & all -0.62 [-1.51,+0.27]; n>=2 -0.25 [-1.82,+1.32] bps/session & Economic and power analysis plan & 4fac1bedcc4f & 20260812 \\
+Learned thresholds versus historical fixed band & 77 & -7.72 to -16.89 net bps/session; MDE 4.60 to 10.04 bps & Economic and power analysis plan & c299d41bd427 & 20260731; 20260831 \\
+LSEG conditional MDE relative to FNSPID & 77 & 7.6x earlier period; 13.6x later period; story 18.80 bps; publisher 0.049 IC; earnings 15.52 bps & Economic and power analysis plan & c299d41bd427 & 20260731; 20260831 \\
+FNSPID reversal-controlled negative-share coefficient & 79 & beta -0.00914 [-0.01466,-0.00362]; p=0.00118; 2,264 sessions & Recent-price control plan & 4b2bfb954830 & none \\
+FNSPID conditional testing-period replication & 75 & all-days beta +0.00583 [-0.00426,+0.01593], q=0.515; multi-story beta +0.00295, q=0.653 & Fixed FNSPID plan with pre-execution amendment & 4bdf90ce939e & none \\
+Testing-minus-training stability contrast & 75 & delta +0.01414 [+0.00250,+0.02579]; p=0.0173; HAC(5) & Fixed FNSPID plan with pre-execution amendment & f7e01d905a32 & none \\
+LSEG aggregate economic search & 80 & selected 0.878 vs HAR 0.926 net bps/session; neither rule meets all criteria & LSEG aggregate economic plan & 6d72fec852c7 & 20260912--19 \\
+FNSPID economic search & 81 & neither comparison meets all criteria & FNSPID economic plan & b30c628bb69a & 20261012--19 \\
+LSEG firm-level loss control & 82 & ending wealth difference -USD 30,869.79 per USD 1m vs symbol-matched constant & LSEG firm-level loss-control plan & c4f96403b362 & 20260913--24 \\
+LSEG five-prompt search & 83 & best net mean -4.012 bps/session; 0/5 candidates eligible & Five-prompt economic plan & c35c14e61007 & 20260813 \\
+Structured reaction prompt & 84 & net mean -19.666 bps/session; selection criteria not met & Structured-reaction prompt plan & e7414d3b5a2a & 20260813 \\
+Post-hoc close-to-close, FF3 and soft-mass family & 85 & 0/3 BH survivors; baseline remains $-0.00831$ & Post-hoc outcome and label sensitivity plan & 4bdf0f83a0a8 & none \\
+Assigned-window outcome-leg decomposition & 86 & training-period intraday $-0.01029$, BH q=0.0011; post-close $+0.00155$, q=0.595 & Post-hoc return-window decomposition plan & 526a3effdb84 & none \\
+Observed tied-rank effect translation & 86 & pooled attainable spread 0.56056; fitted change $-0.512$ percentile points & same as preceding row & 0f4087b4ab2e & none \\
+Testing-period power reconciliation & 86 & 35.4\% prospective; 26.5\% realised-precision power & same as preceding row & f441c95e5de6 & none \\
+FNSPID maximum-drawdown reconciliation & 86 & HAR $-15.73\%$; overlay $-16.36\%$ & same as preceding row & 5d9f72faf0d3 & none \\
+Previous-open timing probe & 87 & beta $-0.01926$ [$-0.02580,-0.01272$]; p=$7.9\times10^{-9}$ & Additional timing and sensitivity plan & 06b44ced5c59 & none \\
+Trailing-beta period-contrast robustness & 87 & contrasts $+0.01884$ and $+0.01628$; both BH survivors & same as preceding row & 7978ed32da48 & none \\
+FNSPID episode-concentration sensitivity & 87 & all 44 leave-one-out intervals and the February--April 2020 exclusion are positive & same as preceding row & 2bb7840cc50e / 4daae900affb & 20260830--73; 20260930 \\
+FNSPID class and tie base rates & 87 & negative class: training 16.80\%, testing 15.84\%; singleton shares: 48.32\%, 56.53\% & same as preceding row & 78dca75acfc2 / 88ef114eaa21 & none \\
+\bottomrule
+\end{longtable}
+\endgroup

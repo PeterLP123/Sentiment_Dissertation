@@ -1,0 +1,2 @@
+parent_events,scoring_scope_events,scoring_scope_end_exclusive,strict_scores,strict_retained_share,missing_strict_scores_within_scope,unscored_parent_events_after_scope,companies,sessions,target_specific_share,nonzero_score_share,newness_assessed,earlier_headlines_sent,reported_api_cost_usd,reported_combined_prompt_cost_usd
+9317,3242,2025-01-01,3241,0.999691548426897,1,6075,33,252,0.9308855291576674,0.521443998765813,False,False,0.18951202,3.160428869999993

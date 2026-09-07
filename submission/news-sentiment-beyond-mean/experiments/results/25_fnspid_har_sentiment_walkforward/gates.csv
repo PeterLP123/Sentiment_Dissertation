@@ -1,0 +1,2 @@
+net_sharpe_improvement,drawdown_relative_improvement,paired_net_mean_bps_day,paired_net_ci_low_bps_day,paired_net_ci_high_bps_day,downside_improvement_mean,downside_improvement_p_two_sided,stable_nonnegative_mean_both_periods,alpha_gate,useful_risk_gate
+0.05004233063414709,0.315944560235616,-0.13369639751811074,-0.9874816029583912,0.7364185585036082,2.7705452799805258e-06,0.0052,False,False,False

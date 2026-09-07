@@ -1,0 +1,8 @@
+{
+  "patch_sha256": "fbce89fe5efd81e088f64026aaba58fd4b820674ba81ae787af34cb68169ca60",
+  "operation_count": 2,
+  "changed_canonical_surfaces": [
+    "manuscript/chapters/05_results.tex",
+    "manuscript/appendices/project_summary.tex"
+  ]
+}

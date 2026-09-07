@@ -1,0 +1,2 @@
+development_sentiment_coefficient_positive,qlike_improvement,qlike_ci_low,forecast_gate,net_sharpe_improvement,drawdown_relative_improvement,paired_net_ci_low_bps_day,stable_nonnegative_mean_both_periods,alpha_gate,useful_risk_gate
+True,0.004265837962310905,-0.01521452154773019,False,0.0005900288779537854,-0.05334233701304699,-0.28182585478585537,False,False,False

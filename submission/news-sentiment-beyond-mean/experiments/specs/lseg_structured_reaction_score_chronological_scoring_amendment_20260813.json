@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "status": "frozen_mid_score_before_any_price_or_return_access",
+  "recorded_at_utc": "2026-08-13T09:45:00Z",
+  "parent_spec": "final_experiments/frozen_specs/lseg_structured_reaction_score_v1_20260813.json",
+  "prices_or_returns_opened": false,
+  "observed_return_blind_state": {
+    "attempt_records": 2176,
+    "strict_successes": 2091,
+    "attempted_entry_years": [2024],
+    "latest_attempted_entry_session": "2024-09-05",
+    "parent_2024_events": 3242
+  },
+  "amendment": "Complete strict scoring for entry sessions before 2025-01-01 and run the frozen 2024 selection gate first. Score 2025 only if that gate passes. Do not score 2026 for this retrospective experiment.",
+  "reason": "The economic design already makes 2025 conditional on 2024 selection. Chronological staged scoring enforces that boundary, avoids unnecessary licensed-text transfer, reduces spend and leaves 2026 unscored as well as return-sealed.",
+  "quality_gate": "At least 98 percent strict success within the applicable chronological scoring stage, all 33 companies, and no coercion or imputation.",
+  "scientific_effect": "None on prompt construction or economic selection. This changes only when hosted scores are requested, before any return is accessed.",
+  "final_staged_implementation_sha256": "763e4683c60ee417986a69905ffff5a7b1c2e64ace13c2ac1b46e47e68b1384e",
+  "unchanged": [
+    "prompt text, schema, score grid and hashes",
+    "current-headline-only payload and no novelty assessment",
+    "DeepInfra-only route and privacy controls",
+    "2024 selection rules",
+    "conditional unchanged 2025 test",
+    "signal, horizon, portfolio and costs",
+    "2026 return seal and cumulative spend limits"
+  ]
+}

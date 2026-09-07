@@ -1,0 +1,69 @@
+{
+  "target": "whether oriented negative-share rank earns positive ar_open_h1",
+  "fit": "<=2017-12-31",
+  "validation": "2018-01-01..2019-12-31",
+  "evaluation": ">=2020-01-01 chronological evaluation block",
+  "models": [
+    "fixed_band_historical",
+    "fixed_band_activity_matched_iterative",
+    "logistic",
+    "gradient_boosted",
+    "mlp",
+    "mlp_label_shuffle",
+    "cash"
+  ],
+  "features": [
+    "oriented_rank",
+    "abs_oriented_rank",
+    "log_article_count",
+    "dispersion",
+    "mean_continuous",
+    "firm_baseline",
+    "cs_mean",
+    "ret_lag1"
+  ],
+  "cost_bps_per_side": 10.0,
+  "cutoff_selection_constraints": {
+    "minimum_mean_active_names": 5.0,
+    "minimum_active_session_share": 0.5
+  },
+  "next_sample_fixed_band": {
+    "band": 0.0,
+    "uses_same_activity_floor_as_learned_gates": true,
+    "recomputed_on_open_evaluation_block": true,
+    "result_status": "iterative_retrospective"
+  },
+  "bootstrap": {
+    "block_length": 20,
+    "replications": 999,
+    "seed": 20260731
+  },
+  "portfolio_normalization": "surviving long and short rank legs each normalized to 0.5 gross; one-sided selections go flat",
+  "turnover_accounting": {
+    "rebalance_base": "prior weights after ret_open_h1",
+    "final_liquidation": true,
+    "amendment": "experiments/specs/portfolio_turnover_accounting_amendment_v1_20260815.json",
+    "amendment_sha256": "ef4797ecc10a7e86221f0722368d34da6290589ebc5175e791afab0649dfe4ab",
+    "insolvency_note": "experiments/specs/portfolio_turnover_insolvency_note_v1_20260815.json",
+    "insolvency_note_sha256": "12fef2f25e0e1c30a7f46a5beb7c0880b4c3771f8f58347283ba1600c357244d"
+  },
+  "negative_control_status": {
+    "arm": "mlp_label_shuffle",
+    "status": "INSOLVENT",
+    "session": "2021-01-26",
+    "cost_dependent_metrics": "NA"
+  },
+  "evaluation_read_history": {
+    "total": 5,
+    "valid_historical": 1,
+    "iterative_post_change": 1,
+    "mechanical_accounting_repairs": 1,
+    "invalid": 2,
+    "invalid_reasons": [
+      "pre-repair one-sided gate exposure",
+      "pre-repair threshold backtest omitted final liquidation cost"
+    ]
+  },
+  "sector_variant": "BLOCKED_MISSING_FNSPID_SECTOR_MAP",
+  "stock_variant": "NOT_RUN_BECAUSE_SECTOR_FIRST_RULE_IS_BINDING"
+}

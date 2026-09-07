@@ -1,0 +1,21 @@
+metric,value,unit,formula,source
+observed 10th-to-90th negative-share rank translation,-0.512374119375621,next-return-rank percentile points,observed pooled tied-rank spread x full-control coefficient x 100,Notebook 86 correction using Notebook 79 model rows
+FNSPID testing-period conditional coefficient,0.0058333200530758,rank coefficient,mean daily all-firm-day coefficient,Notebook 75 frozen testing-period opening
+testing-minus-training coefficient contrast,0.0141433730435466,rank coefficient difference,testing-period mean beta - training-period mean beta,Notebook 75 predeclared HAC(5) stability contrast
+prospective power for stable training-period effect,0.3543324637307985,approximate power,scaled training-period HAC SE at corrected two-test threshold,Notebook 75 pre-outcome amendment
+realised-precision power for stable training-period effect,0.2650747577526305,ex-post approximate power,observed testing-period HAC SE at corrected two-test threshold,Notebook 86 power reconciliation
+training-period assigned-session intraday coefficient,-0.0102909974564892,rank coefficient,mean daily coefficient on open-to-close abnormal return rank,Notebook 86 outcome-leg decomposition
+training-period previous-open timing-probe coefficient,-0.0192567496140616,rank coefficient,mean daily coefficient on previous-open-to-assigned-open abnormal return rank,Notebook 87 additional timing and sensitivity checks
+FNSPID overlay maximum drawdown,-0.1636252885880054,return,minimum cumulative wealth drawdown in 2020-2023,Notebook 86 reconciliation of Notebook 24 paths
+charged cost relative to best break-even,16.00470800192471,multiple,10 bps / maximum aggregation break-even bps,Notebook 03 aggregation family
+LSEG earlier-period nominal MDE relative to FNSPID estimate,7.605365928003928,multiple,nominal 80% MDE / abs(FNSPID coefficient),Notebook 77 MDE table
+LSEG later-period nominal MDE relative to FNSPID estimate,13.555530239897813,multiple,nominal 80% MDE / abs(FNSPID coefficient),Notebook 77 MDE table
+LSEG earlier-period information multiple for an FNSPID-sized MDE,57.841590898843044,approximate information multiple,square of earlier-period nominal MDE multiple,Notebook 77 MDE table; square-root precision scaling
+LSEG later-period information multiple for an FNSPID-sized MDE,183.75240008478406,approximate information multiple,square of later-period nominal MDE multiple,Notebook 77 MDE table; square-root precision scaling
+firm-level rule drawdown improvement versus fully invested,1.6780698400358098,percentage points,abs(full drawdown) - abs(rule drawdown),Notebook 82 testing-period summary
+firm-level rule drawdown disadvantage versus matched constant,0.6273127423129798,percentage points,abs(rule drawdown) - abs(matched drawdown),Notebook 82 testing-period summary
+firm-level rule annual turnover relative to matched constant,25.912976690476338,multiple,rule annual turnover / matched annual turnover,Notebook 82 testing-period summary
+firm-level rule ending wealth difference,-30869.791835476557,USD per USD 1m,saved compounded ending wealth difference,Notebook 82 economic decomposition
+conditional coefficient on firm-days with at least three stories,-0.0018283963890466,rank coefficient,baseline specification restricted to n >= 3,Notebook 74 story-count strata
+share of the full-sample coefficient retained at n >= 3,0.22002222983935935,share,n >= 3 estimate / all-firm-day estimate,Notebook 74 story-count strata
+share of LSEG earlier-period downside reduction from the two largest episodes,0.6560926550180181,share,sum of the two largest episode downside shares,Notebook 74 episode attribution

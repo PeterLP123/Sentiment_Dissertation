@@ -1,0 +1,89 @@
+{
+  "contract_version": "1.1",
+  "round_id": "ars-re-review-2026-08-14-round-1",
+  "precommitment_hash": "59cc8ddc998d516ed6c39f625430499c3a4a49ad22385d992eff66cc4d7424d0",
+  "items": [
+    {
+      "item_id": "REV-ESTIMAND-ALIGNMENT",
+      "verdict": "PARTIALLY_ADDRESSED",
+      "evidence_anchor": [
+        "text: revised manuscript Abstract lines 168-178, 'The baseline coefficient is $-0.00831$' and 'adding one-session, five-session and volatility controls gives $-0.00914$' before 'The frozen evaluation repeats the baseline specification and gives $+0.00583$'",
+        "text: revised manuscript Conclusions lines 986-994, 'The frozen 2020--2023 opening repeats the baseline model, not the price-control model'",
+        "text: revised manuscript project-summary Outcome lines 1136-1140, 'remains negative under recent-price controls. It does not replicate in the frozen 2020--2023 opening; the estimated coefficient changes sign'"
+      ],
+      "change_summary": "The revision now separates the -0.00831 development baseline, -0.00914 price-control robustness estimate and +0.00583 frozen baseline estimate in the main abstract and conclusion, but the unchanged project summary still juxtaposes recent-price controls with the frozen-era sign change without naming the matched baseline.",
+      "residual_gap": {
+        "text": "The appendix project-summary Outcome still moves directly from the association remaining negative under recent-price controls to the frozen-era coefficient changing sign, without stating that the frozen +0.00583 estimate is paired with the -0.00831 development baseline rather than the -0.00914 robustness estimate.",
+        "residual_obligation_class": "should_fix"
+      },
+      "verified_by": "EIC",
+      "applied_criterion": "precommitted"
+    },
+    {
+      "item_id": "REV-INTERPRETATION-BOUNDARY",
+      "verdict": "PARTIALLY_ADDRESSED",
+      "evidence_anchor": [
+        "text: revised manuscript Abstract lines 174-178, 'The contrast establishes instability in the measured baseline pipeline association, not its cause.'",
+        "text: revised manuscript Literature Review lines 359-368, 'a changed coefficient establishes that the measured predictor-pipeline association did not transport, not whether markets, sample composition or measurement caused the change'",
+        "text: revised manuscript Results lines 761-768, 'the defensible reading is temporal non-replication and instability'",
+        "text: revised manuscript project-summary Outcome lines 1138-1140, 'the estimated coefficient changes sign and the direct era contrast supports temporal instability'"
+      ],
+      "change_summary": "The revision adds measured-pipeline and unidentified-cause boundaries in the abstract, literature review, data limitations and conclusion, but the Results synthesis and unchanged project summary retain broader temporal-instability wording without those boundaries.",
+      "residual_gap": {
+        "text": "The Results synthesis and appendix project-summary Outcome still describe temporal instability without explicitly limiting it to the measured baseline pipeline association or stating that the cause remains unidentified.",
+        "residual_obligation_class": "should_fix"
+      },
+      "verified_by": "R1",
+      "applied_criterion": "precommitted"
+    },
+    {
+      "item_id": "REV-HYPOTHESIS-LANGUAGE",
+      "verdict": "FULLY_ADDRESSED",
+      "evidence_anchor": [
+        "text: revised manuscript Results lines 738-744, 'H1b is not supported under its recorded direction and correction.'",
+        "text: revised manuscript final hypothesis summary lines 968-970, 'The exploratory development estimate is consistent with H1a' and 'H1b is not supported.'"
+      ],
+      "change_summary": "The revision replaces the H1b rejection wording with 'not supported' and makes the final hypothesis summary distinguish development H1a from frozen-evaluation H1b.",
+      "verified_by": "R1",
+      "applied_criterion": "precommitted"
+    },
+    {
+      "item_id": "REV-TEMPORAL-LITERATURE",
+      "verdict": "FULLY_ADDRESSED",
+      "evidence_anchor": [
+        "text: revised manuscript Literature Review lines 359-368 cites Welch and Goyal (2008), McLean and Pontiff (2016), and Farmer, Schmidt and Timmermann (2023), then limits the inference to non-transport of the measured predictor-pipeline association",
+        "text: revised manuscript bibliography lines 1542-1550, 1691-1699 and 1812-1820 supplies journal, volume, pages and DOI metadata for farmer2023, mclean2016 and welch2008"
+      ],
+      "change_summary": "The revision adds three directly relevant empirical-finance predictor-stability studies with complete primary-publication metadata and uses them to bound rather than broaden the temporal contribution.",
+      "verified_by": "R2",
+      "applied_criterion": "precommitted"
+    },
+    {
+      "item_id": "REV-WORD-COUNT",
+      "verdict": "FULLY_ADDRESSED",
+      "evidence_anchor": [
+        "dataset: revised manuscript chapter blocks 01_introduction.tex through 06_conclusion.tex (lines 224-1100) have TeXcount 3.1.1 sum count 10,873, reduced from the original 12,107 and within the committed 9,000-11,000 range",
+        "text: revised manuscript Abstract lines 168-182 retains estimates, intervals, BH correction, power and transaction-cost evidence",
+        "text: revised manuscript Results lines 955-964 retains null-family, multiplicity and minimum-detectable-effect evidence, while Conclusions lines 1027-1050 retains chronology, measurement, composition and economic limitations"
+      ],
+      "change_summary": "The six numbered chapters were compressed from a TeXcount sum of 12,107 to 10,873 words while retaining the committed estimates, uncertainty, nulls, multiplicity, transaction-cost, power and limitations surfaces.",
+      "verified_by": "R3",
+      "applied_criterion": "precommitted"
+    },
+    {
+      "item_id": "REV-PRESENTATION",
+      "verdict": "FULLY_ADDRESSED",
+      "evidence_anchor": [
+        "text: revised manuscript main.tex lines 139-142 and 202 uses Roman front-matter numbering before \\mainmatter resets the numbered chapters to Arabic",
+        "figure: manuscript/main.pdf physical page 37, printed page 30, Figure 5.5 visibly labels the FNSPID 2020-2023 point '99.1 percentile' and preserves the displayed 95.5, 99.1 and 63.9 percentile evidence with the three q-status annotations",
+        "figure: manuscript/main.pdf physical page 2 visibly carries front-matter page i, while physical page 8 visibly starts Chapter 1 on Arabic page 1"
+      ],
+      "change_summary": "The revision changes the front matter to Roman numbering with Arabic main matter and regenerates the timing-placebo figure with the corrected '99.1 percentile' label while preserving its evidence values.",
+      "verified_by": "EIC",
+      "applied_criterion": "precommitted"
+    }
+  ],
+  "new_issues": [],
+  "dissents": [],
+  "escalation_exceptions": []
+}

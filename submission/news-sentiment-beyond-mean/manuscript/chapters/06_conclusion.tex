@@ -1,0 +1,189 @@
+\chapter{Conclusions and further work}
+\label{ch:conclusion}
+
+\section{Answers to the research questions}
+
+The training sample contains a negative association after the main controls.
+Firm-days with a higher negative-story-share rank tend to have a lower
+assigned-window return rank after allowing for mean sentiment and story count.
+The baseline coefficient is $-0.00831$ and remains negative after controlling
+for recent returns, volatility and recent market sensitivity.
+
+This result provides only exploratory support for H1a. Negative-story share was
+chosen from nine candidates using the same training data. The adjusted test
+reduces the risk of a chance finding, but confirmation requires a new sample.
+
+FNSPID does not record reliable story-availability times. The association
+appears in both the assigned return window and an earlier window. The evidence
+therefore shows a relationship within mapped return windows, not one based on
+news known before the return began.
+
+The fixed testing-period result does not confirm the training association. During
+2020--2023, the unchanged coefficient changes sign to $+0.00583$. The
+multi-story estimate is also inconclusive, and no aggregation rule survives
+correction. The testing-minus-training contrast persists under longer HAC lags
+and a trailing-beta benchmark. Annual estimates are imprecise and do not identify
+a break at the chosen boundary. H1b is therefore not supported.
+
+Low power limits what that failure proves. The testing interval still contains
+small negative effects, so it cannot establish that the true coefficient is
+zero. It does establish that the pre-specified test did not produce the
+negative evidence needed to support H1b.
+
+The economic evidence is less ambiguous. The observed-scale effect is small.
+The high-minus-low return spread has the sign specified by H2, but its interval
+crosses zero. The best break-even cost is $0.625$ basis points per side, versus
+the assumed 10 basis points. H3 fails: the training association does not fund
+the turnover needed to trade it.
+
+The risk tests provide no economic evidence in support of the trading rule. In
+FNSPID, the news rule lowers one downside measure but worsens maximum drawdown.
+Because current-session news
+sets current-session exposure, this is a same-session check rather than a
+strategy formed from information known in advance. Its return advantage over an
+after-the-fact constant with the same average exposure is also imprecise.
+
+The LSEG rules fail against controls selected in the training folds with the
+same average exposure, and no prompt variant passes its pre-specified criteria. The
+samples are too small to show whether the relationship repeats across sources.
+H4 therefore fails.
+
+\Cref{tab:hypothesis-verdicts} summarises these conclusions.
+\input{artifacts/tab_hypothesis_verdicts}
+\FloatBarrier
+
+\section{Contribution}
+
+The academic contribution is a direct comparison of nine firm-day summaries,
+followed by a fixed sequence of stronger checks for the selected measure. The
+checks add controls, locate the association within the return window, repeat it
+in a fixed testing period and test its economic value. Each one answers a
+question that the training coefficient cannot answer alone.
+
+Earlier studies link negative financial news with weaker returns
+\citep{tetlock2008words,uhl2014,heston2017}. Other work shows that features
+beyond an average can matter, including word placement, sentiment dispersion
+and news selection \citep{allee2015,isakin2023,uhl2021}. The training result
+agrees with this earlier evidence, but supports only a small, sample-specific
+association.
+
+The coefficient weakens and becomes inconclusive on multi-story days. FNSPID
+also cannot distinguish separate events from repeated coverage, even though
+repeated stories can receive a different market response
+\citep{tetlock2011stale}. The evidence therefore does not show that a hard
+threshold is generally better than averaging.
+
+The practical contribution is a clear screening process. A credible news signal
+must meet three conditions. It must be available before the return begins,
+persist in later data and remain useful after costs relative to a control with
+similar market exposure. This signal fails all three conditions. Its timing is
+uncertain, its sign changes in testing and its return does not cover trading
+costs.
+
+This result is consistent with wider evidence that return predictors often
+weaken outside their original samples \citep{welch2008,mclean2016}. It also shows
+why statistical significance is not enough for a high-turnover strategy, where
+trading costs can remove apparent value \citep{korajczyk2004,novymarx2016}.
+
+\section{Limitations}
+
+Missing timing information is the main limitation. Date-based FNSPID mapping can
+place a story inside a return window that had already opened, and aggregate
+return legs cannot reconstruct absent timestamps. The evidence therefore
+supports neither causality nor a trading rule that assumes pre-return
+availability.
+
+Negative share was chosen from nine measures in the training period, so its
+usual interval understates selection uncertainty. The corrected comparison
+helps but does not replace a new sample.
+
+The pre-specified analysis improves transparency, but some testing-period
+outcomes had already been examined.
+
+The firm sample also limits generalisation. FNSPID includes only firms with news
+coverage in every year, which favours surviving, well-covered firms. The sample
+was not further restricted to common shares or another security type. It
+therefore does not represent the full US equity market.
+
+Story-count results do not identify a mechanism. Coefficients move towards zero
+in denser subsets. These estimates are not directly comparable because the ranks
+and controls differ across models. The increase in singleton days is also too
+small to explain the positive coefficient.
+
+Measurement remains uncertain. FinBERT's classifications were not compared with
+human labels in either source, and class shares change modestly through time.
+FNSPID also lacks stable
+story-family and publisher identifiers, so repeated reports of one event can
+raise negative share. Story count controls coverage volume, not novelty. Both
+classifier drift and editorial repetition may therefore contribute to the
+observed instability.
+
+The economic calculations simplify implementation. They use proportional costs
+and estimated adjusted opens, omitting variation in spreads, order size,
+borrowing, price impact and cash interest. Most omissions would further reduce
+daily long-short returns. The FNSPID downside result is also sample-specific:
+overall drawdown worsens, no signal lag is imposed, and activation does not carry
+consistently into LSEG.
+
+\section{Further work}
+
+\subsection{Establish point-in-time news availability}
+
+The next study should first establish the order of news and returns. Every story
+needs a verified availability timestamp and a pre-specified trading time. A
+fixed mapping can then assign pre-open news to the coming session, intraday news
+to a later window and post-close news to the next session. Only after fixing this
+timing rule should a new signal be specified.
+
+Reuters/LSEG is the practical starting point because it has richer availability
+fields. A new FNSPID dataset with reliable timestamps would be required. The
+sources should remain separate because their timing, coverage, density and
+return definitions differ.
+
+The new data should also link first reports to later updates, using stable
+identifiers and update chains where available. Any automated matching of similar
+stories should first be tested against hand-checked pairs before returns are
+examined.
+
+Comparing results from distinct-event families with results from raw-story
+aggregation would then test whether the current result reflects separate events
+or repeated coverage.
+
+\subsection{Validate the threshold and sentiment model}
+
+A human-label audit should cover both sources, several years, confidence levels,
+predicted classes and story-count groups. Reviewers should label each story for
+the named company and report agreement. This would reveal where FinBERT errors
+affect negative share.
+
+Future work could compare a second scorer or a flexible probability model under
+rules set before either output is linked to returns. One-story and multi-story days
+should remain separate because a binary label and a distribution across stories
+measure different things.
+
+\subsection{Test on a new sample with adequate power}
+
+The 33-firm LSEG samples cannot show whether a relationship as small as the
+FNSPID result repeats in another source. They could reliably detect only effects
+7.6 and 13.6 times larger than the FNSPID coefficient. A new sample should
+contain several hundred liquid US firms. Before returns are examined, the
+coefficient, interval, simple sort and decision rule should be specified.
+
+Interpretation should depend on both interval width and sign. A wide interval
+remains inconclusive. A precise estimate near zero would argue against
+the relationship repeating at the relevant scale. A small, precise negative
+estimate would support a statistical relationship in both sources, but not
+economic value.
+
+Any new trading test must also address the roughly sixteen-fold gap between the
+best break-even estimate and the assumed cost. A future risk test could retain
+the pressure score, 2-basis-point cost, sentiment-free volatility benchmark and
+matched-exposure control, but must form exposure only from news verified as
+available beforehand. Corrected downside improvement, a return lower bound,
+drawdown and pre-specified stability checks should remain mandatory.
+
+Further tuning on the current data cannot solve the central problems. The study
+has not established pre-return availability, the fixed relationship changes sign
+in testing, and the economic rules fail after costs. A credible new estimate
+requires verified timestamps, story-family identities, audited labels and a
+genuinely untouched sample.

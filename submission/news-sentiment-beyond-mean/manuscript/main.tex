@@ -1,0 +1,219 @@
+% MSc Computational Finance dissertation, September 2026.
+% Front matter follows the CS MSc LaTeX template. Body format follows the
+% official instructions: 12pt, 1.5 spacing, 2.5 cm margins, A4.
+% Compile from the repository root with: make manuscript
+\documentclass[12pt,a4paper,oneside]{book}
+
+\usepackage[british]{babel}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{siunitx}
+\usepackage{caption}
+\usepackage{enumitem}
+\usepackage{emptypage}
+\usepackage{graphicx}
+\usepackage{longtable}
+\usepackage{microtype}
+\usepackage{multirow}
+\usepackage[authoryear,round]{natbib}
+\usepackage{pdflscape}
+\usepackage{placeins}
+\usepackage{setspace}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage[titletoc,title]{appendix}
+\usepackage[sc]{titlesec}
+\usepackage[hidelinks]{hyperref}
+\usepackage{doi}
+\usepackage[capitalise,noabbrev]{cleveref}
+
+\hypersetup{
+  pdftitle={A Hard Negative-Story Threshold: Training-Period Association, Temporal Non-Replication and Economic Limits},
+  pdfauthor={Peter Prendergast},
+  pdfsubject={MSc Computational Finance dissertation}
+}
+
+\graphicspath{{artifacts/}{figures/}{./}}
+\onehalfspacing
+\setcounter{secnumdepth}{3}
+\setcounter{tocdepth}{1}
+\emergencystretch=3em
+
+% Numeric table columns: align on the decimal point and set a real minus sign
+% instead of the hyphen produced by a bare text-mode "-".
+\sisetup{
+  detect-all,
+  group-digits = integer,
+  group-minimum-digits = 4,
+  group-separator = {,},
+}
+\newcolumntype{d}[1]{S[table-format=#1]}
+
+% Captions: slightly smaller than body text, bold label, hanging indent so a
+% wrapped caption lines up under its own first line instead of the label.
+\captionsetup{
+  font = small,
+  labelfont = bf,
+  labelsep = period,
+  format = hang,
+  justification = justified,
+  singlelinecheck = false,
+  skip = 6pt,
+}
+
+% Discourage single lines stranded at the top or foot of a page.
+\widowpenalty = 10000
+\clubpenalty = 10000
+\displaywidowpenalty = 10000
+
+\title{A Hard Negative-Story Threshold:\\Training-Period Association, Temporal Non-Replication and Economic Limits}
+\author{Peter Prendergast}
+\date{September 2026}
+
+\begin{document}
+\pagestyle{plain}
+\frontmatter
+\hypersetup{pageanchor=false}
+
+\begin{titlepage}
+  \newcommand{\HRule}{\rule{\linewidth}{0.5mm}}
+  \centering
+  \textsc{\LARGE University College London}\\[0.7cm]
+  \textsc{\Large Department of Computer Science}\\[0.3cm]
+  {\normalsize A thesis submitted in partial fulfilment of the requirements for the degree of Master of Science in Computational Finance, University College London}\\[0.45cm]
+
+  \HRule\\[0.25cm]
+  {\LARGE A Hard Negative-Story Threshold}\\[0.2cm]
+  {\large Training-Period Association, Temporal Non-Replication and Economic Limits}\\[0.25cm]
+  \HRule\\[0.7cm]
+
+  {\large\textit{Author}}\\
+  Peter \textsc{Prendergast}\\[0.2cm]
+  {\large\textit{Candidate Number:} VLGQ5}\\[0.8cm]
+
+  \begin{minipage}{0.48\textwidth}
+    \begin{flushleft}
+      \textit{Academic Supervisor}\\
+      Dr Brian \textsc{Healy}\\
+      \textsc{Department of Computer Science}\\
+      \textsc{University College London}
+    \end{flushleft}
+  \end{minipage}
+  \hfill
+  \begin{minipage}{0.48\textwidth}
+    \begin{flushright}
+      \textit{Industrial Supervisor}\\
+      Dr Peter \textsc{Mitic}\\
+      \textsc{Department of Computer Science}\\
+      \textsc{University College London}
+    \end{flushright}
+  \end{minipage}
+
+  \vfill
+  {\large\textit{September 2026}}\\[0.45cm]
+  % Vector wordmark from ucl_logo.svg. Converted to PDF at compile time.
+  \includegraphics[width=0.34\textwidth]{ucl_logo}\\[0.45cm]
+
+  \begin{minipage}{0.92\textwidth}
+    \centering
+    \small
+    This dissertation is submitted in partial fulfilment of the requirements for the MSc Computational Finance degree at UCL\@. It is substantially the result of my own work except where explicitly indicated in the text.
+
+    \medskip
+    This dissertation will be provided to the internal and external examiners. It may not be copied or distributed without the author's permission.
+  \end{minipage}
+\end{titlepage}
+
+\clearpage
+\hypersetup{pageanchor=true}
+\pagenumbering{roman}
+\setcounter{page}{1}
+
+\section*{Abstract}
+\phantomsection
+\addcontentsline{toc}{chapter}{Abstract}
+
+Financial-news models often average all stories about a company on a given day,
+discarding their distribution. This dissertation tests whether negative-story
+share, the fraction classified as negative, adds information beyond that mean.
+
+I use FinBERT, a language model for financial sentiment, to score news for more
+than 700,000 US firm-days. A firm-day is one company on one trading day. I
+compare nine daily summaries during the 2011--2019 training period, then test the
+selected measure after controlling for mean sentiment, news volume, recent
+returns and market exposure. The 2020--2023 testing period asks whether the
+relationship persists. Separate Reuters/LSEG data test whether it appears in
+another source, while trading costs and risk checks assess practical value.
+
+Negative-story share alone survives correction across the nine training
+comparisons. A higher share is associated with lower returns after the main
+controls, but the effect is small and was selected in the same data. It appears
+during the assigned session and in an earlier window, but not after the close.
+Without exact story arrival times, the analysis cannot tell whether the news
+predicted returns, arrived during the return window or was assigned to the wrong
+session.
+
+Because 48.3\% of training firm-days contain one story and estimates on
+multi-story days are inconclusive, the result does not establish that a
+mix of stories within a day drives the association.
+
+In the fixed 2020--2023 test, the estimate changes sign. The daily rule cannot
+cover plausible costs, and the risk rule does not reduce maximum drawdown, the
+largest fall from a previous peak. The Reuters/LSEG estimates are too uncertain
+to show that the result appears in another source. The evidence therefore shows
+a small training-period association with uncertain timing that does not persist
+or support a practical trading rule.
+
+\clearpage
+\section*{Acknowledgements}
+\phantomsection
+\addcontentsline{toc}{chapter}{Acknowledgements}
+
+I would like to thank my supervisors, Dr Peter Mitic and Dr Brian Healy, for
+their guidance, thoughtful feedback and support throughout this project. I am
+also grateful to the other members of the project team for their contributions,
+helpful discussions and encouragement during the research and writing process.
+
+\clearpage
+\tableofcontents
+\clearpage
+\phantomsection
+\addcontentsline{toc}{chapter}{List of Figures}
+\listoffigures
+\clearpage
+\phantomsection
+\addcontentsline{toc}{chapter}{List of Tables}
+\listoftables
+
+\mainmatter
+\include{chapters/01_introduction}
+\include{chapters/02_literature}
+\include{chapters/03_data}
+\include{chapters/04_methodology}
+\include{chapters/05_results}
+\include{chapters/06_conclusion}
+
+\clearpage
+\phantomsection
+\addcontentsline{toc}{chapter}{Bibliography}
+\begingroup
+\interlinepenalty=10000
+\bibliographystyle{ormsv080}
+\bibliography{references}
+\endgroup
+
+\ifdefined\withoutappendices
+\else
+  \begin{appendices}
+  % cleveref numbers appendices as chapters unless told otherwise, which renders
+  % a reference to Appendix B as "Chapter B".
+  \crefalias{chapter}{appendix}
+  \include{appendices/reproducibility}
+  \include{appendices/prompts}
+  \include{appendices/project_summary}
+  \end{appendices}
+\fi
+
+\end{document}

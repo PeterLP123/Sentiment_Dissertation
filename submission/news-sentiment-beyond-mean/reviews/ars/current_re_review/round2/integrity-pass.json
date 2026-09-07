@@ -1,0 +1,8 @@
+{
+  "schema_version": "integrity-pass-receipt/1.0",
+  "receipt_id": "INTEGRITY-PASS-2026-08-14-round2-chain-start",
+  "checked_draft_sha256": "5f73b895261c314d22538104b3dfc797b71f06425b3a8554b1df9269466bd7e0",
+  "verdict": "PASS",
+  "open_issue_count": 0,
+  "issued_by": "integrity_verification_agent"
+}

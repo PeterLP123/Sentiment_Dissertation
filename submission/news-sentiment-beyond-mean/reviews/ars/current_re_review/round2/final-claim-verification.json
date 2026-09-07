@@ -1,0 +1,1026 @@
+{
+  "schema_version": "ars-final-claim-verification/1.0",
+  "mode": "final-check",
+  "registry": [
+    {
+      "claim_id": "CLM-001",
+      "claim_text": "Compare nine ways of aggregating same-day stories",
+      "paper_locator": "manuscript claim family",
+      "selection_tier": "ALL",
+      "ref_slug": "docs_evidence_map",
+      "writer_anchor": "Negative share is the only BH survivor",
+      "committed_evidence": "`results/03_aggregation/` and `fig_aggregation_ic.png`",
+      "notebooks": "`03_aggregation`",
+      "verdict": "VERIFIED"
+    },
+    {
+      "claim_id": "CLM-002",
+      "claim_text": "Test whether learned no-trade thresholds add value",
+      "paper_locator": "manuscript claim family",
+      "selection_tier": "ALL",
+      "ref_slug": "docs_evidence_map",
+      "writer_anchor": "Null; cash beats learned policies",
+      "committed_evidence": "`results/10_thresholds/`",
+      "notebooks": "`10_thresholds`",
+      "verdict": "VERIFIED"
+    },
+    {
+      "claim_id": "CLM-003",
+      "claim_text": "Translate negative pressure into an aggregate risk state",
+      "paper_locator": "manuscript claim family",
+      "selection_tier": "ALL",
+      "ref_slug": "docs_evidence_map",
+      "writer_anchor": "Bounded FNSPID downside result",
+      "committed_evidence": "respective result folders and `fig_har_sentiment_equity.png`",
+      "notebooks": "`20`, `21`, `24`, `25`",
+      "verdict": "VERIFIED"
+    },
+    {
+      "claim_id": "CLM-004",
+      "claim_text": "Test whether downside timing is more than exposure placement",
+      "paper_locator": "manuscript claim family",
+      "selection_tier": "ALL",
+      "ref_slug": "docs_evidence_map",
+      "writer_anchor": "Passes only in 2020-2023 after correction",
+      "committed_evidence": "`timing_results.csv`, `fig_downside_placebo.png`",
+      "notebooks": "`45_sentiment_downside_timing_placebo`",
+      "verdict": "VERIFIED"
+    },
+    {
+      "claim_id": "CLM-005",
+      "claim_text": "Estimate negative share beyond the mean and transfer to LSEG",
+      "paper_locator": "manuscript claim family",
+      "selection_tier": "ALL",
+      "ref_slug": "docs_evidence_map",
+      "writer_anchor": "FNSPID pass; LSEG FinBERT blocks imprecise",
+      "committed_evidence": "`conditional_coefficients.csv`",
+      "notebooks": "`71_conditional_negative_share_transfer`",
+      "verdict": "VERIFIED"
+    },
+    {
+      "claim_id": "CLM-006",
+      "claim_text": "Apply the frozen FNSPID risk state to recent and backward LSEG",
+      "paper_locator": "manuscript claim family",
+      "selection_tier": "ALL",
+      "ref_slug": "docs_evidence_map",
+      "writer_anchor": "Recent rule never activates; backward evidence is insufficient for a portability claim",
+      "committed_evidence": "strategy, inference, timing and gate tables",
+      "notebooks": "`72`, `73`",
+      "verdict": "VERIFIED"
+    },
+    {
+      "claim_id": "CLM-007",
+      "claim_text": "Stress-test HAC, bootstrap, episode and story-count sensitivity",
+      "paper_locator": "manuscript claim family",
+      "selection_tier": "ALL",
+      "ref_slug": "docs_evidence_map",
+      "writer_anchor": "Robustness/fragility boundary",
+      "committed_evidence": "six diagnostic tables",
+      "notebooks": "`74_conditional_and_pressure_robustness_diagnostics`",
+      "verdict": "VERIFIED"
+    },
+    {
+      "claim_id": "CLM-008",
+      "claim_text": "Replicate the selected FNSPID estimands in 2020--2023",
+      "paper_locator": "manuscript claim family",
+      "selection_tier": "ALL",
+      "ref_slug": "docs_evidence_map",
+      "writer_anchor": "Completed once; both primary families fail and the baseline coefficient changes across eras; the result establishes pipeline-level instability, not its cause",
+      "committed_evidence": "exact source execution, frozen amendment, coefficient families, daily series, power context and baseline stability contrast",
+      "notebooks": "`75_fnspid_evaluation_beyond_mean_replication`",
+      "verdict": "VERIFIED"
+    },
+    {
+      "claim_id": "CLM-009",
+      "claim_text": "Show the headline effect without a regression",
+      "paper_locator": "manuscript claim family",
+      "selection_tier": "ALL",
+      "ref_slug": "docs_evidence_map",
+      "writer_anchor": "-0.618 bps; interval crosses zero",
+      "committed_evidence": "spread summaries and `fig_conditional_double_sort.png`",
+      "notebooks": "`76_fnspid_development_negative_share_double_sort`",
+      "verdict": "VERIFIED"
+    },
+    {
+      "claim_id": "CLM-010",
+      "claim_text": "Quantify power for important nulls",
+      "paper_locator": "manuscript claim family",
+      "selection_tier": "ALL",
+      "ref_slug": "docs_evidence_map",
+      "writer_anchor": "LSEG is underpowered for an FNSPID-sized coefficient",
+      "committed_evidence": "MDE tables",
+      "notebooks": "`77_null_minimum_detectable_effects`",
+      "verdict": "VERIFIED"
+    },
+    {
+      "claim_id": "CLM-011",
+      "claim_text": "Consolidate nulls, multiplicity and provenance",
+      "paper_locator": "manuscript claim family",
+      "selection_tier": "ALL",
+      "ref_slug": "docs_evidence_map",
+      "writer_anchor": "56 families, 264 decisions/tests; the family-level tables are kept here rather than in the manuscript",
+      "committed_evidence": "result ledger and provenance table",
+      "notebooks": "`78_null_results_and_provenance_tables`",
+      "verdict": "VERIFIED"
+    },
+    {
+      "claim_id": "CLM-012",
+      "claim_text": "Rule out recent-return reversal and volatility as the explanation",
+      "paper_locator": "manuscript claim family",
+      "selection_tier": "ALL",
+      "ref_slug": "docs_evidence_map",
+      "writer_anchor": "Primary price-control test passes",
+      "committed_evidence": "coefficient tables and `fig_reversal_confound.png`",
+      "notebooks": "`79_fnspid_development_reversal_confound`",
+      "verdict": "VERIFIED"
+    },
+    {
+      "claim_id": "CLM-013",
+      "claim_text": "Search a bounded aggregate LSEG risk-rule family",
+      "paper_locator": "manuscript claim family",
+      "selection_tier": "ALL",
+      "ref_slug": "docs_evidence_map",
+      "writer_anchor": "No economic-value gate pass",
+      "committed_evidence": "evaluation, inference and gate tables",
+      "notebooks": "`80_lseg33_economic_value_rule_search`",
+      "verdict": "VERIFIED"
+    },
+    {
+      "claim_id": "CLM-014",
+      "claim_text": "Run the same economic search on FNSPID",
+      "paper_locator": "manuscript claim family",
+      "selection_tier": "ALL",
+      "ref_slug": "docs_evidence_map",
+      "writer_anchor": "No stable incremental economic gain",
+      "committed_evidence": "evaluation, inference and gate tables",
+      "notebooks": "`81_fnspid_economic_value_rule_search`",
+      "verdict": "VERIFIED"
+    },
+    {
+      "claim_id": "CLM-015",
+      "claim_text": "Search firm-level LSEG loss controls",
+      "paper_locator": "manuscript claim family",
+      "selection_tier": "ALL",
+      "ref_slug": "docs_evidence_map",
+      "writer_anchor": "Raw loss reduction, no incremental economic value",
+      "committed_evidence": "matched controls, halves and leave-one-out tables",
+      "notebooks": "`82_lseg33_firm_level_loss_control`",
+      "verdict": "VERIFIED"
+    },
+    {
+      "claim_id": "CLM-016",
+      "claim_text": "Test prompt-engineered LSEG scores",
+      "paper_locator": "manuscript claim family",
+      "selection_tier": "ALL",
+      "ref_slug": "docs_evidence_map",
+      "writer_anchor": "All prompt variants ineligible",
+      "committed_evidence": "selection and support tables, prompt figures",
+      "notebooks": "aggregate result snapshot from source Notebook 83",
+      "verdict": "VERIFIED"
+    },
+    {
+      "claim_id": "CLM-017",
+      "claim_text": "Test a structured anticipated-price-reaction score",
+      "paper_locator": "manuscript claim family",
+      "selection_tier": "ALL",
+      "ref_slug": "docs_evidence_map",
+      "writer_anchor": "Selection gate fails",
+      "committed_evidence": "selection and support tables, reaction figure",
+      "notebooks": "aggregate result snapshot from source Notebook 84",
+      "verdict": "VERIFIED"
+    },
+    {
+      "claim_id": "CLM-018",
+      "claim_text": "Test close-to-close, FF3 residual and soft negative mass",
+      "paper_locator": "manuscript claim family",
+      "selection_tier": "ALL",
+      "ref_slug": "docs_evidence_map",
+      "writer_anchor": "0/3 BH survivors; next-open hard share remains the estimand",
+      "committed_evidence": "`sensitivity_coefficients.csv`",
+      "notebooks": "`85_fnspid_development_outcome_and_label_sensitivities`",
+      "verdict": "VERIFIED"
+    }
+  ],
+  "phases": {
+    "E_claims": {
+      "checked": 18,
+      "verified": 18,
+      "minor_distortion": 0,
+      "major_distortion": 0,
+      "unverifiable": 0,
+      "unverifiable_access": 0,
+      "evidence_rows": [
+        {
+          "schema_version": "evidence-row/1.0",
+          "surface": "phase_e_claim_verification",
+          "row_id": "EVR-final-001",
+          "claim": {
+            "claim_id": "CLM-001",
+            "text": "Compare nine ways of aggregating same-day stories",
+            "paper_locator": "manuscript claim family",
+            "selection_tier": "ALL"
+          },
+          "source": {
+            "ref_slug": "docs_evidence_map",
+            "display_label": "docs/evidence_map.md",
+            "source_content_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900",
+            "source_content_utf8_bytes": 6935,
+            "source_artifact_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900"
+          },
+          "anchor": {
+            "kind": "quote",
+            "value_encoded": "Negative%20share%20is%20the%20only%20BH%20survivor",
+            "value_decoded": "Negative share is the only BH survivor"
+          },
+          "verdict": "VERIFIED",
+          "detail": "Checked against `results/03_aggregation/` and `fig_aggregation_ic.png`; the regenerated artifact report and repository validation reproduced the promoted status.",
+          "content_handling": {
+            "contains_external_text": true,
+            "sharing_scope": "session_only",
+            "rights_basis": "not_assessed"
+          },
+          "cache": {
+            "status": "miss",
+            "key_sha256": "0652fbd7090a8db270435a43b57aefb054f45fd12259af843ca32e99e2d01d05"
+          },
+          "excerpt": {
+            "state": "verified_exact_match",
+            "text": "Negative share is the only BH survivor",
+            "excerpt_sha256": "99528478e2ecadf15a4fca57f4dd6136a1bb79656a0983ec0e24bd03ab4a2eac",
+            "source_span_utf8": {
+              "start": 397,
+              "end": 435
+            },
+            "captured_at": "2026-08-14T16:00:23Z"
+          },
+          "row_sha256": "ada355783791abe6b07da6942aacc1ad28ed094a195c771d66921780126fbb1d"
+        },
+        {
+          "schema_version": "evidence-row/1.0",
+          "surface": "phase_e_claim_verification",
+          "row_id": "EVR-final-002",
+          "claim": {
+            "claim_id": "CLM-002",
+            "text": "Test whether learned no-trade thresholds add value",
+            "paper_locator": "manuscript claim family",
+            "selection_tier": "ALL"
+          },
+          "source": {
+            "ref_slug": "docs_evidence_map",
+            "display_label": "docs/evidence_map.md",
+            "source_content_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900",
+            "source_content_utf8_bytes": 6935,
+            "source_artifact_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900"
+          },
+          "anchor": {
+            "kind": "quote",
+            "value_encoded": "Null%3B%20cash%20beats%20learned%20policies",
+            "value_decoded": "Null; cash beats learned policies"
+          },
+          "verdict": "VERIFIED",
+          "detail": "Checked against `results/10_thresholds/`; the regenerated artifact report and repository validation reproduced the promoted status.",
+          "content_handling": {
+            "contains_external_text": true,
+            "sharing_scope": "session_only",
+            "rights_basis": "not_assessed"
+          },
+          "cache": {
+            "status": "miss",
+            "key_sha256": "c8182004ffa2ed22c268850c3c0075f933585d21df40d1c33272b7d534f519bc"
+          },
+          "excerpt": {
+            "state": "verified_exact_match",
+            "text": "Null; cash beats learned policies",
+            "excerpt_sha256": "aaee6abc9a447bd3f8ceb85790c010c0333b21c4883ba4150d8ed904ff71a946",
+            "source_span_utf8": {
+              "start": 538,
+              "end": 571
+            },
+            "captured_at": "2026-08-14T16:00:23Z"
+          },
+          "row_sha256": "8702cc0a74667e53b84c2a46a84a11a558ef99098cf9f1496b030f96a218e640"
+        },
+        {
+          "schema_version": "evidence-row/1.0",
+          "surface": "phase_e_claim_verification",
+          "row_id": "EVR-final-003",
+          "claim": {
+            "claim_id": "CLM-003",
+            "text": "Translate negative pressure into an aggregate risk state",
+            "paper_locator": "manuscript claim family",
+            "selection_tier": "ALL"
+          },
+          "source": {
+            "ref_slug": "docs_evidence_map",
+            "display_label": "docs/evidence_map.md",
+            "source_content_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900",
+            "source_content_utf8_bytes": 6935,
+            "source_artifact_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900"
+          },
+          "anchor": {
+            "kind": "quote",
+            "value_encoded": "Bounded%20FNSPID%20downside%20result",
+            "value_decoded": "Bounded FNSPID downside result"
+          },
+          "verdict": "VERIFIED",
+          "detail": "Checked against respective result folders and `fig_har_sentiment_equity.png`; the regenerated artifact report and repository validation reproduced the promoted status.",
+          "content_handling": {
+            "contains_external_text": true,
+            "sharing_scope": "session_only",
+            "rights_basis": "not_assessed"
+          },
+          "cache": {
+            "status": "miss",
+            "key_sha256": "2cfe20c4baccdda88e077bbf0eaf67c0c9cfad1eb7a51e87a73c060cfd3a249d"
+          },
+          "excerpt": {
+            "state": "verified_exact_match",
+            "text": "Bounded FNSPID downside result",
+            "excerpt_sha256": "ce684f1ec6601604ed8c121290b18e7d92c56b6f41dc676ab61ab7c1d1b191b8",
+            "source_span_utf8": {
+              "start": 723,
+              "end": 753
+            },
+            "captured_at": "2026-08-14T16:00:23Z"
+          },
+          "row_sha256": "eabdd724af9c1b9448e265b20877f7a2d21dbc59d0ff614fc011332b59dedbc6"
+        },
+        {
+          "schema_version": "evidence-row/1.0",
+          "surface": "phase_e_claim_verification",
+          "row_id": "EVR-final-004",
+          "claim": {
+            "claim_id": "CLM-004",
+            "text": "Test whether downside timing is more than exposure placement",
+            "paper_locator": "manuscript claim family",
+            "selection_tier": "ALL"
+          },
+          "source": {
+            "ref_slug": "docs_evidence_map",
+            "display_label": "docs/evidence_map.md",
+            "source_content_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900",
+            "source_content_utf8_bytes": 6935,
+            "source_artifact_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900"
+          },
+          "anchor": {
+            "kind": "quote",
+            "value_encoded": "Passes%20only%20in%202020-2023%20after%20correction",
+            "value_decoded": "Passes only in 2020-2023 after correction"
+          },
+          "verdict": "VERIFIED",
+          "detail": "Checked against `timing_results.csv`, `fig_downside_placebo.png`; the regenerated artifact report and repository validation reproduced the promoted status.",
+          "content_handling": {
+            "contains_external_text": true,
+            "sharing_scope": "session_only",
+            "rights_basis": "not_assessed"
+          },
+          "cache": {
+            "status": "miss",
+            "key_sha256": "23b1ac52c8ac0f3926e82867d1a1b7898cc3d195fc1009c10ce20c398209fb14"
+          },
+          "excerpt": {
+            "state": "verified_exact_match",
+            "text": "Passes only in 2020-2023 after correction",
+            "excerpt_sha256": "5e2177df99dd7877efadf28763208ad2c2ae8ffabb0368f4f259ec4a5d1e8e9c",
+            "source_span_utf8": {
+              "start": 913,
+              "end": 954
+            },
+            "captured_at": "2026-08-14T16:00:23Z"
+          },
+          "row_sha256": "4e9db9104ba429ae3a713a2ca8e2d3799c2d5de3d654bfdc438d751aad051c9b"
+        },
+        {
+          "schema_version": "evidence-row/1.0",
+          "surface": "phase_e_claim_verification",
+          "row_id": "EVR-final-005",
+          "claim": {
+            "claim_id": "CLM-005",
+            "text": "Estimate negative share beyond the mean and transfer to LSEG",
+            "paper_locator": "manuscript claim family",
+            "selection_tier": "ALL"
+          },
+          "source": {
+            "ref_slug": "docs_evidence_map",
+            "display_label": "docs/evidence_map.md",
+            "source_content_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900",
+            "source_content_utf8_bytes": 6935,
+            "source_artifact_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900"
+          },
+          "anchor": {
+            "kind": "quote",
+            "value_encoded": "FNSPID%20pass%3B%20LSEG%20FinBERT%20blocks%20imprecise",
+            "value_decoded": "FNSPID pass; LSEG FinBERT blocks imprecise"
+          },
+          "verdict": "VERIFIED",
+          "detail": "Checked against `conditional_coefficients.csv`; the regenerated artifact report and repository validation reproduced the promoted status.",
+          "content_handling": {
+            "contains_external_text": true,
+            "sharing_scope": "session_only",
+            "rights_basis": "not_assessed"
+          },
+          "cache": {
+            "status": "miss",
+            "key_sha256": "7b7e1a7caffbf16ea6946b7ce0a9e1a631861b5f5380f0ff01d6fe16fe8075ed"
+          },
+          "excerpt": {
+            "state": "verified_exact_match",
+            "text": "FNSPID pass; LSEG FinBERT blocks imprecise",
+            "excerpt_sha256": "51f3866410d0a5912c95366254b84d8c246ba647e61879edfccc4069af311f40",
+            "source_span_utf8": {
+              "start": 1098,
+              "end": 1140
+            },
+            "captured_at": "2026-08-14T16:00:23Z"
+          },
+          "row_sha256": "115e670e0f73d6d4f7d6027f7f776ce05b817ba7e39ea98c6891304c4c1977aa"
+        },
+        {
+          "schema_version": "evidence-row/1.0",
+          "surface": "phase_e_claim_verification",
+          "row_id": "EVR-final-006",
+          "claim": {
+            "claim_id": "CLM-006",
+            "text": "Apply the frozen FNSPID risk state to recent and backward LSEG",
+            "paper_locator": "manuscript claim family",
+            "selection_tier": "ALL"
+          },
+          "source": {
+            "ref_slug": "docs_evidence_map",
+            "display_label": "docs/evidence_map.md",
+            "source_content_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900",
+            "source_content_utf8_bytes": 6935,
+            "source_artifact_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900"
+          },
+          "anchor": {
+            "kind": "quote",
+            "value_encoded": "Recent%20rule%20never%20activates%3B%20backward%20evidence%20is%20insufficient%20for%20a%20portability%20claim",
+            "value_decoded": "Recent rule never activates; backward evidence is insufficient for a portability claim"
+          },
+          "verdict": "VERIFIED",
+          "detail": "Checked against strategy, inference, timing and gate tables; the regenerated artifact report and repository validation reproduced the promoted status.",
+          "content_handling": {
+            "contains_external_text": true,
+            "sharing_scope": "session_only",
+            "rights_basis": "not_assessed"
+          },
+          "cache": {
+            "status": "miss",
+            "key_sha256": "d1672dde80f04b28f92f7366c93abcf77841b6ebb956a54abc92ae7ee08b6c2e"
+          },
+          "excerpt": {
+            "state": "verified_exact_match",
+            "text": "Recent rule never activates; backward evidence is insufficient for a portability claim",
+            "excerpt_sha256": "d86e5ea2add2807e343194e217eb5e66cbabac73991218bce9275ec76112b277",
+            "source_span_utf8": {
+              "start": 1269,
+              "end": 1355
+            },
+            "captured_at": "2026-08-14T16:00:23Z"
+          },
+          "row_sha256": "5ce01f7c19f9a6a50301b453f0d9503d7efbeb17d2c09747a243cf26f75b9efe"
+        },
+        {
+          "schema_version": "evidence-row/1.0",
+          "surface": "phase_e_claim_verification",
+          "row_id": "EVR-final-007",
+          "claim": {
+            "claim_id": "CLM-007",
+            "text": "Stress-test HAC, bootstrap, episode and story-count sensitivity",
+            "paper_locator": "manuscript claim family",
+            "selection_tier": "ALL"
+          },
+          "source": {
+            "ref_slug": "docs_evidence_map",
+            "display_label": "docs/evidence_map.md",
+            "source_content_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900",
+            "source_content_utf8_bytes": 6935,
+            "source_artifact_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900"
+          },
+          "anchor": {
+            "kind": "quote",
+            "value_encoded": "Robustness%2Ffragility%20boundary",
+            "value_decoded": "Robustness/fragility boundary"
+          },
+          "verdict": "VERIFIED",
+          "detail": "Checked against six diagnostic tables; the regenerated artifact report and repository validation reproduced the promoted status.",
+          "content_handling": {
+            "contains_external_text": true,
+            "sharing_scope": "session_only",
+            "rights_basis": "not_assessed"
+          },
+          "cache": {
+            "status": "miss",
+            "key_sha256": "4a7792bad37b2900c025faf09bdb29d5c88d6a09f8a30bfbbbff30a9203a6bbc"
+          },
+          "excerpt": {
+            "state": "verified_exact_match",
+            "text": "Robustness/fragility boundary",
+            "excerpt_sha256": "74ed8da54c63f65f58aa275e70b0346c086fc2f73280a5bfc8bdc278cd05a854",
+            "source_span_utf8": {
+              "start": 1505,
+              "end": 1534
+            },
+            "captured_at": "2026-08-14T16:00:23Z"
+          },
+          "row_sha256": "c978061099d54a7cffe47779f5500a289d1533902ee950054d674ad6d8f65e1c"
+        },
+        {
+          "schema_version": "evidence-row/1.0",
+          "surface": "phase_e_claim_verification",
+          "row_id": "EVR-final-008",
+          "claim": {
+            "claim_id": "CLM-008",
+            "text": "Replicate the selected FNSPID estimands in 2020--2023",
+            "paper_locator": "manuscript claim family",
+            "selection_tier": "ALL"
+          },
+          "source": {
+            "ref_slug": "docs_evidence_map",
+            "display_label": "docs/evidence_map.md",
+            "source_content_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900",
+            "source_content_utf8_bytes": 6935,
+            "source_artifact_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900"
+          },
+          "anchor": {
+            "kind": "quote",
+            "value_encoded": "Completed%20once%3B%20both%20primary%20families%20fail%20and%20the%20baseline%20coefficient%20changes%20across%20eras%3B%20the%20result%20establishes%20pipeline-level%20instability%2C%20not%20its%20cause",
+            "value_decoded": "Completed once; both primary families fail and the baseline coefficient changes across eras; the result establishes pipeline-level instability, not its cause"
+          },
+          "verdict": "VERIFIED",
+          "detail": "Checked against exact source execution, frozen amendment, coefficient families, daily series, power context and baseline stability contrast; the regenerated artifact report and repository validation reproduced the promoted status.",
+          "content_handling": {
+            "contains_external_text": true,
+            "sharing_scope": "session_only",
+            "rights_basis": "not_assessed"
+          },
+          "cache": {
+            "status": "miss",
+            "key_sha256": "3912044977d5b38bab1b0b5e6ff6bb4a162855fcd6faf1c21ca98a34c4d8fa04"
+          },
+          "excerpt": {
+            "state": "verified_exact_match",
+            "text": "Completed once; both primary families fail and the baseline coefficient changes across eras; the result establishes pipeline-level instability, not its cause",
+            "excerpt_sha256": "e7daf6fd1251a9a4662486702ea1bc7669e1ae84e04b4d7a19f3883ab214bb86",
+            "source_span_utf8": {
+              "start": 1770,
+              "end": 1927
+            },
+            "captured_at": "2026-08-14T16:00:23Z"
+          },
+          "row_sha256": "704ca61fc1264c5ef311fe67de173ab89f672c201b949fcb1e2b4874dcabf6d1"
+        },
+        {
+          "schema_version": "evidence-row/1.0",
+          "surface": "phase_e_claim_verification",
+          "row_id": "EVR-final-009",
+          "claim": {
+            "claim_id": "CLM-009",
+            "text": "Show the headline effect without a regression",
+            "paper_locator": "manuscript claim family",
+            "selection_tier": "ALL"
+          },
+          "source": {
+            "ref_slug": "docs_evidence_map",
+            "display_label": "docs/evidence_map.md",
+            "source_content_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900",
+            "source_content_utf8_bytes": 6935,
+            "source_artifact_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900"
+          },
+          "anchor": {
+            "kind": "quote",
+            "value_encoded": "-0.618%20bps%3B%20interval%20crosses%20zero",
+            "value_decoded": "-0.618 bps; interval crosses zero"
+          },
+          "verdict": "VERIFIED",
+          "detail": "Checked against spread summaries and `fig_conditional_double_sort.png`; the regenerated artifact report and repository validation reproduced the promoted status.",
+          "content_handling": {
+            "contains_external_text": true,
+            "sharing_scope": "session_only",
+            "rights_basis": "not_assessed"
+          },
+          "cache": {
+            "status": "miss",
+            "key_sha256": "c6c3b3ebcc370681e5d5d079c1e21b313b81f63284ae6ed63636cb8311888838"
+          },
+          "excerpt": {
+            "state": "verified_exact_match",
+            "text": "-0.618 bps; interval crosses zero",
+            "excerpt_sha256": "d36425a56ba1902d27542b95aefe3b810a12412fbb4dd28f1da3750c2eb47a2b",
+            "source_span_utf8": {
+              "start": 2090,
+              "end": 2123
+            },
+            "captured_at": "2026-08-14T16:00:23Z"
+          },
+          "row_sha256": "1340ba22d1b9505b86f6aec1aa83c6600d8ca6ba4a59af46dee9cfda998534a3"
+        },
+        {
+          "schema_version": "evidence-row/1.0",
+          "surface": "phase_e_claim_verification",
+          "row_id": "EVR-final-010",
+          "claim": {
+            "claim_id": "CLM-010",
+            "text": "Quantify power for important nulls",
+            "paper_locator": "manuscript claim family",
+            "selection_tier": "ALL"
+          },
+          "source": {
+            "ref_slug": "docs_evidence_map",
+            "display_label": "docs/evidence_map.md",
+            "source_content_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900",
+            "source_content_utf8_bytes": 6935,
+            "source_artifact_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900"
+          },
+          "anchor": {
+            "kind": "quote",
+            "value_encoded": "LSEG%20is%20underpowered%20for%20an%20FNSPID-sized%20coefficient",
+            "value_decoded": "LSEG is underpowered for an FNSPID-sized coefficient"
+          },
+          "verdict": "VERIFIED",
+          "detail": "Checked against MDE tables; the regenerated artifact report and repository validation reproduced the promoted status.",
+          "content_handling": {
+            "contains_external_text": true,
+            "sharing_scope": "session_only",
+            "rights_basis": "not_assessed"
+          },
+          "cache": {
+            "status": "miss",
+            "key_sha256": "1b80dd7ce3a692b9909cb7a9a81273e18baceeb7d5e8472f50193cfe188ab472"
+          },
+          "excerpt": {
+            "state": "verified_exact_match",
+            "text": "LSEG is underpowered for an FNSPID-sized coefficient",
+            "excerpt_sha256": "942054abd5584abac8434802ae8efb4cb737262af54625c147b55006626c4d53",
+            "source_span_utf8": {
+              "start": 2217,
+              "end": 2269
+            },
+            "captured_at": "2026-08-14T16:00:23Z"
+          },
+          "row_sha256": "3a8b7b24eee257ded96c7021be7415cea9aa0568738023c6a8d3b7c3372991e0"
+        },
+        {
+          "schema_version": "evidence-row/1.0",
+          "surface": "phase_e_claim_verification",
+          "row_id": "EVR-final-011",
+          "claim": {
+            "claim_id": "CLM-011",
+            "text": "Consolidate nulls, multiplicity and provenance",
+            "paper_locator": "manuscript claim family",
+            "selection_tier": "ALL"
+          },
+          "source": {
+            "ref_slug": "docs_evidence_map",
+            "display_label": "docs/evidence_map.md",
+            "source_content_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900",
+            "source_content_utf8_bytes": 6935,
+            "source_artifact_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900"
+          },
+          "anchor": {
+            "kind": "quote",
+            "value_encoded": "56%20families%2C%20264%20decisions%2Ftests%3B%20the%20family-level%20tables%20are%20kept%20here%20rather%20than%20in%20the%20manuscript",
+            "value_decoded": "56 families, 264 decisions/tests; the family-level tables are kept here rather than in the manuscript"
+          },
+          "verdict": "VERIFIED",
+          "detail": "Checked against result ledger and provenance table; the regenerated artifact report and repository validation reproduced the promoted status.",
+          "content_handling": {
+            "contains_external_text": true,
+            "sharing_scope": "session_only",
+            "rights_basis": "not_assessed"
+          },
+          "cache": {
+            "status": "miss",
+            "key_sha256": "a066bc4a78d3100059abe04fba12dfbe99c018ee2f66450c7e5a4281f27452e7"
+          },
+          "excerpt": {
+            "state": "verified_exact_match",
+            "text": "56 families, 264 decisions/tests; the family-level tables are kept here rather than in the manuscript",
+            "excerpt_sha256": "83a093dfecd50cdc8791f3dce260e401c69ac5609704d4e97cc33c9f1ca50054",
+            "source_span_utf8": {
+              "start": 2402,
+              "end": 2503
+            },
+            "captured_at": "2026-08-14T16:00:23Z"
+          },
+          "row_sha256": "1f97a191f5546bdb61fb8c894684d80ceb9ab2c9a16bbf7316cd4cb9e49dd3ba"
+        },
+        {
+          "schema_version": "evidence-row/1.0",
+          "surface": "phase_e_claim_verification",
+          "row_id": "EVR-final-012",
+          "claim": {
+            "claim_id": "CLM-012",
+            "text": "Rule out recent-return reversal and volatility as the explanation",
+            "paper_locator": "manuscript claim family",
+            "selection_tier": "ALL"
+          },
+          "source": {
+            "ref_slug": "docs_evidence_map",
+            "display_label": "docs/evidence_map.md",
+            "source_content_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900",
+            "source_content_utf8_bytes": 6935,
+            "source_artifact_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900"
+          },
+          "anchor": {
+            "kind": "quote",
+            "value_encoded": "Primary%20price-control%20test%20passes",
+            "value_decoded": "Primary price-control test passes"
+          },
+          "verdict": "VERIFIED",
+          "detail": "Checked against coefficient tables and `fig_reversal_confound.png`; the regenerated artifact report and repository validation reproduced the promoted status.",
+          "content_handling": {
+            "contains_external_text": true,
+            "sharing_scope": "session_only",
+            "rights_basis": "not_assessed"
+          },
+          "cache": {
+            "status": "miss",
+            "key_sha256": "81b02f579de367e88fab33527bc3b5d84c72c1703ff1912c54be2994b5d2a424"
+          },
+          "excerpt": {
+            "state": "verified_exact_match",
+            "text": "Primary price-control test passes",
+            "excerpt_sha256": "474cfcb74a44d8b7477346985b006eb051e33b2678e9d6e6e322c61ac77182fa",
+            "source_span_utf8": {
+              "start": 2673,
+              "end": 2706
+            },
+            "captured_at": "2026-08-14T16:00:23Z"
+          },
+          "row_sha256": "a84f7f20b29b60c7322b1a8ff8a717b9928f96ac03132cdc2e0779c16200ac21"
+        },
+        {
+          "schema_version": "evidence-row/1.0",
+          "surface": "phase_e_claim_verification",
+          "row_id": "EVR-final-013",
+          "claim": {
+            "claim_id": "CLM-013",
+            "text": "Search a bounded aggregate LSEG risk-rule family",
+            "paper_locator": "manuscript claim family",
+            "selection_tier": "ALL"
+          },
+          "source": {
+            "ref_slug": "docs_evidence_map",
+            "display_label": "docs/evidence_map.md",
+            "source_content_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900",
+            "source_content_utf8_bytes": 6935,
+            "source_artifact_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900"
+          },
+          "anchor": {
+            "kind": "quote",
+            "value_encoded": "No%20economic-value%20gate%20pass",
+            "value_decoded": "No economic-value gate pass"
+          },
+          "verdict": "VERIFIED",
+          "detail": "Checked against evaluation, inference and gate tables; the regenerated artifact report and repository validation reproduced the promoted status.",
+          "content_handling": {
+            "contains_external_text": true,
+            "sharing_scope": "session_only",
+            "rights_basis": "not_assessed"
+          },
+          "cache": {
+            "status": "miss",
+            "key_sha256": "dbc1580668e90f74be6137ebaf595d4a5cec31ed5cb6b204b9cea2ad9a1d1718"
+          },
+          "excerpt": {
+            "state": "verified_exact_match",
+            "text": "No economic-value gate pass",
+            "excerpt_sha256": "9374a36d9b83f9b42ace843b78138d1f7e18bc956435afe1388f6cd58d352bf4",
+            "source_span_utf8": {
+              "start": 2843,
+              "end": 2870
+            },
+            "captured_at": "2026-08-14T16:00:23Z"
+          },
+          "row_sha256": "bbaffe0ce2f2a174c82ed6d8d274930fddf1cc5ba0ec52072c27ebadec1314a1"
+        },
+        {
+          "schema_version": "evidence-row/1.0",
+          "surface": "phase_e_claim_verification",
+          "row_id": "EVR-final-014",
+          "claim": {
+            "claim_id": "CLM-014",
+            "text": "Run the same economic search on FNSPID",
+            "paper_locator": "manuscript claim family",
+            "selection_tier": "ALL"
+          },
+          "source": {
+            "ref_slug": "docs_evidence_map",
+            "display_label": "docs/evidence_map.md",
+            "source_content_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900",
+            "source_content_utf8_bytes": 6935,
+            "source_artifact_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900"
+          },
+          "anchor": {
+            "kind": "quote",
+            "value_encoded": "No%20stable%20incremental%20economic%20gain",
+            "value_decoded": "No stable incremental economic gain"
+          },
+          "verdict": "VERIFIED",
+          "detail": "Checked against evaluation, inference and gate tables; the regenerated artifact report and repository validation reproduced the promoted status.",
+          "content_handling": {
+            "contains_external_text": true,
+            "sharing_scope": "session_only",
+            "rights_basis": "not_assessed"
+          },
+          "cache": {
+            "status": "miss",
+            "key_sha256": "efbdc5b397ee30cce13facf842f1855ef5649e33f3985d9468d51f0a5140163c"
+          },
+          "excerpt": {
+            "state": "verified_exact_match",
+            "text": "No stable incremental economic gain",
+            "excerpt_sha256": "33c83d49cac0ecdaf65c56086d7d1bf300a79cbdb552f07eba1eef6d25a50939",
+            "source_span_utf8": {
+              "start": 2997,
+              "end": 3032
+            },
+            "captured_at": "2026-08-14T16:00:23Z"
+          },
+          "row_sha256": "0f47af7f71970ce55504cbab127d499d033175c75373ce7acf94d6fd7346cd08"
+        },
+        {
+          "schema_version": "evidence-row/1.0",
+          "surface": "phase_e_claim_verification",
+          "row_id": "EVR-final-015",
+          "claim": {
+            "claim_id": "CLM-015",
+            "text": "Search firm-level LSEG loss controls",
+            "paper_locator": "manuscript claim family",
+            "selection_tier": "ALL"
+          },
+          "source": {
+            "ref_slug": "docs_evidence_map",
+            "display_label": "docs/evidence_map.md",
+            "source_content_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900",
+            "source_content_utf8_bytes": 6935,
+            "source_artifact_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900"
+          },
+          "anchor": {
+            "kind": "quote",
+            "value_encoded": "Raw%20loss%20reduction%2C%20no%20incremental%20economic%20value",
+            "value_decoded": "Raw loss reduction, no incremental economic value"
+          },
+          "verdict": "VERIFIED",
+          "detail": "Checked against matched controls, halves and leave-one-out tables; the regenerated artifact report and repository validation reproduced the promoted status.",
+          "content_handling": {
+            "contains_external_text": true,
+            "sharing_scope": "session_only",
+            "rights_basis": "not_assessed"
+          },
+          "cache": {
+            "status": "miss",
+            "key_sha256": "2ed13840f6e188ddc04acc3ffd9b1af5598844a2bb80b0e45e0245f7e853a52a"
+          },
+          "excerpt": {
+            "state": "verified_exact_match",
+            "text": "Raw loss reduction, no incremental economic value",
+            "excerpt_sha256": "bcaf47872aa83fa46d672aa2310ba32b44a04eb584f81aa366eebaa6c4c880ad",
+            "source_span_utf8": {
+              "start": 3166,
+              "end": 3215
+            },
+            "captured_at": "2026-08-14T16:00:23Z"
+          },
+          "row_sha256": "823cbedc973de982726fdda46cb7e9c02f8b770f8388238bc3996630f1daa91b"
+        },
+        {
+          "schema_version": "evidence-row/1.0",
+          "surface": "phase_e_claim_verification",
+          "row_id": "EVR-final-016",
+          "claim": {
+            "claim_id": "CLM-016",
+            "text": "Test prompt-engineered LSEG scores",
+            "paper_locator": "manuscript claim family",
+            "selection_tier": "ALL"
+          },
+          "source": {
+            "ref_slug": "docs_evidence_map",
+            "display_label": "docs/evidence_map.md",
+            "source_content_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900",
+            "source_content_utf8_bytes": 6935,
+            "source_artifact_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900"
+          },
+          "anchor": {
+            "kind": "quote",
+            "value_encoded": "All%20prompt%20variants%20ineligible",
+            "value_decoded": "All prompt variants ineligible"
+          },
+          "verdict": "VERIFIED",
+          "detail": "Checked against selection and support tables, prompt figures; the regenerated artifact report and repository validation reproduced the promoted status.",
+          "content_handling": {
+            "contains_external_text": true,
+            "sharing_scope": "session_only",
+            "rights_basis": "not_assessed"
+          },
+          "cache": {
+            "status": "miss",
+            "key_sha256": "ab00a0b65c8f4e1fb98477edd94c1adddf5a0ab813b285432a8b768ccbbee3b6"
+          },
+          "excerpt": {
+            "state": "verified_exact_match",
+            "text": "All prompt variants ineligible",
+            "excerpt_sha256": "d23be5c5caf02e93e81d49bbd468ad1a4b85c9b99d42b99d22f79d8b2efd0ee0",
+            "source_span_utf8": {
+              "start": 3356,
+              "end": 3386
+            },
+            "captured_at": "2026-08-14T16:00:23Z"
+          },
+          "row_sha256": "8b4f39af5397b49e9240444606835ab52e0e4a18863a00e1742f8d199c480470"
+        },
+        {
+          "schema_version": "evidence-row/1.0",
+          "surface": "phase_e_claim_verification",
+          "row_id": "EVR-final-017",
+          "claim": {
+            "claim_id": "CLM-017",
+            "text": "Test a structured anticipated-price-reaction score",
+            "paper_locator": "manuscript claim family",
+            "selection_tier": "ALL"
+          },
+          "source": {
+            "ref_slug": "docs_evidence_map",
+            "display_label": "docs/evidence_map.md",
+            "source_content_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900",
+            "source_content_utf8_bytes": 6935,
+            "source_artifact_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900"
+          },
+          "anchor": {
+            "kind": "quote",
+            "value_encoded": "Selection%20gate%20fails",
+            "value_decoded": "Selection gate fails"
+          },
+          "verdict": "VERIFIED",
+          "detail": "Checked against selection and support tables, reaction figure; the regenerated artifact report and repository validation reproduced the promoted status.",
+          "content_handling": {
+            "contains_external_text": true,
+            "sharing_scope": "session_only",
+            "rights_basis": "not_assessed"
+          },
+          "cache": {
+            "status": "miss",
+            "key_sha256": "acc3ec633803a2baa23c8ed20bdd454180d96235e14592831d9e04e15eec4df0"
+          },
+          "excerpt": {
+            "state": "verified_exact_match",
+            "text": "Selection gate fails",
+            "excerpt_sha256": "580ad8d320e77eadaf4dbad7bf1c4a9b199f3656e1f393a7fc86ef8770e96a60",
+            "source_span_utf8": {
+              "start": 3544,
+              "end": 3564
+            },
+            "captured_at": "2026-08-14T16:00:23Z"
+          },
+          "row_sha256": "a28039f4bd3ca2a341ecdaae7ae8db70b71f45a216a8ef9ab556bd861e808a8c"
+        },
+        {
+          "schema_version": "evidence-row/1.0",
+          "surface": "phase_e_claim_verification",
+          "row_id": "EVR-final-018",
+          "claim": {
+            "claim_id": "CLM-018",
+            "text": "Test close-to-close, FF3 residual and soft negative mass",
+            "paper_locator": "manuscript claim family",
+            "selection_tier": "ALL"
+          },
+          "source": {
+            "ref_slug": "docs_evidence_map",
+            "display_label": "docs/evidence_map.md",
+            "source_content_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900",
+            "source_content_utf8_bytes": 6935,
+            "source_artifact_sha256": "891345e8aae8506090b7c0c00a0500957d1ce2723b63484509feb2a141d3b900"
+          },
+          "anchor": {
+            "kind": "quote",
+            "value_encoded": "0%2F3%20BH%20survivors%3B%20next-open%20hard%20share%20remains%20the%20estimand",
+            "value_decoded": "0/3 BH survivors; next-open hard share remains the estimand"
+          },
+          "verdict": "VERIFIED",
+          "detail": "Checked against `sensitivity_coefficients.csv`; the regenerated artifact report and repository validation reproduced the promoted status.",
+          "content_handling": {
+            "contains_external_text": true,
+            "sharing_scope": "session_only",
+            "rights_basis": "not_assessed"
+          },
+          "cache": {
+            "status": "miss",
+            "key_sha256": "aeb4c5f85dcb26dfb8abc7d726d3476392c6459dcc0a8c115b1a7766781e05e7"
+          },
+          "excerpt": {
+            "state": "verified_exact_match",
+            "text": "0/3 BH survivors; next-open hard share remains the estimand",
+            "excerpt_sha256": "cee926b2f1ba2f02a5c48f1fa9f6038d3cff3621bdbd9b0b66bcb087f3f62075",
+            "source_span_utf8": {
+              "start": 3719,
+              "end": 3778
+            },
+            "captured_at": "2026-08-14T16:00:23Z"
+          },
+          "row_sha256": "aee4dc8de3f2beb97dd31772833dcd68c6d28cd992c576b191c3f0163e44bb33"
+        }
+      ]
+    }
+  }
+}

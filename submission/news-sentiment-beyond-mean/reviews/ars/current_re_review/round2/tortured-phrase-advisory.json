@@ -1,0 +1,63 @@
+{
+  "schema_version": "tortured-phrase-advisory/1.0",
+  "layer": "HEURISTIC-ADVISORY",
+  "evaluation_status": "UNMEASURED",
+  "surface": "own_draft",
+  "input_binding": {
+    "artifact": {
+      "artifact_id": "ars-round2-accepted-draft",
+      "artifact_format": "markdown",
+      "artifact_sha256": "d15e6c3762b3637a7a79bd686ff6b6b3f381093688844417779a0d69473599ce",
+      "artifact_utf8_bytes": 128131
+    },
+    "snapshot": {
+      "status": "not_checked",
+      "reason_code": "SNAPSHOT_NOT_PROVIDED",
+      "snapshot_sha256": null,
+      "manifest_sha256": null,
+      "snapshot_id": null,
+      "source": null,
+      "supply_mode": null,
+      "snapshot_schema_version": null,
+      "grammar_profile": null,
+      "normalizer_profile": null,
+      "unicode_data_version": "15.1.0",
+      "rule_count": null,
+      "unsupported_rule_count": null,
+      "rights": null
+    },
+    "checked_at": "2026-08-14T16:04:49Z",
+    "recorded_at": "2026-08-14T16:04:49Z"
+  },
+  "check_status": "not_checked",
+  "finding": "unresolved",
+  "reason_code": "SNAPSHOT_NOT_PROVIDED",
+  "counts": {
+    "rules_evaluated": 0,
+    "matched_rule_count": 0,
+    "rule_match_count": 0,
+    "unique_instance_count": 0,
+    "segments_total": 0,
+    "unknown_segments": 0,
+    "matches_by_context": {
+      "author_prose": 0,
+      "quote": 0,
+      "cited_title": 0,
+      "reference_entry": 0,
+      "code_or_verbatim": 0,
+      "unknown": 0,
+      "cited_abstract": 0
+    }
+  },
+  "matches": [],
+  "boundary": {
+    "list_match_only": true,
+    "origin_inference": "not_performed",
+    "contextual_judgment": "not_performed",
+    "automatic_rewrite": false,
+    "absence_is_clean_certificate": false,
+    "native_pps_compatibility": "not_claimed",
+    "sharing_scope": "local_only"
+  },
+  "report_sha256": "8573d2367145e24d01d5bc7639c08f742fad262d4aac79af612a4da57ff62f62"
+}

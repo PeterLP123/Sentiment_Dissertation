@@ -1,0 +1,6 @@
+source,scorer,block,rows,sessions,symbols,first_session,last_session,median_story_count
+FNSPID,finbert,development,512153,2264,570,2011-01-03,2019-12-31,2.0
+LSEG,finbert,backward,14935,456,33,2024-01-02,2025-10-24,61.0
+LSEG,finbert,recent,5511,167,33,2025-10-27,2026-06-26,90.0
+LSEG,gemma4_26b,backward,14935,456,33,2024-01-02,2025-10-24,61.0
+LSEG,gemma4_26b,recent,5511,167,33,2025-10-27,2026-06-26,90.0

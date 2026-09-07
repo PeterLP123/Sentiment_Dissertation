@@ -1,0 +1,9 @@
+comparison,comparator_arm,estimand,n,estimate,ci_low,ci_high,p_two_sided,block_length,replications,seed,q_bh_eight_tests,bh_reject_q05
+selected_overlay_vs_har,frozen_har,challenger minus comparator mean net return,998,-2.0324950112730333e-05,-8.24249284504478e-05,4.5737091379717736e-05,0.5424,20,9999,20261012,0.86784,False
+selected_overlay_vs_har,frozen_har,comparator minus challenger downside squared return,998,3.564000145872811e-06,1.9596074963249887e-06,5.752385078508076e-06,0.0017,20,9999,20261013,0.0068,True
+selected_overlay_vs_har,frozen_har,comparator minus challenger expected shortfall 5 loss,998,0.0013426146600387084,0.0005644214797701598,0.0021856489260692097,0.0009,20,9999,20261014,0.0068,True
+selected_overlay_vs_har,frozen_har,challenger minus comparator downside utility gamma 5,998,-2.504949383366273e-06,-6.996298139771681e-05,7.45266146105265e-05,0.9476,20,9999,20261015,0.9799,False
+selected_overlay_vs_development_matched_constant,development_matched_constant,challenger minus comparator mean net return,998,-1.5065720986341646e-06,-5.629226910041893e-05,5.5609646589610645e-05,0.9571,20,9999,20261016,0.9799,False
+selected_overlay_vs_development_matched_constant,development_matched_constant,comparator minus challenger downside squared return,998,4.667323317562062e-07,-8.53791114679126e-07,2.125599433853937e-06,0.5402,20,9999,20261017,0.86784,False
+selected_overlay_vs_development_matched_constant,development_matched_constant,comparator minus challenger expected shortfall 5 loss,998,0.00025076988390432264,-0.0004941220961073652,0.0010313826647679217,0.5223,20,9999,20261018,0.86784,False
+selected_overlay_vs_development_matched_constant,development_matched_constant,challenger minus comparator downside utility gamma 5,998,8.270895601468714e-07,-5.8869981087177897e-05,6.365197527412785e-05,0.9799,20,9999,20261019,0.9799,False

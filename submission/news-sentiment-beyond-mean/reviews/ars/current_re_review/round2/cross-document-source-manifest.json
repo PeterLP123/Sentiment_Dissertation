@@ -1,0 +1,31 @@
+{
+  "schema_version": "cross-document-source-manifest/1.0",
+  "manifest_id": "ars-round2-cross-document-sources",
+  "accepted_draft_artifact_id": "ars-round2-accepted-draft",
+  "accepted_draft_sha256": "d15e6c3762b3637a7a79bd686ff6b6b3f381093688844417779a0d69473599ce",
+  "artifacts": [
+    {
+      "artifact_id": "ars-round2-accepted-draft",
+      "document_kind": "manuscript",
+      "relative_path": "reviews/ars/current_re_review/round2/revised_manuscript.md",
+      "artifact_state": "present",
+      "artifact_provenance": "author_provided_manuscript",
+      "source_artifact_sha256": "d15e6c3762b3637a7a79bd686ff6b6b3f381093688844417779a0d69473599ce",
+      "source_artifact_size_bytes": 128131,
+      "source_content_sha256": "d15e6c3762b3637a7a79bd686ff6b6b3f381093688844417779a0d69473599ce",
+      "source_content_utf8_bytes": 128131
+    },
+    {
+      "artifact_id": "completed-preregistration",
+      "document_kind": "preregistration",
+      "relative_path": null,
+      "artifact_state": "source_missing",
+      "artifact_provenance": "not_provided",
+      "source_artifact_sha256": null,
+      "source_artifact_size_bytes": null,
+      "source_content_sha256": null,
+      "source_content_utf8_bytes": null
+    }
+  ],
+  "manifest_digest": "0a880410b7e64294fbdd0c678f1dd5b9b238258de5302410f3eecabe3572a265"
+}

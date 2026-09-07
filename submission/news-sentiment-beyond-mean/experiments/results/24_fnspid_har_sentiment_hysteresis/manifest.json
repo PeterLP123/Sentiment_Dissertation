@@ -1,0 +1,200 @@
+{
+  "notebook": "24_fnspid_har_sentiment_hysteresis",
+  "built_for": "direct unchanged aggregate-sentiment hysteresis on the sentiment-free HAR volatility base",
+  "analysis_status": "iterative_evaluation_spec_frozen_before_notebook24_execution_2026-08-05",
+  "git_commit_at_execution": "8736eebdbb254c8bc6416a09a352f6b5e2f6b1b3",
+  "evaluation_previously_opened": true,
+  "design": {
+    "base": "Notebook 21 sentiment-free HAR 10% volatility target",
+    "sentiment_rule": {
+      "entry_z": 1.5,
+      "exit_z": 0.5,
+      "risk_exposure_multiplier": 0.25
+    },
+    "cost_bps_per_side": 2.0,
+    "cost_grid": [
+      0.0,
+      1.0,
+      2.0,
+      5.0,
+      10.0
+    ],
+    "bootstrap": {
+      "kind": "paired circular block",
+      "block_length": 20,
+      "replications": 4999,
+      "seed": 20260805
+    }
+  },
+  "results": [
+    {
+      "arm": "long_spy",
+      "n_sessions": 998,
+      "active_sessions": 998,
+      "mean_gross": 0.0004804669,
+      "mean_net": 0.0004800661,
+      "sharpe_gross": 0.5683276092,
+      "sharpe_net": 0.5678502098,
+      "ann_vol_net": 0.2130432522,
+      "total_return_net": 0.4749611171,
+      "cagr_net": 0.1031077605,
+      "max_drawdown": -0.320489603,
+      "mean_turnover": 0.001002004,
+      "annualized_turnover": 0.25250501,
+      "mean_gross_exposure": 1.0,
+      "mean_positions": 1.0,
+      "max_abs_net_exposure": 1.0,
+      "max_missing_weight_share": 0.0,
+      "breakeven_bps_per_side": 2397.5298051656,
+      "bootstrap_net_mean": 0.0004800661,
+      "bootstrap_net_ci_low": -0.000371578,
+      "bootstrap_net_ci_high": 0.0012361664,
+      "bootstrap_block_length": 20,
+      "bootstrap_replications": 4999,
+      "bootstrap_seed": 20260805
+    },
+    {
+      "arm": "long_spy_sentiment",
+      "n_sessions": 998,
+      "active_sessions": 998,
+      "mean_gross": 0.0005726831,
+      "mean_net": 0.0005569516,
+      "sharpe_gross": 0.8052048357,
+      "sharpe_net": 0.7831248646,
+      "ann_vol_net": 0.1792202151,
+      "total_return_net": 0.635921523,
+      "cagr_net": 0.1323380305,
+      "max_drawdown": -0.2800515942,
+      "mean_turnover": 0.0393286573,
+      "annualized_turnover": 9.9108216433,
+      "mean_gross_exposure": 0.9060621242,
+      "mean_positions": 1.0,
+      "max_abs_net_exposure": 1.0,
+      "max_missing_weight_share": 0.0,
+      "breakeven_bps_per_side": 72.807351663,
+      "bootstrap_net_mean": 0.0005569516,
+      "bootstrap_net_ci_low": -9.9227e-05,
+      "bootstrap_net_ci_high": 0.0012053051,
+      "bootstrap_block_length": 20,
+      "bootstrap_replications": 4999,
+      "bootstrap_seed": 20260805
+    },
+    {
+      "arm": "control_har_target",
+      "n_sessions": 998,
+      "active_sessions": 998,
+      "mean_gross": 0.0002931937,
+      "mean_net": 0.0002842799,
+      "sharpe_gross": 0.6937553813,
+      "sharpe_net": 0.6726744786,
+      "ann_vol_net": 0.1064980575,
+      "total_return_net": 0.298474369,
+      "cagr_net": 0.0681752158,
+      "max_drawdown": -0.1572999845,
+      "mean_turnover": 0.022284661,
+      "annualized_turnover": 5.6157345795,
+      "mean_gross_exposure": 0.6185730666,
+      "mean_positions": 1.0,
+      "max_abs_net_exposure": 1.0,
+      "max_missing_weight_share": 0.0,
+      "breakeven_bps_per_side": 65.7837528713,
+      "bootstrap_net_mean": 0.0002842799,
+      "bootstrap_net_ci_low": -0.0001147477,
+      "bootstrap_net_ci_high": 0.0006690962,
+      "bootstrap_block_length": 20,
+      "bootstrap_replications": 4999,
+      "bootstrap_seed": 20260805
+    },
+    {
+      "arm": "har_sentiment",
+      "n_sessions": 998,
+      "active_sessions": 998,
+      "mean_gross": 0.0003373816,
+      "mean_net": 0.0003208772,
+      "sharpe_gross": 0.8780272041,
+      "sharpe_net": 0.8350749217,
+      "ann_vol_net": 0.0968308882,
+      "total_return_net": 0.3520375917,
+      "cagr_net": 0.0791338606,
+      "max_drawdown": -0.1636252886,
+      "mean_turnover": 0.0412610399,
+      "annualized_turnover": 10.3977820522,
+      "mean_gross_exposure": 0.5693058686,
+      "mean_positions": 1.0,
+      "max_abs_net_exposure": 1.0,
+      "max_missing_weight_share": 0.0,
+      "breakeven_bps_per_side": 40.8837956003,
+      "bootstrap_net_mean": 0.0003208772,
+      "bootstrap_net_ci_low": -3.09076e-05,
+      "bootstrap_net_ci_high": 0.0006776385,
+      "bootstrap_block_length": 20,
+      "bootstrap_replications": 4999,
+      "bootstrap_seed": 20260805
+    }
+  ],
+  "paired_inference": [
+    {
+      "estimand": "HAR sentiment minus HAR net return",
+      "n": 998,
+      "mean": 3.65973e-05,
+      "ci_low": -9.95856e-05,
+      "ci_high": 0.0001929757,
+      "p_two_sided": 0.6172,
+      "block_length": 20,
+      "replications": 4999,
+      "seed": 20260806
+    },
+    {
+      "estimand": "HAR minus HAR sentiment downside squared return",
+      "n": 998,
+      "mean": 5.1248e-06,
+      "ci_low": 2.0193e-06,
+      "ci_high": 9.7395e-06,
+      "p_two_sided": 0.0148,
+      "block_length": 20,
+      "replications": 4999,
+      "seed": 20260807
+    }
+  ],
+  "temporal_stability": [
+    {
+      "period": "2020",
+      "overlay_minus_har_bps_day": 2.7310026472,
+      "overlay_minus_har_sharpe": 0.757770418
+    },
+    {
+      "period": "2021_2023",
+      "overlay_minus_har_bps_day": -0.4371846403,
+      "overlay_minus_har_sharpe": -0.0629558374
+    }
+  ],
+  "matched_exposure_attribution": {
+    "overlay_mean_exposure": 0.5693058686,
+    "constant_scale": 0.9203534705,
+    "overlay_sharpe": 0.8350749217,
+    "matched_constant_sharpe": 0.6726744786,
+    "overlay_minus_constant_bps_day": 0.5923921031,
+    "ci_low_bps_day": -0.6349579149,
+    "ci_high_bps_day": 1.9622457961,
+    "p_two_sided": 0.3712
+  },
+  "gates": {
+    "net_sharpe_improvement": 0.16240044302590984,
+    "drawdown_relative_improvement": -0.04021172766737635,
+    "paired_net_mean_bps_day": 0.36597305878680186,
+    "paired_net_ci_low_bps_day": -0.9958556207373486,
+    "paired_net_ci_high_bps_day": 1.9297567429193496,
+    "downside_improvement_mean": 5.12482590429771e-06,
+    "downside_improvement_p_two_sided": 0.0148,
+    "stable_nonnegative_mean_both_periods": false,
+    "alpha_gate": false,
+    "useful_risk_gate": false
+  },
+  "limitations": [
+    "the evaluation block was already opened by earlier experiments",
+    "the direct composition was proposed after Notebook 23 showed the standard trend layer was harmful",
+    "both component rules are unchanged, but their product is an iterative construction",
+    "SPY adjusted-open returns omit dividends and cash earns zero",
+    "the sentiment thresholds remain unvalidated on genuinely new post-2023 data"
+  ]
+}

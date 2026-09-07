@@ -1,0 +1,165 @@
+{
+  "schema_version": 1,
+  "status": "frozen_before_outcome_leg_results_after_external_review",
+  "frozen_at_utc": "2026-08-16T13:43:25Z",
+  "git_commit_at_freeze": "acaf530c75a20e882166e7218245342384cf2b1b",
+  "authorisation": {
+    "decision": "execute_the_external_review_remediation",
+    "decision_date": "2026-08-16",
+    "source": "author instruction in the Codex task after receiving the external panel report",
+    "external_review_artifact": "https://claude.ai/code/artifact/88e38c17-e862-43cc-b587-9813717c4fa9",
+    "scope": "freeze and execute a focused timing decomposition, correct the power and effect-size translations, report the omitted FNSPID drawdown, revise the manuscript conditionally on the timing result, and re-review",
+    "evaluation_block_notice": "This authorisation permits a post-review diagnostic on the already-opened evaluation rows. It does not amend the original pre-execution status of Notebook 75 or create a new holdout claim."
+  },
+  "experiment": {
+    "notebook": "experiments/notebooks/86_fnspid_outcome_leg_decomposition.ipynb",
+    "runner": "experiments/lib/outcome_leg_decomposition.py",
+    "title": "FNSPID assigned-window outcome-leg decomposition",
+    "objective": "Determine whether the development negative-share association in the assigned-session open-to-next-open outcome is concentrated before the assigned open, during the assigned trading session, or after the assigned close.",
+    "evidence_role": "post-review timing diagnostic specified after all headline FNSPID results and after the evaluation block had been opened",
+    "confirmation_claim_allowed": false,
+    "causal_timing_claim_allowed": false,
+    "deployment_claim_allowed": false,
+    "retuning_allowed": false,
+    "evaluation_notebook_75_must_not_be_executed": true
+  },
+  "inputs": {
+    "fnspid_firm_day_aggregators": {
+      "path": "final_experiments/outputs/03_aggregation/firm_day_aggregators.parquet",
+      "sha256": "1ca1c38109bc06af232119adeff17de66a567174d457038bc923a930a2da61f1",
+      "use": "sentiment aggregators, story count, frozen split, and assigned session only"
+    },
+    "fnspid_price_archive": {
+      "path": "/Users/peterprendergast/Documents/Sentiment_Dissertation_data/FNSPID/bf9189c41527198897d1af3e17b1a0095279fc45/raw/Stock_price/full_history.zip",
+      "sha256": "03da4fce7ebea90d5715ba3501773d410ae663b617027b338ef000a9955dab91",
+      "fields": [
+        "adjusted_open",
+        "adjusted_close"
+      ],
+      "load_window": "2010-01-01 through 2023-12-31"
+    },
+    "notebook_75_results": {
+      "directory": "experiments/results/75_fnspid_evaluation_beyond_mean_replication",
+      "use": "reconcile prospective and realised power without re-executing Notebook 75"
+    },
+    "notebook_24_results": {
+      "directory": "experiments/results/24_fnspid_har_sentiment_hysteresis",
+      "use": "surface the already-computed FNSPID maximum drawdown comparison"
+    }
+  },
+  "return_legs": {
+    "pre_open_overnight": {
+      "stock": "adjusted_open_t / adjusted_close_previous_exchange_session - 1",
+      "market": "SPY adjusted_open_t / SPY adjusted_close_previous_exchange_session - 1",
+      "outcome": "stock minus market",
+      "interpretation": "movement completed before the assigned-session open; a negative coefficient is consistent with either pre-open information or assignment lag, not proof of either"
+    },
+    "assigned_session_intraday": {
+      "stock": "adjusted_close_t / adjusted_open_t - 1",
+      "market": "SPY adjusted_close_t / SPY adjusted_open_t - 1",
+      "outcome": "stock minus market",
+      "interpretation": "movement during the assigned trading session; a negative coefficient is consistent with some stories becoming observable after the assigned open"
+    },
+    "post_close_overnight": {
+      "stock": "adjusted_open_next_exchange_session / adjusted_close_t - 1",
+      "market": "SPY adjusted_open_next_exchange_session / SPY adjusted_close_t - 1",
+      "outcome": "stock minus market",
+      "interpretation": "movement after the assigned close and before the next open"
+    },
+    "assigned_open_to_next_open_audit": {
+      "stock": "adjusted_open_next_exchange_session / adjusted_open_t - 1",
+      "market": "SPY adjusted_open_next_exchange_session / SPY adjusted_open_t - 1",
+      "outcome": "stock minus market",
+      "role": "reproduce the published baseline on the same price-complete rows; excluded from the new multiplicity family"
+    }
+  },
+  "identity_checks": {
+    "stock": "(1 + assigned_session_intraday_stock) * (1 + post_close_overnight_stock) - 1 equals assigned_open_to_next_open_stock",
+    "market": "the same gross-return identity for SPY",
+    "absolute_tolerance": 1e-12,
+    "note": "The subtraction-based abnormal returns do not themselves obey a compounding identity; the stock and SPY legs are checked separately."
+  },
+  "primary_development_family": {
+    "population": "split equals development and session_date no later than 2019-12-31",
+    "members": [
+      "assigned_session_intraday",
+      "post_close_overnight",
+      "pre_open_overnight"
+    ],
+    "estimand": "mean daily negative-share coefficient from a cross-sectional rank regression",
+    "within_session_transforms": "average-tie percentile ranks centred at zero for the outcome and all regressors",
+    "controls": [
+      "rank of mean_continuous",
+      "rank of log(1 + story count)"
+    ],
+    "minimum_names_per_session": 10,
+    "inference": "OLS intercept on the daily coefficient series with Newey-West HAC lag 5 and a two-sided 95 percent interval",
+    "expected_direction": "negative for each member",
+    "multiplicity": "Benjamini-Hochberg q=0.05 across exactly the three new development-leg p-values",
+    "baseline_exclusion": "assigned open to next open is the published baseline and is not counted as a fourth new test"
+  },
+  "exploratory_evaluation_and_era_diagnostics": {
+    "status": "post-review and post-opening; descriptive diagnostic rather than independent replication",
+    "evaluation_leg_family": "report the same three leg coefficients and BH q-values across them",
+    "era_contrast_family": "estimate evaluation minus development differences for the three new leg coefficients with HAC lag 5 and BH q-values across exactly those three contrasts",
+    "full_window_contrast": "reproduce the published assigned-open-to-next-open era contrast beside, but outside, the new family",
+    "prohibitions": [
+      "no retuning from evaluation results",
+      "no new sentiment rule",
+      "no pooled FNSPID-LSEG estimate",
+      "no description of these results as held-out or confirmatory"
+    ]
+  },
+  "interpretation_gate": {
+    "decision_basis": "two-sided 95 percent confidence intervals and BH q-values in the development three-leg family; point-estimate shares are descriptive only",
+    "post_close_only_or_dominant": "If the post-close overnight coefficient is negative with a confidence interval excluding zero and the assigned-session intraday coefficient is not, the result is consistent with association after the assigned close. The manuscript may retain only cautious predictive-window language and must still disclose unresolved row-level timing.",
+    "intraday_only_or_dominant": "If the assigned-session intraday coefficient is negative with a confidence interval excluding zero and the post-close overnight coefficient is not, withdraw next-open specificity and predictive-information language. Describe an assigned-window association consistent with contemporaneous arrival or assignment lag.",
+    "both_detected": "If both intraday and post-close overnight coefficients have negative intervals excluding zero, describe the association as spanning both legs; do not identify a unique arrival mechanism.",
+    "neither_detected": "If neither interval excludes zero, call the decomposition inconclusive and use only assigned-window association language.",
+    "pre_open_detected": "A negative pre-open overnight interval excluding zero strengthens the timing-misalignment caveat but does not establish when a story arrived.",
+    "bh_rule": "Whether each new leg survives the declared family is stated separately from whether its unadjusted interval excludes zero.",
+    "era_rule": "The leg-specific era contrasts may describe where the sign change occurs but may not explain its cause."
+  },
+  "secondary_corrections": {
+    "effect_size_translation": {
+      "main": "multiply the committed Notebook 79 full-price-path coefficient by the pooled observed 90th-minus-10th percentile spread of the actual within-session average-tie negative-share ranks on the exact Notebook 79 price-complete model rows",
+      "sensitivity": "also report the mean session-specific 90th-minus-10th percentile rank spread",
+      "prohibition": "do not retain the hypothetical 0.8 rank-unit translation as if it were attainable in the tied regressor"
+    },
+    "power": {
+      "prospective": "preserve the pre-execution 35.4 percent figure and its projected standard error",
+      "realised": "compute power at the same conservative two-sided alpha 0.025 first-BH-2 hurdle used prospectively, at the frozen development coefficient and observed evaluation HAC standard error",
+      "prohibition": "do not call the realised calculation prospective"
+    },
+    "fnspid_drawdown": {
+      "source": "committed Notebook 24 evaluation outputs",
+      "requirement": "report both control and overlay maximum drawdown and the relative change, including the adverse comparison"
+    },
+    "singleton_stratum": {
+      "population": "development full-window outcome",
+      "n_equals_1_model": "rank outcome on rank mean_continuous and rank negative_share; story-count control omitted because it is constant",
+      "comparison_models": "recompute n greater than or equal to 2 and n greater than or equal to 3 with the original story-count control",
+      "claim_boundary": "stratum-specific ranks and model columns differ, so coefficients are descriptive and not directly commensurable"
+    }
+  },
+  "required_outputs": [
+    "coefficient_summary.csv",
+    "era_contrasts.csv",
+    "daily_coefficients.csv",
+    "story_count_strata.csv",
+    "timing_identity_audit.csv",
+    "rank_effect_translation.csv",
+    "power_reconciliation.csv",
+    "drawdown_reconciliation.csv",
+    "coverage_audit.csv",
+    "manifest.json"
+  ],
+  "claim_boundaries": [
+    "The diagnostic was specified after the development association, evaluation non-replication, and external criticism were known; it is not independent confirmation.",
+    "The FNSPID checkpoint does not preserve reliable row-level availability timestamps, so no return-leg result identifies the true story-arrival time.",
+    "A coefficient is an average conditional rank association, not a causal effect or a directly tradable return.",
+    "The evaluation leg diagnostics are additional post-opening analyses and cannot repair the original study's low power or turn the block into a pristine holdout.",
+    "Do not execute Notebook 75, do not rescore text, do not rebuild the checkpoint, and do not pool FNSPID with LSEG.",
+    "Preserve null, opposite-signed, adverse-economic, and multiplicity-adjusted results exactly as observed."
+  ]
+}

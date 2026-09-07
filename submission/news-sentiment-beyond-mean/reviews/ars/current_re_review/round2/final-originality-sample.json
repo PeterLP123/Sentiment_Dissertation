@@ -1,0 +1,826 @@
+{
+  "schema_version": "ars-originality-sample/1.0",
+  "seed": "ars-originality-final-v1",
+  "chapter_frame_paragraphs": 145,
+  "chapter_sample_paragraphs": 73,
+  "chapter_sample_rate": 0.503448275862069,
+  "modified_paragraphs_required": 2,
+  "total_search_fragments": 74,
+  "rows": [
+    {
+      "path": "manuscript/chapters/05_results.tex",
+      "paragraph_ordinal": 52,
+      "word_count": 115,
+      "text_sha256": "c74a412d4add8b4d2fbe1f23dc2052708c2f44890813ba31e7ede2f5e6853654",
+      "fragment": "eighteen episodes supply 65 6 reduction Leave-one-episode-out and block-length",
+      "text": "Gemma is a secondary sensitivity: its backward coefficient is -0.05443 ( p=0.0156 ), but the recent estimate is imprecise and the economic gates fail. The exact FNSPID risk rule never activates in recent LSEG because its maximum z -score, 1.349, is below the fixed 1.5 threshold. In the backward block it is active for 53 of 456 sessions. Downside and timing tests survive their declared corrections, but the return difference is 0.144 basis points with interval [-1.295,1.688] , and two of eighteen episodes supply 65.6\\ reduction. Leave-one-episode-out and block-length checks survive, so no single episode explains the result; the concentration and recent non-activation still prevent an operating-rule claim.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/06_conclusion.tex",
+      "paragraph_ordinal": 20,
+      "word_count": 62,
+      "text_sha256": "db4c860c48f0325318ffbf72c1fe552de93e2b5deed8df154cefedc3173869c2",
+      "fragment": "target-company direction expectation-relative direction and mixed effects reporting agreement",
+      "text": "A stratified human audit should sample by source, year, confidence, story count and hard class. Reviewers should label target-company direction, expectation-relative direction and mixed effects, reporting agreement rather than forcing consensus. Chapter 5 already compares hard share with mean p( negative ) without that audit. The audit is what would interpret the gap. Further prompt work should wait for a specific audited error.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/03_data.tex",
+      "paragraph_ordinal": 14,
+      "word_count": 95,
+      "text_sha256": "05c0455a964314a41705b28f02f7cb4282c67310656c52145b8da8af1f39de05",
+      "fragment": "means negative-story share depends on the classifier's decision boundary",
+      "text": "The hard label is the class with the largest of the positive, neutral and negative probabilities. A story is counted as negative only when the negative probability is the largest. This means negative-story share depends on the classifier's decision boundary. A probability of 0.40 can be labelled negative if the other two probabilities are lower, while a similar score may be neutral in another case. No human-labelled audit of the final FNSPID or Reuters samples is available. The study tests the market information in the model's outputs, not the semantic truth of every label.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/05_results.tex",
+      "paragraph_ordinal": 45,
+      "word_count": 44,
+      "text_sha256": "788b832a7ee373bde51b047c3254740948a2616190be924cf6a5957b36a9f079",
+      "fragment": "useful-risk gate therefore fails one period contains downside-timing evidence",
+      "text": "Only about 1\\ reduction, giving BH q=0.0301 across the three regimes in . The 2013--2019 and LSEG/Gemma schedules do not survive correction, and no return-timing test survives. The useful-risk gate therefore fails: one period contains downside-timing evidence, not a stable deployment rule.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/04_methodology.tex",
+      "paragraph_ordinal": 40,
+      "word_count": 53,
+      "text_sha256": "92dc866a478a38fef68473e35ababca8d5726aa546beb119bffbac1fa5e33e1c",
+      "fragment": "uncertainty where evaluation development This separate one-member diagnostic tests",
+      "text": "is estimated with HAC(5) uncertainty, where = evaluation - development . This separate one-member diagnostic tests whether the coefficients from differ; the price-path specification in is not part of this contrast. It avoids treating significance in one era and non-significance in another as sufficient evidence of a change, and cannot rescue a failed primary family.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/05_results.tex",
+      "paragraph_ordinal": 36,
+      "word_count": 94,
+      "text_sha256": "eb93456fe1c811c63902c304a4d9f4c7128ad91dd93051d3058894df96b3b74d",
+      "fragment": "regression-free route Both say that singleton negative labels contribute",
+      "text": "When the sample is restricted to firm-days with at least two stories, the pooled spread weakens towards zero, to -0.253 basis points with an interval of [-1.821,1.315] and p=0.752 . The loss of precision is not surprising: the restriction removes almost half of the complete observations, leaving 264,679 firm-days, and the HAC standard error nearly doubles to 0.800 basis points. The smaller point estimate reproduces the pattern in through a second, regression-free route. Both say that singleton negative labels contribute a disproportionate part of the full-sample result.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/05_results.tex",
+      "paragraph_ordinal": 54,
+      "word_count": 93,
+      "text_sha256": "2d340d7fca9ef340db176f9ee33a180da298b0e768568ad889a2f5cc1f7351ac",
+      "fragment": "always-invested portfolio but not relative to development-selected constant company",
+      "text": "Allowing the LSEG rule to change does not help. The 6,672-candidate aggregate search produces a -0.049 -basis-point paired evaluation difference, with interval [-0.656,0.633] ; matched downside metrics also favour the control. The firm-level news rule reduces loss relative to an always-invested portfolio but not relative to development-selected constant company weights. Against that matched control it has 0.63 percentage points more drawdown, 0.27 points more downside deviation and 25.9 times the turnover. Its paired return difference is -1.743 basis points, with interval [-4.727,1.549] .",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/04_methodology.tex",
+      "paragraph_ordinal": 3,
+      "word_count": 66,
+      "text_sha256": "d70136f58389d553b4af37c04028b02e212709ff4b4861aa9bbbb7ecd9346225",
+      "fragment": "measurement to development association frozen temporal replication economic scale",
+      "text": "The analysis proceeds from measurement to development association, frozen temporal replication, economic scale and transfer. The initial comparison asks which firm-day summary has the most consistent relation with the next-open abnormal return. The selected statistic is then placed in a conditional model and repeated without selection on the later FNSPID era. Only after those tests are reported is it translated into a portfolio or risk rule.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/02_literature.tex",
+      "paragraph_ordinal": 22,
+      "word_count": 75,
+      "text_sha256": "4cc1354d057b4f86f01fe6926dd1d6016cbcb74ebe4306d0b1ca7d832015d878",
+      "fragment": "predictors The Benjamini--Hochberg procedure controls the expected false-discovery proportion",
+      "text": "Trying many summaries, thresholds and conditioning variables introduces a second gap between a coefficient and a credible claim. document how multiple testing weakens isolated return predictors. The Benjamini--Hochberg procedure controls the expected false-discovery proportion within a declared family and is used for the nine-rule comparison and other related tests . It is not a cure for an analysis chosen after results are seen. This dissertation therefore reports the selection history and calls the main result exploratory.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/06_conclusion.tex",
+      "paragraph_ordinal": 12,
+      "word_count": 50,
+      "text_sha256": "901838ccb6cb8ef5fa73438eb2b33815c84938bf46e0e89177b701c4c6981658",
+      "fragment": "economic tests use proportional costs and idealised adjusted-open execution",
+      "text": "The economic tests use proportional costs and idealised adjusted-open execution. They omit spread variation, order size, borrow, market impact and cash interest. Most omissions would hurt the daily long--short rule. Ten basis points may be high for liquid LSEG names, but the best break-even is only 0.625 basis points.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/01_introduction.tex",
+      "paragraph_ordinal": 13,
+      "word_count": 135,
+      "text_sha256": "a15153ca8c73036725f0d3e3ce9948d005fe72c9ded752e34d637da42299b19b",
+      "fragment": "A model-free high-minus-low negative-share sort formed within mean-sentiment buckets",
+      "text": "enumerate [label=H .,leftmargin=1.1cm] [H1a.] The conditional coefficient on negative-story share is below zero in development after mean sentiment, story count and the recent price path are included. [H1b.] The unchanged baseline all-firm-day and multi-story coefficients remain negative in the frozen 2020--2023 replication under their declared correction. [H2.] A model-free high-minus-low negative-share sort, formed within mean-sentiment buckets, has the same negative direction as the development regression estimate. [H3.] A daily directional implementation of the statistic earns a positive mean return after its own turnover is charged at 10 basis points per side. [H4a.] The conditional association carries into the Reuters/LSEG blocks, estimated separately by source regime: the transfer coefficients are negative and distinguishable from zero. [H4b.] A risk rule built from the statistic beats an exposure-matched control in an LSEG block. enumerate",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/06_conclusion.tex",
+      "paragraph_ordinal": 10,
+      "word_count": 101,
+      "text_sha256": "7b22dd1da595d7ca1eaa55921569c156f76ac42c0bca9ef39c1b350365601c06",
+      "fragment": "Count controls cannot separate information distribution from repeated attention",
+      "text": "The second limit is news structure and functional form. One- and two-story firm-days dominate the panel, while the n 3 point estimate is about a fifth of the full-sample value and imprecise. On a single-story day, hard share is a thresholded class indicator beside one rank-linear mean control, so the coefficient can capture nonlinear score shape rather than aggregation. The result should not be read as a measured property of dense news flow. FNSPID also lacks stable story-family identifiers: four negative rows may be four disclosures or four versions of one alert. Count controls cannot separate information distribution from repeated attention.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/04_methodology.tex",
+      "paragraph_ordinal": 28,
+      "word_count": 65,
+      "text_sha256": "bbe14bf649f0f8b34595664a810af31fa8d707d108330aaf51ee60973b96148a",
+      "fragment": "coefficient series then receives a five-lag HAC standard error",
+      "text": "A date must contain at least ten complete firms and a full-rank design. The coefficient series then receives a five-lag HAC standard error. Ranking reduces the influence of return outliers and puts FNSPID and LSEG regressors on a common scale. It also changes the interpretation: is a mean change in next-return rank for a full-rank change in negative share, not a return in percentage points.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/04_methodology.tex",
+      "paragraph_ordinal": 24,
+      "word_count": 49,
+      "text_sha256": "cc3b060f5dab9e08e35dd9a7aa0de87368fba14f064730428bc4f5f73c5752a4",
+      "fragment": "constructed through a cross-sectional regression for every session Let",
+      "text": "The aggregation comparison cannot show whether negative share is a renamed mean. The direct estimand is constructed through a cross-sectional regression for every session. Let R t(x it ) denote an average-tie percentile rank among the available firms on t , centred by subtracting one half. The base specification is",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/06_conclusion.tex",
+      "paragraph_ordinal": 11,
+      "word_count": 95,
+      "text_sha256": "b8bd5a481666a1f8c4a182bcdeddbbc6e80ffb0adfaf78eb83a6b2e89153a4ba",
+      "fragment": "measurement FinBERT supplies model classifications rather than verified labels",
+      "text": "The third limit is measurement. FinBERT supplies model classifications rather than verified labels. Mean p( negative ) keeps the next-open sign but does not survive correction; close-to-close and FF3 residual ranks are also indistinguishable from zero. The retained checkpoint cannot report how many stories use date-only timing. Nor does the aggregate evidence provide a common-universe era estimate or a decomposition of firm, news, class and timing composition. The era contrast therefore cannot distinguish market instability from changing sample or measurement. LSEG has precise availability but a different return outcome, so cross-source coefficients are not identical estimands.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/05_results.tex",
+      "paragraph_ordinal": 21,
+      "word_count": 86,
+      "text_sha256": "d08d816791e5140696f9148227a2162ff037a3672b715df408745e410c67686d",
+      "fragment": "non-replication and instability in the measured baseline pipeline association",
+      "text": "The pre-outcome power calculation also limits the claim. Scaling the development HAC uncertainty to 998 sessions gave approximately 35.4\\ to recover the same coefficient at the first BH-2 hurdle; the approximate 80\\ evaluation failure is therefore not proof that the later effect is exactly zero. Taken together with the direct contrast, the defensible reading is temporal non-replication and instability in the measured baseline pipeline association. The evidence does not identify its cause, and it does not establish equivalence or reversal as a new trading rule.",
+      "selection_reason": [
+        "deterministic_50pct_sample",
+        "modified_round2"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/06_conclusion.tex",
+      "paragraph_ordinal": 27,
+      "word_count": 53,
+      "text_sha256": "276b9d3d6b78b24e8cd77fc9fb0091aa2663abac97eb759c607dcd70c779dd9a",
+      "fragment": "optimisation if event-only gross return is non-positive portfolio searches",
+      "text": "Any new directional test must address the sixteen-fold cost gap. It should trade only return-blind first releases judged material before the open, then hold for a frozen multi-session horizon. Maximum overlap, rebalancing and cost must be fixed. Gross improvement should precede cost optimisation; if event-only gross return is non-positive, portfolio searches should stop.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/01_introduction.tex",
+      "paragraph_ordinal": 23,
+      "word_count": 51,
+      "text_sha256": "172d081432fd67cd849f57781bd6b32a04dd66cf7612f75e7a11382aff1a2e79",
+      "fragment": "negative-news asymmetry contextual models aggregation and predictive-finance standards compares",
+      "text": "reviews financial text, negative-news asymmetry, contextual models, aggregation and predictive-finance standards. compares the two regimes and their limits. defines the aggregators, estimand, inference, accounting and risk tests. reports statistical, economic and transfer results, including failed rules and post-hoc measurement limits. answers the question and proposes independent validation centred on story novelty.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/03_data.tex",
+      "paragraph_ordinal": 15,
+      "word_count": 99,
+      "text_sha256": "086e19a38c7da3ff7d7a73d263e8127771b02d8791dd5ca26dfd3fa636f36802",
+      "fragment": "nine-rule family two conditional coefficients corrections and failure interpretation",
+      "text": "The development period runs from 3 January 2011 to 31 December 2019 and spans 2,264 sessions. The evaluation slice contains 203,393 firm-days across 998 sessions from 2 January 2020 to 18 December 2023. The boundary was frozen before the final aggregation work, but earlier project iterations had viewed later portfolio outcomes. The development association is therefore exploratory, and the later slice is not called a pristine holdout. Notebook 75 nevertheless fixed its nine-rule family, two conditional coefficients, corrections and failure interpretation before opening those particular evaluation estimands. It was executed once, with no retuning or second run.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/04_methodology.tex",
+      "paragraph_ordinal": 60,
+      "word_count": 112,
+      "text_sha256": "d28ccc60621a01d1785df22097e954a32ea9444e1713ccf30f0e5db1bafd1506",
+      "fragment": "development-selected constant multiplier The firm-level search can reduce exposure",
+      "text": "The exact FNSPID pressure rule is first applied without retuning to the recent and backward LSEG blocks. A later bounded search permits alternative LSEG aggregate rules and a firm-level loss-control rule. Candidate grids, selection scores and fold definitions are fixed in specifications. The aggregate search compares the selected overlay with the frozen HAR path and a development-selected constant multiplier. The firm-level search can reduce exposure to individual companies; it is compared with fully invested equal weight and constant company weights matched to development exposure. Complete gates require tail or utility improvement, an acceptable return lower bound and stability checks. Half-sample and leave-one-company-out results guard against one episode or firm carrying the result.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/05_results.tex",
+      "paragraph_ordinal": 63,
+      "word_count": 112,
+      "text_sha256": "a0d89834cf151d73fcf9ed767975cb7454e79df6031dc8867b6eb70ae90d4aef",
+      "fragment": "Some economically relevant effects could therefore remain unresolved especially",
+      "text": "The principal conditioning nulls are also bounded by power. reports each family's median MDE and the conservative first-BH threshold from . The median nominal MDE is 18.8 basis points per unit of negative share for story-type interactions, 15.5 basis points for earnings-window interactions and 0.049 in daily IC units for publisher rules. Some economically relevant effects could therefore remain unresolved, especially in LSEG. By contrast, the learned thresholds are not merely imprecise: their median MDE of 6.9 net basis points per session is smaller than every observed loss against the fixed band, which ran from 7.71 to 16.88 basis points. That null is informative rather than underpowered.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/06_conclusion.tex",
+      "paragraph_ordinal": 18,
+      "word_count": 26,
+      "text_sha256": "b30d9976b2e420eb48203f5a78847294ae034100d13da762985277afb3a0db6a",
+      "fragment": "100-company-session audit should measure reliable first-release update coverage before",
+      "text": "FNSPID would require rebuilding the checkpoint, so LSEG is the cheaper start. A 100-company-session audit should measure reliable first-release/update coverage before the full test proceeds.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/04_methodology.tex",
+      "paragraph_ordinal": 14,
+      "word_count": 35,
+      "text_sha256": "7e67d63dd9419c7e81fa4814d523904d22e6e6d3fd158a58712bc845837d6661",
+      "fragment": "opposite directions is treated as missing rather than broken",
+      "text": "Strongest event: select a non-recap story before a recap, then choose the remaining story with the largest |s ijt | . An exact tie with opposite directions is treated as missing rather than broken using the return.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/04_methodology.tex",
+      "paragraph_ordinal": 47,
+      "word_count": 22,
+      "text_sha256": "35973e5ab992c8ec9dcf2ea1d8a057e7f8567ba564ee3e97e35cd09ac2805890",
+      "fragment": "per-side cost is paid on both sales and purchases",
+      "text": "A quoted per-side cost is paid on both sales and purchases, so the charge is 2c\\, TO t and net return is",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/06_conclusion.tex",
+      "paragraph_ordinal": 25,
+      "word_count": 41,
+      "text_sha256": "ba51139acbb1a7c844951bea4d45f04ac8f15ffaa96a656a3c594f0524704b97",
+      "fragment": "rejects portability a negative coefficient paired with another sub-basis-point",
+      "text": "The gate should name one coefficient, interval, failure rule and model-free sort. A wide interval remains inconclusive; a precise value near zero rejects portability; a negative coefficient paired with another sub-basis-point spread transfers the measurement result but not the economic claim.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/03_data.tex",
+      "paragraph_ordinal": 20,
+      "word_count": 75,
+      "text_sha256": "703cb995f226237453cfb9d3a67b571093ac2642b735ed6a9c142316dfb351b2",
+      "fragment": "equal-weight long portfolio and two development-selected constant-exposure controls Licensed",
+      "text": "The LSEG economic experiments use a 612-session complete 33-firm panel. For the final firm-level rule search, 445 sessions are used for three chronological development folds and 167 are reserved for the forward evaluation block. The selected rule is judged against an equal-weight long portfolio and two development-selected constant-exposure controls. Licensed story text, prompt payloads and model responses stay in the private source archive. Only aggregate counts, coefficients, performance paths and manifests appear in this repository.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/02_literature.tex",
+      "paragraph_ordinal": 28,
+      "word_count": 76,
+      "text_sha256": "02341e0691c0b00476bd39cde364f1e107141623c160b304e6738fae68087cb6",
+      "fragment": "observed risk-off schedule through time while preserving how often",
+      "text": "Three comparisons are needed. The first asks whether the overlay improves on the frozen HAR path. The second replaces the time-varying news rule with a constant multiplier chosen from development data to match exposure. The third shifts the observed risk-off schedule through time while preserving how often it is active. Improvement against the first comparison may reflect lower exposure. Improvement against the second and unusually good placement relative to the shifts are stronger evidence of timing.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/05_results.tex",
+      "paragraph_ordinal": 11,
+      "word_count": 60,
+      "text_sha256": "5c172821b48ebbc8b604ed25d2d02b77a2fe9ba7cc673ed11d984eaec18cc335",
+      "fragment": "recent-price test makes the association slightly stronger rather than",
+      "text": "The recent-price test makes the association slightly stronger rather than weaker. On the price-complete sample, the base coefficient is -0.00830 . Adding the lagged one-session return changes it to -0.00945 ; adding the five-session return changes it to -0.00978 . The full model, which also includes 20-session volatility, gives -0.00914 with a standard error of 0.00282 , a 95\\",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/02_literature.tex",
+      "paragraph_ordinal": 16,
+      "word_count": 63,
+      "text_sha256": "f888243748ec81e433b6b6326d13693bb10f3a365fef7988bdf5a996cbf53f75",
+      "fragment": "return relevance the present comparison fixes nine return-blind summaries",
+      "text": "Other work changes which news is retained. construct a selected ``top news'' sentiment measure and show that indiscriminately processing a large flow can dilute useful information. Selection is a different answer to the same measurement problem. Rather than choose one story using later return relevance, the present comparison fixes nine return-blind summaries and applies one outcome and inference design to all of them.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/02_literature.tex",
+      "paragraph_ordinal": 17,
+      "word_count": 101,
+      "text_sha256": "7ed5040c39544be493f151e15215136346fe91b028f1ae7ab54042b733e3994a",
+      "fragment": "intuitive but imperfect interpretation Let four stories receive hard",
+      "text": "Negative-story share has an intuitive but imperfect interpretation. Let four stories receive hard labels (-1,-1,+1,+1) . Their mean hard label is zero and their negative share is one half. If the positive stories become neutral, the negative share stays at one half while the mean falls. Conversely, if all stories are mildly negative, the negative share is one although the continuous mean may be close to zero. The two statistics therefore answer different questions. The mean measures the balance and magnitude of signed scores; negative share measures how much of the observed flow crosses the model's negative decision boundary.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/05_results.tex",
+      "paragraph_ordinal": 60,
+      "word_count": 23,
+      "text_sha256": "23af3069d1f5f422f2fc8279153e21e211669de0be75e48b79f32af50a84f654",
+      "fragment": "prompt constructions not every possible instruction persuasive generated rationales",
+      "text": "shows all six failures. They reject the tested prompt constructions, not every possible instruction; persuasive generated rationales are not evidence of return-ranking ability.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/05_results.tex",
+      "paragraph_ordinal": 31,
+      "word_count": 50,
+      "text_sha256": "3569daa7add17cd8dc3b4e99ccd16292bd51eb46616bed9875fb8a194301be56",
+      "fragment": "intervals cover zero Close-to-close starts at the assigned session's",
+      "text": "Close-to-close hard share is 0.00027 ( q=0.929 ). The trailing Fama--French residual of that close-to-close return is 0.00182 ( q=0.815 ). Both intervals cover zero. Close-to-close starts at the assigned session's close, so it misses the open print the primary design uses and includes the next session's daytime.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/06_conclusion.tex",
+      "paragraph_ordinal": 29,
+      "word_count": 63,
+      "text_sha256": "6e3f4aa3187e93627ea20b11b03eee746069e61e7827fd109c3d873e6730ed9f",
+      "fragment": "rule 2-basis-point cost sentiment-free volatility base and exposure-matched comparator",
+      "text": "One prospective risk test remains warranted because downside timing survives a circular-shift placebo in FNSPID 2020--2023 and backward LSEG. The z -score rule, 2-basis-point cost, sentiment-free volatility base and exposure-matched comparator must be fixed. Success requires corrected downside improvement, a return lower bound and stability across predeclared halves; drawdown alone stays descriptive. Non-activation is a portability result, not permission to lower the threshold.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/05_results.tex",
+      "paragraph_ordinal": 62,
+      "word_count": 55,
+      "text_sha256": "2c2473b900637c5a0a371361cb49270aa4b37e9f06dcd6fd65a8e1b62c4c0f1e",
+      "fragment": "heterogeneous estimands and dates prevent a project-wide false-discovery interpretation",
+      "text": "The frozen audit through Notebook 73 contains 56 families and 264 tests or decisions: 27 within-family BH survivors and 36 all-null families. It includes the timing families but predates the focal conditional, final economic and prompt studies, which remain separately recorded. The totals expose selection pressure; heterogeneous estimands and dates prevent a project-wide false-discovery interpretation.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/06_conclusion.tex",
+      "paragraph_ordinal": 5,
+      "word_count": 94,
+      "text_sha256": "40612ee1d6ced81a21e12ad7e2dd128c4033ab5a6cc78b9b47381a1ed4cb01dc",
+      "fragment": "hard negative boundary remains a useful feature-audit candidate but",
+      "text": "That conclusion is reinforced by scale and portability. The development model-free spread is -0.62 basis points per session and imprecise; the best daily rule breaks even at 0.625 basis points per side against a 10-basis-point charge. LSEG intervals are wide, the recent exact risk rule never activates, and tuned rules and prompted scores fail their gates. The development coefficient also weakens as same-day story count rises. A hard negative boundary remains a useful feature-audit candidate, but this evidence does not support a stable rich-news distribution effect, live trading rule or risk limit.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/04_methodology.tex",
+      "paragraph_ordinal": 21,
+      "word_count": 73,
+      "text_sha256": "285d74f24be9f3b8abdcf13125a9ff82f4d0273f7f73a2cc83b7e3bdbf894e73",
+      "fragment": "Their two-sided p values form one family Benjamini--Hochberg correction",
+      "text": "The reported information coefficient is IC a=T -1 t IC a t . Its standard error uses Newey--West HAC with five lags, allowing heteroskedasticity and short serial dependence in the daily series . All nine rules use the same development sample, outcome and horizon. Their two-sided p -values form one family. Benjamini--Hochberg correction at q=0.05 is applied across that family . Story-count strata are descriptive and are not added as further family members.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/04_methodology.tex",
+      "paragraph_ordinal": 33,
+      "word_count": 84,
+      "text_sha256": "030c35b56eec09fd2fdbdefcaed29524ace51e0d8b62d08a68aaebb411f78b1f",
+      "fragment": "hard-boundary transformation rather than aggregation across stories The specification",
+      "text": "The mean-sentiment control enters as one centred rank-linear term. On a single-story firm-day, negative share is a thresholded class indicator derived from the same probability vector, so its coefficient can reflect a nonlinear hard-boundary transformation rather than aggregation across stories. The specification establishes incrementality only relative to its stated rank-linear controls; it does not rule out every nonlinear function of mean sentiment or the class probabilities. A flexible functional-form comparison would be another post-hoc development test and is reserved for an independently specified replication.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/03_data.tex",
+      "paragraph_ordinal": 3,
+      "word_count": 136,
+      "text_sha256": "26b70eeeb17575000729f95e39564e7a80c6c83fd42cd008d1f33f59d20c55f5",
+      "fragment": "dissertation uses a cleaned coherent cohort covering 2011--2023 then",
+      "text": "FNSPID combines a large public financial-news collection with US equity prices . The published dataset contains about 15.7 million news records and 29.7 million price observations. Those headline counts describe the source archive, not the estimation sample. This dissertation uses a cleaned coherent cohort covering 2011--2023, then requires a valid firm mapping, a tradable adjusted open and a contemporaneous SPY open. The final panel contains 715,546 news-bearing firm-days, 570 priced symbols and 3,262 exchange sessions. Of these firm-days, 512,153 fall in development and 203,393 in the later block. Four development rows lack a complete primary aggregation outcome, leaving 512,149 observations for the nine-rule comparison. Same-day coverage is thin and its distribution matters for how the aggregation comparison should be read: of the 512,153 development firm-days, 247,470 (48.3\\",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/05_results.tex",
+      "paragraph_ordinal": 65,
+      "word_count": 63,
+      "text_sha256": "34dc09d05038f6593675c7fd404d16ea19a0fb4297f1a1b16526c03c777ebd87",
+      "fragment": "every complete matched-control gate The finding motivates prospective measurement",
+      "text": "The exploratory development estimate is consistent with H1a under the selected specification, but it is not post-selection-adjusted confirmation. H1b is not supported. H2 has the predicted direction but an imprecise spread; H3 fails on costs; H4a remains unresolved because LSEG is imprecise; and H4b fails every complete matched-control gate. The finding motivates prospective measurement work, not a rich-news distribution, trading or risk-management claim.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/04_methodology.tex",
+      "paragraph_ordinal": 5,
+      "word_count": 90,
+      "text_sha256": "0ff9a6de9cf7cc7a3295430826b7799563b0002a61b8bdbaf599bacba93362fd",
+      "fragment": "replication rather than independent confirmation Reported uncertainty remains conditional",
+      "text": "All main choices are represented by frozen JSON specifications or immutable aggregate manifests. The aggregation family was repaired and rerun before the final research question was fixed, so it remains exploratory. Later robustness tests respond to that opened association. Notebook 75 differs in one bounded respect: its evaluation estimands, multiplicity families and failure rule were fixed before those estimands were opened. The evaluation era was not untouched by the wider project, so this is a frozen temporal replication rather than independent confirmation. Reported uncertainty remains conditional on the selected workflow .",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/01_introduction.tex",
+      "paragraph_ordinal": 19,
+      "word_count": 36,
+      "text_sha256": "9f4fafed3768f9c43a03480506076d4ee614b6fe50ab03b8a141492dda11a82f",
+      "fragment": "within-document tone dispersion bond-market sentiment dispersion and event-specific disagreement",
+      "text": "The study does not claim causality, market capacity or a production trading system, nor that distributional tone is new as a general idea. Prior work already studies within-document tone dispersion, bond-market sentiment dispersion and event-specific disagreement .",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/02_literature.tex",
+      "paragraph_ordinal": 5,
+      "word_count": 86,
+      "text_sha256": "19788ef0fdedce45d4e8d59f3d542f7c63fc750982055bda655401174ce959d3",
+      "fragment": "uninformed moves Together these findings create an identification problem",
+      "text": "Several later studies establish that the response depends on what produced the price move. reports drift following identifiable public news, especially bad news, but reversal after large returns without public news. reaches a related conclusion for major price shocks, using analyst information to distinguish informed from uninformed moves. Together, these findings create an identification problem for a predictive news study. Negative coverage often appears on days when the stock has already fallen. Unless recent returns are controlled, a negative-news statistic may simply label a reversal state.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/06_conclusion.tex",
+      "paragraph_ordinal": 32,
+      "word_count": 67,
+      "text_sha256": "e8350bb86aa36156ae5150c0ee9d44b3b2f8859aae26ec4c6cd6546be5bc8b41",
+      "fragment": "better-powered sample before spending further effort on trading thresholds",
+      "text": "A sentiment feature should be judged first as a measurement, then as a return association, then for temporal transport, and only then as an economic rule. This feature clears a selected historical association test, fails temporal transport, and does not cover its costs. Future work should resolve threshold shape and story novelty on a genuinely new, better-powered sample before spending further effort on trading thresholds or prompts.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/04_methodology.tex",
+      "paragraph_ordinal": 16,
+      "word_count": 40,
+      "text_sha256": "78333590e648ff412b5339b6a217121e33407bb3faa30d6c25942b05ef4a0da5",
+      "fragment": "three-session half-life If the new impulse reverses the state's",
+      "text": "Decayed state: first convert the current continuous mean to an impulse u it = sign (a mean it )|a mean it | 1.5 . The previous state decays with a three-session half-life. If the new impulse reverses the state's sign, 75\\ enumerate",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/01_introduction.tex",
+      "paragraph_ordinal": 10,
+      "word_count": 23,
+      "text_sha256": "6911e21ae84095e4c06210a2641acaab25da019b5c20c16a6eb2732a45fce950",
+      "fragment": "Temporal validation Does the unchanged baseline association conditional on",
+      "text": "Temporal validation: Does the unchanged baseline association, conditional on mean sentiment and news volume, remain negative in the frozen 2020--2023 FNSPID evaluation? quote",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/04_methodology.tex",
+      "paragraph_ordinal": 37,
+      "word_count": 60,
+      "text_sha256": "8a713fb0cdbcd9282ff77af3e5109bd4ed1c95fbb4064c7349d4fc6e7003af94",
+      "fragment": "direct stability contrast The prospective approximation scales the development",
+      "text": "Before the outcome opening, an amendment added power context and a direct stability contrast. The prospective approximation scales the development HAC standard error by the square root of the ratio of 2,264 development sessions to 998 evaluation sessions and uses the first BH-2 hurdle, a two-sided size of 0.025. It is a normal approximation, not a success gate.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/04_methodology.tex",
+      "paragraph_ordinal": 43,
+      "word_count": 79,
+      "text_sha256": "ae57dd76fbb06c4dec30df7becb51ff90de331488949e19a1a9f2f8b329824f4",
+      "fragment": "high-minus-low abnormal return is calculated within each mean group",
+      "text": "The high-minus-low abnormal return is calculated within each mean group. Available group spreads are equally weighted to form one daily spread. The reported mean and interval use HAC(5). The same calculation is repeated for firm-days with at least two stories. The initially declared absolute cut-offs of one third and two thirds produced no sessions with enough overlapping cells; execution stopped before any spread was estimated, and the tie-aware dependent sort was recorded before the replacement result was computed.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/01_introduction.tex",
+      "paragraph_ordinal": 4,
+      "word_count": 21,
+      "text_sha256": "9d0a9542db479b334cdfc891019949a3bcae801e2a94a334367a8b1a98d5daf2",
+      "fragment": "distinction matters most on rich days but this panel",
+      "text": "The distinction matters most on rich days, but this panel is not rich. Of the 512,153 development firm-days, 48.3\\",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/02_literature.tex",
+      "paragraph_ordinal": 4,
+      "word_count": 105,
+      "text_sha256": "0d66b82b1e032c6e80f6c3f59f61878a88c74f2f1f3fd276df30e7d362ca7e23",
+      "fragment": "early large-sample link between media language and markets Pessimism",
+      "text": "provides an early large-sample link between media language and markets. Pessimism in a daily Wall Street Journal column is associated with downward market pressure, unusually high volume and partial reversal. The reversal matters for this dissertation: a text variable can predict the next return without representing a persistent change in value. move from an aggregate column to firm-specific news. The fraction of negative words predicts earnings and returns, with words tied to fundamentals carrying much of the information. That work supplies a direct precedent for measuring a negative proportion, although its proportion is formed from words within documents rather than from stories within a firm-day.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/04_methodology.tex",
+      "paragraph_ordinal": 49,
+      "word_count": 91,
+      "text_sha256": "d7b4fca31ac81bc9cbb27a7fd5910c3a2f7ca6cb3882f7d49e54ba7e2070667a",
+      "fragment": "high-turnover daily strategy not a universal institutional estimate Break-even",
+      "text": "For example, opening a gross-one dollar-neutral book from cash has TO t=0.5 and costs c ; liquidating it later adds another 0.5 and another c . The final position is liquidated and charged. The main stock cost is 10 basis points per side. It is a demanding test for a high-turnover daily strategy, not a universal institutional estimate. Break-even cost is the value of c that makes average net return zero, r gross p/(2 TO ) . Annualised turnover multiplies TO by 252, and both Sharpe ratios use the same annualisation.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/06_conclusion.tex",
+      "paragraph_ordinal": 4,
+      "word_count": 76,
+      "text_sha256": "8371110ad822ff27226963fe18bb630987d756cb8d96141109fdcccfcd6c7302",
+      "fragment": "comparison matters more than contrasting two significance labels Evaluation",
+      "text": "The direct baseline era comparison matters more than contrasting two significance labels. Evaluation minus development is +0.01414 , with interval [+0.00250,+0.02579] and p=0.0173 . Approximate prospective power to recover the development effect at the first BH-2 hurdle was only 35.4\\ evaluation failure is not proof of an exact zero. Together, the failed families and direct contrast establish non-replication of the measured baseline pipeline association. They do not identify why it changed.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/04_methodology.tex",
+      "paragraph_ordinal": 57,
+      "word_count": 74,
+      "text_sha256": "5fcecbc6f449d0c9e47612bcd28ceab9c8323a3a0edb2525c1d8fc527b83633b",
+      "fragment": "headline-weighted share of negative FNSPID stories across the market",
+      "text": "Aggregate pressure on session t is the headline-weighted share of negative FNSPID stories across the market. It is standardised using the preceding 252 sessions, with at least 126 prior observations. The frozen hysteresis rule enters risk-off when the lagged pressure z -score exceeds 1.5, remains risk-off until it falls below 0.5, and multiplies HAR exposure by 0.25 while active. Using a lagged state ensures that the exposure decision precedes the return.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/02_literature.tex",
+      "paragraph_ordinal": 12,
+      "word_count": 74,
+      "text_sha256": "1ddf91f501d977bd8be1ea6ec53c19a42946d8986b3f92b82ebb8cdd7822fd6c",
+      "fragment": "background knowledge Their evidence shows that historical large-language-model sentiment",
+      "text": "Historical scoring by a modern model creates a temporal risk. The model may have absorbed facts that became known after the article date. anonymise company identities to separate look-ahead knowledge from distraction caused by background knowledge. Their evidence shows that historical large-language-model sentiment is not automatically leakage safe. The current study therefore treats all prompted results as retrospective development experiments, sends no returns to the scorer and stops when the fixed selection gate fails.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/05_results.tex",
+      "paragraph_ordinal": 50,
+      "word_count": 60,
+      "text_sha256": "298c04b92d2717b5bfda59649c568f40e55d593d73588a702fd491a7556d9854",
+      "fragment": "FNSPID baseline coefficient therefore supports insufficient precision not equivalence",
+      "text": "An earlier 44-firm LSEG comparison produced no BH survivor across either an 18-test aggregator/scorer family or an eight-test scorer/filter family. It is a different cohort and does not settle transfer here, but prevents the two imprecise coefficients from being treated as the only LSEG evidence. Their 80\\ FNSPID baseline coefficient. therefore supports insufficient precision, not equivalence to zero.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/02_literature.tex",
+      "paragraph_ordinal": 15,
+      "word_count": 92,
+      "text_sha256": "2fffe6b13ea6d9ef8561500f7ecfc69ec05bf23df606ad9154ac4b3aea2f2bcf",
+      "fragment": "corporate-bond returns and uncertainty study news-sentiment dispersion around Chinese",
+      "text": "The broader literature shows that non-mean text structure can matter, so the contribution here must be stated narrowly. measure how positive and negative words are dispersed through conference-call narratives and find relations with firm performance, reporting choices and user responses. Their unit is word placement within a disclosure, not multiple articles within a day. relate dispersion in news sentiment to corporate-bond returns and uncertainty. study news-sentiment dispersion around Chinese merger announcements and link it with uncertainty, announcement returns and completion. These papers rule out any claim that sentiment dispersion itself is new.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/01_introduction.tex",
+      "paragraph_ordinal": 14,
+      "word_count": 26,
+      "text_sha256": "82bcf8cb1189d423cfa7f2d544273ba464ec5b7461e8a58857f3027a72941a35",
+      "fragment": "matched-control standards are fixed in before the corresponding results",
+      "text": "H3 and H4 are stated as claims that the evidence can refute. Their cost and matched-control standards are fixed in before the corresponding results are reported.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/02_literature.tex",
+      "paragraph_ordinal": 9,
+      "word_count": 91,
+      "text_sha256": "f9a29c5d660e7f4107e309d4e59076682b6cabd495ba04b1b055a2eb909d8004",
+      "fragment": "affect financial text results including corpus construction negation document",
+      "text": "Text must be converted into a variable before any return test is possible. A general dictionary counts words that have negative meanings in ordinary English. In finance that can be misleading. show that common business words such as ``liability'' and ``tax'' are often classed as negative by a general dictionary even when their use is routine. A finance-specific word list changes both the labels and the empirical conclusions. Their later survey catalogues further decisions that affect financial text results, including corpus construction, negation, document length and validation against the target task .",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/06_conclusion.tex",
+      "paragraph_ordinal": 23,
+      "word_count": 36,
+      "text_sha256": "e3c17f1413dacf19150b91cbe430248cbc8efbb69f900389428bb05195c4aac4",
+      "fragment": "coefficient under square-root scaling matching FNSPID precision would require",
+      "text": "Another short 33-firm block cannot settle transfer. Its MDEs are 7.6 and 13.6 times the FNSPID coefficient; under square-root scaling, matching FNSPID precision would require roughly 58 and 184 times as much time-series information.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/01_introduction.tex",
+      "paragraph_ordinal": 6,
+      "word_count": 55,
+      "text_sha256": "66037c2ee33b7d14a5d19857b5a5c6dbc93924a4283f49bf7b6d79ce4b85fe7c",
+      "fragment": "market exposure This dissertation therefore separates incremental information return-scale",
+      "text": "The practical standard is higher than statistical detectability. A daily stock signal can have the expected sign and a small standard error while losing money after turnover, or appear to reduce drawdown merely because it holds less market exposure. This dissertation therefore separates incremental information, return-scale size, and value after costs against a fair comparator.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/05_results.tex",
+      "paragraph_ordinal": 19,
+      "word_count": 55,
+      "text_sha256": "ac2e2a186f594828e6f0dbc3a4168ddfbee0cd8baacc628463075511f220eacb",
+      "fragment": "nine evaluation information coefficients survives BH correction Negative-story share",
+      "text": "The broader aggregation family fails as well. None of the nine evaluation information coefficients survives BH correction. Negative-story share has an IC of -0.00312 with p=0.300 . Mean and median continuous sentiment have positive uncorrected estimates, but neither clears the first family hurdle. The outcome therefore licenses no rule reselection or opposite-direction signal.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/01_introduction.tex",
+      "paragraph_ordinal": 15,
+      "word_count": 67,
+      "text_sha256": "7e28a9bdd43e56985c02a2d2ab580f7621d17d890d46a3e8b656d39c0313486f",
+      "fragment": "called a frozen temporal replication rather than independent confirmation",
+      "text": "H1a and the downstream hypotheses organise an exploratory aggregation result; they were not fixed before negative-story share was selected. H1b is narrower: its estimands, correction and failure rule were frozen before Notebook 75 opened them once. The later period is not a pristine holdout because other project work had already used its portfolio outcomes, so the result is called a frozen temporal replication rather than independent confirmation.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/04_methodology.tex",
+      "paragraph_ordinal": 62,
+      "word_count": 62,
+      "text_sha256": "d095c4a6d34fd1b439ed591d56afc96df8d301436729416bc46837143e211217",
+      "fragment": "stopping rule prevents repeated wording changes from migrating into",
+      "text": "Only 2024 is used for prompt selection. A prompt must have positive gross and net means, positive net Sharpe, a break-even cost of at least 10 basis points and stable quarterly comparisons with existing Gemma and FinBERT scores. If no prompt passes, the 2025 prompt strategy is not opened. This stopping rule prevents repeated wording changes from migrating into the test period.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/05_results.tex",
+      "paragraph_ordinal": 58,
+      "word_count": 59,
+      "text_sha256": "b60f0e971a8e1d51a54fbf618cf8feaae3169515db0b2fb8445675b8948477de",
+      "fragment": "All five target-specific prompts fail their 2024 selection gate",
+      "text": "All five target-specific prompts fail their 2024 selection gate. The best is already negative before costs ( -0.989 basis points per session) and loses -4.012 after costs. The structured reaction score is worse: its gross mean is -2.590 basis points and its net mean -19.666 . The stopping rule therefore prevents a 2025 portfolio from being computed.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/02_literature.tex",
+      "paragraph_ordinal": 31,
+      "word_count": 72,
+      "text_sha256": "733f2f5c577860732cec2587d0c03578b11e58e7ed431fb0d64036618f7c7e4f",
+      "fragment": "through recent-price controls cost accounting matched-exposure comparisons power calculations",
+      "text": "The dissertation addresses that bounded gap. It does not introduce a new sentiment model. It asks whether a simple hard-boundary summary has an exploratory association beyond the rank-linear controls used by a mean-based pipeline. The design then tests the useful version of the result through recent-price controls, cost accounting, matched-exposure comparisons, power calculations and LSEG evidence. This ordering makes a null economic answer informative rather than an embarrassment to be tuned away.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/04_methodology.tex",
+      "paragraph_ordinal": 56,
+      "word_count": 28,
+      "text_sha256": "52ba6e7ff0b2508f918567d0cde8e125a87721c8647017b881b5fc88028b5216",
+      "fragment": "variance over daily weekly and monthly windows predicts five-session",
+      "text": "The risk analysis begins with a sentiment-free HAR forecast. Log variance over daily, weekly and monthly windows predicts five-session log variance. The forecast is mapped to a 10\\",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/05_results.tex",
+      "paragraph_ordinal": 4,
+      "word_count": 77,
+      "text_sha256": "dc454f6bff572792969f929096f74d3e8fd69b4913c47717d00cd8b63ec82ee4",
+      "fragment": "non-mean statistic works One particular hard-boundary transformation the frequency",
+      "text": "The distinction from a mean is visible in the other rows. Both means sit near 0.003 with p above 0.09 . The median and decayed state have uncorrected p -values below 0.05, but neither survives the family correction, and dispersion is indistinguishable from zero. The result is therefore not that every non-mean statistic works. One particular hard-boundary transformation, the frequency of classifications on the negative side, is more stable than score magnitude in this sample.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/03_data.tex",
+      "paragraph_ordinal": 22,
+      "word_count": 70,
+      "text_sha256": "4baee40ec0a45ef28c5427550c544789f93a3a8f4cdf94b9290b645b39a50a0a",
+      "fragment": "coverage but it cannot separate independent information from repetition",
+      "text": "The most important missing variable is story-family identity in FNSPID. The checkpoint has a recap flag, but no stable publisher field, near-duplicate cluster or link from an update to its first release. Several negative rows may therefore be rewrites of one event. Controlling for (1+n it ) separates distribution shape from the amount of coverage, but it cannot separate independent information from repetition. show that this distinction affects market response.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/06_conclusion.tex",
+      "paragraph_ordinal": 17,
+      "word_count": 46,
+      "text_sha256": "4413317f0c2e27b1658226b57556bb68a749b68c7aa0cc20f63f1b4dc143f42e",
+      "fragment": "joined A negative family-level coefficient after mean family sentiment",
+      "text": "Similarity thresholds should be set on hand-audited pairs before returns are joined. A negative family-level coefficient after mean family sentiment and family count are controlled would support the distribution reading. If only raw-story share remains negative, the signal is better described as adverse-news repetition or attention.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/05_results.tex",
+      "paragraph_ordinal": 35,
+      "word_count": 48,
+      "text_sha256": "6eaebddcfe1381318d51b9c9890d39eafdea2af22192c16a0ebba674ecd2129a",
+      "fragment": "return-scale view without regression coefficients Within each mean-sentiment quintile",
+      "text": "The double sort provides a return-scale view without regression coefficients. Within each mean-sentiment quintile, firms in the high negative-share third underperform firms in the low third by an average of 0.618 basis points per session. The HAC standard error is 0.455 basis points and the 95\\",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/05_results.tex",
+      "paragraph_ordinal": 24,
+      "word_count": 93,
+      "text_sha256": "768eeabb9ebf25e76cfefe4a5446180749afaab060c27a5ec0a18284b248ba8d",
+      "fragment": "show no detectable variation inside development That within-period diagnostic",
+      "text": "Within development, the inference choice does not matter. Lengthening the Newey--West lag from the frozen five to ten and then twenty-one leaves the point estimate at -0.00831 and moves p only between 0.0047 and 0.0052 . The coefficient is negative in eight of nine development years, although only 2014 and 2016 are individually distinguishable from zero. Annual estimates are noisy and show no detectable variation inside development. That within-period diagnostic does not contradict : the later 998-session block is a different, predeclared era comparison with materially more information than any one year.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/04_methodology.tex",
+      "paragraph_ordinal": 34,
+      "word_count": 46,
+      "text_sha256": "97e05984d7fc936f0684fde76e38921a79a0a01c395bb8938901ba2e1c5238f2",
+      "fragment": "100 expresses the fitted change in next-return-rank percentile points",
+      "text": "For interpretation, a move from the 10th to 90th percentile of negative share changes the regressor rank by 0.8. Multiplying 0.8 by 100 expresses the fitted change in next-return-rank percentile points. This is a linear translation of the rank model, not a return forecast.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/01_introduction.tex",
+      "paragraph_ordinal": 17,
+      "word_count": 74,
+      "text_sha256": "8e3561d54494a98f2729f7c50873f06d24c0b1a73b7b363589165f39ff938a56",
+      "fragment": "selected statistical estimands and bounded risk-translation tests already present",
+      "text": "FNSPID is the primary data spine. The cleaned panel contains 715,546 news-bearing firm-days for 570 priced US symbols between 2011 and 2023. Model and rule development ends on 31 December 2019. The later period supplies the one-shot replication of the selected statistical estimands and bounded risk-translation tests already present in the project. The split is chronological, but it is not presented as an untouched holdout because earlier project work had observed later outcomes.",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/chapters/04_methodology.tex",
+      "paragraph_ordinal": 45,
+      "word_count": 70,
+      "text_sha256": "b64301eb8d420f173113009ed66645a3f96759626a301264387d1378fb24dad8",
+      "fragment": "daily cross-sectional rank portfolio Oriented signal ranks are centred",
+      "text": "Each aggregation rule is also converted to a daily cross-sectional rank portfolio. Oriented signal ranks are centred and scaled so long and short gross exposure are balanced. Positions formed on t earn the next open-to-open abnormal returns. Let w it be the target weight, w drift i,t-1 the prior weight after the asset return and c the per-side proportional cost. Turnover is reported one-way, as half the traded notional:",
+      "selection_reason": [
+        "deterministic_50pct_sample"
+      ]
+    },
+    {
+      "path": "manuscript/appendices/project_summary.tex",
+      "paragraph_ordinal": 12,
+      "word_count": 97,
+      "text_sha256": "7d5a3e0ae15eaa28e9fb8cb3d89a69806f99b5aeeeedf3ad1e4024a6f34cfd9e",
+      "fragment": "selected negative-story-share statistic has a small exploratory conditional association",
+      "text": "The selected negative-story-share statistic has a small exploratory conditional association with abnormal returns in FNSPID development. The development baseline coefficient is -0.00831 , and the separate recent-price-control robustness estimate is -0.00914 . The frozen 2020--2023 opening repeats the baseline specification and gives +0.00583 . The direct contrast therefore supports instability in the measured baseline pipeline association; the evidence does not identify whether market conditions, sample composition, timing or classifier measurement caused the change. The tested daily implementation does not cover realistic costs. LSEG estimates are imprecise, and tuned LSEG risk and prompt rules fail their economic gates.",
+      "selection_reason": [
+        "modified_round2"
+      ]
+    }
+  ]
+}

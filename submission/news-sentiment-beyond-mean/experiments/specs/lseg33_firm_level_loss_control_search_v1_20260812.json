@@ -1,0 +1,110 @@
+{
+  "spec_id": "lseg33_firm_level_loss_control_search_v1_20260812",
+  "created_at": "2026-08-12T17:45:00+01:00",
+  "status": "frozen_before_notebook_82_search_result",
+  "purpose": "Post-hoc exploratory search for economic loss control by reducing only the affected LSEG company's weight rather than the whole 33-stock basket.",
+  "claim_boundary": [
+    "This is an exploratory dissertation robustness analysis because LSEG returns have already been opened elsewhere.",
+    "All candidates, development selection rules, the forward boundary and the evaluation family are fixed here before running Notebook 82.",
+    "A positive result can support an LSEG economic-value case but cannot be described as preregistered confirmation.",
+    "The 33-company LSEG cohort is a fixed selected large-cap sample and does not identify a population-wide causal effect."
+  ],
+  "inputs": {
+    "gemma_firm_open": {
+      "path": "final_experiments/outputs/67_lseg_gemma_finbert_joined_long_window/joined_gemma4_26b_firm_open.parquet",
+      "sha256": "a146463e7c36dcbd1905efe60e08ed370e4b76353392db4942ddac66a6cf85aa"
+    },
+    "finbert_firm_open": {
+      "path": "final_experiments/outputs/67_lseg_gemma_finbert_joined_long_window/joined_finbert_firm_open.parquet",
+      "sha256": "903b5921b4bfd73b2c04be5d0f6b5bebf7d1aa2274b25afaf1e085e8e3976322"
+    }
+  },
+  "population": {
+    "companies": 33,
+    "required_complete_company_sessions": true,
+    "return": "raw split-adjusted open-to-next-common-open price return; dividends excluded",
+    "signal_timing": "Reuters stories assigned to the firm-open using the existing causal availability rule",
+    "development": {
+      "start": "2024-01-02",
+      "end": "2025-10-24",
+      "expected_complete_sessions": 445,
+      "folds": 3
+    },
+    "evaluation": {
+      "start": "2025-10-27",
+      "end": "2026-06-26",
+      "expected_complete_sessions": 167
+    }
+  },
+  "portfolio": {
+    "base": "daily equal-weight long portfolio of the same 33 companies",
+    "overlay": "multiply each company's 1/33 base weight by its own news-risk modifier and leave the residual in cash",
+    "primary_cost_bps_per_side": 2.0,
+    "cost_sensitivity_bps_per_side": [0.0, 2.0, 5.0, 10.0],
+    "include_initial_entry_and_final_liquidation": true,
+    "matched_controls": [
+      "development symbol-matched fixed weights: each symbol keeps its development-average candidate weight on every evaluation day",
+      "development aggregate-exposure-matched equal-weight portfolio"
+    ]
+  },
+  "candidate_grid": {
+    "scorers": ["gemma4_26b", "finbert"],
+    "risk_features": [
+      "negative_share",
+      "conditional_negative_share_residual",
+      "negative_mean_continuous",
+      "negative_trimmed_mean",
+      "negative_median_continuous",
+      "negative_decayed_state",
+      "dispersion",
+      "attention_weighted_negative_share"
+    ],
+    "normalisers": ["current_cross_section", "firm_rolling_63", "firm_rolling_126"],
+    "cross_sectional_risk_percentile_thresholds": [0.6, 0.7, 0.8, 0.9],
+    "risk_multipliers": [0.0, 0.25, 0.5, 0.75],
+    "mappings": ["step", "smooth"],
+    "market_gates": ["always", "aggregate_negative_share_above_prior_126_median", "aggregate_negative_share_above_prior_126_q75"],
+    "expected_candidates": 4608
+  },
+  "development_selection": {
+    "primary_metric": "worst-fold annual downside-utility difference versus the development symbol-matched fixed-weight control, gamma=5",
+    "secondary_metrics": [
+      "mean fold utility difference versus symbol-matched fixed weights",
+      "mean fold expected-shortfall reduction versus symbol-matched fixed weights",
+      "lower turnover"
+    ],
+    "eligibility": [
+      "utility difference versus symbol-matched control is positive in at least two of three chronological development folds",
+      "expected-shortfall reduction versus symbol-matched control is positive in at least two of three folds",
+      "evaluation mean gross exposure is not used in selection"
+    ],
+    "no_eligible_candidate_rule": "stop and report no robust development candidate; do not relax the eligibility rule"
+  },
+  "evaluation_family": {
+    "method": "paired moving-block bootstrap, block length 20 sessions, 9999 replications",
+    "multiplicity": "Benjamini-Hochberg across 12 tests",
+    "comparisons": [
+      "selected overlay versus equal-weight long",
+      "selected overlay versus development symbol-matched fixed weights",
+      "selected overlay versus development aggregate-exposure-matched equal weights"
+    ],
+    "estimands_per_comparison": [
+      "mean net return difference",
+      "downside squared-return reduction",
+      "5% expected-shortfall loss reduction",
+      "downside utility difference at gamma 5"
+    ]
+  },
+  "economic_value_gate": {
+    "required_against_symbol_matched_control": [
+      "BH-adjusted q < 0.05 for downside utility or one tail-risk estimand",
+      "mean net-return difference lower 95% bound greater than -1 basis point per session",
+      "positive compounded ending-wealth difference at 2 bps per side"
+    ],
+    "stability": [
+      "positive net economic difference in both evaluation halves",
+      "report leave-one-company-out ending-wealth differences"
+    ]
+  },
+  "seed": 20260812
+}

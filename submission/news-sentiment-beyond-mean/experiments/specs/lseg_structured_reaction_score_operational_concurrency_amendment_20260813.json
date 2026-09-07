@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "status": "recorded_mid_score_before_any_price_or_return_access",
+  "recorded_at_utc": "2026-08-13T08:29:15Z",
+  "parent_spec": "final_experiments/frozen_specs/lseg_structured_reaction_score_v1_20260813.json",
+  "prices_or_returns_opened": false,
+  "observed_operational_fact": "At concurrency 25, the append-only checkpoint contained 1,014 strict successes and 78 DeepInfra upstream engine-overloaded HTTP 429 errors after 1,092 attempt records. Successful rows remain intact.",
+  "action": "Interrupt the overloaded run and resume unattempted events at concurrency 5. The five-request pass proved transport-stable but operationally too slow, reaching 1,819 strict successes after 1,904 total records. Resume the still-unattempted tail at concurrency 15; preserve every checkpoint and make the single predeclared cleanup pass over remaining failures at concurrency 5.",
+  "scientific_effect": "None. Concurrency and transport retries do not alter prompt text, score schema, event order, strict parsing, sample definition, signal, chronology or economics.",
+  "unchanged": [
+    "current-headline-only payload",
+    "no novelty assessment and no prior headlines",
+    "DeepInfra-only Gemma 4 26B FP8 route with no fallback",
+    "prompt and schema hashes",
+    "strict no-coercion rule",
+    "2024 selection and conditional 2025 test",
+    "10 bps per side",
+    "2026 seal",
+    "cumulative spend limits"
+  ]
+}

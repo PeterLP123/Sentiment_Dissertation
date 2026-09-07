@@ -1,0 +1,37 @@
+{
+  "spec_id": "portfolio_turnover_accounting_amendment_v1_20260815",
+  "recorded_at": "2026-08-15",
+  "status": "frozen_before_corrected_reexecution",
+  "scope": [
+    "03_aggregation development portfolio translation",
+    "10_thresholds learned-gate portfolio translation",
+    "71_conditional_negative_share_transfer economic context"
+  ],
+  "defect": {
+    "previous_rebalance_base": "prior target weights",
+    "required_rebalance_base": "prior weights after raw asset returns",
+    "previous_terminal_treatment": "Notebook 03 omitted final liquidation; Notebook 10 already charged it",
+    "effect_on_statistical_estimands": "none"
+  },
+  "required_accounting": {
+    "drift_formula": "w_drift_i = w_i * (1 + r_i) / (1 + sum_j(w_j * r_j))",
+    "turnover_formula": "0.5 * sum_i(abs(w_target_i - w_drift_previous_i))",
+    "cost_formula": "2 * turnover * cost_bps_per_side / 10000",
+    "final_liquidation": true,
+    "fnspid_asset_return_column": "ret_open_h1",
+    "lseg_asset_return_column": "raw_open_h1"
+  },
+  "frozen_constraints": [
+    "Do not change signal construction, orientation, chronological splits, transaction-cost rate or random seeds.",
+    "Notebook 03 information coefficients and Benjamini-Hochberg decisions are not reselected.",
+    "Notebook 10 model classes and hyperparameters remain fixed; validation cutoffs are recomputed mechanically under corrected accounting and evaluation is not used to retune them.",
+    "Notebook 75 remains sealed and is not executed.",
+    "Preserve any null economic conclusions even if corrected point estimates move."
+  ],
+  "promotion_requirements": [
+    "Regression tests demonstrate return drift, terminal liquidation and single-count exits.",
+    "Affected aggregate results and manifests are regenerated from authorised local inputs.",
+    "The evidence map, generated manuscript artifacts and manuscript wording are updated together.",
+    "Repository validation passes."
+  ]
+}

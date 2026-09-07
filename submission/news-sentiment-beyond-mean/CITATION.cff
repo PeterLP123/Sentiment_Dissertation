@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+title: "A Hard Negative-Story Threshold"
+message: "Please cite this repository and the final dissertation if you use the analytical design or code."
+type: software
+authors:
+  - family-names: Prendergast
+    given-names: Peter
+date-released: 2026-08-13
+version: 0.1.0

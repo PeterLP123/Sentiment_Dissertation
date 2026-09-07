@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "status": "promoted_after_independent_byte_reproduction",
+  "promoted_at_utc": "2026-08-16T14:43:24Z",
+  "notebook": {
+    "path": "experiments/notebooks/87_fnspid_external_review_robustness_pack.ipynb",
+    "sha256": "b863d4bc295e15c8b1143f0b20853fa672dbc784bb8ee9d2c6fbcee88cce9c42"
+  },
+  "runner": {
+    "path": "experiments/lib/external_review_robustness.py",
+    "sha256": "071736286605229374766e4471b4ff45fd26caa804ff0513ffb918831ab91a9c"
+  },
+  "spec": {
+    "path": "experiments/specs/fnspid_external_review_robustness_pack_v1_20260816.json",
+    "sha256": "b88218134bbb7b13a398fb56bd9686e7359068d937c87dcb43144dc83841e4c6"
+  },
+  "run_manifest_sha256": "0a2949a8210befa87c782f4654b25b6180309c61b1bf2621b0dee3085d19ec38",
+  "independent_rerun": {
+    "path": "/private/tmp/news-sentiment-nb87.1ebBWQ",
+    "csv_outputs_byte_identical": true,
+    "manifest_canonically_identical": true
+  },
+  "notebook_75": {
+    "executed": false,
+    "sha256_before_and_after": "df0b6c5105158198f62c828842b3ff3e1051ccaf664e7a778c9c66e11cffc455"
+  },
+  "promotion_rule": "Only licence-safe aggregate CSV outputs and their manifests were promoted; no text, identifiers, Parquet panels or scoring logs were copied.",
+  "claim_boundary": [
+    "Post-review robustness, not independent confirmation.",
+    "Observable composition diagnostics do not exhaust era differences.",
+    "Risk concentration robustness does not pass the economic-value gate."
+  ]
+}
