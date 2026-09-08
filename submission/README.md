@@ -6,7 +6,7 @@
 
 The snapshot contains the final LaTeX manuscript, licence-safe aggregate results, frozen specifications, selected notebooks, supporting code, tests and reproducibility documentation. No experiment was rerun during the transfer. Raw Reuters, LSEG and FNSPID text, licensed identifiers, model caches, API responses, credentials, databases, Parquet panels and JSONL scoring logs were not copied.
 
-Keep this package separate from `final_experiments/`. The historical workspace has different in-progress studies numbered 85 and 86, so merging by notebook number would damage provenance.
+Keep this package separate from `final_experiments/`. The research archive has different novelty-conditioning and economic-value studies numbered 85 and 86, so merging by notebook number would damage provenance.
 
 The project-root commands `make setup`, `make validate` and `make manuscript`
 select this package's locked environment automatically. Inside the package,

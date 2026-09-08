@@ -12,9 +12,25 @@ frozen specifications and aggregate outputs. Notebook 75 records the one-shot
 2020–2023 evaluation. Notebooks 79–84 cover robustness, economic value, prompts and
 structured-score diagnostics.
 
-Separate unpublished novelty-conditioning and already-known-story-share studies in
-the local workspace also use numbers 85 and 86. They are outside this release and must
-not be merged by number with the final package's notebooks.
+The archive also includes [Notebook 85 on novelty conditioning](../final_experiments/85_fnspid_novelty_conditioned_information.ipynb)
+and [Notebook 86 on its economic value](../final_experiments/86_fnspid_already_known_share_economic_value.ipynb),
+published from existing local work on 8 September 2026. Their paired Python sources,
+frozen specifications, helper tests and aggregate outputs accompany the executed
+notebooks. They are separate from the final submission's notebooks with the same
+numbers and must not be merged by number.
+
+Notebook 85 uses the training period only. Notebook 86 records a retrospective replay
+on an already-opened evaluation period. These are exploratory associations and
+economic diagnostics, with an uncalibrated repetition screen and adverse trading
+results. They do not establish a causal mechanism or independent confirmation.
+Publication did not rerun either study or alter the submitted dissertation.
+
+The saved [Notebook 85 results](../final_experiments/outputs/85_fnspid_novelty_conditioned_information/decision.md)
+and [Notebook 86 results](../final_experiments/outputs/86_fnspid_already_known_share_economic_value/decision.md)
+include the aggregate tables, figures and input-hash audits. Notebook 85 also retains
+its daily cross-sectional coefficient series. Raw headlines and firm-day panels stay
+local. Frozen specifications retain the original input paths and hashes as provenance,
+so full reruns require independently authorised local inputs and appropriate path mapping.
 
 The [experiment ledger](../final_experiments/EXPLORATORY_EXPERIMENT_LEDGER.md) records
 run status and limitations. The [historical plan](../final_experiments/plan.html),

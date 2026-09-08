@@ -1,0 +1,6 @@
+condition,value,passes
+net Sharpe > 0 at 10 bps/side,-13.65072490964324,False
+break-even >= 10 bps/side,0.49163773658604093,False
+bootstrap lower bound on mean net > 0,-15.131205577825822,False
+net Sharpe > 0 in both halves,-14.55627758225494,False
+coefficient survives M2 price controls with the same sign,-0.007737469415672582,True

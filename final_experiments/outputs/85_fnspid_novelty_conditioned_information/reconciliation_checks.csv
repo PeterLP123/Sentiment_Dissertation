@@ -1,0 +1,6 @@
+check,max_abs_error
+mean_all,2.220446049250313e-16
+negshare_all,1.1102230246251565e-16
+count vs published n,0.0
+mean_all vs published mean_continuous,2.220446049250313e-16
+negshare_all vs published negative_share,0.0

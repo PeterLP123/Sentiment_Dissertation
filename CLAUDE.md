@@ -8,7 +8,7 @@ The completed dissertation project is `submission/news-sentiment-beyond-mean/`. 
 
 The selected question concerns the training-period hard negative-story-share association, its timing, and whether the unchanged baseline persists in the frozen 2020--2023 testing period. The result is temporal non-replication with a binding timing limitation, not validated alpha. Notebook 75 is the sealed evaluation record.
 
-`final_experiments/` is the historical research archive. Preserve its full chain, specifications, invalidations, and null results. Distinct local novelty studies numbered 85 and 86 remain unpublished and must be preserved separately. Earlier open-RQ and live-plan instructions document the process and no longer describe current authority.
+`final_experiments/` is the historical research archive. Preserve its full chain, specifications, invalidations, and null results. The distinct novelty studies numbered 85 and 86 were published from existing local work on 8 September 2026 and remain separate from the submitted package. Notebook 86's recorded evaluation is retrospective. Earlier open-RQ and live-plan instructions document the process and no longer describe current authority.
 
 ## Research rules
 

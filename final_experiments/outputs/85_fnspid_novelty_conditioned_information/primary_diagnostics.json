@@ -1,0 +1,8 @@
+{
+  "mixed_firm_days": 53367,
+  "all_firm_days": 512153,
+  "split_median_condition_number": 9.854442424862867,
+  "known_median_condition_number": 7.418058649983101,
+  "mixed_rank_spearman_mean_legs": 0.13868467153246472,
+  "mixed_rank_spearman_negshare_legs": 0.14546599105854247
+}

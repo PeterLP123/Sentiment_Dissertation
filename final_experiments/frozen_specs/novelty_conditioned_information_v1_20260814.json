@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "status": "frozen_before_notebook_85_result",
+  "frozen_at_utc": "2026-08-14T00:00:00Z",
+  "git_commit_at_freeze": "3f25ccf13aeafef13ac32bad96fb073c5e69f683",
+  "experiment": {
+    "notebook": "final_experiments/85_fnspid_novelty_conditioned_information.ipynb",
+    "title": "Is the news new or already known? FNSPID development test",
+    "selected_rq": "Does negative-news share add predictive information for next-session abnormal returns beyond mean continuous sentiment and news volume, and is that increment stable?",
+    "rq_link": "Input-side precondition for the selected RQ: the frozen aggregates are computed over every story on a firm-day, including near-verbatim restatements of what the same firm already published. This experiment asks whether the information sits in the new stories and not in the already-known ones.",
+    "evidence_role": "retrospective development-only measurement and conditioning evidence",
+    "confirmation_claim_allowed": false,
+    "deployment_claim_allowed": false,
+    "retuning_allowed": false,
+    "evaluation_block_opened": false,
+    "evaluation_block_rule": "session_date >= 2020-01-01 is not loaded, ranked, or scored in this notebook. Notebook 75 already opened that block once for the selected RQ and is not re-opened or re-run here."
+  },
+  "inputs": {
+    "fnspid_story_novelty": {
+      "path": "final_experiments/outputs/02_filters_and_distribution/story_novelty.parquet",
+      "sha256": "1d708b60e0a33847053f8eeff4be47145b3e51019a0f1177e2ca8183bd1739d4",
+      "bytes": 136260719,
+      "provenance": "Notebook 02 repetition screen: 30-day trailing same-firm window, strictly earlier sessions only, headline text already dropped",
+      "population": "1,599,451 stories on panel firm-days"
+    },
+    "fnspid_firm_day_aggregators": {
+      "path": "final_experiments/outputs/03_aggregation/firm_day_aggregators.parquet",
+      "sha256": "1ca1c38109bc06af232119adeff17de66a567174d457038bc923a930a2da61f1",
+      "bytes": 55370575,
+      "role": "outcome ar_open_h1, split label, and the published all-story aggregates used for reconciliation"
+    },
+    "fnspid_finbert_checkpoint": {
+      "path": "reports/loop_moment2_finbert_20260719/finbert_checkpoint.sqlite3",
+      "sha256": "1d4981448bdc1564652be9a1f19ee855bd435e141cdb832381a58ab03c04637f",
+      "bytes": 512016384,
+      "role": "per-story pinned-FinBERT scores and class probabilities joined to the novelty screen on event_key; headline text is never read"
+    }
+  },
+  "novelty_definition": {
+    "already_known": "exact normalized-headline repeat against a strictly earlier same-firm session in the trailing 30-day window, OR best trailing-window token Jaccard overlap at or above the operative threshold",
+    "new": "every other story; the screen cannot distinguish genuinely new information from an unrecognised paraphrase, so this leg is new-or-unclassified",
+    "primary_jaccard_threshold": 0.5,
+    "sensitivity_jaccard_thresholds": [0.4, 0.6, 0.8],
+    "threshold_choice_disclosure": "Chosen return-blind from a story- and firm-day-count screen run before any outcome was loaded. At 0.80 only 3.4% of development firm-days are mixed, which cannot identify a within-session contrast; at 0.30 the screen begins absorbing generic boilerplate overlap. 0.50 yields 82,027 development firm-days with at least one already-known story and 53,367 mixed days.",
+    "calibration_status": "uncalibrated — the blinded 180-story human audit from Notebook 02 has no labels, so precision and recall of the screen are unknown",
+    "market_recap_flag": "retained as a separate descriptive field; not treated as repetition"
+  },
+  "population": {
+    "spine": "FNSPID firm-day panel",
+    "block": "development only, session_date <= 2019-12-31",
+    "outcome": "ar_open_h1, stock-minus-SPY adjusted-open return from formation session t to t+1",
+    "minimum_names_per_session": 10,
+    "mixed_day_restriction": "The two primary contrasts are identified only on firm-days holding at least one story of each kind, because both legs must be defined. This conditions on a variable correlated with news volume; the story-count distribution of mixed versus all days is reported as a caveat, not corrected for."
+  },
+  "estimand": {
+    "unit": "daily cross-sectional rank-regression coefficient followed by a time-series mean",
+    "outcome_transform": "within-session average-tie percentile rank of ar_open_h1, centred at zero",
+    "regressor_transform": "within-session average-tie centred percentile rank of each regressor",
+    "inference": "OLS intercept on the daily coefficient or contrast series with Newey-West HAC lag 5; two-sided 95 percent interval",
+    "secondary_inference": "20-session circular block bootstrap of the same mean, 9,999 replications, seed 20260814",
+    "excluded_sessions": "sessions below the minimum name count, with a constant ranked variable, or with a rank-deficient design are dropped and counted"
+  },
+  "primary_family": {
+    "multiplicity": "Benjamini-Hochberg across the three tests below at q = 0.05",
+    "tests": [
+      {
+        "id": "T1",
+        "name": "mean sentiment: new minus already known",
+        "sample": "mixed development firm-days at the primary threshold",
+        "model": "rank(ar_open_h1) ~ rank(mean_new) + rank(mean_known) + rank(negshare_new) + rank(negshare_known) + rank(log1p(n))",
+        "statistic": "beta_mean_new - beta_mean_known, paired within session",
+        "expected_direction": "positive if the market prices new sentiment and has already priced the restated stories"
+      },
+      {
+        "id": "T2",
+        "name": "negative-story share: new minus already known",
+        "sample": "mixed development firm-days at the primary threshold",
+        "model": "same joint model as T1",
+        "statistic": "beta_negshare_new - beta_negshare_known, paired within session",
+        "expected_direction": "negative, matching the frozen development sign of the all-story negative-share coefficient"
+      },
+      {
+        "id": "T3",
+        "name": "already-known share beyond the frozen regressors",
+        "sample": "all development firm-days at the primary threshold",
+        "model": "rank(ar_open_h1) ~ rank(mean_continuous) + rank(negative_share) + rank(known_share) + rank(log1p(n))",
+        "statistic": "beta_known_share",
+        "expected_direction": "none declared; two-sided"
+      }
+    ]
+  },
+  "success_rule": "A test counts as supporting novelty conditioning only if its BH-adjusted two-sided p-value is at or below 0.05 AND, for T1 and T2, the point estimate carries the declared sign. Zero survivors is the recorded result, not a prompt to search further specifications.",
+  "secondary_reported_not_in_family": [
+    "the same three tests replayed at Jaccard 0.40, 0.60 and 0.80",
+    "the two marginal three-regressor models (mean legs only; negative-share legs only)",
+    "story-count strata n >= 2 and n >= 5",
+    "per-calendar-year contrast means",
+    "descriptive measurement: already-known share by year, by story-count bin, and against the market-recap flag",
+    "descriptive cross-firm syndication rate: normalized headline hashes appearing for more than one symbol on the same session"
+  ],
+  "stopping_rule": "One execution of the declared family. No threshold, control, stratum, or model added after any primary coefficient is visible. Any post-result analysis is labelled post-hoc and excluded from the family.",
+  "licence_boundary": "Headline text is never loaded. All artifacts are written to the gitignored final_experiments/outputs/85_fnspid_novelty_conditioned_information/ directory and contain aggregate rows only."
+}

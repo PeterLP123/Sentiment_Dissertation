@@ -87,9 +87,11 @@ extend the testing-period study during repository maintenance.
 
 `final_experiments/`, `docs/research_protocol.md`,
 `docs/dissertation_execution_plan.md`, and `final_experiments/plan.html` are historical
-research records. Retain them for auditability. The local working copy also contains
-unpublished Notebook 85 novelty-conditioning and Notebook 86 economic-value work;
-preserve those separately from this release. Earlier open-RQ,
+research records. Retain them for auditability. The archive also contains the distinct
+Notebook 85 novelty-conditioning and Notebook 86 economic-value studies, published
+from existing local work on 8 September 2026. Keep them separate from the submitted
+package. Notebook 86's recorded evaluation is a retrospective replay of an already-opened
+period, not a new confirmatory test. Earlier open-RQ,
 workstream, and live-plan language describes the historical decision process; it does not
 reopen the submitted design or supersede the submission package.
 

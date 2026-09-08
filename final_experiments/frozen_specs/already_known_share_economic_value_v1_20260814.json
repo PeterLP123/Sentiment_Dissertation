@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "status": "frozen_before_notebook_86_result",
+  "frozen_at_utc": "2026-08-14T00:00:00Z",
+  "git_commit_at_freeze": "3f25ccf13aeafef13ac32bad96fb073c5e69f683",
+  "experiment": {
+    "notebook": "final_experiments/86_fnspid_already_known_share_economic_value.ipynb",
+    "title": "Is the already-known-share coefficient alpha?",
+    "parent_result": "Notebook 85 test T3: within-session rank coefficient on already-known share = -0.00882, 95% HAC(5) CI [-0.01387, -0.00376], BH q=0.0019, on 2,263 FNSPID development sessions",
+    "question": "Translate that coefficient into economic magnitude, test whether it is an artifact of the firm's own price path or of repeat polarity, and price it as a portfolio net of costs.",
+    "evidence_role": "retrospective development translation plus one exploratory application to the already-opened evaluation block",
+    "confirmation_claim_allowed": false,
+    "deployment_claim_allowed": false,
+    "retuning_allowed": false
+  },
+  "evaluation_block_disclosure": {
+    "status": "already opened",
+    "opened_by": "Notebook 75 executed the preregistered beyond-the-mean evaluation family once after Gate F1",
+    "precedent": "Notebook 81 applies a development-selected rule unchanged to the same already-opened 2020-2023 block and is recorded as an exploratory background null",
+    "role_here": "The 2020-2023 block is NOT a pristine holdout and is not treated as confirmation. The rule below is frozen on development in this file before any evaluation return is computed, then applied unchanged and once.",
+    "selection_disclosure": "T3 is the surviving member of a three-test development family. Its evaluation numbers are therefore a retrospective check on a development-selected signal, not independent validation."
+  },
+  "inputs": {
+    "fnspid_firm_day_aggregators": {
+      "path": "final_experiments/outputs/03_aggregation/firm_day_aggregators.parquet",
+      "sha256": "1ca1c38109bc06af232119adeff17de66a567174d457038bc923a930a2da61f1"
+    },
+    "fnspid_story_novelty": {
+      "path": "final_experiments/outputs/02_filters_and_distribution/story_novelty.parquet",
+      "sha256": "1d708b60e0a33847053f8eeff4be47145b3e51019a0f1177e2ca8183bd1739d4"
+    },
+    "fnspid_finbert_checkpoint": {
+      "path": "reports/loop_moment2_finbert_20260719/finbert_checkpoint.sqlite3",
+      "sha256": "1d4981448bdc1564652be9a1f19ee855bd435e141cdb832381a58ab03c04637f"
+    },
+    "fnspid_price_archive": {
+      "path": "/Users/peterprendergast/Documents/Sentiment_Dissertation_data/FNSPID/bf9189c41527198897d1af3e17b1a0095279fc45/raw/Stock_price/full_history.zip",
+      "sha256": "03da4fce7ebea90d5715ba3501773d410ae663b617027b338ef000a9955dab91",
+      "role": "Notebook 79 price-path controls, rebuilt with the identical construction and extended to 2023-12-31 for the evaluation replay"
+    }
+  },
+  "signal_definition": {
+    "already_known": "unchanged Notebook 85 screen at the operative Jaccard threshold 0.50",
+    "known_share": "count of already-known stories divided by total stories on the firm-day",
+    "no_retuning": "The threshold, window, outcome, horizon and cost are inherited unchanged from Notebooks 85 and 03. No parameter is searched in this notebook."
+  },
+  "magnitude_translation": {
+    "quantile_sort": "within-session quintiles of known_share on firm-days with at least ten complete names; report mean ar_open_h1 in basis points per quintile and the Q5 minus Q1 spread",
+    "inference": "20-session circular block bootstrap of the daily spread, 9,999 replications, seed 20260814"
+  },
+  "mechanism_checks": [
+    {
+      "id": "M1",
+      "name": "repeat polarity decomposition",
+      "model": "rank(ar_open_h1) ~ rank(mean_continuous) + rank(negative_share) + rank(known_share_negative) + rank(known_share_nonnegative) + rank(log1p(n))",
+      "question": "Does the effect come from restated bad news specifically, or from repetition of any polarity?"
+    },
+    {
+      "id": "M2",
+      "name": "price-path controls",
+      "model": "the Notebook 85 T3 model plus within-session ranks of lagged_return_1, lagged_return_5 and sigma20, built exactly as in Notebook 79",
+      "question": "Is a high repeat share simply following a price move?"
+    },
+    {
+      "id": "M3",
+      "name": "exact-repeat-only definition",
+      "model": "the Notebook 85 T3 model with known_share computed from exact normalized-hash repeats only",
+      "question": "Does the sign survive the strictest, least noisy definition?"
+    },
+    {
+      "id": "M4",
+      "name": "story-count and calendar-year stability",
+      "model": "the Notebook 85 T3 model estimated within story-count bins and within calendar years",
+      "question": "Is the coefficient carried by one stratum or one period?"
+    }
+  ],
+  "economic_translation": {
+    "books": [
+      {
+        "id": "B1",
+        "name": "raw known_share sort",
+        "signal": "known_share",
+        "orient": -1.0,
+        "note": "short high-repeat firm-days, long low-repeat; this is the simple tradable version and is NOT the quantity the conditional coefficient describes"
+      },
+      {
+        "id": "B2",
+        "name": "conditional residual sort",
+        "signal": "within-session rank residual of known_share after ranks of mean_continuous, negative_share and log1p(n)",
+        "orient": -1.0,
+        "note": "this is the tradable form of the T3 coefficient itself"
+      }
+    ],
+    "construction": "unchanged lib.evaluate cross-sectional dollar-neutral cs_rank book, one-session ar_open_h1 hold, min_names 2",
+    "cost": "10 bps per side charged as 2 x half-L1 turnover x rate, matching every other arm in this programme",
+    "cost_sweep": [0.0, 1.0, 2.0, 5.0, 10.0],
+    "reported": [
+      "mean gross and net basis points per session",
+      "annualised gross and net Sharpe",
+      "mean and annualised turnover",
+      "break-even basis points per side",
+      "mean net exposure, asserted near zero",
+      "5-session block-bootstrap interval on mean net return"
+    ]
+  },
+  "alpha_gate": {
+    "description": "The single declared standard for calling this alpha. All five must hold on the development block, and the evaluation replay must not reverse the sign.",
+    "conditions": [
+      "positive net Sharpe at the charged 10 bps per side",
+      "break-even cost at least equal to the 10 bps per side charged",
+      "block-bootstrap lower bound on mean net return above zero",
+      "positive net Sharpe in both temporal halves of the development block",
+      "the coefficient survives the M2 price-path controls with the same sign"
+    ],
+    "failure_action": "Record the null. Do not search thresholds, horizons, weighting schemes or subsets to rescue it."
+  },
+  "stopping_rule": "One execution. The evaluation block is computed once, after the development gate result is written, and is not used to reselect anything.",
+  "licence_boundary": "No headline text is loaded. All artifacts are written to the gitignored final_experiments/outputs/86_fnspid_already_known_share_economic_value/ directory."
+}
