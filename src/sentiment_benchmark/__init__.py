@@ -1,4 +1,4 @@
-"""OpenRouter and Ollama sentiment benchmark tooling."""
+"""Sentiment benchmark tooling for OpenRouter, Cerebras and Ollama."""
 
 __all__ = ["__version__"]
 

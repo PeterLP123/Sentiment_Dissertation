@@ -2,8 +2,6 @@
 
 The TUI is the interactive front end for the same benchmark, provider, results, Tavily, and LSEG workflows exposed by the CLI.
 
-![TUI screenshot](assets/tui-news-tab.svg)
-
 ## Prerequisites
 
 - Project installed with `python -m pip install -e ".[dev]"`.

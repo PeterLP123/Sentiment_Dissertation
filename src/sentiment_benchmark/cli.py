@@ -143,7 +143,7 @@ from .week6_model_comparison import (
 from .week6_pnl import Week6PnlConfig, Week6PnlError, run_week6_pnl
 
 console = Console()
-app = typer.Typer(help="Benchmark OpenRouter and Ollama LLMs on dissertation sentiment data.")
+app = typer.Typer(help="Benchmark sentiment models with OpenRouter, Cerebras or Ollama.")
 app.add_typer(strategy_research_app, name="strategy")
 load_env_file()
 

@@ -214,8 +214,6 @@ In the Dashboard tab:
 5. For Gemma 4, keep `Disable Ollama thinking` enabled on the Run tab.
 6. Continue through Prompt and Run.
 
-![TUI provider controls screenshot](assets/tui-dashboard.svg)
-
 ## Local Resource Monitoring
 
 The TUI Dashboard and Run tabs include a local resource monitor. It shows:

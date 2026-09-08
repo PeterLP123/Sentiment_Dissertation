@@ -1,18 +1,11 @@
 # Architecture
 
-This project keeps source data, external article sourcing, model execution, scoring, and export evidence separated so dissertation results can be reproduced and audited.
+This guide covers `src/sentiment_benchmark`, the earlier benchmark and research
+tooling. The final dissertation has its own [code and environment](../submission/README.md).
+Benchmark runs record the dataset selection, prompt, provider and runtime alongside
+the model responses. News collection writes separate, unlabelled corpora.
 
-## The Problem
-
-Sentiment benchmark projects can become difficult to defend when they mix raw data, cleaned data, live API behavior, run results, and analysis exports in one place. The main failure modes are:
-
-- The source dataset gets silently edited.
-- API behavior drifts without recorded run context.
-- Prompt changes are compared as if they were the same experiment.
-- Generated article corpora are mistaken for labeled benchmark data.
-- Results are reported without enough metadata to reproduce the row selection, model route, prompt, machine, or runtime environment.
-
-## The Approach
+## Data flow
 
 ```mermaid
 flowchart LR
@@ -20,6 +13,7 @@ flowchart LR
     V --> R["Run config<br/>prompt hash, seed, provider"]
     R --> P["Provider adapter"]
     P --> O["OpenRouter"]
+    P --> C["Cerebras"]
     P --> L["Ollama"]
     R --> S["SQLite or Turso/libSQL store<br/>responses + metrics"]
     M["Machine/runtime metadata"] --> S
@@ -35,7 +29,9 @@ flowchart LR
 
 ## Module Map
 
-The package layers cleanly: leaf modules own pure logic, service modules own one external system each, and orchestrators compose them. Dependencies point downward only.
+The CLI and TUI call orchestration modules, which use provider clients, storage and
+calculation helpers. This diagram shows the main responsibilities and call paths.
+Dataset and prompt loading also perform local file I/O.
 
 ```mermaid
 flowchart TB
@@ -56,10 +52,13 @@ flowchart TB
         PRICE["prices.py (PriceProvider + cache)"]
         STORE["storage.py → libsql_backend.py"]
     end
-    subgraph Leaves["Pure logic (no I/O)"]
+    subgraph Calculations["Calculation helpers"]
         BT["backtest.py / portfolio.py / strategies.py"]
         MET["metrics.py / agreement.py / trading_effectiveness.py"]
-        DATA["dataset.py / prompts.py / parser.py"]
+        PARSE["parser.py"]
+    end
+    subgraph Inputs["Local input loading"]
+        DATA["dataset.py / prompts.py"]
     end
     CLI --> Orchestrators
     TUI --> Orchestrators
@@ -76,6 +75,7 @@ flowchart TB
     ANA --> MET
     RUN --> DATA
     RUN --> MET
+    PROV --> PARSE
 ```
 
 Core boundaries:

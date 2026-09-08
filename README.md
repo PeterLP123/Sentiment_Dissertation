@@ -2,117 +2,72 @@
 
 *Training-Period Association, Temporal Non-Replication and Economic Limits*
 
-![A Hard Negative-Story Threshold: Training-Period Association, Temporal Non-Replication and Economic Limits](docs/assets/project-banner.svg)
+Peter Prendergast · MSc Computational Finance · University College London · 2026
 
-**Does the mix of financial news tell us more than its average sentiment?** An MSc Computational Finance dissertation at UCL, with the final manuscript, reproducible aggregate evidence and the research code that led to it.
+Does the share of news stories classified as negative by FinBERT explain stock returns after controlling for average sentiment and news volume?
 
-[Read the dissertation](submission/news-sentiment-beyond-mean/Peter-Prendergast-COMP0077-Dissertation.pdf) · [Explore the evidence](submission/news-sentiment-beyond-mean/docs/evidence_map.md) · [Reproduce the figures](docs/reproducing_the_submission.md) · [Browse the research history](docs/research_archive.md)
+**The negative association found in 2011–2019 did not replicate in 2020–2023.** Timing diagnostics and trading costs further limit its usefulness as a predictive signal. The study covers 715,546 news-bearing firm-days across 570 priced firms in FNSPID, with separate LSEG/Reuters transfer checks.
 
-## The study
+[Dissertation PDF](submission/news-sentiment-beyond-mean/Peter-Prendergast-COMP0077-Dissertation.pdf) · [Evidence map](submission/news-sentiment-beyond-mean/docs/evidence_map.md) · [Reproduction guide](docs/reproducing_the_submission.md) · [Documentation](docs/README.md)
 
-Financial-news pipelines often reduce a day's stories to one average score. This project asks whether the **share of stories classified as negative by FinBERT** carries additional information after controlling for mean sentiment and news volume. It then tests the association's timing, stability across periods, economic value after costs and transfer to a separate news source.
+![Annual negative-story-share coefficients and uncertainty, with the frozen testing period shaded](submission/news-sentiment-beyond-mean/manuscript/artifacts/fig_coefficient_drift.png)
 
-The primary FNSPID panel spans **2011–2023, 570 priced firms and 715,546 news-bearing firm-days**. LSEG/Reuters provides separate transfer checks. The final study contains 22 selected notebooks, frozen specifications, aggregate result snapshots and the complete LaTeX manuscript.
+*Annual estimates from the dissertation. Horizontal lines show the training- and testing-period means. The figure is reproduced from the committed aggregate evidence.*
 
-**The negative training-period association did not replicate in 2020–2023.** Post-review diagnostics also find an association before the assigned trading window. Without row-level news availability times, the data cannot establish a predictive signal. This is a result about measurement, timing and temporal instability.
+## Findings
 
-## Results at a glance
+| Period or contrast | Coefficient | 95% HAC interval |
+| --- | ---: | ---: |
+| Training, 2011–2019 | −0.00831 | [−0.01410, −0.00252] |
+| Frozen testing, 2020–2023 | +0.00583 | [−0.00426, +0.01593] |
+| Testing minus training | +0.01414 | [+0.00250, +0.02579] |
 
-| Test | Final evidence | Interpretation |
-| --- | --- | --- |
-| Training, 2011–2019 | Coefficient **−0.00831**; 95% HAC interval **[−0.01410, −0.00252]** | Conditional association beyond mean sentiment and news count. |
-| Frozen testing, 2020–2023 | **+0.00583**; interval **[−0.00426, +0.01593]** | The negative baseline association does not replicate. |
-| Testing minus training | **+0.01414**; interval **[+0.00250, +0.02579]** | The predeclared contrast supports a difference across periods. |
-| Timing diagnostics | Association measured intraday and before the assigned open | News availability and session assignment limit a predictive reading. |
-| Trading costs | Best break-even cost approximately **0.625 bps per side**, against **10 bps** charged | The tested daily trading rules do not cover costs. |
+These are daily cross-sectional rank-regression coefficients, with five-lag HAC intervals. They are not percentage returns. The predeclared contrast supports a difference across periods, while limited testing-period power leaves uncertainty about small effects.
 
-Coefficients describe daily cross-sectional **rank regressions**, not percentage returns. Intervals use five-lag HAC inference. The testing period had limited power and had informed some earlier project design; this is neither proof of a zero effect nor a pristine confirmatory holdout. [Full design, estimates and limitations →](submission/news-sentiment-beyond-mean/docs/research_design.md)
+An association also appears before the assigned trading window. Row-level news availability times are missing, so the data cannot establish that the news could have been traded at the assumed entry time. The best break-even cost among the tested daily rules was approximately **0.625 bps per side**, against **10 bps** charged.
 
-![Annual negative-story-share coefficients and uncertainty: negative training-period mean, positive testing-period mean](submission/news-sentiment-beyond-mean/manuscript/artifacts/fig_coefficient_drift.png)
+The testing period had informed some earlier design choices, which limits a confirmatory interpretation. The [research design](submission/news-sentiment-beyond-mean/docs/research_design.md) records the chronology, multiplicity corrections and limitations alongside the null and adverse results.
 
-*Annual estimates from the submitted dissertation. The shaded block is the frozen testing period; horizontal lines show the two period means. The figure is regenerated from the included aggregate evidence during validation.*
+## Reproduce the evidence
 
-## Engineering highlights
-
-| Capability | Implementation | Verification |
-| --- | --- | --- |
-| Provider-aware news ingestion | [Tavily](src/sentiment_benchmark/news_source.py) and [NewsAPI](src/sentiment_benchmark/newsapi_source.py) clients normalize records, handle retries, and publish collision-safe three-file corpora through a shared [artifact writer](src/sentiment_benchmark/news_artifacts.py). | [Tavily tests](tests/test_news_source.py) · [NewsAPI tests](tests/test_newsapi_source.py) |
-| Chronological backtesting and funded accounting | The [trading pipeline](src/sentiment_benchmark/trading_strategy.py) separates news availability, entry sessions, and forward returns; the [portfolio engine](src/sentiment_benchmark/portfolio.py) applies exposure, cost, turnover, and cash-accounting rules. | [Pipeline tests](tests/test_trading_strategy.py) · [Portfolio tests](tests/test_portfolio.py) |
-| Statistical evaluation | [Metrics](src/sentiment_benchmark/metrics.py) cover class-level scores, deterministic bootstrap intervals, and paired model comparisons. | [Statistical tests](tests/test_statistics.py) |
-| Reproducible artifacts | [Artifact utilities](src/sentiment_benchmark/artifact_io.py) provide canonical hashing and atomic writes, while [runtime metadata](src/sentiment_benchmark/runtime_metadata.py) records package, machine, database, Python, timezone, and Git context. | [Runtime-metadata tests](tests/test_runtime_metadata.py) · [Project validation tests](tests/test_project_validation.py) |
-| Usable research interface | A typed [CLI](src/sentiment_benchmark/cli.py) and [terminal application](src/sentiment_benchmark/tui.py) expose validation, model runs, stored results, exports, news collection, and historical strategy workflows. | [CLI tests](tests/test_cli.py) · [TUI tests](tests/test_tui.py) |
-
-## Reproduce the published evidence
-
-For exact artifact reproduction, use **macOS on Apple silicon, Python 3.12, uv and Make**. Run from the repository root:
+From the repository root, with **macOS on Apple silicon, Python 3.12, uv and Make**:
 
 ```bash
 make setup
 make validate
 ```
 
-This installs the final study's locked environment, checks the submission inventory and public file boundary, validates manuscript references and prose, runs the analytical helper tests and lint checks, and regenerates **30 manuscript artifacts, including 20 figure files**, for byte-for-byte comparison. It uses the included aggregate evidence; it does not call a model provider or reopen the testing-period experiment.
+This checks the final package's file hashes, manuscript references, prose, analytical tests and lint, then regenerates **30 figure and table artifacts** for byte-for-byte comparison. No model calls or licensed inputs are needed. The frozen testing-period experiment remains sealed.
 
-To build the manuscript, install a TeX distribution with `latexmk` and run:
+`make manuscript` builds the PDF if `latexmk` is installed. The committed [portfolio PDF](submission/news-sentiment-beyond-mean/Peter-Prendergast-COMP0077-Dissertation.pdf) has the assessment identifier removed from its cover, with the research content unchanged. See the [reproduction guide](docs/reproducing_the_submission.md) for platform limits, direct commands and the authorised inputs required for a full computational replay.
 
-```bash
-make manuscript
-```
+## Code to read
 
-The build writes `submission/news-sentiment-beyond-mean/manuscript/main.pdf`. The [dissertation PDF](submission/news-sentiment-beyond-mean/Peter-Prendergast-COMP0077-Dissertation.pdf) is the portfolio copy, with the assessment identifier removed from its title page and the research content unchanged. Full notebook replay requires authorised local inputs; [the reproducibility guide](docs/reproducing_the_submission.md) explains the distinction and direct commands for systems without Make.
+The final analysis lives in [`submission/news-sentiment-beyond-mean/`](submission/README.md), with 22 selected notebooks, statistical helpers, frozen specifications and aggregate results. Its [evidence map](submission/news-sentiment-beyond-mean/docs/evidence_map.md) traces each claim to the notebook and files that produced it.
 
-## Inside the repository
+The surrounding Python package contains the earlier benchmark and collection tools:
 
-The final submission is a self-contained Python project. Its paths and environment are preserved so that every claim still points to the exact code and evidence used in the dissertation.
+| Area | Source | Tests |
+| --- | --- | --- |
+| Atomic news-corpus publication | [Artifact writer](src/sentiment_benchmark/news_artifacts.py) | [Tavily](tests/test_news_source.py), [NewsAPI](tests/test_newsapi_source.py) |
+| Trading-window alignment and funded portfolios | [Trading pipeline](src/sentiment_benchmark/trading_strategy.py), [portfolio accounting](src/sentiment_benchmark/portfolio.py) | [Pipeline](tests/test_trading_strategy.py), [portfolio](tests/test_portfolio.py) |
+| Classification metrics and bootstrap comparisons | [Metrics](src/sentiment_benchmark/metrics.py) | [Statistics](tests/test_statistics.py) |
+| Artifact hashes and run provenance | [Artifact I/O](src/sentiment_benchmark/artifact_io.py), [runtime metadata](src/sentiment_benchmark/runtime_metadata.py) | [Metadata](tests/test_runtime_metadata.py), [project checks](tests/test_project_validation.py) |
+| Command-line and terminal interfaces | [CLI](src/sentiment_benchmark/cli.py), [TUI](src/sentiment_benchmark/tui.py) | [CLI](tests/test_cli.py), [TUI](tests/test_tui.py) |
 
-```text
-submission/news-sentiment-beyond-mean/    Final dissertation and evidence
-├── manuscript/                         LaTeX, bibliography, figures and tables
-├── experiments/notebooks/              22 selected analysis notebooks
-├── experiments/lib/                    Statistical and portfolio helpers
-├── experiments/specs/                  Frozen decisions and amendments
-├── experiments/results/                Aggregate evidence used in the manuscript
-├── tests/                              Analytical correctness checks
-└── uv.lock                             Final study's Python environment
-
-src/sentiment_benchmark/                 Benchmark, collection and scoring library
-final_experiments/                      Earlier notebook research and local inputs
-Data/                                  Public benchmark; licensed inputs stay local
-configs/ · notebooks/ · reports/        Supporting studies and configurations
-docs/                                  Project guides and research history
-```
-
-| Start with | What you will find |
-| --- | --- |
-| [Final submission](submission/README.md) | The complete submitted package, source provenance and PDF identity. |
-| [Evidence map](submission/news-sentiment-beyond-mean/docs/evidence_map.md) | Claim → notebook → specification → aggregate result. |
-| [Research design](submission/news-sentiment-beyond-mean/docs/research_design.md) | Estimands, chronology, timing checks, multiplicity and null results. |
-| [Documentation index](docs/README.md) | Final-study guides, benchmark tooling and archived plans. |
-| [Research archive](docs/research_archive.md) | How the earlier experiments relate to the final study. |
-
-Historical paths remain stable for provenance. Separate, unpublished novelty studies in the local archive also use notebook numbers 85 and 86; they must not be merged with the final package's notebooks by number. The older `dissertation/` directory contains an earlier manuscript.
-
-## Benchmark and research tooling
-
-The original `sentiment-bench` CLI/TUI supports dataset validation, model benchmarking, news collection, scoring, evaluation and exports. It has its own root environment:
+These tools have a separate locked environment:
 
 ```bash
 make benchmark-setup
 make benchmark-check
-uv run sentiment-bench --help
 ```
 
-The benchmark check runs the full root test suite, Ruff and mypy, alongside public
-dataset validation. The [contribution guide](CONTRIBUTING.md) lists individual
-development commands, and the [script index](scripts/README.md) maps the earlier
-collection, scoring and reporting workflows.
+The check validates the **5,947-row Financial PhraseBank/FiQA benchmark**, runs the root test suite, and checks Ruff and mypy. To try the application, start with the [benchmark guide](docs/getting_started.md). The [architecture guide](docs/architecture.md) explains the modules and data flow.
 
-The default benchmark is the **5,947-row provenance-clean Financial PhraseBank/FiQA dataset**. The legacy `Data/data.csv` contains documented label corruption and is not the default. See the [dataset card](docs/dataset_card.md), [getting-started guide](docs/getting_started.md) and [CLI reference](docs/cli_reference.md).
+## Research history and reuse
 
-## Data, citation and contributions
+[`final_experiments/`](final_experiments/README.md), [`scripts/`](scripts/README.md), [`configs/`](configs/README.md) and [`reports/`](reports/README.md) retain the earlier research. Paths remain stable so old results can still be traced. The [archive map](docs/research_archive.md) explains superseded designs and notebook-number overlaps.
 
-Licensed FNSPID and Reuters/LSEG text, raw model responses, credentials and large intermediate panels stay local. Public evidence consists of aggregate results, specifications, source code and figures. [Data and rights](docs/data_and_rights.md) explains the mixed third-party terms and the recorded data-governance limitations.
+Licensed news text, raw model responses, credentials and intermediate panels stay outside Git. This repository contains material with mixed ownership and no blanket open-source licence. See [data and rights](docs/data_and_rights.md) before reuse and [CITATION.cff](CITATION.cff) for the dissertation citation.
 
-**Dissertation:** Peter Prendergast (2026), *A Hard Negative-Story Threshold: Training-Period Association, Temporal Non-Replication and Economic Limits*, MSc Computational Finance, University College London. Citation metadata is available in [CITATION.cff](CITATION.cff).
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for reproducible changes and [SECURITY.md](SECURITY.md) for handling sensitive reports. The [CI workflow](.github/workflows/ci.yml) checks the final submission and the public benchmark separately.
+[Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [CI](https://github.com/PeterLP123/Sentiment_Dissertation/actions/workflows/ci.yml)

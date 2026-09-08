@@ -6,8 +6,6 @@ Use NewsAPI when you need a simpler dated discovery feed. It supplies titles, de
 
 Use the separate [LSEG to Ollama pipeline](lseg_ollama_pipeline.md) for entitled Workspace headlines and full stories. LSEG content remains local, uses native story/revision identities instead of synthetic URLs, and is never included in Tavily share packages.
 
-![CLI Tavily fetch screenshot](assets/cli-news-fetch.svg)
-
 The sourcing pipeline, from query to trading input:
 
 ```mermaid
