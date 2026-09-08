@@ -92,7 +92,7 @@ def validate_manifest(visible: set[str]) -> tuple[list[str], int]:
         errors.append("manifest amendments must be a list of JSON objects")
         amendments = []
     if not any(item.get("path") == "manuscript/main.tex" for item in amendments):
-        errors.append("manifest does not record the candidate-number amendment")
+        errors.append("manifest does not record the title-page amendment")
     entries = manifest.get("files", [])
     if not isinstance(entries, list):
         return [*errors, "manifest files must be a list of JSON objects"], 0

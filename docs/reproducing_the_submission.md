@@ -59,7 +59,9 @@ make manuscript
 The rebuild writes
 `submission/news-sentiment-beyond-mean/manuscript/main.pdf`. The named
 `submission/news-sentiment-beyond-mean/Peter-Prendergast-COMP0077-Dissertation.pdf`
-is the preserved final submission and is not overwritten.
+is the portfolio copy of the final submission, with the assessment identifier
+removed from the title page. The build does not overwrite this named PDF.
+The privacy amendment and current file hashes are recorded in the source inventory.
 
 ## Historical benchmark checks
 

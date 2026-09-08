@@ -10,7 +10,13 @@
   "amendments": [
     {
       "path": "manuscript/main.tex",
-      "description": "Added candidate number VLGQ5 beneath the author name after the source commit; no analytical content changed."
+      "date": "2026-09-08",
+      "description": "Removed the assessment identifier from the title page for portfolio use; no analytical content changed."
+    },
+    {
+      "path": "Peter-Prendergast-COMP0077-Dissertation.pdf",
+      "date": "2026-09-08",
+      "description": "Rebuilt the portfolio PDF from the amended title-page source. All 61 pages after the cover have identical layout-preserving extracted text to the assessment copy; the document remains 62 pages."
     }
   ],
   "package_root": "submission/news-sentiment-beyond-mean",
@@ -1452,8 +1458,8 @@
     },
     {
       "path": "manuscript/main.tex",
-      "sha256": "20098528acf18b1ba7cdea6c2a08bc6585fd4bdbb74f65f1b33506a99654264d",
-      "size": 7532
+      "sha256": "3ce29f10b8ce161193f7f948da0650b313aece580845f2b865e09fa347653411",
+      "size": 7480
     },
     {
       "path": "manuscript/ormsv080.bst",
@@ -1947,8 +1953,8 @@
     },
     {
       "path": "Peter-Prendergast-COMP0077-Dissertation.pdf",
-      "sha256": "a5dc13e442c7f9df6eafac917b63c091ce93730322d5f18234b4b0a5333600d0",
-      "size": 1324348
+      "sha256": "1a2e56d6c07a995274299be1b99fb1c4eb25eceb265adb47a9731e5537b80921",
+      "size": 1321859
     }
   ]
 }

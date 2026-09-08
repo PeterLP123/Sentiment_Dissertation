@@ -24,7 +24,7 @@ validate:
 	uv run --project "$(FINAL_DIR)" --locked --extra dev make -C "$(FINAL_DIR)" validate lint
 
 manuscript:
-	@echo "Rebuilding $(FINAL_DIR)/manuscript/main.pdf; the named submission PDF remains the preserved snapshot."
+	@echo "Rebuilding $(FINAL_DIR)/manuscript/main.pdf; the named portfolio PDF is not overwritten."
 	uv run --project "$(FINAL_DIR)" --locked --extra dev make -C "$(FINAL_DIR)" manuscript
 
 benchmark-setup:

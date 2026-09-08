@@ -1,8 +1,8 @@
 # Final dissertation submission
 
-[Read the submitted PDF](news-sentiment-beyond-mean/Peter-Prendergast-COMP0077-Dissertation.pdf) · [Evidence map](news-sentiment-beyond-mean/docs/evidence_map.md) · [Reproduce from the project root](../docs/reproducing_the_submission.md)
+[Read the dissertation PDF](news-sentiment-beyond-mean/Peter-Prendergast-COMP0077-Dissertation.pdf) · [Evidence map](news-sentiment-beyond-mean/docs/evidence_map.md) · [Reproduce from the project root](../docs/reproducing_the_submission.md)
 
-`news-sentiment-beyond-mean/` is a licence-safe snapshot based on clean dissertation repository commit `59577da111f69f1d7678b922d3d753208bfba1ef`, copied on 1 September 2026. It includes one later assessment-facing amendment: candidate number `VLGQ5` was added to the title page. The named submission PDF was added beside the source tree and has SHA-256 `a5dc13e442c7f9df6eafac917b63c091ce93730322d5f18234b4b0a5333600d0`.
+`news-sentiment-beyond-mean/` is a licence-safe snapshot based on clean dissertation repository commit `59577da111f69f1d7678b922d3d753208bfba1ef`, copied on 1 September 2026. On 8 September 2026, the assessment identifier was removed from the title-page source and the named PDF for portfolio use. The research content is unchanged. The current PDF's SHA-256 is recorded in [`source_manifest.json`](source_manifest.json).
 
 The snapshot contains the final LaTeX manuscript, licence-safe aggregate results, frozen specifications, selected notebooks, supporting code, tests and reproducibility documentation. No experiment was rerun during the transfer. Raw Reuters, LSEG and FNSPID text, licensed identifiers, model caches, API responses, credentials, databases, Parquet panels and JSONL scoring logs were not copied.
 
@@ -18,8 +18,8 @@ view of the one-time testing-period execution and must not be rerun.
 The September 2026 project tidy makes this package the main research entry point
 without merging it into the earlier experiment tree. All 386 source-controlled
 files from the final repository are included, plus the named submission PDF.
-The candidate-number amendment is retained. The source Git blob is authoritative
-for LF line endings in `manuscript/ormsv080.bst`.
+The title page carries the documented privacy amendment. The source Git blob is
+authoritative for LF line endings in `manuscript/ormsv080.bst`.
 
 [`source_manifest.json`](source_manifest.json) records the source commit,
 amendment and SHA-256 of every included file. The root
@@ -41,7 +41,7 @@ and newly installed locked environments.
 | Figure and table reproduction | All 30 artifacts, including 20 figure files, reproduce byte for byte. |
 | Benchmark and integration checks | 18 focused tests and lint pass; the 5,947-row public benchmark has no duplicate-label conflicts. |
 | Manuscript build | 62 pages; the final LaTeX log has no unresolved references or warnings. |
-| Named submission PDF | Unchanged; the SHA-256 above still matches. |
+| Named submission PDF | Matched the assessment copy at integration; the later privacy amendment is recorded above. |
 | Presentation | Main README visually inspected; public entry-point links checked against Git-visible files. |
 
 These are local macOS checks. The GitHub Actions workflow is configured separately;

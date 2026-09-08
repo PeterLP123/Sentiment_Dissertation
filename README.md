@@ -4,7 +4,7 @@
 
 ![A Hard Negative-Story Threshold: Training-Period Association, Temporal Non-Replication and Economic Limits](docs/assets/project-banner.svg)
 
-**Does the mix of financial news tell us more than its average sentiment?** An MSc Computational Finance dissertation at UCL, with the submitted manuscript, reproducible aggregate evidence and the research code that led to it.
+**Does the mix of financial news tell us more than its average sentiment?** An MSc Computational Finance dissertation at UCL, with the final manuscript, reproducible aggregate evidence and the research code that led to it.
 
 [Read the dissertation](submission/news-sentiment-beyond-mean/Peter-Prendergast-COMP0077-Dissertation.pdf) · [Explore the evidence](submission/news-sentiment-beyond-mean/docs/evidence_map.md) · [Reproduce the figures](docs/reproducing_the_submission.md) · [Browse the research history](docs/research_archive.md)
 
@@ -59,7 +59,7 @@ To build the manuscript, install a TeX distribution with `latexmk` and run:
 make manuscript
 ```
 
-The build writes `submission/news-sentiment-beyond-mean/manuscript/main.pdf`. The [named submission PDF](submission/news-sentiment-beyond-mean/Peter-Prendergast-COMP0077-Dissertation.pdf) remains the preserved final copy. Full notebook replay requires authorised local inputs; [the reproducibility guide](docs/reproducing_the_submission.md) explains the distinction and direct commands for systems without Make.
+The build writes `submission/news-sentiment-beyond-mean/manuscript/main.pdf`. The [dissertation PDF](submission/news-sentiment-beyond-mean/Peter-Prendergast-COMP0077-Dissertation.pdf) is the portfolio copy, with the assessment identifier removed from its title page and the research content unchanged. Full notebook replay requires authorised local inputs; [the reproducibility guide](docs/reproducing_the_submission.md) explains the distinction and direct commands for systems without Make.
 
 ## Inside the repository
 
