@@ -32,6 +32,16 @@ Coefficients describe daily cross-sectional **rank regressions**, not percentage
 
 *Annual estimates from the submitted dissertation. The shaded block is the frozen testing period; horizontal lines show the two period means. The figure is regenerated from the included aggregate evidence during validation.*
 
+## Engineering highlights
+
+| Capability | Implementation | Verification |
+| --- | --- | --- |
+| Provider-aware news ingestion | [Tavily](src/sentiment_benchmark/news_source.py) and [NewsAPI](src/sentiment_benchmark/newsapi_source.py) clients normalize records, handle retries, and publish collision-safe three-file corpora through a shared [artifact writer](src/sentiment_benchmark/news_artifacts.py). | [Tavily tests](tests/test_news_source.py) · [NewsAPI tests](tests/test_newsapi_source.py) |
+| Chronological backtesting and funded accounting | The [trading pipeline](src/sentiment_benchmark/trading_strategy.py) separates news availability, entry sessions, and forward returns; the [portfolio engine](src/sentiment_benchmark/portfolio.py) applies exposure, cost, turnover, and cash-accounting rules. | [Pipeline tests](tests/test_trading_strategy.py) · [Portfolio tests](tests/test_portfolio.py) |
+| Statistical evaluation | [Metrics](src/sentiment_benchmark/metrics.py) cover class-level scores, deterministic bootstrap intervals, and paired model comparisons. | [Statistical tests](tests/test_statistics.py) |
+| Reproducible artifacts | [Artifact utilities](src/sentiment_benchmark/artifact_io.py) provide canonical hashing and atomic writes, while [runtime metadata](src/sentiment_benchmark/runtime_metadata.py) records package, machine, database, Python, timezone, and Git context. | [Runtime-metadata tests](tests/test_runtime_metadata.py) · [Project validation tests](tests/test_project_validation.py) |
+| Usable research interface | A typed [CLI](src/sentiment_benchmark/cli.py) and [terminal application](src/sentiment_benchmark/tui.py) expose validation, model runs, stored results, exports, news collection, and historical strategy workflows. | [CLI tests](tests/test_cli.py) · [TUI tests](tests/test_tui.py) |
+
 ## Reproduce the published evidence
 
 For exact artifact reproduction, use **macOS on Apple silicon, Python 3.12, uv and Make**. Run from the repository root:

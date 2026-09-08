@@ -15,3 +15,6 @@ uv.lock linguist-generated=true
 submission/news-sentiment-beyond-mean/uv.lock linguist-generated=true
 submission/news-sentiment-beyond-mean/manuscript/artifacts/** linguist-generated=true
 submission/news-sentiment-beyond-mean/experiments/results/** linguist-generated=true
+
+# Editable share-card source lives in scripts/build_social_preview.py.
+docs/assets/social-preview.* linguist-generated=true

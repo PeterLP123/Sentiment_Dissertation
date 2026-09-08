@@ -10,6 +10,7 @@ submission workflow, start with [`make validate`](../docs/reproducing_the_submis
 | --- | --- | --- |
 | Build the public benchmark dataset | `build_labeled_dataset.py` | Rebuilds the tracked PhraseBank/FiQA derivative; do not edit the CSV by hand. |
 | Check repository boundaries | `check_project.py` | Verifies the submission inventory, public-file policy, and documentation links. |
+| Rebuild the GitHub share card | `build_social_preview.py` | Uses the locked plotting extra; presentation artwork only, with no data or provider calls. |
 | Inspect UCL GPU availability | `ucl_gpu_status.py` | Read-only SSH status probe; requires UCL access. |
 | Run the benchmark TUI on Windows | `run_tui.ps1` | Convenience launcher for the root Python package. |
 
