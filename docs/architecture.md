@@ -30,55 +30,8 @@ flowchart LR
 ## Module Map
 
 The CLI and TUI call orchestration modules, which use provider clients, storage and
-calculation helpers. This diagram shows the main responsibilities and call paths.
-Dataset and prompt loading also perform local file I/O.
-
-```mermaid
-flowchart TB
-    subgraph Interfaces
-        CLI["cli.py"]
-        TUI["tui.py + tui_*.py"]
-    end
-    subgraph Orchestrators
-        RUN["runner.py / baseline_runner.py / sc_runner.py"]
-        TRAD["trading_strategy.py"]
-        STRAT["strategy_research/pipeline.py"]
-        CSM["corpus_scoring.py"]
-        ANA["trading_analysis.py / strategy_sweep.py<br/>l2_event_study.py / l3_reliability.py"]
-    end
-    subgraph Services["External-system boundaries"]
-        PROV["providers.py → OpenRouter / Cerebras / Ollama"]
-        NEWS["news_source.py / newsapi_source.py / lseg_source.py"]
-        PRICE["prices.py (PriceProvider + cache)"]
-        STORE["storage.py → libsql_backend.py"]
-    end
-    subgraph Calculations["Calculation helpers"]
-        BT["backtest.py / portfolio.py / strategies.py"]
-        MET["metrics.py / agreement.py / trading_effectiveness.py"]
-        PARSE["parser.py"]
-    end
-    subgraph Inputs["Local input loading"]
-        DATA["dataset.py / prompts.py"]
-    end
-    CLI --> Orchestrators
-    TUI --> Orchestrators
-    RUN --> PROV
-    RUN --> STORE
-    TRAD --> NEWS
-    TRAD --> PROV
-    TRAD --> PRICE
-    TRAD --> BT
-    STRAT --> PROV
-    STRAT --> PRICE
-    CSM --> PROV
-    ANA --> BT
-    ANA --> MET
-    RUN --> DATA
-    RUN --> MET
-    PROV --> PARSE
-```
-
-Core boundaries:
+calculation helpers. Dataset and prompt loading also perform local file I/O.
+The table below maps those responsibilities to source files.
 
 | Boundary | Responsibility |
 | --- | --- |
