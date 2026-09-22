@@ -4,6 +4,10 @@ The `sentiment-bench` application validates labelled sentiment data, runs model
 comparisons and stores their results. It is the earlier tooling developed during the
 dissertation. To reproduce the final study, use the [submission guide](reproducing_the_submission.md).
 
+For a complete walkthrough without provider credentials, start with the
+[offline portfolio demo](portfolio_demo.md). It validates the benchmark and runs
+the separate historical strategy pipeline on synthetic fixtures.
+
 ## Install and check the data
 
 With Python 3.12 and `uv` installed, run from the repository root:

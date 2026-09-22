@@ -8,6 +8,8 @@ The rest of this directory covers the wider research workspace: reusable benchma
 
 | Task | Start here |
 | --- | --- |
+| Try the software without API keys | [Offline demo and terminal replay](portfolio_demo.md) |
+| Understand the engineering decisions | [Data quality, provenance and portfolio accounting](engineering_case_study.md) |
 | Read the dissertation | [Dissertation PDF](../submission/news-sentiment-beyond-mean/Peter-Prendergast-COMP0077-Dissertation.pdf) |
 | Understand the final design and findings | [Submission README](../submission/news-sentiment-beyond-mean/README.md) |
 | Trace claims to frozen evidence | [Final evidence map](../submission/news-sentiment-beyond-mean/docs/evidence_map.md) |

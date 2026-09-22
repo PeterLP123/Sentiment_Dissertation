@@ -2,6 +2,8 @@
 
 This guide covers `src/sentiment_benchmark`, the earlier benchmark and research
 tooling. The final dissertation has its own [code and environment](../submission/README.md).
+The research paths below document earlier designs; they do not supersede the completed
+[submission package](../submission/README.md) or reopen its evaluation.
 Benchmark runs record the dataset selection, prompt, provider and runtime alongside
 the model responses. News collection writes separate, unlabelled corpora.
 
@@ -64,7 +66,7 @@ The table below maps those responsibilities to source files.
 | `src/sentiment_benchmark/trading_plots.py` | Cutoff/masking sensitivity summaries plus event-equity, funded portfolio, stock-contribution, correlation, and parameter-sweep figures (matplotlib optional). |
 | `src/sentiment_benchmark/tui.py` + `tui_*.py` | Interactive Textual interface over the same services: an app shell (`tui.py`) that composes per-feature mixins (`tui_run`, `tui_results`, `tui_queue`, `tui_models`, `tui_monitor`, `tui_news`, `tui_baselines`) on a shared `tui_base` foundation, with `tui_format`/`tui_screens` helpers. |
 
-## The LSEG Research Path
+## Historical LSEG Research Path
 
 ```mermaid
 flowchart LR
@@ -159,9 +161,9 @@ raw scores → [SignalBuilder] → daily signals → [EventSelector] → tradeab
 
 Adding an idea usually means implementing one seam (a `DecisionPolicy`) and calling `register(Strategy(...))`; the sweep, effectiveness battery, and experiment registry then work on it unchanged. A run selects its idea with the config `[strategy]` table (`id`, optional idea params, and `eval_frame`) and records the resolved `strategy_id`/params in `experiments/manifest.toml`; a sweep selects it with `--strategy`. `event_study` preserves the fixed-notional per-event diagnostic, while `cross_sectional` evaluates the same decisions as a funded long/short book configured in `[portfolio]`. Each scorer/horizon owns an independent NAV, and multi-session holdings use rotating sleeves so overlapping cohorts cannot each consume the full capital base. List the registry with `sentiment-bench list-strategies`.
 
-## Final Experiments Layer
+## Historical Final Experiments Layer
 
-The closing `final_experiments/` programme sits **above**, not inside, the stable package:
+The archived `final_experiments/` programme was developed **above** the reusable package:
 
 ```text
 local FNSPID/LSEG inputs
@@ -174,7 +176,7 @@ local FNSPID/LSEG inputs
 
 This separation is intentional. `src/sentiment_benchmark` remains the tested source of reusable scoring, calendar, price, and inference utilities. Final-experiment notebooks own exploratory joins, plots, and decision records. A helper moves into the stable package only after an accepted result needs it as a durable interface.
 
-The current primary panel is FNSPID 2011–2023; LSEG is a non-pooled robustness arm. Licensed earnings/news payloads and large generated panels stay local. See the [final experiments README](../final_experiments/README.md), [live plan](../final_experiments/plan.html), and [current research protocol](research_protocol.md).
+The historical primary panel was FNSPID 2011–2023; LSEG was a separate, non-pooled robustness arm. Licensed earnings/news payloads and large generated panels stay local. See the [final experiments README](../final_experiments/README.md), [archived plan](../final_experiments/plan.html), and [historical research protocol](research_protocol.md).
 
 ## Trade-Offs
 
@@ -186,9 +188,9 @@ The current primary panel is FNSPID 2011–2023; LSEG is a non-pooled robustness
 | Provider abstraction | Same benchmark flow works for OpenRouter, Cerebras, and Ollama. | Lowest common denominator interface hides provider-specific advanced controls. |
 | Primary/all scopes | Separates headline comparison from ambiguity audit. | Readers must understand which scope is being discussed. |
 | Tavily corpora unlabeled by default | Prevents accidental weak labeling. | A later labeling workflow is required before articles can become benchmark rows. |
-| Next-session-open trading entry | Permits all news on day D without look-ahead. | It differs from a literal close-to-close teaching example. |
+| Next-session-open trading entry | Explicit session alignment; predictive use still requires verified availability times. | It differs from a literal close-to-close teaching example. |
 | Funded rotating-sleeve portfolio | Converts overlapping events into capital-conserving daily P&L and risk metrics. | Capacity can remain unused when a cohort is one-sided or concentration caps bind. |
 
 ## Alternatives Considered
 
-The current code favors conservative research traceability over automation. It does not automatically transform Tavily articles into a `Sentence,Sentiment` dataset because there is no labeling protocol yet. It does not edit the source CSV because derived data should carry provenance. It does not hard-code a single provider because the dissertation may compare API-hosted models with local Gemma-family models. It does not copy old local SQLite runs into Turso automatically because a shared dissertation history should include only deliberate, reviewable runs.
+The current code favors conservative research traceability over automation. It does not automatically transform Tavily articles into a `Sentence,Sentiment` dataset because there is no labeling protocol yet. It does not edit the source CSV because derived data should carry provenance. It does not hard-code a single provider because the benchmark supports comparisons of API-hosted models with local Gemma-family models. It does not copy old local SQLite runs into Turso automatically because a shared dissertation history should include only deliberate, reviewable runs.

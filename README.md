@@ -1,6 +1,6 @@
-# A Hard Negative-Story Threshold
+# Financial News Sentiment: Research and Evaluation Pipeline
 
-*Training-Period Association, Temporal Non-Replication and Economic Limits*
+Dissertation: *A Hard Negative-Story Threshold: Training-Period Association, Temporal Non-Replication and Economic Limits*
 
 Peter Prendergast · MSc Computational Finance · University College London · 2026
 
@@ -9,6 +9,36 @@ Does the share of news stories classified as negative by FinBERT explain stock r
 **The negative association found in 2011–2019 did not replicate in 2020–2023.** Timing diagnostics and trading costs further limit its usefulness as a predictive signal. The study covers 715,546 news-bearing firm-days across 570 priced firms in FNSPID, with separate LSEG/Reuters transfer checks.
 
 [Dissertation PDF](submission/news-sentiment-beyond-mean/Peter-Prendergast-COMP0077-Dissertation.pdf) · [Evidence map](submission/news-sentiment-beyond-mean/docs/evidence_map.md) · [Reproduction guide](docs/reproducing_the_submission.md) · [Documentation](docs/README.md)
+
+## What I built
+
+- **A sentiment benchmark:** dataset validation, provider adapters, classification metrics and bootstrap comparisons, with shared [CLI and terminal interfaces](docs/getting_started.md).
+- **Traceable data pipelines:** collection, scoring and stage reuse with [content hashes, manifests and run metadata](docs/engineering_case_study.md#making-runs-traceable).
+- **Financial evaluation tools:** trading-window alignment, transaction costs and [capital accounting for overlapping holdings](docs/engineering_case_study.md#accounting-for-overlapping-holdings).
+- **A reproducible research package:** selected notebooks, frozen specifications and an [evidence map](submission/news-sentiment-beyond-mean/docs/evidence_map.md) connecting findings to their source artifacts.
+
+Python · pandas · scikit-learn · statsmodels · SQLite · Typer · Textual
+
+[Try the offline demo](docs/portfolio_demo.md) · [Read three engineering decisions](docs/engineering_case_study.md) · [Explore the architecture](docs/architecture.md)
+
+## See the software
+
+![Benchmark terminal interface showing the dataset summary and workflow](docs/assets/benchmark-tui.svg)
+
+*The actual Textual interface, captured with an isolated empty database and no provider credentials. The benchmark predates the final study; this view contains no model results.*
+
+With Python 3.12 and uv, run from the repository root:
+
+```bash
+uv sync --locked
+uv run --locked python scripts/portfolio_demo.py
+```
+
+The walkthrough validates the public benchmark, checks a synthetic strategy configuration, and writes a fixture-based report to a fresh directory. After dependency installation, it needs no network, API keys or licensed inputs. [Expected output and demo replay](docs/portfolio_demo.md).
+
+## Research result
+
+**The training-period relationship did not persist in the later evaluation.**
 
 ![Annual negative-story-share coefficients and uncertainty, with the frozen testing period shaded](submission/news-sentiment-beyond-mean/manuscript/artifacts/fig_coefficient_drift.png)
 
