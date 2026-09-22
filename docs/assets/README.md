@@ -23,6 +23,16 @@ copies configuration and the public dataset into a temporary working directory,
 clears inherited environment variables and disables model auto-fetch. It does not
 load the user's `.env`, saved session, queue or run database.
 
+`benchmark-results.svg` shows the same app populated with a separate synthetic
+classification fixture: four invented examples per class and canned predictions,
+with three correct and one cyclic misclassification in each class. The real
+evaluator computes accuracy and macro-F1 of 0.75 and the confusion matrix from
+those 12 records. The capture script verifies these values, writes responses and
+metrics through the normal store, and verifies an export through the normal
+exporter before capturing the Results tab. The fixture model is labelled
+`synthetic/fixture-v1`; no model calls occur. The temporary database and export
+are discarded after capture. No real benchmark result is implied.
+
 `offline-demo.gif` renders the three captured CLI transcripts from the synthetic
 demo as a looping replay. Output is preserved; playback uses fixed reading times
 (5, 9 and 5 seconds), not measured run durations. The demo guide provides a static

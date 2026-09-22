@@ -1,5 +1,7 @@
 # Financial News Sentiment: Research and Evaluation Pipeline
 
+[![CI](https://github.com/PeterLP123/Sentiment_Dissertation/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/PeterLP123/Sentiment_Dissertation/actions/workflows/ci.yml)
+
 Dissertation: *A Hard Negative-Story Threshold: Training-Period Association, Temporal Non-Replication and Economic Limits*
 
 Peter Prendergast · MSc Computational Finance · University College London · 2026
@@ -23,9 +25,9 @@ Python · pandas · scikit-learn · statsmodels · SQLite · Typer · Textual
 
 ## See the software
 
-![Benchmark terminal interface showing the dataset summary and workflow](docs/assets/benchmark-tui.svg)
+![Synthetic fixture results in the terminal interface, showing classification metrics, a confusion matrix and export controls](docs/assets/benchmark-results.svg)
 
-*The actual Textual interface, captured with an isolated empty database and no provider credentials. The benchmark predates the final study; this view contains no model results.*
+*The actual Textual results interface, populated with 12 invented examples and canned predictions. Macro-F1 and the confusion matrix are computed by the evaluator; these are synthetic demonstration values, not model performance. The capture also verifies an export in a temporary directory. [Dataset dashboard and capture details](docs/portfolio_demo.md#explore-the-interface).*
 
 With Python 3.12 and uv, run from the repository root:
 

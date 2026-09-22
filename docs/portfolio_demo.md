@@ -63,6 +63,14 @@ The wrapper has already created its isolated directory and configuration.
 
 ## Explore the interface
 
+![Synthetic classification results showing macro-F1, confusion matrix and export controls](assets/benchmark-results.svg)
+
+This Results view uses 12 invented classification examples and canned predictions,
+separate from both the public benchmark and the strategy demo. The evaluator
+computes macro-F1 of 0.75 from those records; the capture script verifies the
+metrics and an actual export. The model label and screenshot title identify the
+synthetic fixture. These values illustrate the interface, not model performance.
+
 ```bash
 uv run --locked sentiment-bench tui
 ```
